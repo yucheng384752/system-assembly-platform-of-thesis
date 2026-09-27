@@ -1,8 +1,8 @@
 ---
 id: "20260927-kit-tab-ui-flow"
 title: "Kit 分頁、動態預覽與可修改項目流程"
-status: "waiting_for_codex"
-owner: "codex"
+status: "in_progress"
+owner: "user"
 reviewer: "claude"
 priority: "medium"
 created_by: "codex"
@@ -122,6 +122,44 @@ Tab 指 Kit 分頁，不是「表格／下拉／事件」等設定分類。分�
 | 基準 commit／功能分支 | 略過：Git 索引寫入失敗。 |
 | Vite 骨架、安裝依賴、`npm run build`、`npm run typecheck`、`npm test` | 略過：WP0 停止，尚無 `package.json` 或程式碼；不可視為通過。 |
 | 瀏覽器／Network／鍵盤驗證 | 略過：尚未建立 GUI。 |
+
+## 2026-09-27 WP0 續作：完成；WP1 前因額外依賴停止
+
+### 變更摘要
+
+- 已完整重讀本 thread（包含 Decisions、Claude Handoff、Git 分工修訂）、spec §3／§5／§6、decision-log 及 CLAUDE.md；唯讀核對基線版兩份 schema。
+- 唯讀確認目前分支為 `feature/kit-tab-ui`。未執行任何寫入 `.git` 的指令，未更動 `.gitignore` 或既有 Git 基準。
+- 建立 React 18 + TypeScript + Vite GUI 骨架與空狀態、Vitest 可重跑檢查，安裝 Handoff 技術棧及其 React 型別／Testing Library peer dependencies。
+- 測試預設的設定載入器發生目錄存取錯誤；使用工具既有 `--configLoader native` 後通過，已固定於 test script。
+- README 同步 GUI 目錄及開發指令。`libs/ui-runtime/` 僅標示後續 WP2 預定位置，尚未建立；未使用根目錄 `packages/`。
+- WP1 尚未開始：基線 schema 使用 JSON Schema draft 2020-12，計畫使用 Ajv 實作正式驗證；後續 RTL 互動測試計畫使用 jsdom。兩者均未列入 Handoff 核准技術棧，依停止條件交由 user 核定，未安裝。WP2–WP6 未開始。
+
+### 檔案清單
+
+- `package.json`、`package-lock.json`：依賴與 dev／build／typecheck／test 指令。
+- `tsconfig.json`、`vite.config.ts`：嚴格型別檢查、GUI 入口與 dist 輸出。
+- `apps/composer-gui/index.html`、`apps/composer-gui/src/main.tsx`、`apps/composer-gui/src/App.tsx`：應用程式骨架。
+- `apps/composer-gui/src/App.test.tsx`：空狀態呈現 smoke test。
+- `README.md`：目錄與執行方式。
+- 本 thread 與 `.codex-claude-mailbox/index.md`：執行結果及待決事項。
+- 安裝產生 `node_modules/`，build 產生 `dist/`，兩者皆由既有 `.gitignore` 排除。
+
+### 驗證方式與實際結果
+
+| 指令／檢查 | 實際結果 |
+| --- | --- |
+| `git -c safe.directory=C:/Users/gslab/Desktop/composer-refactor symbolic-ref --short HEAD` | 通過：`feature/kit-tab-ui`；僅唯讀查詢。 |
+| `npm.cmd install --no-audit --no-fund --fetch-retries=0 --fetch-timeout=20000` | 通過：新增 77 個套件，exit 0；未執行 audit。 |
+| `npm.cmd ls --depth=0` | 通過：React／React DOM 18.3.1、TypeScript 5.9.3、Vite 7.1.7、Vitest 3.2.4、RTL 16.3.0 等依賴均已安裝。 |
+| `npm.cmd run build` | 通過：tsc + Vite 建置，26 modules，輸出 `dist/`，exit 0。 |
+| `npm.cmd run typecheck` | 通過：`tsc --noEmit`，exit 0。 |
+| 初次 `npm.cmd test` | 失敗：設定打包階段 `Cannot read directory "../..": Access is denied`／無法 resolve `vite.config.ts`，未執行測試。 |
+| `npm.cmd test -- --configLoader native` | 通過：1 file／1 test。 |
+| 修正 script 後 `npm.cmd test` | 通過：1 file／1 test，exit 0；原樣指令可重跑。 |
+| 瀏覽器／鍵盤／Network／RTL 互動驗證 | 略過：目前僅 WP0 空骨架；1 個測試為 SSR 呈現檢查，不代表 DOM 互動已驗證。 |
+| WP1 schema、WP2–WP6 功能測試 | 略過：額外依賴待核定，未開始實作，不算通過。 |
+
+建議約定式提交訊息：`chore(gui): scaffold React 18 Vite app and runnable checks`。由 Claude 審閱後執行 Git 提交。
 
 # Claude Notes
 
@@ -254,6 +292,12 @@ Codex 已整理前次查核結果與使用者修正，建立本專案專用 mail
 2026-09-27 Claude：完成文件審閱（原始碼閱讀，未執行或瀏覽器驗證），提出 F01–F15，其中 F01–F05 為高嚴重度，並補充 10 條測試情境。狀態改為 waiting_for_codex。功能測試仍未執行。
 
 # Open Questions
+
+## 2026-09-27 WP1 前停止條件：額外依賴待核定
+
+- owner: user — 是否核准新增 `ajv`（draft 2020-12 JSON Schema 驗證，供 WP1／WP2／WP5）與 `jsdom`（Vitest 中執行 React Testing Library 的 DOM 互動測試，供 WP3／WP4）？Handoff「需要新增本表以外的依賴或功能」要求停止詢問；兩者尚未安裝。
+- 理由：目前核准並安裝的依賴沒有 JSON Schema validator，也沒有瀏覽器 DOM 模擬環境。採用現成 validator 避免自行重寫 `$ref`、型別、範圍及組合 schema 驗證；jsdom 讓分頁、焦點與輸入互動檢查可由 `npm.cmd test` 重跑。仍保留 Claude 的真實瀏覽器／Network 驗證。
+- WP0 已完成；WP1–WP6 未完成，故 status 為 `in_progress`、owner 為 `user`，未標為 `ready_for_claude`。依 user 指示停止，不自行猜測依賴核准範圍。
 
 以下不阻擋文件交付；實作前由 user 核定，不能將建議視為已接受需求：
 
