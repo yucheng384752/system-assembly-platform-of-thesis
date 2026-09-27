@@ -1,0 +1,109 @@
+---
+title: Composer Platform 重構專案決策紀錄
+date: 2026-09-24
+---
+
+# 決策紀錄
+
+記錄規格討論的決議與待決事項。已決議且影響設計者同步寫入 `docs/project-spec.md`，本檔不取代規格。
+
+## 已決議
+
+| ID | 日期 | 決議 | 原因 | 寫入位置 |
+|---|---|---|---|---|
+| D01 | 2026-09-24 | 本專案是 Form System Kit Composer（基線版）的改良版，成果撰寫成論文 | 論文需說明相對基線版的差異與改良理由 | spec §1、README、CLAUDE.md |
+| D02 | 2026-09-24 | 命名原則：與基線版同一概念者沿用舊名，只有新增機制才取新名 | 避免以改名充當改良，論文貢獻可逐項對照基線版 | spec §1 |
+| D03 | 2026-09-24 | 廢除 `tenant-auth-kit`，由 `entry-permission-kit` 取代；權限模型為單租戶、多使用者 | 現行權限只有單租戶內的多使用者隔離 | spec R06、§8、README |
+| D04 | 2026-09-24 | Kit 層沿用 capability（對外完整功能）；Function 層改稱 primitive（原子能力，名稱暫定），僅限同 Kit 內 mService 引用 | 一個 Kit 由多個 Function 協調完成完整功能；維持基線版「不得跨圖直連內部 Function」規則 | spec §4、§4.1、A17–A19 |
+| D05 | 2026-09-24 | 新增 capability 完整性檢查：所需 primitive 須齊全且 I/O 可依 mService 順序串接 | 基線版只檢查 consumes 有無 provider，不檢查功能完整性；可作為論文貢獻 | spec §4.1 |
+| D06 | 2026-09-24 | 基線版未曾發表；論文以整套系統為研究成果，改良點為貢獻核心，基線版作為實驗對照組 | 無自我抄襲疑慮；檢核表 III.1.1 要求對照組 | 本檔 |
+| D07 | 2026-09-24 | 論文章節依「最基礎的科技八股論文自我檢核表 v1.0」，格式為 IEEE；章節內容暫不寫入檔案 | 學校指定 | 本檔 |
+| D08 | 2026-09-24 | 論文問題範圍不收斂，保留規格全部需求 | 使用者決定 | 本檔 |
+| D09 | 2026-09-24 | 基線版沒有任何公司或計畫案的智財權與保密義務 | 論文可完整公開基線版的系統設計與程式細節 | 本檔 |
+| D10 | 2026-09-24 | 資料去識別化列為必做項目 | 實驗與開發使用的製造表單資料可能來自實際場域；D09 只涵蓋基線版程式與設計 | 本檔「必做項目」 |
+| D11 | 2026-09-27 | Kit 分頁與可修改項目功能在重構專案實作，基線版僅作唯讀參考 | 回應 mailbox thread `20260927-kit-tab-ui-flow` 的 F15 | thread Decisions |
+| D12 | 2026-09-27 | UI 首期只做表格與下拉，不做圖表；R05 的圖表需求保留至後續階段 | 回應同一 thread 的 F08 | spec §6、thread Decisions |
+| D13 | 2026-09-27 | Composer 預覽與產出系統前端皆採 React 18 + TypeScript，共用同一套解析與 renderer；Composer GUI 以 React 重寫，不搬用基線版 `app.js` | 與 Target System 技術棧一致，預覽與正式畫面由同一解析路徑保證一致；回應 F02 | spec §6、§15、thread |
+
+## 必做項目
+
+| ID | 項目 | 適用範圍 | 完成條件 |
+|---|---|---|---|
+| M01 | 資料去識別化 | 論文實驗資料集、analytical_four 回歸基準資料（spec §10.5）、提供給 LLM 的樣本資料、論文圖表與附錄 | 使用前完成去識別化並記錄方法；未去識別化的原始資料不得進入 repo、論文或外部服務 |
+
+## 論文相關參考
+
+- 檢核表：`C:\Users\gslab\Desktop\兆賢學長的論文\碩論\最基礎的科技八股論文自我檢核表v1.docx`
+- IEEE 範本：同資料夾 `Transactions-template-and-instructions-on-how-to-create-your-article-formatted (4).docx`
+- 排版參考：同資料夾 `碩論初版_v5_IEEE格式.docx`
+- 檢核表本身只規定版面（會議論文 4–6 頁、期刊 12 頁為 2-column／10pt；碩論為 single column／1.5 行距／12pt），IEEE 細節以範本為準。
+- 檢核表要求與三年內至少 3 篇文獻做定性與定量比較，僅與基線版比較不足以回答「比 SOTA 強多少」。
+- D08 的影響：檢核表要求每個問題對應貢獻、架構與實驗，並逐一分析每張結果圖表；保留全部需求時，每項都需要有對應的實驗證據。
+
+## 待決
+
+### 名詞對照（已給建議，尚未核定）
+
+| 項目 | 建議 | 原因摘要 |
+|---|---|---|
+| System configuration 與 Recipe | 沿用 Recipe；`config/system.json` 改為 Recipe 檔 | 同一概念；基線版 GUI 匯出、resolver、Resolved Plan 均以 Recipe 為基礎 |
+| Site Profile 與 StationSchema | Site Profile 上位包含，以 reference 引用多份 StationSchema（1:N） | 範圍不同；平行會造成 mapping 雙重定義；tenant key 規則只需改一處 |
+| System Package | 延伸基線版部署包，保留新名稱 | 保留已驗證的部署能力；新增 manifest／checksum／手冊／AoV／驗證報告屬新機制 |
+
+### 規格與目錄
+
+- §3 角色 L1–L3 與 AoV 四層 L1–L4 標籤撞名。
+- §7 migration 格式：Alembic revision 或 `up.sql`／`down.sql` 遷移包。
+- §10 改寫：Analytical-Four 實際為 MSPC／RAG／LLM；已決議沿用 `analytics-kit` id；`llm-synthesis`、`rag-retrieval` 目前 `required:false`。
+- §5 需並列「值覆寫順序」與基線版「差異處理手段順序」。
+- 其他待確認：spec 缺「非目標」一節；§13 驗收情境缺 R 編號欄；§15 中已有部分答案的項目需更新。
+- README：`services/analytics-engine/` 應歸屬 Kit；根目錄 `migrations/` 與「Kit 只宣告 migrations」衝突；`packages/`、`manuals/generated/` 應列入 `.gitignore`。
+
+### CLAUDE.md 與環境
+
+- 空白欄位：程式語言、套件管理、框架、架構總覽、常用指令、安全基準線。
+- 引用不存在的 `mailbox thread`。
+- Clean Code「用 Exception、不回傳 null」與 spec 結果契約（`status` 欄位、契約允許的 null）衝突。
+- 專案目錄尚未 `git init`。
+- 筆記庫 `18 Composer Platform 重構專案.md` 的路徑仍指向舊 Codex 輸出位置。
+
+### 論文
+
+- 文獻搜尋：大領域開創文獻、三年內至少 3 篇相關文獻與其缺點、SOTA 基準。
+- 第 II 章數學模型：候選為完整性檢查（有型別 DAG 路徑）、設定合併函數的決定性與可追溯性、依賴解析（拓撲排序與循環偵測）。
+- 第 III 章實驗：對照組為基線版；候選實驗為缺陷注入的組裝期偵測率、新增場域修改成本；資料集須去識別化（M01）。
+
+### 討論中：LLM 在本專案的角色
+
+**問題：**LLM 在此專案做什麼、如何協助系統建立。目前 spec 未提及 LLM 在 Composer 中的角色。
+
+**基線版已有的設計**（筆記庫 `09 Assembly UI LLM 設計`）：輕量 LLM 為 advisor、不是最終執行者。流程為「使用者回答／樣本檔 → LLM Advisor → Recipe Draft → Rule-based Validator → Assembly Engine」。不交給 LLM 的工作：最終 schema migration、權限規則、entitlement、連線字串、安全設定、production 依賴版本。另外，analytics-kit 的 `llm-synthesis`、`rag-retrieval` subfeature 是產出系統內的 LLM 功能，模型與端點未定（測試用 `qwen3:14b`）。
+
+**需先釐清的範圍**（三種角色，性質不同）：
+
+| 角色 | 時機 | 例子 |
+|---|---|---|
+| R-A 組裝期助手 | 在 Composer 中協助 User／MIS／Developer 建立系統 | 需求轉 Recipe draft、Site Profile draft、UI definition draft |
+| R-B 產出系統內功能 | 產出的 System 執行時 | analytics-kit 的 `llm-synthesis`、`rag-retrieval` |
+| R-C 開發工具 | 開發本專案時 | Claude／Codex 協助撰寫程式與文件 |
+
+**R-A 候選工作**（LLM 只產出 draft，由規則驗證器與授權人員決定）：
+
+| 候選工作 | 對應 spec | 驗證方式 |
+|---|---|---|
+| 自然語言需求 → Recipe draft（選 Kit、subfeature） | §12 | capability 相依與完整性檢查（§4.1） |
+| 樣本檔 → Site Profile draft（欄位語意、單位、mapping 候選） | §9 | 型別與單位驗證；別名與換算須 MIS 確認 |
+| 自然語言 → UI definition draft | §6 | JSON Schema 驗證；拒絕未知欄位與 renderer |
+| 分析目標描述 → task 候選 | §10.1 | 歧義時回報待選目標；演算法選擇仍以規則執行 |
+| 既有程式／舊 AoV → Function、primitive、四層分類 draft | §4、基線版 AoV 遷移 | Developer 人工確認；完整性檢查 |
+| 跨 Kit 手冊的銜接說明 draft | §11 | 只能引用 manifest 與已啟用功能；人工審查 |
+| migration 風險的白話說明 | §7 | 不產生會被執行的 SQL |
+
+**初步原則：**LLM 負責判斷類工作（分類、起草、摘要、萃取），確定性工作（驗證、解析、遷移執行、權限判斷）由程式負責；LLM 產出一律經 schema 與規則驗證器，失敗時回報原因，不自動重試到通過。
+
+**與既有決議的關聯：**
+- M01：送給 LLM 的樣本資料須先去識別化；偏好本機或私有部署模型。
+- A12 可重現性：LLM 輸出非決定性，須記錄模型名稱／版本、prompt 版本與輸出，並以核定後的 draft 作為組裝輸入，而非每次重新生成。
+- 論文：R-A 可成為一項貢獻，候選評估為 draft 相對人工標準答案的正確率、驗證器攔截率，以及 MIS 完成設定所需時間（與基線版比較）。
+
+**待決：**論文與 spec 納入哪些角色；R-A 首批候選工作；模型選型（本機或外部 API）。
