@@ -2,7 +2,7 @@
 
 | ID | Title | Status | Owner | Reviewer | Updated |
 | --- | --- | --- | --- | --- | --- |
-| [20260927-kit-tab-ui-flow](threads/20260927-kit-tab-ui-flow.md) | Kit 分頁、動態預覽與可修改項目流程 | ready_for_claude | claude | claude | 2026-09-29 |
+| [20260927-kit-tab-ui-flow](threads/20260927-kit-tab-ui-flow.md) | Kit 分頁、動態預覽與可修改項目流程 | waiting_for_user | user | claude | 2026-09-29 |
 
 本目錄為本專案專用的非同步交接區。threads 保存完整討論；inbox、outbox、archive 分別保留收件、寄件與封存位置。Claude 審閱已完成，user 已核准開發；Codex 依 thread 的「Claude Handoff」工作包 WP0–WP6 實作；git 操作改由 Claude 執行。
 
