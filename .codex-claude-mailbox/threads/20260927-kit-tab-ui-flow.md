@@ -1,8 +1,8 @@
 ---
 id: "20260927-kit-tab-ui-flow"
 title: "Kit 分頁、動態預覽與可修改項目流程"
-status: "in_progress"
-owner: "user"
+status: "waiting_for_codex"
+owner: "codex"
 reviewer: "claude"
 priority: "medium"
 created_by: "codex"
@@ -161,6 +161,63 @@ Tab 指 Kit 分頁，不是「表格／下拉／事件」等設定分類。分�
 
 建議約定式提交訊息：`chore(gui): scaffold React 18 Vite app and runnable checks`。由 Claude 審閱後執行 Git 提交。
 
+## 2026-09-27 WP1 續作：專案寫入範圍受限，停止
+
+### 變更摘要
+
+- 已讀取 Decisions、Claude Handoff、Git 分工修訂、WP0 Codex Notes、spec §3／§5／§6、decision-log 與 CLAUDE.md。
+- 唯讀確認分支 `feature/kit-tab-ui`，HEAD 為 `f952801`，不重做 WP0。
+- Ajv／jsdom 已獲 user 核准；本次阻礙不是依賴授權，而是環境只允許寫入 `.codex-claude-mailbox`（及暫存目錄），不包含專案根目錄。approval policy 為 never，不能提升權限或繞過限制。
+- 安裝需修改根目錄 package.json、package-lock.json、node_modules；WP1 需寫入 schemas 等目錄，均超出可寫範圍。依 Handoff「任一 WP 無法達到完成條件」停止，WP1–WP6 未實作。
+
+### 檔案清單
+
+- `.codex-claude-mailbox/threads/20260927-kit-tab-ui-flow.md`：停止紀錄、Open Questions、status／owner。
+- `.codex-claude-mailbox/index.md`：同步受阻狀態。
+
+### 驗證方式與實際結果
+
+| 指令／檢查 | 實際結果 |
+| --- | --- |
+| `git -c safe.directory=C:/Users/gslab/Desktop/composer-refactor symbolic-ref --short HEAD` | 通過：`feature/kit-tab-ui`。 |
+| `git -c safe.directory=C:/Users/gslab/Desktop/composer-refactor log -1 --format="%h %s"` | 通過：`f952801 chore(gui): scaffold React 18 Vite app and runnable checks`。 |
+| 讀取 package.json | 通過：尚未宣告 ajv／jsdom。 |
+| 初次文件讀取 | 預設編碼顯示亂碼；改以 `Get-Content -Encoding utf8` 重讀，文字正常。 |
+| 環境權限檢查 | WP1 前置條件不成立：專案根目錄不在 writable roots；未嘗試越界寫入，沒有安裝失敗的實際執行紀錄。 |
+| `npm.cmd` 安裝及固定版本 | 略過：安裝目的地不可寫；未安裝、未選定版本。 |
+| build／typecheck／test、瀏覽器／Network／鍵盤驗證 | 略過：停止於實作前，未以 WP0 歷史結果代替本次驗證。 |
+
+建議約定式提交訊息：`docs(mailbox): record WP1 workspace permission blocker`。未執行任何寫入 `.git` 的指令。
+
+## 2026-09-27 WP1 續作：npm registry 存取失敗，停止
+
+### 變更摘要
+
+- 本次 cwd 與可寫根已為 C:/Users/gslab/Desktop/composer-refactor；前次工作區範圍阻礙已解除，.git 仍唯讀。
+- 已讀取指定交接內容、spec §3／§5／§6、decision-log、CLAUDE.md 及基線版 kit／recipe schema。確認 feature/kit-tab-ui、HEAD f952801，未重做 WP0。
+- 嘗試安裝固定版本 ajv@8.17.1，registry 請求回報 EACCES。環境限制網路且不允許提升權限，未繞過限制。
+- 依 Handoff「任一 WP 無法達到完成條件」停止；jsdom 未安裝或固定版本，WP1–WP6 未完成。未修改基線版、未使用實際資料或根目錄 packages/，未執行寫入 .git 的指令。
+
+### 檔案清單
+
+- 本 thread 與 .codex-claude-mailbox/index.md：停止紀錄、Open Questions、狀態同步。
+- package.json／package-lock.json：唯讀 diff 確認無變更。
+
+### 驗證方式與實際結果
+
+| 指令／檢查 | 實際結果 |
+| --- | --- |
+| git -c safe.directory=C:/Users/gslab/Desktop/composer-refactor symbolic-ref --short HEAD | 通過：feature/kit-tab-ui。 |
+| git -c safe.directory=C:/Users/gslab/Desktop/composer-refactor log -1 --oneline | 通過：f952801 chore(gui): scaffold React 18 Vite app and runnable checks。 |
+| npm.cmd install --save-exact ajv@8.17.1 --no-audit --no-fund --fetch-retries=0 --fetch-timeout=20000 | 失敗，exit 1：request to https://registry.npmjs.org/ajv failed，code／errno EACCES；另回報 C:/Users/gslab/AppData/Local/npm-cache/_logs 無法寫入。 |
+| git -c safe.directory=C:/Users/gslab/Desktop/composer-refactor diff -- package.json package-lock.json | 通過，無輸出，兩檔無變更。 |
+| 文件讀取 | 預設編碼亂碼，改以 UTF8 重讀。 |
+| 紀錄寫入工具 | Python 無法啟動（登入工作階段不存在）；apply_patch 因 index 比對失敗未套用；改以 PowerShell 原生檔案 API 寫入。 |
+| jsdom 安裝、WP1 schema 測試、WP2–WP6 | 略過：觸發停止條件。 |
+| build／typecheck／test、瀏覽器／Network／鍵盤驗證 | 略過：停止於安裝，不以 WP0 歷史結果代替本次驗證。 |
+
+建議約定式提交訊息：docs(mailbox): record WP1 npm registry access blocker。由 Claude 審閱後提交。
+
 # Claude Notes
 
 2026-09-27 Claude 審閱（原始碼閱讀，未做瀏覽器或執行驗證）。
@@ -235,6 +292,8 @@ Current Context 各項已對照基線版原始碼確認屬實：`renderPreview()
 - 2026-09-27，user 已確認：Composer 預覽與產出系統前端皆採 React 18 + TypeScript，共用同一套解析與 renderer；Composer GUI 以 React 重寫，不搬用基線版 `app.js`。回應 F02（決策紀錄 D13）。
 - 2026-09-27，user 指示：開始交付 Codex 開發，工作包見「Claude Handoff」。
 - 2026-09-27，user 核准：Codex 沙箱無法寫入 `.git`，改為 Codex 只寫程式與文件，所有 git 操作（add、commit、branch）由 Claude 以 user 帳號執行。Claude 已將 Codex 建立的空 `.git` 移出專案，重新 `git init`、建立 `.gitignore`、基準 commit 與 `feature/kit-tab-ui` 分支。
+- 2026-09-27，user 核准：新增 `ajv`（JSON Schema draft 2020-12 驗證）與 `jsdom`（Vitest DOM 互動測試）；由 Codex 安裝後從 WP1 繼續。WP0 已由 Claude 驗證（typecheck、test 1/1、build 通過）並提交為 `f952801`。
+- 2026-09-29，Codex 沙箱無 npm registry 網路存取，改由 Claude 安裝依賴：`ajv@8.20.0`（dependencies）、`jsdom@30.1.1`（devDependencies）。同時因 npm audit 將 `vite` 升至 7.3.6、`vitest` 升至 3.2.7（同 major 修補版，修正 high／critical 漏洞；ajv 8.17.1 有 ReDoS，改用 8.20.0）。剩餘 1 項 moderate（`@vitest/mocker`，僅測試期），修正需 vitest 5 破壞性升級，暫不處理並回報 user。typecheck、test 1/1、build 通過。Codex 後續不得自行安裝依賴；需要新依賴時依停止條件停止。
 
 # Claude Handoff（2026-09-27）
 
@@ -293,7 +352,21 @@ Codex 已整理前次查核結果與使用者修正，建立本專案專用 mail
 
 # Open Questions
 
-## 2026-09-27 WP1 前停止條件：額外依賴待核定
+## 2026-09-27 WP1 停止條件：npm registry 存取受限（已解決，見 Decisions 2026-09-29）
+
+- owner: user — 工作區可寫範圍已修正，但 npm.cmd 安裝 Ajv 的 registry 請求遭 EACCES 拒絕。請提供允許 npm registry 存取的執行環境，或由本機完成固定版本 ajv／jsdom 安裝後交回續作；不需重新核准依賴。
+- 另有預設 npm cache 日誌不可寫訊息；可指定工作區內可寫快取，但不能據此認定 registry 存取已恢復。
+- WP1–WP6 未完成，status 為 in_progress、owner 為 user；不標為 ready_for_claude。
+
+
+## 2026-09-27 WP1 停止條件：專案目錄不在可寫範圍（已解決：改由專案根目錄啟動）
+
+- owner: user — 請將工作區開在 `C:/Users/gslab/Desktop/composer-refactor`，並讓此專案目錄成為可寫範圍；`.git` 仍可保持唯讀。當前工作區與可寫根僅為 `.codex-claude-mailbox`，因此無法完成依賴安裝及 WP1。
+- 這是環境權限阻礙，不需重新核准 ajv／jsdom。恢復後先確認分支與檔案狀態，再以 `npm.cmd` 安裝並固定版本，依序接續 WP1–WP6。
+- WP1–WP6 未完成，status 設為 `in_progress`、owner 設為 `user`，不標為 `ready_for_claude`。
+
+
+## 2026-09-27 WP1 前停止條件：額外依賴待核定（已核准，見 Decisions）
 
 - owner: user — 是否核准新增 `ajv`（draft 2020-12 JSON Schema 驗證，供 WP1／WP2／WP5）與 `jsdom`（Vitest 中執行 React Testing Library 的 DOM 互動測試，供 WP3／WP4）？Handoff「需要新增本表以外的依賴或功能」要求停止詢問；兩者尚未安裝。
 - 理由：目前核准並安裝的依賴沒有 JSON Schema validator，也沒有瀏覽器 DOM 模擬環境。採用現成 validator 避免自行重寫 `$ref`、型別、範圍及組合 schema 驗證；jsdom 讓分頁、焦點與輸入互動檢查可由 `npm.cmd test` 重跑。仍保留 Claude 的真實瀏覽器／Network 驗證。
