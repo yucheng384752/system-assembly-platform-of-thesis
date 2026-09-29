@@ -18,7 +18,7 @@ export function SettingsEditor({ kit, recipe, onChange }: { kit: Kit; recipe: Re
       {option.type === 'boolean' ? <input id={id} type="checkbox" checked={Boolean(value)} onChange={e => change(e.target.checked)} />
         : option.target.property === 'options' ? <textarea id={id} value={drafts[id] ?? String(value)} onChange={e => change(e.target.value)} aria-describedby={`${id}-error`} />
         : <input id={id} type={option.type === 'number' ? 'number' : 'text'} min={option.range?.minimum} max={option.range?.maximum} value={drafts[id] ?? String(value)} onChange={e => change(e.target.value)} aria-describedby={`${id}-error`} />}
-      <small>{option.change_level} / {option.allowed_roles.join(', ')} / {option.risk}；來源：{Object.hasOwn(recipe.selectedSubfeatureOptions[key] ?? {}, option.id) ? 'Recipe 覆寫' : 'Kit 預設'}</small>
+      <small>{option.change_level} / 角色提示：{option.allowed_roles.join(', ')} / {option.risk}；來源：{Object.hasOwn(recipe.selectedSubfeatureOptions[key] ?? {}, option.id) ? 'Recipe 覆寫' : 'Kit 預設'}</small>
       <span id={`${id}-error`} role={errors[id] ? 'alert' : undefined}>{errors[id]}</span>
     </div>;
   }))}</fieldset>;

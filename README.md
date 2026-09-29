@@ -1,6 +1,6 @@
 # Composer Platform 重構專案
 
-本專案整理 Composer 重構需求與設計草案，作為後續盤點既有程式、確認資料契約及分階段實作的起點。**目前已建立 React 18 + TypeScript + Vite 的 Composer GUI 骨架；Kit 編輯、Schema validator、Migration generator 與 Analytics runtime 尚未實作。**
+本專案整理 Composer 重構需求與設計草案，並分階段實作。**目前 React 18 + TypeScript Composer GUI 已支援三個 mock Kit 的分頁、表格／下拉編輯、Schema 驗證及 Recipe JSON 匯入／匯出；Migration generator、Analytics runtime 與正式系統整合尚未實作。**
 
 本專案是 Form System Kit Composer（基線版）的改良版，成果將撰寫成論文。基線版位置：
 
@@ -20,7 +20,7 @@ composer-refactor/
 ├─ README.md
 ├─ apps/
 │  └─ composer-gui/        # React 18 + TypeScript + Vite GUI
-├─ libs/                   # 後續 WP2 的 ui-runtime 共用解析與 renderer 位置
+├─ libs/ui-runtime/        # 共用驗證、Recipe 轉換、解析與 React renderer
 ├─ docs/
 │  ├─ project-spec.md       # 唯一整合規格
 │  └─ decision-log.md       # 決策紀錄
@@ -31,7 +31,7 @@ composer-refactor/
 │  ├─ database/            # 期望資料模型
 │  ├─ runtime/             # 業務 Function 參數
 │  └─ site/                # 場域設定
-├─ schemas/                # 未來的 JSON Schema 驗證契約
+├─ schemas/                # Kit、Recipe、UI definition 的 JSON Schema
 ├─ kits/
 │  ├─ analytics-kit/       # 通用分析 Kit
 │  └─ entry-permission-kit/# 入口權限 Kit（取代基線版 tenant-auth-kit）
@@ -44,7 +44,7 @@ composer-refactor/
 └─ packages/               # 未來產出的 System Package
 ```
 
-空目錄以 `.gitkeep` 保留。檔案格式、正式 Schema 與執行框架尚待第一階段確認；不提供假 SQL、假 manifest 或不可執行的程式。
+尚未實作的空目錄以 `.gitkeep` 保留；目前 GUI 僅使用 mock fixture，不連接正式資料。
 
 ## GUI 骨架開發
 
@@ -60,7 +60,9 @@ npm.cmd test
 
 建置輸出至 `dist/`；根目錄 `packages/` 仍保留給 System Package 產物。
 測試使用 Vitest；在此 Windows 環境採 `--configLoader native` 載入設定，避免預設 esbuild 設定打包時的目錄存取錯誤。
-目前僅有 GUI 空狀態的伺服器端呈現檢查；互動及瀏覽器驗證尚未完成。
+已有 schema、resolver、Recipe 往返與 DOM 互動檢查；真實瀏覽器驗證由 Claude 執行。Composer 尚無身分驗證，角色只作提示；授權拒絕測試標為「未涵蓋」。
+
+選取 Kit 並調整設定後，按「匯出 Recipe」複製 JSON 儲存；貼回文字區並按「匯入 Recipe」可重新載入。匯入成功替換草稿，失敗保留原設定。僅處理 UI Recipe 欄位，其他欄位不保留並顯示提示；匯出排除未選項目、資料列及額外連線憑證欄位。請勿在可編輯文字內輸入實際資料或秘密值。
 
 ## 下一步
 

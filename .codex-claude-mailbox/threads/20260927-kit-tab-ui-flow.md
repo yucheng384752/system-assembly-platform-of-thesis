@@ -1,8 +1,8 @@
 ---
 id: "20260927-kit-tab-ui-flow"
 title: "Kit 分頁、動態預覽與可修改項目流程"
-status: "waiting_for_codex"
-owner: "codex"
+status: "waiting_for_user"
+owner: "user"
 reviewer: "claude"
 priority: "medium"
 created_by: "codex"
@@ -299,7 +299,74 @@ Tab 指 Kit 分頁，不是「表格／下拉／事件」等設定分類。分�
 
 建議約定式提交訊息（待 WP4 驗收後）：feat(gui): edit validated Kit settings with mock live preview。
 
+## 2026-09-29 WP5：完成，含 R01／R02
+
+### 變更摘要
+- 新增獨立 Recipe 匯入／匯出邊界，沿用 schema 與 resolveKit；所有驗證完成後才一次替換工作階段，成功匯入重設編輯草稿、錯誤與預覽暫態，失敗保留原設定。
+- R01：僅 Recipe 0.2.0 以目前 Kit／UI 定義補版本資訊，逐項顯示遷移來源，再驗證全部引用及覆寫（包含隱藏草稿）；0.3.0 缺版本或版本失配仍拒絕。不以補版本宣稱原始版本相容。
+- 匯出採明列欄位投影，只含已選 Kit／subfeature；取消項目草稿留在目前工作階段，不進匯出。僅保留 UI Recipe 範圍，匯入其他欄位時明示不保留；不載入／匯出 tableData、deploymentConfig 或資料庫連線憑證。
+- JSON 文字區提供複製儲存及貼上載入；未增加檔案套件或後端。自由文字仍為使用者輸入，畫面提醒不得輸入真實資料或秘密值；不是自動去識別化工具。
+- R02：在 recipe schema 的 uiOverrides 補上版本 metadata 註解，維持既有名稱及單一覆寫值儲存位置。
+
+### 檔案清單
+- libs/ui-runtime/recipe.ts。
+- apps/composer-gui/src/RecipeTransfer.tsx、App.tsx、App.test.tsx、recipe.test.ts。
+- schemas/recipe.schema.json；本 thread。
+
+### 驗證方式與實際結果
+- npm.cmd test -- src/recipe.test.ts src/App.test.tsx：通過，2 files／6 tests，exit 0。涵蓋舊版遷移後 resolve、往返一致、未知 Kit／subfeature／option、版本失效、來源與元件引用失效、非法型別、隱藏草稿驗證、匯出資料排除及 GUI 失敗不部分覆寫／成功清除舊暫態。
+- npm.cmd run typecheck：通過，exit 0。
+- 本 WP 無失敗的驗證指令。初次交接文件讀取預設編碼顯示亂碼，已以 UTF8 重讀指定內容。
+- 略過：本機 dev server、真實瀏覽器、Network 與 JSON 複製到檔案再載入操作，依分工交由 Claude；不視為停止條件。完整 build／全部 tests 留至 WP6 整合檢查。
+- 唯讀 git log 確認 HEAD de6087a；初始 git diff --stat 無差異。未安裝依賴、未修改基線、未寫入 .git。
+
+建議約定式提交訊息：`feat(recipe): add atomic UI recipe transfer and legacy migration`。
+
+## 2026-09-29 WP6：完成；交回 Claude
+
+### 變更摘要
+- Composer 首頁明示尚無身分驗證與授權檢查；每項 metadata 改標「角色提示」。契約／範圍驗證不等同身分授權，沒有宣稱拒絕未授權修改。
+- README 與 spec §3／§6 同步首期實作、Recipe 範圍、遷移、草稿及角色限制；新增 skipped 測試明列身分授權「未涵蓋」。
+- R03 延後：目前首期 UI 的 width／order 仍受 UI schema 的整數契約限制，尚無需小數的 fixture；共用 checkValue 的 number 整數限制確實過廣。後續擴充數值設定時應增加明確 integer metadata 並測試小數，不將本次當作已修正。
+- R04 延後：保留基線 schema 編譯行為，避免在 Recipe 交付中混入所有 schema 的 strict 相容性調整；後续需盤點 Ajv strict 警告，再改 strict: 'log' 或僅關閉必要規則。目前 strict: false 的風險仍在，未宣稱修復。
+
+### 檔案清單
+- apps/composer-gui/src/App.tsx、SettingsEditor.tsx、App.test.tsx。
+- README.md、docs/project-spec.md。
+- .codex-claude-mailbox/threads/20260927-kit-tab-ui-flow.md、.codex-claude-mailbox/index.md。
+
+### 驗證方式與實際結果
+- npm.cmd test：通過，4 files／12 passed／1 skipped，exit 0。略過案例為「未涵蓋：以 User 身分修改 MIS 項目由授權邊界拒絕（尚無身分機制）」，不計入通過。
+- npm.cmd run build：通過，含 tsc --noEmit 與 Vite production build，211 modules，exit 0；輸出 dist/（既有忽略目錄）。
+- npm.cmd run typecheck：WP5 完成時通過；WP6 最終型別檢查由 build 的同一 tsc --noEmit 再次通過。
+- git symbolic-ref --short HEAD（單次 safe.directory）：feature/kit-tab-ui；git diff --check 通過，只有 LF／CRLF 提示，無空白錯誤。
+- 功能驗證無失敗。最後紀錄查核的 rg 指令因 PowerShell 引號傳遞失敗（os error 123，exit 1），改以 Get-Content／Select-String 查核成功，確認 thread／index 狀態與 Decisions／Session Summary 均已同步。git status 另有全域 ignore 讀取權限警告，但已列出 8 個修改檔與 3 個新檔。未執行 npm install、網路查詢、dev server 或任何寫入 .git 的 Git 指令；基線唯讀，只使用 mock。
+- 略過：真實瀏覽器／Network／鍵盤及 JSON 複製儲存往返，交由 Claude；WP4 歷史驗收不當作 WP5／WP6 已驗證。
+- 略過：Obsidian vault 同步。技能 C:/Users/gslab/.codex/skills/form-system-kit-composer-obsidian/SKILL.md 要求「When repo docs are needed, also add or update an Obsidian note that links to the repo file.」但 vault 不在本次可寫根且不能提升權限，未嘗試越界。請 Claude 更新既有導航／待辦與 GUI 筆記並連回本 thread、README 及 spec；此為文件同步限制，不影響已完成的 WP5／WP6 功能條件。
+
+建議約定式提交訊息：`docs(gui): clarify advisory roles and uncovered authorization checks`。
+
+### Claude 驗收交接
+- 審閱新增 recipe.ts 的投影與 0.2.0 遷移政策，以及 R03／R04 延後。
+- 真實瀏覽器：修改設定後匯出 JSON，複製至檔案再貼回匯入；確認預覽／編輯器一致；非法 Kit、版本或引用拒絕整份匯入且保留目前畫面；成功匯入清除舊錯誤／篩選暫態。
+- 檢查匯出排除未選 Kit／subfeature 與 mock 資料列；角色提示清楚；操作 Network 無正式寫入請求。
+- 完成 Obsidian 同步，依兩個 WP 的建議約定式訊息審閱後提交；Codex 未執行 Git 提交。
+
 # Claude Notes
+
+2026-09-29 Claude：WP5–WP6 審閱與瀏覽器驗證。
+
+- 重跑：`npm.cmd run typecheck` 通過；`npm.cmd test` 4 files / 12 passed / 1 skipped（身分授權「未涵蓋」，不計入通過）；`npm.cmd run build` 通過。
+- 瀏覽器（Chrome，`127.0.0.1:5173`）實測：
+  - 修改 name label 為「批號」後匯出：JSON 只含已選 Kit／subfeature 與覆寫值、版本資訊，不含 mock 資料列、`tableData` 或連線設定。
+  - 匯入含未知 Kit 的 Recipe：顯示「未知 Kit：unknown-kit」，分頁、設定與預覽維持原狀。
+  - 將 label 改為「暫時名稱」後貼回先前匯出的 JSON 匯入：label 與表頭還原為「批號」，錯誤訊息清除，顯示匯入成功。
+  - 首頁明示尚無身分驗證，metadata 標為「角色提示」。
+  - Network 0 筆請求；Console 無錯誤。
+- 審閱：`importRecipe` 先在獨立候選物件完成全部驗證再替換工作階段；`exportRecipe` 以明列欄位投影並回經匯入驗證；0.2.0 遷移會顯示來源提示。R03、R04 延後理由合理，保留為待辦。
+- 小問題（不阻擋）：Recipe JSON 文字區只有約 181px 寬，貼上長 JSON 不易閱讀，建議改為全寬。
+- 結論：WP5、WP6 由 Claude 驗收通過；WP0–WP6 全部完成。
+- 未完成／待 user 決定：Obsidian 筆記同步（vault 不在專案內，未經 user 同意不寫入）、Vitest 升級至 4.1.11、`feature/kit-tab-ui` 是否合併回 `main`。
 
 2026-09-29 Claude：WP1–WP4 審閱與 WP4 瀏覽器驗證。
 
@@ -385,6 +452,8 @@ Current Context 各項已對照基線版原始碼確認屬實：`renderPreview()
 
 # Decisions
 
+- 2026-09-29，Codex 接受並完成 R01／R02；R01 僅於 0.2.0 匯入邊界補目前版本並重新驗證，R02 以 schema 註解澄清。R03／R04 延後，理由見 WP6 Codex Notes。WP5／WP6 已完成自動化檢查，交由 Claude 審閱與瀏覽器驗收。
+
 - 2026-09-29，Codex 接受 F01–F15，依 Handoff 全數納入；Q1 暫行保留取消 Kit／subfeature 的草稿，匯出只含已選 Kit，待 user 核定。Q2 依 F13；Q3 正式系統分頁不在範圍。
 
 - 2026-09-27，已確認：一個 Kit 一個分頁；只顯示已選 Kit 的頁面及其可修改項目。
@@ -449,6 +518,8 @@ User 已核准開始開發。F01–F15 全部納入本次範圍（F08、F15 已�
 每個 WP 完成後在 Codex Notes 記錄：變更摘要 → 檔案清單 → 驗證方式與實際結果（含失敗與略過項目）。全部完成後把 status 改為 `ready_for_claude`，由 Claude 審閱與執行瀏覽器驗證。
 
 # Session Summary
+
+2026-09-29 Codex：WP5／WP6 完成，R01／R02 已處理，R03／R04 已記錄延後。完整測試 12 passed／1 skipped，build／typecheck 通過；status=ready_for_claude、owner=claude。真實瀏覽器、Obsidian 同步與 Git 提交交由 Claude。下列為歷史摘要。
 
 Codex 已整理前次查核結果與使用者修正，建立本專案專用 mailbox，列出資料契約、修改順序、驗收與待決事項。功能尚未修改；Claude 審阅與測試尚未完成，不將 thread 標為 completed。
 

@@ -169,6 +169,7 @@
       }
     },
     "uiOverrides": {
+      "$comment": "Version metadata only, keyed by kitId::subfeatureId. Override values live exclusively in selectedSubfeatureOptions.",
       "type": "object",
       "propertyNames": {
         "pattern": "^[a-z0-9-]+::[a-z0-9-]+$"

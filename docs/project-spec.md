@@ -44,6 +44,8 @@ Composer 定位為：以 Kit 組裝功能、以 Function 作為最小能力與�
 
 角色表示操作資格，修改層級表示完成修改的方法；兩者是獨立維度，不能把 GUI 等同於低風險，也不能讓 Developer 自動取得所有正式環境資料權限。
 
+**首期實作限制（2026-09-29，WP6）：**Composer 尚無身分機制，User／MIS／Developer 與 `allowed_roles` 僅作顯示提示；現有驗證檢查契約與值，不代表拒絕未授權使用者。身分授權測試明列「未涵蓋」，待串接可信身分來源及授權邊界後驗收。
+
 | 使用者 | 預期能力 | 邊界（建議） |
 |---|---|---|
 | L1 User | 選取被授權 Kit、操作系統、調整允許的顯示與低風險參數 | 不直接修改 DB schema 或來源程式 |
@@ -122,7 +124,7 @@ Kit 可單獨執行表示具有明確入口、可驗證的相依條件與最小�
 
 操作流程：選資料來源 → 放置元件 → 選欄位 → 調整排列與尺寸 → 設定顯示、事件與權限 → 驗證 → 預覽 → 儲存 UI definition。User 調整被允許的外觀，MIS 設定來源與 mapping，Developer 擴充元件類型。
 
-以下為**建議資料形狀，尚無正式 validator**：
+首期已實作 `schemas/ui-definition.schema.json`（1.0.0）、共用 `libs/ui-runtime/` 解析與 React renderer，以及三個 mock Kit 的分頁、表格／下拉設定與 Recipe JSON 匯入／匯出。正式系統整合、完整 Canvas 及真實資料來源尚未實作。以下為**早期建議資料形狀，不是現行 validator 的輸入範例**：
 
 ```json
 {
@@ -143,6 +145,8 @@ Kit 可單獨執行表示具有明確入口、可驗證的相依條件與最小�
 建議處理流程：JSON 驗證 → 正規化 → 依 type 對應 renderer → 綁定授權資料 → 顯示。Component Registry 初期可只是名稱到 renderer 的對照，不需要先建立外掛框架。**決議（2026-09-27）：**Composer 預覽與產出系統前端皆採 React 18 + TypeScript，共用同一套解析與 renderer，與基線版 Target System 技術棧一致。
 
 拒絕不存在的欄位與未知 renderer；事件只引用核准 action，禁止任意 JavaScript／SQL 字串執行。拖拉須提供鍵盤或表單替代操作；預覽與正式顯示共用解析邏輯。排序、分頁及篩選保留後端權限限制。UI 欄位順序不觸發 DB migration；修改實際資料型別才進入資料模型流程。
+
+首期 Recipe 0.3.0 的 `selectedSubfeatureOptions` 保存覆寫值，`uiOverrides` 只保存 Kit／UI 版本。0.2.0 匯入時以目前定義補版本並顯示遷移來源，重新驗證全部引用；失敗整份拒絕，不部分覆寫工作階段。匯入／匯出僅處理 UI 設定範圍，其他欄位不保留並顯示提示；不包含資料列或連線憑證。取消 Kit／subfeature 暫留草稿，匯出只取已選項目（暫行政策）。自由文字不得填入秘密值；此功能不取代 M01 去識別化程序。
 
 ## 7. DB Migration
 

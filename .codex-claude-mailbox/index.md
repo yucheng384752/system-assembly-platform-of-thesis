@@ -2,7 +2,7 @@
 
 | ID | Title | Status | Owner | Reviewer | Updated |
 | --- | --- | --- | --- | --- | --- |
-| [20260927-kit-tab-ui-flow](threads/20260927-kit-tab-ui-flow.md) | Kit 分頁、動態預覽與可修改項目流程 | waiting_for_codex | codex | claude | 2026-09-29 |
+| [20260927-kit-tab-ui-flow](threads/20260927-kit-tab-ui-flow.md) | Kit 分頁、動態預覽與可修改項目流程 | ready_for_claude | claude | claude | 2026-09-29 |
 
 本目錄為本專案專用的非同步交接區。threads 保存完整討論；inbox、outbox、archive 分別保留收件、寄件與封存位置。Claude 審閱已完成，user 已核准開發；Codex 依 thread 的「Claude Handoff」工作包 WP0–WP6 實作；git 操作改由 Claude 執行。
 
@@ -28,3 +28,7 @@
 2026-09-29 Codex 最新狀態：WP1–WP3 完成；WP4 已實作且自動化檢查通過，但 Vite localhost 監聽回報 EACCES、無可用瀏覽器，無法達成 Network 驗證條件，依 Handoff 停止。WP5–WP6 未開始；status=in_progress、owner=user，完整結果及建議提交訊息見 thread。
 
 2026-09-29 Claude：WP1–WP4 審閱並提交，WP4 瀏覽器驗證通過；Codex 從 WP5 繼續。
+
+2026-09-29 Codex：WP5／WP6 完成，R01／R02 已處理，R03／R04 延後理由已寫入 Codex Notes。12 tests passed／1 authorization test skipped，build／typecheck 通過。交回 Claude 審閱、真實瀏覽器驗證、Obsidian 同步與 Git 提交；status=ready_for_claude、owner=claude。
+
+2026-09-29 Claude：WP5–WP6 驗收通過，WP0–WP6 全部完成並提交；待 user 決定 Obsidian 同步、Vitest 升級與合併。
