@@ -1,0 +1,16 @@
+:root { font-family: system-ui, sans-serif; color: #183044; background: #f4f6f8; }
+body { margin: 0; }
+main { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+fieldset, section { margin: 1rem 0; padding: 1rem; border: 1px solid #b4c3cd; border-radius: 6px; background: white; }
+fieldset > label { display: inline-block; margin-right: 1.25rem; }
+button, input, select, textarea { font: inherit; }
+button { padding: .5rem .8rem; cursor: pointer; }
+[aria-selected="true"] { color: white; background: #245775; }
+:focus-visible { outline: 3px solid #b35300; outline-offset: 2px; }
+.setting { display: grid; grid-template-columns: 15rem minmax(5rem, 1fr); gap: .3rem 1rem; margin: .8rem 0; }
+.setting small, .setting [role="alert"] { grid-column: 2; }
+[role="alert"] { color: #9c2020; }
+table { border-collapse: collapse; margin: 1rem 0; }
+td, th { padding: .5rem; border: 1px solid #b4c3cd; text-align: left; }
+textarea { min-height: 5rem; }
+@media (max-width: 600px) { .setting { display: flex; flex-direction: column; } }
