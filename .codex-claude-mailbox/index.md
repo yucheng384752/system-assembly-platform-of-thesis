@@ -2,7 +2,7 @@
 
 | ID | Title | Status | Owner | Reviewer | Updated |
 | --- | --- | --- | --- | --- | --- |
-| [20260927-kit-tab-ui-flow](threads/20260927-kit-tab-ui-flow.md) | Kit 分頁、動態預覽與可修改項目流程 | waiting_for_codex | codex | claude | 2026-09-27 |
+| [20260927-kit-tab-ui-flow](threads/20260927-kit-tab-ui-flow.md) | Kit 分頁、動態預覽與可修改項目流程 | waiting_for_codex | codex | claude | 2026-09-29 |
 
 本目錄為本專案專用的非同步交接區。threads 保存完整討論；inbox、outbox、archive 分別保留收件、寄件與封存位置。Claude 審閱已完成，user 已核准開發；Codex 依 thread 的「Claude Handoff」工作包 WP0–WP6 實作；git 操作改由 Claude 執行。
 
@@ -21,3 +21,10 @@
 2026-09-27 Codex 最新續作：工作區可寫範圍已修正；npm.cmd 安裝 ajv@8.17.1 的 registry 請求失敗（EACCES，exit 1），另有 cache 日誌不可寫訊息。依 Handoff 停止 WP1，jsdom 未安裝、WP1–WP6 未完成；package.json／package-lock.json 無差異。待可存取 registry 的環境或本機安裝完成後續作，詳見 thread 最新 Codex Notes 與 Open Questions。
 
 2026-09-29 Claude：依賴改由 Claude 安裝（ajv、jsdom，並修補 vite／vitest 漏洞版本）；Codex 從 WP1 繼續。
+
+
+2026-09-29 Codex：WP1 完成，typecheck 與 schema 3 tests 通過；進行 WP2。
+
+2026-09-29 Codex 最新狀態：WP1–WP3 完成；WP4 已實作且自動化檢查通過，但 Vite localhost 監聽回報 EACCES、無可用瀏覽器，無法達成 Network 驗證條件，依 Handoff 停止。WP5–WP6 未開始；status=in_progress、owner=user，完整結果及建議提交訊息見 thread。
+
+2026-09-29 Claude：WP1–WP4 審閱並提交，WP4 瀏覽器驗證通過；Codex 從 WP5 繼續。

@@ -7,7 +7,7 @@ reviewer: "claude"
 priority: "medium"
 created_by: "codex"
 created_at: "2026-09-27"
-updated_at: "2026-09-27"
+updated_at: "2026-09-29"
 role_priority:
   implementation: "codex"
   review: "claude"
@@ -218,7 +218,108 @@ Tab 指 Kit 分頁，不是「表格／下拉／事件」等設定分類。分�
 
 建議約定式提交訊息：docs(mailbox): record WP1 npm registry access blocker。由 Claude 審閱後提交。
 
+## 2026-09-29 WP1：完成
+
+### 變更摘要
+- 擴充基線 subfeatureOption 的角色、風險、修改層級、目標與範圍。Recipe 0.3.0 的 uiOverrides 只存版本，值沿用 selectedSubfeatureOptions 的 kitId::subfeatureId 鍵。
+- schema 的 $comment 記錄唯讀基線來源與快照日期。舊版 Recipe 仍相容；三個 Kit 皆為 mock fixture。
+
+### 檔案清單
+- schemas/kit.schema.json、schemas/recipe.schema.json、schemas/ui-definition.schema.json。
+- libs/ui-runtime/types.ts、libs/ui-runtime/schema.ts。
+- apps/composer-gui/src/fixtures.ts、apps/composer-gui/src/schema.test.ts；thread 與 index。
+
+### 驗證方式與實際結果
+- npm.cmd run typecheck：通過，exit 0。
+- npm.cmd test -- src/schema.test.ts：通過，1 file / 3 tests；涵蓋三份 schema 正反例、舊版 Recipe。
+- Git 唯讀確認 feature/kit-tab-ui、badb30b；初始工作樹乾淨。全域 ignore 存取警告未影響查詢。
+- 預設編碼讀取及首次 Node stdin 中文紀錄出現亂碼／問號；已使用 UTF8 重讀並重寫本次紀錄，保留原有紀錄。
+- 略過 build、瀏覽器／Network，待整合階段。未安裝依賴、未寫入 .git。
+
+建議約定式提交訊息：feat(schema): extend baseline options and version UI overrides。
+
+## 2026-09-29 WP2：完成
+
+### 變更摘要
+- 共用純函式解析器執行 schema、版本、來源、欄位、元件、subfeature 與同 Kit action 驗證；覆寫限定契約列出的項目，回傳有效設定及每個 option 的來源。
+- 不變更輸入；陣列整份取代，失效覆寫顯示原因、不靜默套用。React renderer 使用純文字輸出與傳入的 mock rows，沒有網路或寫入動作。
+
+### 檔案清單
+- libs/ui-runtime/resolve.ts、libs/ui-runtime/Renderer.tsx。
+- apps/composer-gui/src/runtime.test.tsx；本 thread。
+
+### 驗證方式與實際結果
+- npm.cmd test -- src/schema.test.ts src/runtime.test.tsx：通過，2 files / 5 tests。
+- npm.cmd run typecheck：初次失敗 TS2322（測試案例陣列推導出 optional undefined），明確標記 Record<string, Value>[] 後重跑通過，未用 any。
+- 涵蓋不變性、來源追溯、陣列取代、XSS 純文字、錯誤型別／範圍、失效版本、移除引用、跨 Kit 綁定及隱藏 subfeature。
+- 略過：瀏覽器／Network 交互留待 WP4／Claude；完整 build 留待整合。
+
+建議約定式提交訊息：feat(ui-runtime): resolve validated settings with shared React renderer。
+
+## 2026-09-29 WP3：完成
+
+### 變更摘要
+- 實作已選 Kit 分頁、單一 active tab、ARIA 對應與左右／Home／End 鍵；subfeature 取消後隱藏元件，取消 Kit 保留草稿。
+- 入口權限與平台 Kit 顯示能力說明且標示不可編輯；只載入三個 mock Kit。
+
+### 檔案清單
+- apps/composer-gui/src/App.tsx、App.test.tsx；本 thread。
+
+### 驗證方式與實際結果
+- npm.cmd run typecheck：通過。
+- npm.cmd test：初次 5 通過、1 失敗；getByLabelText 同時找到 checkbox 與有 aria-labelledby 的 tabpanel，改以 checkbox role 精確查詢。
+- npm.cmd test -- src/App.test.tsx：重跑 1 file / 1 test 通過，涵蓋空狀態、選取、鍵盤焦點、基礎設施與 subfeature 暫存。
+- apply_patch 初次因同一路徑 delete/add 被拒，沒有套用；改為 Update File 成功。
+- 略過：真實瀏覽器鍵盤操作留待 Claude；覆寫保留測試於 WP4 增補。
+
+建議約定式提交訊息：feat(gui): add accessible selected Kit tabs and subfeature controls。
+
+## 2026-09-29 WP4：實作與自動化檢查完成，Network 驗證受阻；停止
+
+### 變更摘要
+- 加入 table 欄位名稱、顯示、順序、寬度與 select 選項／預設值編輯。輸入草稿與最後有效 Recipe 分離，非法輸入顯示原因且不覆寫有效預覽。
+- 編輯面板顯示修改 metadata 與來源；React 保留輸入節點。mock action 僅篩選記憶體資料，同 Kit 引用由共用解析器驗證。
+- 自動化測試發現 renderer 與 editor 使用重複 React key，已加 preview 前綴修正，重跑無警告。
+- 無法完成 Handoff 指定 Network 條件：本機 Vite 監聽遭 EACCES，瀏覽器工具 inventory 沒有可用瀏覽器。未以 fetch／XHR spy 冒充真實瀏覽器 Network 驗證。
+- 依「任一 WP 無法達到完成條件」停止，WP4 未完成，WP5／WP6 未開始。未標記 ready_for_claude。
+
+### 檔案清單
+- apps/composer-gui/src/SettingsEditor.tsx、style.css。
+- apps/composer-gui/src/App.tsx、App.test.tsx。
+- 本 thread、.codex-claude-mailbox/index.md。
+
+### 驗證方式與實際結果
+- npm.cmd run typecheck：通過，exit 0。
+- npm.cmd test：3 files / 7 tests 通過，但有重複 React key 警告；修正後 npm.cmd test -- src/App.test.tsx：1 file / 2 tests 通過，無該警告。
+- RTL 已驗證焦點／selectionStart、有效表頭即時更新、非法寬度保留最後有效值、顯示與順序、mock 篩選、Kit／subfeature 草稿保留；fetch 與 XMLHttpRequest.open 呼叫皆為 0。
+- cua.getState()：apps=[]、browsers=[]，無可用瀏覽器。
+- npm.cmd run dev -- --configLoader native：失敗，exit 1，Error: listen EACCES: permission denied 127.0.0.1:5173。未提升權限或改監聽位址繞過限制。
+- 略過：真實瀏覽器 Network／鍵盤驗證、完整 build 與最終整合驗證；WP5 匯入匯出、WP6 身分提示與未涵蓋測試尚未實作。不得以歷史 build 結果代表本次。
+- 未安裝依賴、未寫入 .git、未修改基線版、未使用實際資料或根目錄 packages/。
+
+建議約定式提交訊息（待 WP4 驗收後）：feat(gui): edit validated Kit settings with mock live preview。
+
 # Claude Notes
+
+2026-09-29 Claude：WP1–WP4 審閱與 WP4 瀏覽器驗證。
+
+- 重跑：`npm.cmd run typecheck` 通過；`npm.cmd test` 3 files / 7 tests 通過；`npm.cmd run build` 通過。
+- 瀏覽器（Chrome，Vite dev server `127.0.0.1:5173`）實測：
+  - 勾選兩個 Kit 後出現兩個分頁；在 name label 以鍵盤實際輸入 `批號<b>x</b>`，輸入框保持焦點、游標在末端（10），表頭即時更新且以純文字顯示，DOM 中無注入的 `<b>` 元素。
+  - 篩選下拉改為 closed，表格只剩 Mock B。
+  - name width 輸入 10：顯示「name-width 超出範圍」，表頭寬度維持最後有效值 180px。
+  - 分頁上按 ArrowRight 切到「入口權限 Kit」，焦點與 aria-selected 同步；ArrowLeft 回到「紀錄 Kit」，先前修改保留。
+  - Network：操作期間 0 筆請求；另以一次同源 `fetch` 當對照，確認記錄器可捕捉請求。Console 無錯誤。
+- 結論：WP4 完成條件達成，WP4 由 Claude 驗收通過。
+
+審閱發現（WP5 前處理）：
+
+| ID | 嚴重度 | 內容 | 建議 |
+|---|---|---|---|
+| R01 | 中 | 舊版 Recipe 0.2.0 通過 schema，但 `resolveKit` 在沒有 `uiOverrides` 版本時一律拋出「失效覆寫版本」，實際上無法載入舊 Recipe（F01 測試情境「舊 Recipe 可載入」只驗到 schema 層） | WP5 匯入時定義舊版遷移規則（例如以目前 Kit 版本補版本資訊並標示來源），並加上 resolve 層測試 |
+| R02 | 低 | `uiOverrides` 實際只存版本資訊，名稱易誤解為覆寫值 | 改名為 `uiOverrideVersions` 或在 schema `$comment` 說明；需同步 recipe schema |
+| R03 | 低 | `checkValue` 對所有 number 型別要求整數，基線 `subfeatureOption` 的 number 允許小數 | 改由 option 宣告（例如 `range.integer`）控制，或在 schema 註明 |
+| R04 | 低 | `schema.ts` 以 `strict: false` 編譯，會隱藏 schema 內的拼字錯誤 | 評估改為 `strict: 'log'` 或只關閉必要規則 |
 
 2026-09-27 Claude 審閱（原始碼閱讀，未做瀏覽器或執行驗證）。
 
@@ -284,6 +385,8 @@ Current Context 各項已對照基線版原始碼確認屬實：`renderPreview()
 
 # Decisions
 
+- 2026-09-29，Codex 接受 F01–F15，依 Handoff 全數納入；Q1 暫行保留取消 Kit／subfeature 的草稿，匯出只含已選 Kit，待 user 核定。Q2 依 F13；Q3 正式系統分頁不在範圍。
+
 - 2026-09-27，已確認：一個 Kit 一個分頁；只顯示已選 Kit 的頁面及其可修改項目。
 - 2026-09-27，已確認：本次建立專用 mailbox 與修改流程說明，不實作功能。
 - 2026-09-27，設計建議：保留既有 Kit 分頁邏輯，將預覽改接 UI definition、共用解析／呈現及設定保存。
@@ -294,6 +397,7 @@ Current Context 各項已對照基線版原始碼確認屬實：`renderPreview()
 - 2026-09-27，user 核准：Codex 沙箱無法寫入 `.git`，改為 Codex 只寫程式與文件，所有 git 操作（add、commit、branch）由 Claude 以 user 帳號執行。Claude 已將 Codex 建立的空 `.git` 移出專案，重新 `git init`、建立 `.gitignore`、基準 commit 與 `feature/kit-tab-ui` 分支。
 - 2026-09-27，user 核准：新增 `ajv`（JSON Schema draft 2020-12 驗證）與 `jsdom`（Vitest DOM 互動測試）；由 Codex 安裝後從 WP1 繼續。WP0 已由 Claude 驗證（typecheck、test 1/1、build 通過）並提交為 `f952801`。
 - 2026-09-29，Codex 沙箱無 npm registry 網路存取，改由 Claude 安裝依賴：`ajv@8.20.0`（dependencies）、`jsdom@30.1.1`（devDependencies）。同時因 npm audit 將 `vite` 升至 7.3.6、`vitest` 升至 3.2.7（同 major 修補版，修正 high／critical 漏洞；ajv 8.17.1 有 ReDoS，改用 8.20.0）。剩餘 1 項 moderate（`@vitest/mocker`，僅測試期），修正需 vitest 5 破壞性升級，暫不處理並回報 user。typecheck、test 1/1、build 通過。Codex 後續不得自行安裝依賴；需要新依賴時依停止條件停止。
+- 2026-09-29，Claude 驗收 WP4（含瀏覽器 Network 驗證），WP1–WP4 已提交；Codex 從 WP5 繼續，並處理審閱發現 R01（R02–R04 可一併處理或記錄延後理由）。本機監聽與瀏覽器驗證屬 Claude 分工，Codex 無法執行時記為略過並交由 Claude，不視為停止條件。
 
 # Claude Handoff（2026-09-27）
 
@@ -351,6 +455,14 @@ Codex 已整理前次查核結果與使用者修正，建立本專案專用 mail
 2026-09-27 Claude：完成文件審閱（原始碼閱讀，未執行或瀏覽器驗證），提出 F01–F15，其中 F01–F05 為高嚴重度，並補充 10 條測試情境。狀態改為 waiting_for_codex。功能測試仍未執行。
 
 # Open Questions
+
+## 2026-09-29 WP4 停止條件：本機監聽與瀏覽器 Network 驗證受阻（已解決：由 Claude 驗證通過）
+
+- owner: user — WP1–WP3 已完成，WP4 尚缺真實 Network 驗證。npm.cmd run dev -- --configLoader native 回報 listen EACCES: permission denied 127.0.0.1:5173；cua.getState() 的 browsers 為空。
+- 需提供允許 localhost 監聽且可操作瀏覽器的執行環境，或明確指示由 Claude 執行 WP4 Network 驗證後再交回續作。未要求新依賴，也不需重新安裝既有套件。
+- 本次依 Handoff「任一 WP 無法達到完成條件」停止；WP5–WP6 未開始，status=in_progress、owner=user。不得改為 ready_for_claude。
+- 後續文件同步注意：Obsidian vault 不在本次可寫根，尚未同步、未嘗試越界寫入；README 目錄、spec 實作狀態亦待後續整合更新，不可視為已完成。
+- 停止後紀錄檢查：git diff --check 無空白錯誤；只有 LF／CRLF 提示，git status 另有全域 ignore 讀取警告。thread／index 均已同步 in_progress、user。
 
 ## 2026-09-27 WP1 停止條件：npm registry 存取受限（已解決，見 Decisions 2026-09-29）
 
