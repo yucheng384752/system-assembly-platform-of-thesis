@@ -46,6 +46,19 @@ composer-refactor/
 
 尚未實作的空目錄以 `.gitkeep` 保留；目前 GUI 僅使用 mock fixture，不連接正式資料。
 
+## 一鍵啟動
+
+雙擊專案根目錄的 `start.cmd`，或在命令列執行：
+
+```powershell
+.\start.cmd              # 啟動並開啟瀏覽器
+.\start.cmd -Check       # 啟動前先跑 typecheck 與測試
+.\start.cmd -Port 5180   # 指定連接埠
+.\start.cmd -NoBrowser   # 不自動開啟瀏覽器
+```
+
+腳本（`scripts/start.ps1`）會依序：檢查 Node 版本（需 ^20.19.0 或 >=22.12.0）→ `node_modules` 不存在或 `package-lock.json` 較新時執行 `npm ci` → 若本專案 dev server 已在執行就直接沿用，連接埠被其他程式占用則往後找可用埠 → 啟動 dev server 並等待就緒（最多 60 秒）→ 開啟瀏覽器。按 Ctrl+C 或關閉視窗會一併停止 dev server。任何一步失敗都會顯示原因並以非 0 結束。`start.cmd` 以 `-ExecutionPolicy Bypass` 呼叫 PowerShell，不需要修改系統執行政策。
+
 ## GUI 骨架開發
 
 使用 Node.js 24.15.0 與 npm 11.13.0，在專案根目錄執行：
