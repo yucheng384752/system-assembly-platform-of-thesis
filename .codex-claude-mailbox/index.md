@@ -5,6 +5,7 @@
 | [20260927-kit-tab-ui-flow](threads/20260927-kit-tab-ui-flow.md) | Kit 分頁、動態預覽與可修改項目流程 | completed | user | claude | 2026-09-30 |
 | [20260930-frontend-pages](threads/20260930-frontend-pages.md) | 依基線四步驟重做 Composer 前端頁面（真實 Kit、無障礙） | completed | user | claude | 2026-09-30 |
 | [20260930-ui-design](threads/20260930-ui-design.md) | 汽車選配式介面改版與 G01–G08 處理 | waiting_for_user | user | claude | 2026-09-30 |
+| [20260930-install-package](threads/20260930-install-package.md) | 設定交付包壓縮檔（D31–D36） | ready_for_review | user | user | 2026-09-30 |
 
 本目錄為本專案專用的非同步交接區。threads 保存完整討論；inbox、outbox、archive 分別保留收件、寄件與封存位置。Claude 審閱已完成，user 已核准開發；Codex 依 thread 的「Claude Handoff」工作包 WP0–WP6 實作；git 操作改由 Claude 執行。
 
@@ -44,3 +45,5 @@
 2026-09-30 Claude：docs/aov-workflow-spec（含 20260930-ui-design）已合併至 main；新增 20260930-aov-workflow-forms，完成 Workflow v2、多檔上傳、表單關聯與五步驟介面（D22–D30）；待 user 審閱與決定是否合併。
 
 2026-09-30 Claude：20260930-aov-workflow-forms 已合併至 main（3e50de4），標為 completed。
+
+2026-09-30 Claude：新增 20260930-install-package，完成設定交付包壓縮檔（自寫 store zip、package-manifest.json、驗證報告，D31–D36）；待 user 審閱與決定是否合併。
