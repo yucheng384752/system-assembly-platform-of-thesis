@@ -16,6 +16,9 @@ test('selection expands required flows, required Kits, flow prerequisites and Ki
   expect(result.selectedFlows).toEqual(['data-import', 'query-trace', 'analytics']);
   expect(result.enabledKits).toEqual(expect.arrayContaining(['platform-core-kit', 'entry-permission-kit', 'upload-validation-kit', 'query-traceability-kit', 'analytics-kit']));
   expect(result.reasons.join()).toContain('因為');
+  // No reason may name the same thing as both cause and effect (G04: 「資料匯入」 flow and feature share a name).
+  expect(result.reasons.join()).not.toMatch(/因為選了「(.+?)」，系統會自動加入「\1」/);
+  expect(result.reasons).toContain('「資料匯入」流程需要同名功能，系統會自動加入。');
   expect(selectKits(kits, []).enabledKits).not.toContain('analytics-kit');
 });
 test('missing references, duplicate IDs and cycles fail with paths', () => {
