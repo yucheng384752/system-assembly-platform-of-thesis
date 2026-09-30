@@ -55,7 +55,8 @@ export function selectKits(kits: Kit[], requestedFlows: string[], manual: string
     const kit = kits.find(k => k.id === id)!;
     const flow = availableFlows.find(f => selectedFlows.includes(f.id) && f.kits.includes(id));
     const parent = kits.find(k => enabledKits.includes(k.id) && k.dependencies.includes(id));
-    return flow ? `因為選了「${flow.name}」，系統會自動加入「${kit.displayName}」。`
+    // Same-name flow and feature would read 「因為選了『資料匯入』，系統會自動加入『資料匯入』」 (G04).
+    return flow ? flow.name === kit.displayName ? `「${flow.name}」流程需要同名功能，系統會自動加入。` : `因為選了「${flow.name}」，系統會自動加入「${kit.displayName}」。`
       : parent ? `因為使用「${parent.displayName}」，系統會自動加入「${kit.displayName}」。`
         : kit.required ? `「${kit.displayName}」是必要功能，會自動保留。` : `已自行選取「${kit.displayName}」。`;
   });

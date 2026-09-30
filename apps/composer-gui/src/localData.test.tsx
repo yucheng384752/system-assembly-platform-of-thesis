@@ -18,17 +18,22 @@ test('CSV/TSV inference handles BOM, quoted separators, newlines and escaped quo
 test('local upload retains only fields, never writes storage or sends network; recipe excludes data', async () => {
   const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
   const xhr = vi.spyOn(XMLHttpRequest.prototype, 'open'); const storage = vi.spyOn(Storage.prototype, 'setItem');
-  render(<App />); fireEvent.click(screen.getByRole('button', { name: /02 資料來源/ }));
+  render(<App />); fireEvent.click(screen.getByRole('button', { name: /01 資料上傳/ }));
   const file = new File(['名稱,數量\nPRIVATE_SAMPLE_SENTINEL,3'], 'sample.csv');
   Object.defineProperty(file, 'text', { value: async () => '名稱,數量\nPRIVATE_SAMPLE_SENTINEL,3' });
-  fireEvent.change(screen.getByLabelText('選擇資料樣本（會替換目前欄位）'), { target: { files: [file] } });
+  fireEvent.change(screen.getByLabelText('選擇 CSV / TSV'), { target: { files: [file] } });
   await waitFor(() => expect(screen.getByLabelText('欄位 1 名稱')).toBeTruthy());
   expect(document.body.textContent).not.toContain('PRIVATE_SAMPLE_SENTINEL');
   expect((screen.getByLabelText('欄位 2 型別') as HTMLSelectElement).value).toBe('integer');
   fireEvent.change(screen.getByLabelText('欄位 1 名稱'), { target: { value: '自訂名稱' } });
-  fireEvent.click(screen.getByRole('button', { name: /01 選擇/ }));
-  fireEvent.click(screen.getByRole('button', { name: /02 資料來源/ }));
+  fireEvent.click(screen.getByRole('button', { name: /02 功能選配/ }));
+  fireEvent.click(screen.getByRole('button', { name: /01 資料上傳/ }));
   expect((screen.getByLabelText('欄位 1 名稱') as HTMLInputElement).value).toBe('自訂名稱');
+  // A new field selects its placeholder name so typing replaces it (G03).
+  fireEvent.click(screen.getByRole('button', { name: '新增欄位' }));
+  const added = screen.getByLabelText('欄位 3 名稱') as HTMLInputElement;
+  expect(document.activeElement).toBe(added);
+  expect([added.selectionStart, added.selectionEnd]).toEqual([0, added.value.length]);
   expect(exportRecipe(initialRecipe, catalog)).not.toMatch(/PRIVATE_SAMPLE_SENTINEL|自訂名稱/);
   expect(fetch).not.toHaveBeenCalled(); expect(xhr).not.toHaveBeenCalled(); expect(storage).not.toHaveBeenCalled();
 });
