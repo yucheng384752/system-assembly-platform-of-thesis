@@ -5,7 +5,9 @@ export function StepShell({ renderStep }: { renderStep: (step: number) => ReactN
   const [step, setStep] = useState(0);
   const [completed, setCompleted] = useState<number[]>([]);
   const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { heading.current?.focus(); }, [step]);
+  const shown = useRef(step);
+  // Focus moves only on step change (not on load, nor on StrictMode effect replay) so the first Tab reaches the skip link.
+  useEffect(() => { if (shown.current !== step) { shown.current = step; heading.current?.focus(); } }, [step]);
   return <>
     <a className="skip-link" href="#main-content">跳到主要內容</a>
     <header><strong>Composer 系統組裝</strong><p>選擇需要的功能，確認畫面，下載設定。</p></header>

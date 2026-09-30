@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
+import { StrictMode } from 'react';
 import { afterEach, expect, test } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { StepShell, steps } from './StepShell';
 afterEach(cleanup);
 test('keyboard steps expose current and confirmed state and focus the sole h1', () => {
-  render(<StepShell renderStep={step => <p>內容 {step}</p>} />);
+  render(<StrictMode><StepShell renderStep={step => <p>內容 {step}</p>} /></StrictMode>);
+  // Initial load must not steal focus, otherwise the first Tab skips the skip link and step navigation.
+  expect(document.activeElement).toBe(document.body);
   expect(screen.getByRole('link', { name: '跳到主要內容' }).getAttribute('href')).toBe('#main-content');
   expect(screen.getByRole('main')).toBeTruthy();
   const first = screen.getByRole('button', { name: new RegExp(steps[0]) });
