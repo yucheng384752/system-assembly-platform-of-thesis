@@ -41,6 +41,12 @@ date: 2026-09-24
 | D28 | 2026-09-30 | 「設定交付包」壓縮檔另開 `feature/install-package`；本功能只分別下載 Workflow 文件與 Recipe | user 同意；壓縮檔內容範圍尚未定 | spec §12 |
 | D29 | 2026-09-30 | Recipe schema 新增選填 `workflowRef { path, sha256 }`；修正 D20「不變更 Recipe schema」的措辭，改為「只新增選填欄位、向後相容」 | `importRecipe` 拒絕未知欄位、`exportRecipe` 以明確投影輸出，不改契約則無處記錄 reference；user 同意 | spec §4.2、schemas/recipe.schema.json |
 | D30 | 2026-09-30 | GUI 步驟改為 01 流程步驟 → 02 表單 → 03 表單關聯 → 04 功能選配 → 05 輸出，皆為必填；取代 D15 的步驟名稱與順序 | 落實 D17 的建議流程 | DESIGN.md |
+| D31 | 2026-09-30 | 設定交付包以自寫的 zip（store，不壓縮，含 CRC32）在瀏覽器產生，不新增依賴；固定檔案順序與時間戳（1980-01-01），相同設定產出相同位元組 | user 指定自寫；檔案皆為小型 JSON，壓縮效益低。基線版以內嵌 JSZip 與 `Compress-Archive` 產生，且寫入產生時間，無法以位元組比對（A12、A15） | spec §12 |
+| D32 | 2026-09-30 | 設定交付包只放實際產物：`package-manifest.json`、`README.md`、`config/system.recipe.json`、`aov/workflow.aov.json`、`validation/report.json`；§12 其餘目錄不建立，於 manifest `notProvided` 逐項列出原因；不含 Kit 原始碼與安裝腳本，Kit 只以 id 與版本記錄。包內 Recipe 的 `workflowRef.path` 仍為檔名，以 manifest 的 `role` 與 sha256 定位 | 空目錄或安裝腳本會讓交付包看似可安裝，違反 D21；不改 Recipe 契約（D29） | spec §12 |
+| D33 | 2026-09-30 | manifest 沿用基線名稱 `package-manifest.json`，契約為 `schemas/package-manifest.schema.json`；不記錄產生時間，改記錄各產物的 sha256 與位元組數 | 依 D02 同概念沿用舊名；去除時間使 manifest 可重現（D31） | spec §12 |
+| D34 | 2026-09-30 | 缺少手冊不阻擋設定交付包，於 `notProvided` 標示；§11 的阻擋規則適用於正式 System Package | 設定交付包依 D21 不是正式發佈；`manuals/kits/` 尚無任何手冊 | spec §11、§12 |
+| D35 | 2026-09-30 | 驗證報告列出靜態檢查（兩份檔案的 schema、`workflowRef` 相符、敏感鍵名掃描），測試環境演練與現場驗證標為「未執行」；任一靜態檢查未通過即不產生交付包 | §12 要求三類分列；不得宣稱已部署驗證 | spec §12 |
+| D36 | 2026-09-30 | 保留流程規格與系統設定檔的分別下載（設定檔亦用於載入）；本期只輸出交付包，不支援匯入；檔名為 `<Recipe name>-delivery-<manifest sha256 前 12 碼>.zip` | 最小改動；客戶代稱為任意文字，不放進檔名 | spec §12 |
 
 ## 必做項目
 

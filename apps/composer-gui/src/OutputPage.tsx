@@ -3,7 +3,9 @@ import type { Recipe } from '../../../libs/ui-runtime/types';
 import { flows } from './catalog';
 import { catalog } from './previewCatalog';
 import { RecipeTransfer } from './RecipeTransfer';
-import { downloadJson } from './fileTransfer';
+import { exportRecipe } from '../../../libs/ui-runtime/recipe';
+import { downloadBlob, downloadJson } from './fileTransfer';
+import { buildDeliveryPackage } from './deliveryPackage';
 import { exportAov, sha256Hex, WORKFLOW_FILE, type AovDocument } from './workflow';
 import { Column } from './Column';
 import { Icon } from './Icons';
@@ -27,6 +29,20 @@ export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport
   }, [exported.text]);
   const sha256 = exported.text && digest.text === exported.text ? digest.sha256 : '';
   const linked: Recipe = sha256 ? { ...recipe, workflowRef: { path: WORKFLOW_FILE, sha256 } } : recipe;
+  const [packing, setPacking] = useState(false);
+  const [packageError, setPackageError] = useState('');
+  const [packageNotice, setPackageNotice] = useState('');
+  // Packs the same bytes as the separate downloads, so the package and the loose files never disagree (D36).
+  async function downloadPackage() {
+    setPacking(true);
+    try {
+      const built = await buildDeliveryPackage(exportRecipe(linked, catalog), exported.text, catalog);
+      downloadBlob(new Blob([built.bytes], { type: 'application/zip' }), built.fileName);
+      setPackageError(''); setPackageNotice(`已下載 ${built.fileName}；不含資料列、樣本內容或秘密值。`);
+    } catch (failure) {
+      setPackageNotice(''); setPackageError(failure instanceof Error ? failure.message : '設定交付包未產生。');
+    } finally { setPacking(false); }
+  }
   return <div className="columns">
     <Column id="summary" title="選配摘要" lead={`已選擇 ${recipe.enabledKits.length} 項功能，依業務流程列出。`}>
       {[...groups, ...(others.length ? [{ id: 'others', title: '必要與相依功能', kits: others }] : [])].map(group => <section key={group.id} className="flow-card" aria-labelledby={`sum-${group.id}`}>
@@ -55,8 +71,11 @@ export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport
       <ul className="check-list"><li className="list-title">系統設定檔包含</li>{included.map(item => <li key={item}><Icon name="check" />{item}</li>)}</ul>
       <ul className="check-list"><li className="list-title">流程規格包含</li>{workflowIncluded.map(item => <li key={item}><Icon name="check" />{item}</li>)}</ul>
       <ul className="check-list excluded"><li className="list-title">皆不包含</li>{excluded.map(item => <li key={item}><Icon name="minus" />{item}</li>)}</ul>
-      <section aria-labelledby="deployment-title"><div className="flow-title"><h3 id="deployment-title">設定交付包</h3><span className="badge badge-pending">尚未提供</span></div>
-        <p className="muted">打包成單一壓縮檔的功能尚未提供；目前的檔案是設定，不能直接安裝或部署。</p></section>
+      <section aria-labelledby="deployment-title"><h3 id="deployment-title">設定交付包</h3>
+        <p className="muted">將上述兩個檔案、檢查報告與檔案清單打包成單一壓縮檔。內容是設定，不能直接安裝或部署。</p>
+        <button className="primary" disabled={packing || !sha256 || !recipe.clientName?.trim()} aria-describedby="package-error" onClick={downloadPackage}><Icon name="download" />下載設定交付包</button>
+        <p id="package-error" role={packageError ? 'alert' : undefined}>{packageError}</p>
+        <p role="status">{packageNotice}</p></section>
     </Column>
   </div>;
 }

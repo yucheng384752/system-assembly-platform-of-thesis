@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Composer configuration delivery package manifest",
+  "description": "package-manifest.json of the configuration delivery package (spec 12, D31-D36). Name follows the baseline package-manifest.json (D02). No generation time, so identical settings give identical bytes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "version", "installable", "clientName", "recipe", "kits", "artifacts", "notProvided"],
+  "properties": {
+    "format": { "const": "composer-delivery-package" },
+    "version": { "const": 1 },
+    "installable": { "const": false, "$comment": "Always false until executable assembly (P2) exists (D21)." },
+    "clientName": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "recipe": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "recipeVersion"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "recipeVersion": { "type": "string", "minLength": 1 }
+      }
+    },
+    "kits": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "version"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+          "version": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["path", "role", "sha256", "bytes"],
+        "properties": {
+          "path": { "$ref": "#/$defs/path" },
+          "role": { "enum": ["readme", "recipe", "workflow", "validation-report"] },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "bytes": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "notProvided": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["path", "reason"],
+        "properties": {
+          "path": { "$ref": "#/$defs/path" },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "path": {
+      "type": "string", "maxLength": 200,
+      "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*(/[A-Za-z0-9_-][A-Za-z0-9._-]*)*/?$"
+    }
+  }
+}
