@@ -7,12 +7,16 @@ import { validateSchema } from '../../../libs/ui-runtime/schema';
 import { catalog } from './previewCatalog';
 import { downloadJson } from './fileTransfer';
 import { sha256Hex } from './workflow';
+import { readZip } from './testZip';
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
-function captureDownloads() {
+function captureDownloads(binary: Uint8Array[] = []) {
   const contents: string[] = [];
   const NativeBlob = Blob;
-  vi.stubGlobal('Blob', class extends NativeBlob { constructor(parts: BlobPart[], options?: BlobPropertyBag) { super(parts, options); contents.push(parts.join('')); } });
+  vi.stubGlobal('Blob', class extends NativeBlob { constructor(parts: BlobPart[], options?: BlobPropertyBag) {
+    super(parts, options);
+    if (parts[0] instanceof Uint8Array) binary.push(parts[0]); else contents.push(parts.join(''));
+  } });
   Object.defineProperty(URL, 'createObjectURL', { value: vi.fn(() => 'blob:mock'), configurable: true });
   Object.defineProperty(URL, 'revokeObjectURL', { value: vi.fn(), configurable: true });
   vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
@@ -63,14 +67,14 @@ test('relations: candidates need confirmation, type mismatches are refused, and 
   expect((screen.getByRole('checkbox', { name: '通用表格管理' }) as HTMLInputElement).checked).toBe(true);
   expect(screen.queryByRole('button', { name: '加入「查詢追溯」' })).toBeNull();
 });
-test('A22: both downloads validate, carry no rows, and the Recipe checksum matches the downloaded Workflow bytes', async () => {
-  const contents = captureDownloads(); const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
+test('A22, A15: downloads validate, carry no rows, the Recipe checksum matches the Workflow bytes, and the package packs the same files', async () => {
+  const zips: Uint8Array[] = []; const contents = captureDownloads(zips); const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
   const storage = vi.spyOn(Storage.prototype, 'setItem'); const xhr = vi.spyOn(XMLHttpRequest.prototype, 'open');
   await buildWorkflow();
   fireEvent.click(screen.getByRole('button', { name: /03 表單關聯/ }));
   fireEvent.click(screen.getByRole('button', { name: /^確認關聯/ }));
   fireEvent.click(screen.getByRole('button', { name: /05 輸出/ }));
-  expect(screen.getByText(/打包成單一壓縮檔的功能尚未提供/)).toBeTruthy();
+  expect((screen.getByRole('button', { name: '下載設定交付包' }) as HTMLButtonElement).disabled).toBe(true);
   // Output cannot be confirmed until the required client name is filled (G05).
   expect((screen.getByRole('button', { name: '確認本步驟' }) as HTMLButtonElement).disabled).toBe(true);
   fireEvent.change(screen.getByLabelText('客戶代稱'), { target: { value: '示範客戶' } });
@@ -87,15 +91,23 @@ test('A22: both downloads validate, carry no rows, and the Recipe checksum match
   expect(recipe.workflowRef).toEqual({ path: 'workflow.aov.json', sha256: await sha256Hex(contents[0]) });
   expect(contents.join()).not.toMatch(/PRIVATE_UPLOAD_SENTINEL|password|token|tableData/);
   expect(contents[1]).not.toContain('steps');
+  fireEvent.click(screen.getByRole('button', { name: '下載設定交付包' }));
+  await waitFor(() => expect(zips).toHaveLength(1));
+  expect(screen.getByText(/^已下載 my-system-delivery-[0-9a-f]{12}\.zip/)).toBeTruthy();
+  const packed = Object.fromEntries(readZip(zips[0]).map(e => [e.path, new TextDecoder().decode(e.data)]));
+  expect(packed['aov/workflow.aov.json']).toBe(contents[0]);
+  expect(packed['config/system.recipe.json']).toBe(contents[1]);
+  expect(Object.values(packed).join()).not.toMatch(/PRIVATE_UPLOAD_SENTINEL/);
   expect(fetch).not.toHaveBeenCalled(); expect(xhr).not.toHaveBeenCalled(); expect(storage).not.toHaveBeenCalled();
 });
-test('an incomplete Workflow blocks both downloads and says why', () => {
+test('an incomplete Workflow blocks every download and says why', () => {
   render(<App />);
   fireEvent.click(screen.getByRole('button', { name: /05 輸出/ }));
   fireEvent.change(screen.getByLabelText('客戶代稱'), { target: { value: '示範客戶' } });
   expect(screen.getByRole('alert').textContent).toContain('請至少建立一個流程步驟');
   expect((screen.getByRole('button', { name: '下載流程規格' }) as HTMLButtonElement).disabled).toBe(true);
   expect((screen.getByRole('button', { name: '下載系統設定檔' }) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole('button', { name: '下載設定交付包' }) as HTMLButtonElement).disabled).toBe(true);
   expect(document.getElementById('step-status')!.textContent).toContain('流程規格尚未完成');
 });
 test('Recipe file import is atomic and restores flow selection and editor settings', async () => {
