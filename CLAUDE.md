@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+All UI must follow ./DESIGN.md.
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 > 本檔案內容源自 `初始專案開發設定與管理/輔助開發文件`，為專案通用 AI 協作規範。

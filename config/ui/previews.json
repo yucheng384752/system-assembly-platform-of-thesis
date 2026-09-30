@@ -1,0 +1,122 @@
+{
+  "definitions": {
+    "query-traceability-kit": {
+      "schema_version": "1.0.0",
+      "kitId": "query-traceability-kit",
+      "components": [
+        {
+          "id": "filter",
+          "subfeature_id": "lot-query",
+          "type": "select",
+          "title": "狀態篩選",
+          "options": [
+            {
+              "value": "待處理",
+              "displayName": "待處理"
+            },
+            {
+              "value": "已完成",
+              "displayName": "已完成"
+            }
+          ],
+          "defaultValue": "待處理",
+          "action": {
+            "type": "filter",
+            "target_component_id": "results",
+            "field": "status"
+          }
+        },
+        {
+          "id": "results",
+          "subfeature_id": "lot-query",
+          "type": "table",
+          "title": "查詢結果範例",
+          "source_ref": "mock-query-traceability-kit",
+          "columns": [
+            {
+              "field": "lot",
+              "label": "批號",
+              "visible": true,
+              "order": 0,
+              "width": 180,
+              "renderer": "text"
+            },
+            {
+              "field": "status",
+              "label": "狀態",
+              "visible": true,
+              "order": 1,
+              "width": 180,
+              "renderer": "text"
+            }
+          ]
+        }
+      ]
+    },
+    "upload-validation-kit": {
+      "schema_version": "1.0.0",
+      "kitId": "upload-validation-kit",
+      "components": [
+        {
+          "id": "results",
+          "subfeature_id": "csv-excel-error-summary",
+          "type": "table",
+          "title": "驗證錯誤範例",
+          "source_ref": "mock-upload-validation-kit",
+          "columns": [
+            {
+              "field": "row",
+              "label": "資料列",
+              "visible": true,
+              "order": 0,
+              "width": 180,
+              "renderer": "text"
+            },
+            {
+              "field": "message",
+              "label": "錯誤說明",
+              "visible": true,
+              "order": 1,
+              "width": 180,
+              "renderer": "text"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "sources": {
+    "mock-query-traceability-kit": {
+      "fields": [
+        "lot",
+        "status"
+      ],
+      "rows": [
+        {
+          "lot": "示範批次 A",
+          "status": "待處理"
+        },
+        {
+          "lot": "示範批次 B",
+          "status": "已完成"
+        }
+      ]
+    },
+    "mock-upload-validation-kit": {
+      "fields": [
+        "row",
+        "message"
+      ],
+      "rows": [
+        {
+          "row": "第 2 列",
+          "message": "必填欄位缺漏"
+        },
+        {
+          "row": "第 5 列",
+          "message": "格式不符"
+        }
+      ]
+    }
+  }
+}
