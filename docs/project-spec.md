@@ -39,6 +39,7 @@ Composer 定位為：以 Kit 組裝功能、以 Function 作為最小能力與�
 | R11 | 以畫布設定使用者指定的表格樣式 | 6 |
 | R12 | analytical_four 依場域與輸入自動選擇及執行演算法 | 10 |
 | R13 | Site Profile、System Package 與新專案目錄、README | 9、12、14 |
+| R14 | 以 AoV Workflow 指定各步驟填寫的表單，並定義表單關聯與可追溯性 | 4.2、12、13 |
 
 ## 3. 使用者、修改方式與風險
 
@@ -93,6 +94,57 @@ Kit 可單獨執行表示具有明確入口、可驗證的相依條件與最小�
 **AoV 需求：**Function 是最小單位，System 描述要精簡。建議 Function 只暴露 `function_id`、`input_ref`、`output_ref`、`primitive`；Kit 以 capability 彙整並保留可回查 Function 的 reference。參數完整規格仍位於 Function definition，AoV 只引用。不得只列 capability 而失去組成來源。
 
 **待確認：**AoV 正式語意、既有格式與消費端；primitive 正式名稱、capability 與 primitive 的版本規則；「最小可執行單位」與既有流程是否一致。
+
+### 4.2 AoV Workflow 驅動表單設定（2026-09-30 決議：D16–D21）
+
+> 決策已核定；介面尚未實作，現行 GUI 仍為 D14／D15 的行為（AoV 選填、排最後），待實作時依本節調整。
+
+**需求：**一套系統通常需要多張表單，且表單在不同工作步驟填寫、彼此有關聯。使用者希望以 AoV 指定「哪個步驟填寫哪張表單」，並保留表單之間的關聯與可追溯性。
+
+**名詞釐清（依基線版 `docs/kit-development-standard.md`）：**基線版 AoV 有兩種文件：
+
+| 文件 | 視角 | 內容 | 本節是否使用 |
+|---|---|---|---|
+| Workflow | 業務 | 工作步驟、時機、負責職務 | 是（本節主體） |
+| Dataflow | 技術 | System／Kit／mService／Function 四層（§4、§4.1） | 否；維持 §4 定義 |
+
+基線版規範：Workflow 步驟與 Kit／mService 不必一對一；AoV 定義架構，不執行 API、Function、條件或迴圈。本節沿用此界線（D02、D18）。
+
+**需求（D16）：驅動範圍只到「設定期」。**
+
+| 層次 | 意義 | 本節範圍 |
+|---|---|---|
+| 設定期驅動 | 在 Composer 內以 Workflow 組織表單、關聯與功能建議 | 納入 |
+| 執行期驅動 | 產出系統依 Workflow 派工、控管步驟狀態 | 不納入；列為未來工作。需流程執行引擎、權限（§8）與 migration（§7） |
+
+**需求（D17）：AoV 為設定入口、必填、排最前。建議 Composer 流程：**
+
+1. 流程步驟：建立 Workflow 步驟（名稱、時機、負責職務）。
+2. 表單：於各步驟上傳去識別化樣本或手動建立表單，推測欄位後逐一確認型別、必填與驗證。
+3. 表單關聯：指定表單之間以哪些欄位相連（例如批號），系統可提出候選，由使用者確認。
+4. 功能選配：依表單與關聯以固定規則建議 Kit（例如存在關聯時建議「站點資料串聯」與「查詢與追溯」），使用者可調整；規則由程式判斷，不交給 LLM。
+5. 輸出：Recipe 與 Workflow 文件，交付包內容見 §12。
+
+**建議資料模型（Data-First；名稱暫定）：**
+
+| 物件 | 建議欄位 | 說明 |
+|---|---|---|
+| WorkflowStep | id、name、when、owner（職務名稱）、formIds | 沿用現行 `composer-aov-list` 步驟欄位；`formId` 由單值改為陣列屬契約變更，需升版 |
+| FormDefinition | id、name、fields[]（id、name、type、required、isKey） | 只含欄位定義，不含資料列、原始檔名或樣本內容（M01） |
+| FormRelation | id、from（formId、fieldId）、to（formId、fieldId）、kind、origin、confirmed | kind 首期只有「共用識別欄位」；origin 為 inferred 或 user；未確認的關聯不得輸出 |
+
+**建議可追溯性定義：**任一表單紀錄可回答：在哪個 Workflow 步驟填寫、由哪個職務負責、經哪些已確認的 FormRelation 連到前後步驟的紀錄。關聯鍵須在兩端表單型別一致；型別不符時阻擋並指出欄位。
+
+**需求（D19）：關聯首期只支援共用識別欄位，推測規則為確定性：**兩張表單中欄位名稱去除空白後相同、型別相同、且至少一端標為 isKey，列為候選；候選一律需使用者確認，推測不得自動生效。
+
+**需求（D20）：**表單定義與關聯存於 Workflow 文件；Recipe 只記錄 Workflow 的 reference 與 checksum，不變更 Recipe schema。
+
+**待確認：**
+
+1. 共用識別欄位關聯的基數：是否需要一對多、多對多。
+2. 一個步驟可含幾張表單；同一表單可否出現在多個步驟。
+3. 「站點資料串聯」Kit 的實際關聯模型（目前僅依其描述「連結不同站點的批次與產品紀錄」推定，尚未讀其原始碼）是否可承接 FormRelation。
+4. 多檔上傳的數量與總大小上限（現行單檔 2 MB、100 欄、10000 筆）。
 
 ## 5. Configuration-first 與參數解析
 
@@ -255,6 +307,8 @@ Input Adapter → Data Profiler → Task + Site constraints → Eligibility Filt
 
 建議組裝步驟：選 Kit → 解析相依及固定版本 → 套用 Site 與設定 → 驗證資料契約／權限／相容性 → 產生 UI、migration plan、AoV、手冊 → 產生驗證報告 → 封裝。
 
+**需求（2026-09-30，D16–D21，見 §4.2）：**組裝步驟前加上「Workflow 步驟 → 表單 → 已確認的表單關聯」，且 System Package 須包含 Workflow 文件及其 checksum。可執行組裝（P2）完成前，Composer 產出的壓縮檔稱「設定交付包」，不得稱為可安裝系統（D21）。
+
 ```text
 <system-id>-<version>/
 ├─ system-manifest.json
@@ -300,6 +354,10 @@ build 不等於部署成功。驗證報告分別列出靜態檢查、測試環�
 | A17 | Kit 單獨執行與 AoV 追溯 | 最小運行條件可驗證，Kit capability 可回查組成的 Function primitive |
 | A18 | Kit capability 缺少 primitive 或 I/O 無法串接 | 組裝失敗並指出缺少的 primitive 或斷開的 binding |
 | A19 | 其他 Kit 直接引用內部 primitive | 驗證拒絕，要求改經 capability 公開契約 |
+| A20 | （§4.2）Workflow 步驟引用不存在或未完成的表單 | 阻擋確認並指出步驟與表單；不輸出引用失效的 Workflow |
+| A21 | （§4.2）關聯鍵兩端型別不同 | 阻擋並指出兩端欄位；未確認的推測關聯不輸出 |
+| A22 | （§4.2）匯出 Workflow 與表單定義 | 不含資料列、樣本內容或原始檔名；Recipe 記錄的 reference 與 checksum 相符 |
+| A23 | （§4.2）任一表單紀錄的追溯查詢 | 可回查所屬步驟、負責職務與經已確認關聯相連的前後表單 |
 
 ## 14. 分階段計畫與目錄責任
 
@@ -316,7 +374,7 @@ build 不等於部署成功。驗證報告分別列出靜態檢查、測試環�
 
 ## 15. 待確認與風險
 
-1. AoV 的正式語意、現有讀取端與不可破壞的相容欄位。
+1. AoV 的正式語意、現有讀取端與不可破壞的相容欄位。（部分已知：基線版分 Workflow 與 Dataflow 兩種文件，見 §4.2、D18）
 2. Composer、daihui_project、analytical_four 儲存庫位置、版本及授權；既有 analytics-kit 如何合併。
 3. 目標 DB、migration 工具、資料量與停機／復原條件。
 4. 首期分析任務、實際演算法、評估指標、代表性資料與容差。
