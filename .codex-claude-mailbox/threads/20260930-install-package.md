@@ -1,7 +1,7 @@
 ---
 id: "20260930-install-package"
 title: "設定交付包壓縮檔（D21、D28、D31–D36）"
-status: "ready_for_review"
+status: "completed"
 owner: "user"
 reviewer: "user"
 priority: "high"
@@ -82,6 +82,10 @@ package-manifest.json  README.md  config/system.recipe.json  aov/workflow.aov.js
 - 不支援 ZIP64；超過 4 GB 或 65535 個檔案時會明確報錯。目前產物皆為小型 JSON。
 - 敏感值掃描只檢查鍵名。
 - 瀏覽器實測以 JS 驅動，未以實體鍵盤逐一操作。
+
+# Closure
+
+2026-09-30：user 同意合併；以 `--no-ff` 合併至 main（ec25bd6），合併後 typecheck、build 通過，測試 49 passed、1 skipped。
 
 # Open Questions
 
