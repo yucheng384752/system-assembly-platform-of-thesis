@@ -20,6 +20,10 @@ test('legacy import migrates versions, resolves values and round-trips without m
   expect(resolved.definition.components.find(c => c.type === 'table')).toMatchObject({ columns: [{ label: '自訂欄位', width: 250 }, {}] });
   expect(resolved.provenance[`${key}/name-label`].source).toContain('Recipe.selectedSubfeatureOptions');
   expect(importRecipe(exportRecipe(recipe, catalog), catalog).recipe).toEqual(recipe);
+  // The Workflow reference survives the explicit export projection unchanged (D29).
+  const workflowRef = { path: 'workflow.aov.json', sha256: 'b'.repeat(64) };
+  expect(JSON.parse(exportRecipe({ ...recipe, workflowRef }, catalog)).workflowRef).toEqual(workflowRef);
+  expect(importRecipe(exportRecipe({ ...recipe, workflowRef }, catalog), catalog).recipe.workflowRef).toEqual(workflowRef);
   expect(JSON.stringify(legacy)).toBe(original);
   const defaults = importRecipe(JSON.stringify({ ...legacy, selectedSubfeatureOptions: undefined }), catalog).recipe;
   expect(defaults.selectedSubfeatures['records-kit']).toEqual(['records']);
