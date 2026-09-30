@@ -128,6 +128,13 @@ th { background: var(--preview); }
 .form-grid > p { grid-column: 2; margin: 0; }
 .required-label::after { content: ' *'; color: var(--error); }
 
+/* Workflow forms and relations */
+.check-list li > span { flex: 1 1 auto; min-width: 0; padding-block: var(--space-sm); }
+.check-list li > button { flex: 0 0 auto; }
+dl { margin: var(--space) 0 0; }
+dt { font-weight: 600; margin-top: var(--space-sm); }
+dd { margin: 0 0 0 var(--space); }
+
 /* Three columns only when wide; tall and wide viewports also pin the action bar. 200% zoom falls back to one column. */
 @media (min-width: 64rem) {
   .columns { grid-template-columns: minmax(16rem, 1fr) minmax(0, 2fr) minmax(16rem, 1fr); }

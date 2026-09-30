@@ -2,16 +2,18 @@
 import { afterEach, expect, test } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { App } from './App';
-import { emptyAov, exportAov, importAov } from './aov';
 afterEach(cleanup);
-test('AOV round trip rejects extra fields, duplicate IDs, missing forms and invalid names', () => {
-  const value = { ...emptyAov, steps: [{ id: 'one', name: '檢查', when: '收到檔案', owner: '品管', formId: 'form-1' }] };
-  expect(importAov(exportAov(value, ['form-1']), ['form-1'])).toEqual(value);
-  for (const invalid of [{ ...value, rows: [] }, { ...value, version: 9 }, { ...value, steps: [value.steps[0], value.steps[0]] }, { ...value, steps: [{ ...value.steps[0], name: ' ' }] }]) expect(() => importAov(JSON.stringify(invalid), ['form-1'])).toThrow();
-  expect(() => importAov(JSON.stringify(value), [])).toThrow('表單');
+
+test('the Workflow is the first, required step: no steps means step 01 cannot be confirmed (D17)', () => {
+  render(<App />);
+  expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('流程步驟');
+  expect((screen.getByRole('button', { name: '確認並繼續' }) as HTMLButtonElement).disabled).toBe(true);
+  expect(document.getElementById('step-status')!.textContent).toContain('請至少建立一個流程步驟');
+  fireEvent.click(screen.getByRole('button', { name: '新增步驟' }));
+  expect((screen.getByRole('button', { name: '確認並繼續' }) as HTMLButtonElement).disabled).toBe(false);
 });
 test('native keyboard-activatable controls add, move and delete with focus; failed import retains state', () => {
-  render(<App />); fireEvent.click(screen.getByRole('button', { name: /04 AoV 設定/ }));
+  render(<App />);
   const add = screen.getByRole('button', { name: '新增步驟' }); add.focus();
   // Native button click is the browser's activation result for Enter/Space; no pointer-only handler.
   fireEvent.click(add);
@@ -37,7 +39,7 @@ test('native keyboard-activatable controls add, move and delete with focus; fail
   expect((document.activeElement as HTMLInputElement).value).toBe('第一個');
 });
 test('the step list selects which step the middle column edits, and moves focus there', () => {
-  render(<App />); fireEvent.click(screen.getByRole('button', { name: /04 AoV 設定/ }));
+  render(<App />);
   const add = screen.getByRole('button', { name: '新增步驟' });
   fireEvent.click(add); fireEvent.change(screen.getByLabelText('步驟 1 名稱'), { target: { value: '填寫紀錄' } });
   fireEvent.click(add); fireEvent.change(screen.getByLabelText('步驟 2 名稱'), { target: { value: '核對資料' } });
@@ -47,4 +49,13 @@ test('the step list selects which step the middle column edits, and moves focus 
   expect(document.activeElement).toBe(screen.getByLabelText('步驟 1 名稱'));
   expect(screen.getByRole('button', { name: /^01 填寫紀錄/ }).getAttribute('aria-current')).toBe('true');
   expect(screen.getByRole('heading', { name: '編輯步驟 01' })).toBeTruthy();
+});
+test('importing a version 1 file keeps its steps and says which form assignments were dropped', () => {
+  render(<App />);
+  const v1 = { format: 'composer-aov-list', version: 1, steps: [{ id: 'a', name: '檢查', when: '', owner: '品管', formId: 'form-1' }] };
+  fireEvent.click(screen.getByText('進階：貼上流程 JSON'));
+  fireEvent.change(screen.getByLabelText('流程 JSON'), { target: { value: JSON.stringify(v1) } });
+  fireEvent.click(screen.getByRole('button', { name: '匯入流程 JSON' }));
+  expect(screen.getByText(/已清除以下步驟的表單指派：「檢查」/)).toBeTruthy();
+  expect(screen.getByRole('button', { name: /^01 檢查/ })).toBeTruthy();
 });

@@ -3,7 +3,6 @@ export type FieldType = keyof typeof fieldTypes;
 // isKey marks a shared identifier (e.g. lot number) that may link forms (spec 4.2, D19).
 export interface FormField { id: string; name: string; type: FieldType; required: boolean; isKey: boolean }
 export interface FormDraft { id: string; name: string; fields: FormField[] }
-export const emptyForm: FormDraft = { id: 'form-1', name: '我的表單', fields: [] };
 export const MAX_FILE_BYTES = 2 * 1024 * 1024;
 // Multi-file limits per selection and per Workflow (D25).
 export const MAX_FILES = 10;

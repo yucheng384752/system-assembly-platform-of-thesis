@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import raw from '../../../kits/form-analysis.kit-manifest.json?raw';
-import { flows, kits, loadKits, parseManifest, selectKits } from './catalog';
+import { flows, kits, loadKits, parseManifest, selectKits, suggestFlows } from './catalog';
 
 test('real manifest accepts BOM, validates schema and applies D03 without mutating baseline', () => {
   expect(parseManifest('\uFEFF' + raw.replace(/^\uFEFF/, '')).kits).toHaveLength(12);
@@ -33,4 +33,10 @@ test('missing references, duplicate IDs and cycles fail with paths', () => {
   expect(() => selectKits(kits, ['analytics'], [], flows.map(f => f.id === 'query-trace' ? { ...f, requiresFlows: ['analytics'] } : f))).toThrow('相依循環');
   const invalid = JSON.parse(raw.replace(/^\uFEFF/, '')); invalid.kits[0].dependencies = ['missing-kit'];
   expect(() => loadKits(JSON.stringify(invalid))).toThrow('missing-kit');
+});
+test('suggestions follow a fixed rule: only confirmed form relations suggest query-trace', () => {
+  // Forms alone do not imply tracing; the suggestion is a program rule, not a model guess (spec 4.2 step 4).
+  expect(suggestFlows(0)).toEqual([]);
+  expect(suggestFlows(2).map(s => s.id)).toEqual(['query-trace']);
+  expect(suggestFlows(2)[0].reason).toContain('已確認 2 條表單關聯');
 });
