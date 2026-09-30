@@ -16,11 +16,7 @@ export function StepShell({ renderStep, stepError = () => '' }: { renderStep: (s
     <a className="skip-link" href="#main-content">跳到主要內容</a>
     <header><strong>Composer 系統組裝</strong><p>選擇需要的功能，確認畫面，下載設定。</p></header>
     <nav className="steps" aria-label="組裝步驟">{steps.map((title, index) => <button key={title}
-      aria-current={index === step ? 'step' : undefined} onClick={() => setStep(index)}
-      onKeyDown={event => {
-        const next = event.key === 'ArrowRight' ? (index + 1) % steps.length : event.key === 'ArrowLeft' ? (index + steps.length - 1) % steps.length : event.key === 'Home' ? 0 : event.key === 'End' ? steps.length - 1 : -1;
-        if (next >= 0) { event.preventDefault(); setStep(next); }
-      }}>{title}{completed.includes(index) ? '（已確認）' : optionalSteps.includes(index) ? '（非必要填寫）' : '（待確認）'}</button>)}</nav>
+      aria-current={index === step ? 'step' : undefined} onClick={() => setStep(index)}>{title}{completed.includes(index) ? '（已確認）' : optionalSteps.includes(index) ? '（非必要填寫）' : '（待確認）'}</button>)}</nav>
     <main id="main-content" tabIndex={-1}>
       <h1 ref={heading} tabIndex={-1}>{steps[step]}</h1>
       {optionalSteps.includes(step) && <p>此步驟非必要填寫，可以直接略過。</p>}

@@ -4,7 +4,7 @@ import { afterEach, expect, test } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { StepShell, steps } from './StepShell';
 afterEach(cleanup);
-test('keyboard steps expose current and confirmed state and focus the sole h1', () => {
+test('step buttons expose current and confirmed state and focus the sole h1', () => {
   render(<StrictMode><StepShell renderStep={step => <p>內容 {step}</p>} /></StrictMode>);
   // Initial load must not steal focus, otherwise the first Tab skips the skip link and step navigation.
   expect(document.activeElement).toBe(document.body);
@@ -14,14 +14,15 @@ test('keyboard steps expose current and confirmed state and focus the sole h1', 
   expect(screen.getByRole('button', { name: `${steps[3]}（非必要填寫）` })).toBeTruthy();
   const first = screen.getByRole('button', { name: new RegExp(steps[0]) });
   expect(first.getAttribute('aria-current')).toBe('step');
+  // Step buttons are plain Tab stops; arrow keys must not switch steps (G02: they only worked once because focus left the nav).
   first.focus(); fireEvent.keyDown(first, { key: 'ArrowRight' });
+  expect(first.getAttribute('aria-current')).toBe('step');
+  fireEvent.click(screen.getByRole('button', { name: new RegExp(steps[1]) }));
   expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(steps[1]);
   expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1 }));
   expect(first.hasAttribute('aria-current')).toBe(false);
   fireEvent.click(screen.getByRole('button', { name: '確認本步驟並繼續' }));
   expect(screen.getByRole('button', { name: `${steps[1]}（已確認）` })).toBeTruthy();
-  fireEvent.keyDown(screen.getByRole('button', { name: new RegExp(steps[2]) }), { key: 'End' });
-  expect(document.activeElement?.textContent).toBe(steps[3]);
 });
 test('a step with validation errors cannot be marked confirmed, so "已確認" never hides broken content', () => {
   let error = '請填寫表單名稱。';
