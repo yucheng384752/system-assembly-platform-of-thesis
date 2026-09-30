@@ -10,6 +10,8 @@ test('keyboard steps expose current and confirmed state and focus the sole h1', 
   expect(document.activeElement).toBe(document.body);
   expect(screen.getByRole('link', { name: '跳到主要內容' }).getAttribute('href')).toBe('#main-content');
   expect(screen.getByRole('main')).toBeTruthy();
+  // AoV is optional: it must not look like pending work that blocks completion.
+  expect(screen.getByRole('button', { name: `${steps[3]}（非必要填寫）` })).toBeTruthy();
   const first = screen.getByRole('button', { name: new RegExp(steps[0]) });
   expect(first.getAttribute('aria-current')).toBe('step');
   first.focus(); fireEvent.keyDown(first, { key: 'ArrowRight' });

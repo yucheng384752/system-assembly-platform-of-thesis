@@ -27,11 +27,11 @@ export function App() {
   const [form, setForm] = useState(emptyForm);
   const [aov, setAov] = useState(emptyAov);
   const [session, setSession] = useState(0);
-  return <StepShell renderStep={step => step === 0
+  return <StepShell renderStep={step => step === 1
     ? <FlowPage recipe={recipe} onChange={setRecipe} requested={requested} manual={manual} session={session} onSelect={(nextFlows, nextKits) => {
       const selection = selectKits(catalog.kits, nextFlows, nextKits);
       setRequested(nextFlows); setManual(nextKits); setRecipe(previous => withSelection(previous, selection.enabledKits));
-    }} /> : step === 1 ? <DataPage form={form} onChange={setForm} /> : step === 2 ? <AovPage value={aov} onChange={setAov} form={form} />
+    }} /> : step === 0 ? <DataPage form={form} onChange={setForm} /> : step === 3 ? <AovPage value={aov} onChange={setAov} form={form} />
       : <OutputPage recipe={recipe} onChange={setRecipe} onImport={next => {
         // Validate required flow membership before replacing any part of the session.
         const importedFlows = flows.filter(f => f.kits.every(id => next.enabledKits.includes(id))).map(f => f.id);

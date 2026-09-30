@@ -11,7 +11,7 @@ test('AOV round trip rejects extra fields, duplicate IDs, missing forms and inva
   expect(() => importAov(JSON.stringify(value), [])).toThrow('表單');
 });
 test('native keyboard-activatable controls add, move and delete with focus; failed import retains state', () => {
-  render(<App />); fireEvent.click(screen.getByRole('button', { name: /AOV 流程規格/ }));
+  render(<App />); fireEvent.click(screen.getByRole('button', { name: /04 AoV 設定/ }));
   const add = screen.getByRole('button', { name: '新增步驟' }); add.focus();
   // Native button click is the browser's activation result for Enter/Space; no pointer-only handler.
   fireEvent.click(add);

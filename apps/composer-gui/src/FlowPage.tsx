@@ -20,14 +20,16 @@ export function FlowPage({ recipe, onChange, requested, manual, onSelect, sessio
   const fixed = selectKits(catalog.kits, requested).enabledKits;
   return <>
     <p>選擇工作需要的流程，系統會加入必要功能。此處為設定與模擬預覽，尚未執行資料匯入或組裝部署。</p>
-    <fieldset><legend>業務流程</legend><div className="flow-grid">{flows.map(flow => {
+    <div className="configurator"><section className="config-side" aria-labelledby="options-title">
+    <h2 id="options-title">選擇業務流程</h2>
+    <fieldset><legend>業務流程</legend><div className="flow-list">{flows.map(flow => {
       const checked = selection.selectedFlows.includes(flow.id);
       const prerequisite = flows.some(f => selection.selectedFlows.includes(f.id) && f.requiresFlows?.includes(flow.id));
       return <div className="panel" key={flow.id}><label><input type="checkbox" checked={checked} disabled={flow.required || prerequisite}
         onChange={event => onSelect(event.target.checked ? [...requested, flow.id] : requested.filter(id => id !== flow.id), manual)} />{flow.name}{flow.required ? '（必要流程）' : prerequisite ? '（其他流程需要）' : ''}</label>
         <p>{descriptions[flow.id]}</p>{flow.subflows.map(sub => <p key={sub.id}>{sub.name}：{sub.description}</p>)}</div>;
     })}</div></fieldset>
-    <section aria-labelledby="auto-title"><h2 id="auto-title">自動加入的功能</h2>
+    <section aria-labelledby="auto-title"><h3 id="auto-title">自動加入的功能</h3>
       <p role="status">目前選了 {selection.selectedFlows.length} 個流程、{recipe.enabledKits.length} 項功能。</p>
       <ul>{selection.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>
     </section>
@@ -39,7 +41,8 @@ export function FlowPage({ recipe, onChange, requested, manual, onSelect, sessio
       </label>)}
       <p>必要或相依功能不能直接取消；請先取消需要它的流程或功能。</p>
     </details>
-    <h2>畫面預覽與調整</h2><p>下方只使用模擬資料。設定提示不代表身分授權；目前尚未串接身分驗證。</p>
-    <KitPreview key={session} recipe={recipe} onChange={onChange} catalog={catalog} session={session} />
+    </section>
+    <KitPreview key={session} split recipe={recipe} onChange={onChange} catalog={catalog} session={session} />
+    </div>
   </>;
 }

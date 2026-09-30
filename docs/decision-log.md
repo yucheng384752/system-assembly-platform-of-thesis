@@ -24,6 +24,7 @@ date: 2026-09-24
 | D11 | 2026-09-27 | Kit 分頁與可修改項目功能在重構專案實作，基線版僅作唯讀參考 | 回應 mailbox thread `20260927-kit-tab-ui-flow` 的 F15 | thread Decisions |
 | D12 | 2026-09-27 | UI 首期只做表格與下拉，不做圖表；R05 的圖表需求保留至後續階段 | 回應同一 thread 的 F08 | spec §6、thread Decisions |
 | D13 | 2026-09-27 | Composer 預覽與產出系統前端皆採 React 18 + TypeScript，共用同一套解析與 renderer；Composer GUI 以 React 重寫，不搬用基線版 `app.js` | 與 Target System 技術棧一致，預覽與正式畫面由同一解析路徑保證一致；回應 F02 | spec §6、§15、thread |
+| D14 | 2026-09-30 | Composer GUI 步驟改為 01 資料上傳 → 02 功能選配 → 03 輸出下載套件 → 04 AoV 設定（非必要填寫）；「功能選配」採汽車選配式三欄（左選項、中即時預覽、右調整），即時預覽只出現在此步驟 | 使用者指定；選項與預覽並排，修改後不必捲動即可看到結果。AoV 只是說明用途、不影響組裝，因此標為非必要 | DESIGN.md、thread `20260930-ui-design` |
 
 ## 必做項目
 

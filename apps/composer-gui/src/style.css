@@ -1,7 +1,7 @@
-﻿:root { font-family: system-ui, 'Microsoft JhengHei', sans-serif; color: var(--ink); background: var(--background); line-height: 1.65; --background: #f4f6f8; --surface: #fff; --ink: #172b3a; --muted: #40576a; --primary: #075e54; --error: #a32222; --border: #718096; --focus: #174ea6; --space-sm: .5rem; --space: 1rem; --space-lg: 1.5rem; --space-xl: 2rem; --radius: .5rem; }
+﻿:root { font-family: system-ui, 'Microsoft JhengHei', sans-serif; color: var(--ink); background: var(--background); line-height: 1.65; --background: #f4f6f8; --surface: #fff; --ink: #172b3a; --muted: #40576a; --primary: #075e54; --error: #a32222; --border: #718096; --focus: #174ea6; --preview: #e8eef2; --selected: #e4f1ee; --space-sm: .5rem; --space: 1rem; --space-lg: 1.5rem; --space-xl: 2rem; --radius: .5rem; --page-max: 90rem; --side: 22rem; --bar: 5.5rem; }
 * { box-sizing: border-box; }
 body { margin: 0; }
-header, nav, main { padding: var(--space-lg); max-width: 76rem; margin: auto; }
+header, nav, main { padding: var(--space-lg); max-width: var(--page-max); margin: auto; }
 header { border-bottom: 1px solid var(--border); }
 h1 { font-size: 2rem; } h2 { font-size: 1.5rem; } h3 { font-size: 1.25rem; }
 p { overflow-wrap: anywhere; }
@@ -17,7 +17,17 @@ input[type=checkbox] { width: 24px; height: 24px; flex: 0 0 auto; accent-color: 
 fieldset, .panel, details { min-width: 0; border: 1px solid var(--border); padding: var(--space); margin-block: var(--space); border-radius: var(--radius); background: var(--surface); }
 legend, summary { font-weight: 600; } summary { min-height: 44px; }
 .steps, [role=tablist], .step-actions, .actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
-.steps > button { flex: 1 1 14rem; text-align: left; }
+.steps > button { flex: 1 1 14rem; text-align: left; border-bottom-width: 4px; }
+.steps > button[aria-current=step] { font-weight: 700; border-bottom-color: var(--ink); }
+.configurator { display: grid; gap: var(--space); align-items: start; margin-block: var(--space); }
+.config-side, .config-center { min-width: 0; border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space); }
+.config-side { background: var(--surface); }
+.config-center { background: var(--preview); }
+.config-side h2, .config-center h2 { margin-top: 0; font-size: 1.25rem; }
+.config-center [role=tabpanel] { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space); margin-top: var(--space-sm); }
+.flow-list { display: grid; gap: var(--space-sm); }
+.flow-list .panel { margin: 0; }
+.flow-list .panel:has(input:checked) { border: 2px solid var(--primary); background: var(--selected); }
 .flow-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: var(--space); }
 .flow-grid .panel { margin: 0; }
 .setting { padding-block: var(--space-sm); display: grid; gap: var(--space-sm); }
@@ -30,5 +40,14 @@ caption { text-align: left; font-weight: 600; }
 th, td { padding: var(--space-sm); border: 1px solid var(--border); text-align: left; overflow-wrap: anywhere; }
 .skip-link { position: absolute; top: -10rem; left: 1rem; padding: 1rem; background: white; color: var(--primary); z-index: 10; }
 .skip-link:focus { top: 0; }
+/* Three columns and pinned preview/actions only when the viewport is wide and tall enough; at 200% zoom this falls back to one column. */
+@media (min-width: 64rem) {
+  .configurator { grid-template-columns: minmax(16rem, var(--side)) minmax(0, 1fr) minmax(16rem, var(--side)); }
+}
+@media (min-width: 64rem) and (min-height: 40rem) {
+  .config-center { position: sticky; top: var(--space); max-height: calc(100vh - var(--bar) - 2 * var(--space)); overflow: auto; }
+  .step-actions { position: sticky; bottom: 0; z-index: 5; background: var(--surface); border-top: 1px solid var(--border); padding-block: var(--space-sm); align-items: center; }
+}
+.step-actions [role=status] { flex: 1 1 12rem; margin: 0; }
 @media (max-width: 40rem) { header, nav, main { padding: var(--space); } .steps > button { flex-basis: 100%; } h1 { font-size: 1.5rem; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
