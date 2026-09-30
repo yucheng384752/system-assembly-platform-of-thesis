@@ -313,6 +313,19 @@ Input Adapter → Data Profiler → Task + Site constraints → Eligibility Filt
 
 **需求（2026-09-30，D16–D21，見 §4.2）：**組裝步驟前加上「Workflow 步驟 → 表單 → 已確認的表單關聯」，且 System Package 須包含 Workflow 文件及其 checksum。可執行組裝（P2）完成前，Composer 產出的壓縮檔稱「設定交付包」，不得稱為可安裝系統（D21）。壓縮檔另於 `feature/install-package` 處理；目前 Workflow 文件與 Recipe 分別下載（D28）。
 
+**設定交付包（2026-09-30，D31–D36）：**在 05 輸出下載單一 zip，內容只含實際產物；Workflow 與 Recipe 仍可分別下載。
+
+```text
+<recipe-name>-delivery-<sha12>.zip
+├─ package-manifest.json   格式、客戶代稱、Kit id／版本、各產物 path／role／sha256／bytes、notProvided
+├─ README.md               說明「是設定、不能安裝」及包含／不包含項目
+├─ config/system.recipe.json
+├─ aov/workflow.aov.json
+└─ validation/report.json  靜態檢查結果；測試環境演練與現場驗證標為「未執行」
+```
+
+zip 為 store 格式、固定順序與時間戳，相同設定產出相同位元組；manifest 不記錄產生時間。`kits/`、`frontend/`、`database/migrations/`、`permissions/`、`docs/`（手冊）、`deployment/` 未提供，列於 `notProvided`，不建立空目錄，也不附安裝腳本。靜態檢查任一未通過即不產生交付包。
+
 ```text
 <system-id>-<version>/
 ├─ system-manifest.json
