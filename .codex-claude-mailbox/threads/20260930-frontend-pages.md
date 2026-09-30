@@ -1,7 +1,7 @@
 ---
 id: "20260930-frontend-pages"
 title: "依基線四步驟重做 Composer 前端頁面（真實 Kit、無障礙）"
-status: "waiting_for_user"
+status: "completed"
 owner: "user"
 reviewer: "claude"
 priority: "high"
