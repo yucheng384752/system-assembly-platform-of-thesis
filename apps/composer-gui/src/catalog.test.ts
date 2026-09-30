@@ -13,7 +13,9 @@ test('real manifest accepts BOM, validates schema and applies D03 without mutati
 });
 test('selection expands required flows, required Kits, flow prerequisites and Kit dependencies', () => {
   const result = selectKits(kits, ['analytics']);
-  expect(result.selectedFlows).toEqual(['data-import', 'query-trace', 'analytics']);
+  // D26: tracing needs table management, so query-trace pulls in generic-forms.
+  expect(result.selectedFlows).toEqual(['data-import', 'generic-forms', 'query-trace', 'analytics']);
+  expect(result.enabledKits).toContain('generic-forms-kit');
   expect(result.enabledKits).toEqual(expect.arrayContaining(['platform-core-kit', 'entry-permission-kit', 'upload-validation-kit', 'query-traceability-kit', 'analytics-kit']));
   expect(result.reasons.join()).toContain('因為');
   // No reason may name the same thing as both cause and effect (G04: 「資料匯入」 flow and feature share a name).

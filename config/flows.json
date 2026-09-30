@@ -23,6 +23,9 @@
       "station-data-link-kit",
       "query-traceability-kit"
     ],
+    "requiresFlows": [
+      "generic-forms"
+    ],
     "subflows": [],
     "pages": [
       "查詢頁",
