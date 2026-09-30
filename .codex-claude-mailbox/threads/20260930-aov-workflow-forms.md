@@ -1,7 +1,7 @@
 ---
 id: "20260930-aov-workflow-forms"
 title: "AoV Workflow 驅動表單設定與多檔上傳（D16–D30）"
-status: "waiting_for_user"
+status: "completed"
 owner: "user"
 reviewer: "claude"
 priority: "high"
@@ -80,7 +80,10 @@ artifacts:
 - 設定交付包壓縮檔未做（D28）。
 - 瀏覽器實測以 JS 驅動原生事件，未以實體鍵盤逐一操作。
 
+# Closure
+
+2026-09-30：user 同意合併；以 `--no-ff` 合併至 main（3e50de4），合併後 build 通過、測試 41 passed、1 skipped。
+
 # Open Questions
 
-- 是否將 `feature/aov-workflow-forms` 合併回 main。
 - 論文實驗是否需要非批號共用欄位的執行期追溯（D24 缺口）。

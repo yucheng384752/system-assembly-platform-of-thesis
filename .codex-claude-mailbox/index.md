@@ -42,3 +42,5 @@
 2026-09-30 Claude：20260930-frontend-pages 已合併至 main，標為 completed；新增 20260930-ui-design，完成功能選配三欄改版與 G01–G06、G08，G07 經確認無須修改；待 user 決定是否合併。
 
 2026-09-30 Claude：docs/aov-workflow-spec（含 20260930-ui-design）已合併至 main；新增 20260930-aov-workflow-forms，完成 Workflow v2、多檔上傳、表單關聯與五步驟介面（D22–D30）；待 user 審閱與決定是否合併。
+
+2026-09-30 Claude：20260930-aov-workflow-forms 已合併至 main（3e50de4），標為 completed。
