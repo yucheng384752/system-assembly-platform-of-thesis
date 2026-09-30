@@ -21,7 +21,7 @@ test('local upload retains only fields, never writes storage or sends network; r
   render(<App />); fireEvent.click(screen.getByRole('button', { name: /01 資料上傳/ }));
   const file = new File(['名稱,數量\nPRIVATE_SAMPLE_SENTINEL,3'], 'sample.csv');
   Object.defineProperty(file, 'text', { value: async () => '名稱,數量\nPRIVATE_SAMPLE_SENTINEL,3' });
-  fireEvent.change(screen.getByLabelText('選擇資料樣本（會替換目前欄位）'), { target: { files: [file] } });
+  fireEvent.change(screen.getByLabelText('選擇 CSV / TSV'), { target: { files: [file] } });
   await waitFor(() => expect(screen.getByLabelText('欄位 1 名稱')).toBeTruthy());
   expect(document.body.textContent).not.toContain('PRIVATE_SAMPLE_SENTINEL');
   expect((screen.getByLabelText('欄位 2 型別') as HTMLSelectElement).value).toBe('integer');

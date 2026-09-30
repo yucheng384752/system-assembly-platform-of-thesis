@@ -9,7 +9,10 @@ test('real flows select prerequisites and render both real Kit previews', () => 
   expect(screen.queryByText('紀錄 Kit')).toBeNull();
   expect(screen.queryByText('tenant-auth-kit')).toBeNull();
   fireEvent.click(screen.getByRole('checkbox', { name: '資料分析' }));
-  expect((screen.getByRole('checkbox', { name: '查詢追溯（其他流程需要）' }) as HTMLInputElement).disabled).toBe(true);
+  // A prerequisite flow is locked and says why via its description, not only by being greyed out.
+  const prerequisite = screen.getByRole('checkbox', { name: '查詢追溯' }) as HTMLInputElement;
+  expect(prerequisite.disabled).toBe(true);
+  expect(document.getElementById(prerequisite.getAttribute('aria-describedby')!)?.textContent).toBe('其他流程需要');
   fireEvent.click(screen.getByRole('tab', { name: '查詢與追溯' }));
   expect(screen.getByRole('table', { name: '查詢結果範例' })).toBeTruthy();
   // Configurator: a setting in the side column updates the live preview column.

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { exportRecipe, importRecipe, type Catalog } from '../../../libs/ui-runtime/recipe';
 import type { Recipe } from '../../../libs/ui-runtime/types';
 import { downloadJson, readJsonFile } from './fileTransfer';
+import { Icon } from './Icons';
 
 export function RecipeTransfer({ recipe, onImport, catalog, legacy = false }: { recipe: Recipe; onImport: (recipe: Recipe) => void; catalog: Catalog; legacy?: boolean }) {
   const [text, setText] = useState('');
@@ -21,7 +22,7 @@ export function RecipeTransfer({ recipe, onImport, catalog, legacy = false }: { 
         const exported = exportRecipe(recipe, catalog);
         if (legacy) setText(exported);
         else downloadJson(exported, 'system.recipe.json');
-        setNotice(legacy ? '匯出成功，可複製下方 JSON 儲存；僅含已選 Kit 與子功能設定。' : '系統設定檔已下載；包含客戶名稱與已選功能的畫面設定。');
+        setNotice(legacy ? '匯出成功，可複製下方 JSON 儲存；僅含已選 Kit 與子功能設定。' : '系統設定檔已下載；包含客戶代稱與已選功能的畫面設定。');
       }
       setError('');
     } catch (failure) {
@@ -35,18 +36,27 @@ export function RecipeTransfer({ recipe, onImport, catalog, legacy = false }: { 
     {legacy && <button onClick={() => transfer(false)} disabled={!recipe.enabledKits.length}>匯出 Recipe</button>}
     <button onClick={() => transfer(true)}>匯入 Recipe</button>
   </>;
-  return <fieldset disabled={busy}><legend>系統設定檔匯入／下載</legend>
+  const errorText = <><p id="recipe-error" role={error ? 'alert' : undefined}>{error ? legacy ? error : '設定檔驗證失敗，請檢查檔案版本、所選功能與設定值。原設定已保留。' : ''}</p>
+    {!legacy && error && <details><summary>進階：驗證詳情</summary><p>{error}</p></details>}</>;
+  if (legacy) return <fieldset disabled={busy}><legend>系統設定檔匯入／下載</legend>
     <p>匯入成功會替換功能與畫面設定；失敗則保留原設定。本次表單草稿與流程說明另行保留。請勿輸入實際資料或秘密值。</p>
-    {!legacy && <>
-      <button onClick={() => transfer(false)} disabled={!recipe.enabledKits.length || !recipe.clientName?.trim()}>下載系統設定檔（Recipe JSON）</button>
-      <label htmlFor="recipe-file">選擇系統設定檔</label><input id="recipe-file" type="file" accept=".json,application/json" aria-describedby="recipe-error" onChange={async event => {
-        const file = event.target.files?.[0]; event.target.value = ''; if (!file) return; setBusy(true);
-        try { const input = await readJsonFile(file); if (mounted.current) transfer(true, input); } catch (failure) { if (mounted.current) setError(failure instanceof Error ? failure.message : '檔案讀取失敗。'); } finally { if (mounted.current) setBusy(false); }
-      }} />
-    </>}
-    {legacy ? jsonEditor : <details><summary>進階：貼上 Recipe JSON</summary>{jsonEditor}</details>}
-    <p id="recipe-error" role={error ? 'alert' : undefined}>{error ? legacy ? error : '設定檔驗證失敗，請檢查檔案版本、所選功能與設定值。原設定已保留。' : ''}</p>
-    {!legacy && error && <details><summary>進階：驗證詳情</summary><p>{error}</p></details>}
+    {jsonEditor}{errorText}
     <p role="status">{notice}</p>
+  </fieldset>;
+  return <fieldset disabled={busy}><legend className="visually-hidden">系統設定檔下載與載入</legend>
+    <div className="file-card"><Icon name="file" /><div>
+      <strong>system.recipe.json</strong><p className="muted">保存客戶代稱、功能選擇與畫面設定。</p>
+      <button className="primary" onClick={() => transfer(false)} disabled={!recipe.enabledKits.length || !recipe.clientName?.trim()}><Icon name="download" />下載系統設定檔</button>
+    </div></div>
+    <p role="status">{notice}</p>
+    <h3>載入既有設定</h3><p className="muted">選擇已有的系統設定檔，匯入以套用相同設定。</p>
+    <input id="recipe-file" className="file-input" type="file" accept=".json,application/json" aria-describedby="recipe-error recipe-note" onChange={async event => {
+      const file = event.target.files?.[0]; event.target.value = ''; if (!file) return; setBusy(true);
+      try { const input = await readJsonFile(file); if (mounted.current) transfer(true, input); } catch (failure) { if (mounted.current) setError(failure instanceof Error ? failure.message : '檔案讀取失敗。'); } finally { if (mounted.current) setBusy(false); }
+    }} />
+    <label htmlFor="recipe-file" className="file-button"><Icon name="folder" />選擇 JSON 檔案</label>
+    <details><summary>進階：貼上 Recipe JSON</summary>{jsonEditor}</details>
+    {errorText}
+    <p id="recipe-note" className="column-foot"><Icon name="info" />匯入成功會替換目前功能與畫面設定；失敗則保留原設定。表單草稿與流程說明另行保留。</p>
   </fieldset>;
 }

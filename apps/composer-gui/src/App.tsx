@@ -28,14 +28,14 @@ export function App() {
   const [aov, setAov] = useState(emptyAov);
   const [session, setSession] = useState(0);
   const stepError = (step: number) => step === 0 ? formError(form)
-    : step === 2 && !recipe.clientName?.trim() ? '請填寫客戶名稱。'
+    : step === 2 && !recipe.clientName?.trim() ? '請填寫客戶代稱。'
       : step === 3 && aov.steps.some(s => !s.name.trim()) ? '請填寫每個步驟的名稱。' : '';
   return <StepShell stepError={stepError} renderStep={step => step === 1
     ? <FlowPage recipe={recipe} onChange={setRecipe} requested={requested} manual={manual} session={session} onSelect={(nextFlows, nextKits) => {
       const selection = selectKits(catalog.kits, nextFlows, nextKits);
       setRequested(nextFlows); setManual(nextKits); setRecipe(previous => withSelection(previous, selection.enabledKits));
     }} /> : step === 0 ? <DataPage form={form} onChange={setForm} /> : step === 3 ? <AovPage value={aov} onChange={setAov} form={form} />
-      : <OutputPage recipe={recipe} onChange={setRecipe} onImport={next => {
+      : <OutputPage recipe={recipe} selectedFlows={selectKits(catalog.kits, requested, manual).selectedFlows} onChange={setRecipe} onImport={next => {
         // Validate required flow membership before replacing any part of the session.
         const importedFlows = flows.filter(f => f.kits.every(id => next.enabledKits.includes(id))).map(f => f.id);
         const selection = selectKits(catalog.kits, importedFlows);

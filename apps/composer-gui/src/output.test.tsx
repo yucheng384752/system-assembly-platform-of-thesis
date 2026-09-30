@@ -24,7 +24,7 @@ test('real file downloads contain validated recipe and independent AOV, never up
   fireEvent.click(screen.getByRole('button', { name: /01 資料上傳/ }));
   const file = new File(['name\nPRIVATE_UPLOAD_SENTINEL'], 'sample.csv');
   Object.defineProperty(file, 'text', { value: async () => 'name\nPRIVATE_UPLOAD_SENTINEL' });
-  fireEvent.change(screen.getByLabelText('選擇資料樣本（會替換目前欄位）'), { target: { files: [file] } });
+  fireEvent.change(screen.getByLabelText('選擇 CSV / TSV'), { target: { files: [file] } });
   await waitFor(() => expect(screen.getByLabelText('欄位 1 名稱')).toBeTruthy());
   fireEvent.click(screen.getByRole('button', { name: /04 AoV 設定/ }));
   fireEvent.click(screen.getByRole('button', { name: '新增步驟' }));
@@ -33,10 +33,10 @@ test('real file downloads contain validated recipe and independent AOV, never up
   fireEvent.click(screen.getByRole('button', { name: /03 輸出/ }));
   expect(screen.getByText(/部署套件產生功能尚未提供/)).toBeTruthy();
   // Output cannot be confirmed until the required client name is filled (G05).
-  expect((screen.getByRole('button', { name: '確認本步驟並繼續' }) as HTMLButtonElement).disabled).toBe(true);
-  fireEvent.change(screen.getByLabelText('客戶名稱'), { target: { value: '示範客戶' } });
-  expect((screen.getByRole('button', { name: '確認本步驟並繼續' }) as HTMLButtonElement).disabled).toBe(false);
-  fireEvent.click(screen.getByRole('button', { name: '下載系統設定檔（Recipe JSON）' }));
+  expect((screen.getByRole('button', { name: '確認並繼續' }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.change(screen.getByLabelText('客戶代稱'), { target: { value: '示範客戶' } });
+  expect((screen.getByRole('button', { name: '確認並繼續' }) as HTMLButtonElement).disabled).toBe(false);
+  fireEvent.click(screen.getByRole('button', { name: '下載系統設定檔' }));
   expect(contents).toHaveLength(2); const output = JSON.parse(contents[1]);
   validateSchema('recipe', output); expect(output.clientName).toBe('示範客戶');
   expect(output.enabledKits).toEqual(initialRecipe.enabledKits);
@@ -51,7 +51,7 @@ test('Recipe file import is atomic and restores flow selection and editor settin
   fireEvent.click(screen.getByRole('tab', { name: '查詢與追溯' }));
   fireEvent.change(screen.getByLabelText('批號的名稱'), { target: { value: '保留中的欄位' } });
   fireEvent.click(screen.getByRole('button', { name: /03 輸出/ }));
-  const input = screen.getByLabelText('選擇系統設定檔');
+  const input = screen.getByLabelText('選擇 JSON 檔案');
   const invalid = new File(['{}'], 'invalid.json'); Object.defineProperty(invalid, 'text', { value: async () => '{}' });
   fireEvent.change(input, { target: { files: [invalid] } });
   await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('原設定已保留'));
@@ -61,8 +61,8 @@ test('Recipe file import is atomic and restores flow selection and editor settin
   fireEvent.click(screen.getByRole('button', { name: /03 輸出/ }));
   const good = new File([''], 'valid.json');
   Object.defineProperty(good, 'text', { value: async () => exportRecipe({ ...initialRecipe, clientName: '匯入客戶' }, catalog) });
-  fireEvent.change(screen.getByLabelText('選擇系統設定檔'), { target: { files: [good] } });
-  await waitFor(() => expect((screen.getByLabelText('客戶名稱') as HTMLInputElement).value).toBe('匯入客戶'));
+  fireEvent.change(screen.getByLabelText('選擇 JSON 檔案'), { target: { files: [good] } });
+  await waitFor(() => expect((screen.getByLabelText('客戶代稱') as HTMLInputElement).value).toBe('匯入客戶'));
   fireEvent.click(screen.getByRole('button', { name: /02 功能選配/ }));
   expect(screen.queryByRole('tab', { name: '查詢與追溯' })).toBeNull();
   expect((screen.getByRole('checkbox', { name: '查詢追溯' }) as HTMLInputElement).checked).toBe(false);

@@ -3,6 +3,8 @@ import type { Recipe } from '../../../libs/ui-runtime/types';
 import { flows, selectKits } from './catalog';
 import { catalog } from './previewCatalog';
 import { KitPreview } from './KitPreview';
+import { Column } from './Column';
+import { Icon } from './Icons';
 
 const descriptions: Record<string, string> = {
   'data-import': '選擇上傳、檢查與匯入資料所需的功能。',
@@ -19,19 +21,23 @@ export function FlowPage({ recipe, onChange, requested, manual, onSelect, sessio
   const selection = selectKits(catalog.kits, requested, manual);
   const fixed = selectKits(catalog.kits, requested).enabledKits;
   return <>
-    <p>選擇工作需要的流程，系統會加入必要功能。此處為設定與模擬預覽，尚未執行資料匯入或組裝部署。</p>
-    <div className="configurator"><section className="config-side" aria-labelledby="options-title">
-    <h2 id="options-title">選擇業務流程</h2>
-    <fieldset><legend>業務流程</legend><div className="flow-list">{flows.map(flow => {
+    <p className="visually-hidden">此處為設定與模擬預覽，尚未執行資料匯入或組裝部署。</p>
+    <div className="columns">
+    <Column id="flows" title="業務流程選擇" lead="選擇本次需要的功能模組。"
+      aside={<small className="column-foot"><Icon name="info" />必要功能已自動加入</small>}>
+    <fieldset><legend className="visually-hidden">業務流程</legend><div className="flow-list">{flows.map(flow => {
       const checked = selection.selectedFlows.includes(flow.id);
       const prerequisite = flows.some(f => selection.selectedFlows.includes(f.id) && f.requiresFlows?.includes(flow.id));
-      return <div className="panel" key={flow.id}><label><input type="checkbox" checked={checked} disabled={flow.required || prerequisite}
-        onChange={event => onSelect(event.target.checked ? [...requested, flow.id] : requested.filter(id => id !== flow.id), manual)} />{flow.name}{flow.required ? '（必要流程）' : prerequisite ? '（其他流程需要）' : ''}</label>
-        <p>{descriptions[flow.id]}</p>{flow.subflows.map(sub => <p key={sub.id}>{sub.name}：{sub.description}</p>)}</div>;
+      const note = flow.required ? '必要' : prerequisite ? '其他流程需要' : '';
+      return <div className="flow-card" key={flow.id}><div className="flow-title"><label><input type="checkbox" checked={checked} disabled={flow.required || prerequisite}
+        aria-describedby={note ? `${flow.id}-note` : undefined}
+        onChange={event => onSelect(event.target.checked ? [...requested, flow.id] : requested.filter(id => id !== flow.id), manual)} /><strong>{flow.name}</strong>{flow.required && <Icon name="lock" />}</label>
+        {note && <span id={`${flow.id}-note`} className="badge badge-selected">{note}</span>}</div>
+        <p className="muted">{descriptions[flow.id]}</p>{flow.subflows.map(sub => <p key={sub.id} className="muted"><small>{sub.name}：{sub.description}</small></p>)}</div>;
     })}</div></fieldset>
-    <section aria-labelledby="auto-title"><h3 id="auto-title">自動加入的功能</h3>
-      <p role="status">目前選了 {selection.selectedFlows.length} 個流程、{recipe.enabledKits.length} 項功能。</p>
-      <ul>{selection.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>
+    <section aria-labelledby="auto-title"><h3 id="auto-title" className="actions"><Icon name="link" />相依功能</h3>
+      <p role="status" className="muted">目前選了 {selection.selectedFlows.length} 個流程、{recipe.enabledKits.length} 項功能。</p>
+      <ul className="note">{selection.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>
     </section>
     <details><summary>進階：功能目錄與搜尋</summary>
       <label htmlFor="kit-search">搜尋功能名稱或識別碼</label><input id="kit-search" type="search" value={search} onChange={e => setSearch(e.target.value)} />
@@ -41,7 +47,7 @@ export function FlowPage({ recipe, onChange, requested, manual, onSelect, sessio
       </label>)}
       <p>必要或相依功能不能直接取消；請先取消需要它的流程或功能。</p>
     </details>
-    </section>
+    </Column>
     <KitPreview key={session} split recipe={recipe} onChange={onChange} catalog={catalog} session={session} />
     </div>
   </>;

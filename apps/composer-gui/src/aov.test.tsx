@@ -36,3 +36,15 @@ test('native keyboard-activatable controls add, move and delete with focus; fail
   expect(document.activeElement).toBe(screen.getByLabelText('步驟 1 名稱'));
   expect((document.activeElement as HTMLInputElement).value).toBe('第一個');
 });
+test('the step list selects which step the middle column edits, and moves focus there', () => {
+  render(<App />); fireEvent.click(screen.getByRole('button', { name: /04 AoV 設定/ }));
+  const add = screen.getByRole('button', { name: '新增步驟' });
+  fireEvent.click(add); fireEvent.change(screen.getByLabelText('步驟 1 名稱'), { target: { value: '填寫紀錄' } });
+  fireEvent.click(add); fireEvent.change(screen.getByLabelText('步驟 2 名稱'), { target: { value: '核對資料' } });
+  // Only the selected step is editable, so edits cannot land on a step the user is not looking at.
+  expect(screen.queryByLabelText('步驟 1 名稱')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: /^01 填寫紀錄/ }));
+  expect(document.activeElement).toBe(screen.getByLabelText('步驟 1 名稱'));
+  expect(screen.getByRole('button', { name: /^01 填寫紀錄/ }).getAttribute('aria-current')).toBe('true');
+  expect(screen.getByRole('heading', { name: '編輯步驟 01' })).toBeTruthy();
+});

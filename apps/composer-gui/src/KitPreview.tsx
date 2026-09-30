@@ -4,6 +4,8 @@ import { Renderer } from '../../../libs/ui-runtime/Renderer';
 import type { Recipe } from '../../../libs/ui-runtime/types';
 import type { Catalog } from '../../../libs/ui-runtime/recipe';
 import { SettingsEditor } from './SettingsEditor';
+import { Column } from './Column';
+import { Icon } from './Icons';
 import './style.css';
 
 // split: renders the preview column and the settings column as two siblings for the configurator grid.
@@ -54,14 +56,15 @@ export function KitPreview({ recipe, onChange, catalog, session = 0, legacy = fa
   </>;
   if (!split) return <>{tabs}{panel(!definition ? noScreen : <>{settings}{previewRegion}</>)}</>;
   return <>
-    <section className="config-center" role="region" aria-labelledby="preview-title" tabIndex={0}>
-      <h2 id="preview-title">即時預覽</h2><p className="muted">只使用模擬資料，依右側設定即時更新。</p>
+    <section className="column column-preview" role="region" aria-labelledby="preview-title" tabIndex={0}>
+      <div className="column-head"><h2 id="preview-title">即時預覽</h2><span className="badge"><Icon name="file" />模擬資料</span></div>
+      <p className="lead">根據所選功能，預覽實際應用畫面與資料。</p>
       {tabs}{panel(!definition ? noScreen : previewRegion)}
+      <p className="column-foot"><Icon name="info" />依右側設定更新，尚未執行資料匯入。</p>
     </section>
-    <section className="config-side" aria-labelledby="adjust-title">
-      <h2 id="adjust-title">調整「{active.displayName}」</h2>
-      <p className="muted">設定提示不代表身分授權；目前尚未串接身分驗證。</p>
+    <Column id="adjust" title={`調整${active.displayName}`} lead="設定所選功能的顯示方式與順序。">
       {settings || <p>此功能沒有可調整的項目。</p>}
-    </section>
+      <p className="column-foot"><Icon name="info" />角色提示不代表身分授權；目前尚未串接身分驗證。</p>
+    </Column>
   </>;
 }

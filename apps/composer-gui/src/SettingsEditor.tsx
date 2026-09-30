@@ -15,7 +15,7 @@ export function SettingsEditor({ kit, recipe, onChange, legacy = false }: { kit:
       setErrors(previous => ({ ...previous, [id]: error }));
     }
     return <div key={id} className="setting"><label htmlFor={id}>{option.displayName}</label>
-      {option.type === 'boolean' ? <input id={id} aria-describedby={`${id}-error`} type="checkbox" checked={Boolean(value)} onChange={e => change(e.target.checked)} />
+      {option.type === 'boolean' ? <label className="switch-wrap"><input id={id} className="switch" role="switch" aria-describedby={`${id}-error`} type="checkbox" checked={Boolean(value)} onChange={e => change(e.target.checked)} /></label>
         : option.target.property === 'options' ? <textarea id={id} value={drafts[id] ?? String(value)} onChange={e => change(e.target.value)} aria-describedby={`${id}-error`} />
         : <input id={id} type={option.type === 'number' ? 'number' : 'text'} min={option.range?.minimum} max={option.range?.maximum} value={drafts[id] ?? String(value)} onChange={e => change(e.target.value)} aria-describedby={`${id}-error`} />}
       {legacy ? <small>{option.change_level} / 角色提示：{option.allowed_roles.join(', ')} / {option.risk}；來源：{Object.hasOwn(recipe.selectedSubfeatureOptions[key] ?? {}, option.id) ? 'Recipe 覆寫' : 'Kit 預設'}</small> : <>
