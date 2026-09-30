@@ -3,10 +3,12 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 export const steps = ['01 資料上傳', '02 功能選配', '03 輸出下載套件', '04 AoV 設定'];
 // Optional steps may be skipped; they are never shown as pending.
 export const optionalSteps = [3];
-export function StepShell({ renderStep }: { renderStep: (step: number) => ReactNode }) {
+// stepError: a non-empty message blocks confirming that step until the content is fixed.
+export function StepShell({ renderStep, stepError = () => '' }: { renderStep: (step: number) => ReactNode; stepError?: (step: number) => string }) {
   const [step, setStep] = useState(0);
   const [completed, setCompleted] = useState<number[]>([]);
   const heading = useRef<HTMLHeadingElement>(null);
+  const error = stepError(step);
   const shown = useRef(step);
   // Focus moves only on step change (not on load, nor on StrictMode effect replay) so the first Tab reaches the skip link.
   useEffect(() => { if (shown.current !== step) { shown.current = step; heading.current?.focus(); } }, [step]);
@@ -25,8 +27,8 @@ export function StepShell({ renderStep }: { renderStep: (step: number) => ReactN
       {renderStep(step)}
       <footer className="step-actions">
         {step > 0 && <button onClick={() => setStep(step - 1)}>上一步</button>}
-        <button onClick={() => { setCompleted(previous => [...new Set([...previous, step])]); if (step < steps.length - 1) setStep(step + 1); }}>確認本步驟{step < steps.length - 1 ? '並繼續' : ''}</button>
-        <p role="status">{completed.includes(step) ? '已確認本步驟；修改後請再次確認。' : optionalSteps.includes(step) ? '此步驟非必要填寫。' : '請確認本步驟內容。'}</p>
+        <button disabled={Boolean(error)} aria-describedby="step-status" onClick={() => { setCompleted(previous => [...new Set([...previous, step])]); if (step < steps.length - 1) setStep(step + 1); }}>確認本步驟{step < steps.length - 1 ? '並繼續' : ''}</button>
+        <p id="step-status" role="status">{error ? `尚無法確認本步驟：${error}` : completed.includes(step) ? '已確認本步驟；修改後請再次確認。' : optionalSteps.includes(step) ? '此步驟非必要填寫。' : '請確認本步驟內容。'}</p>
       </footer>
     </main>
   </>;

@@ -23,3 +23,14 @@ test('keyboard steps expose current and confirmed state and focus the sole h1', 
   fireEvent.keyDown(screen.getByRole('button', { name: new RegExp(steps[2]) }), { key: 'End' });
   expect(document.activeElement?.textContent).toBe(steps[3]);
 });
+test('a step with validation errors cannot be marked confirmed, so "已確認" never hides broken content', () => {
+  let error = '請填寫表單名稱。';
+  const { rerender } = render(<StepShell stepError={step => step === 0 ? error : ''} renderStep={step => <p>內容 {step}</p>} />);
+  const confirm = screen.getByRole('button', { name: '確認本步驟並繼續' }) as HTMLButtonElement;
+  expect(confirm.disabled).toBe(true);
+  expect(screen.getByRole('status').textContent).toContain('請填寫表單名稱');
+  error = '';
+  rerender(<StepShell stepError={step => step === 0 ? error : ''} renderStep={step => <p>內容 {step}</p>} />);
+  fireEvent.click(screen.getByRole('button', { name: '確認本步驟並繼續' }));
+  expect(screen.getByRole('button', { name: `${steps[0]}（已確認）` })).toBeTruthy();
+});

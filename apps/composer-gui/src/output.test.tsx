@@ -32,7 +32,10 @@ test('real file downloads contain validated recipe and independent AOV, never up
   validateSchema('aov', JSON.parse(contents[0]));
   fireEvent.click(screen.getByRole('button', { name: /03 輸出/ }));
   expect(screen.getByText(/部署套件產生功能尚未提供/)).toBeTruthy();
+  // Output cannot be confirmed until the required client name is filled (G05).
+  expect((screen.getByRole('button', { name: '確認本步驟並繼續' }) as HTMLButtonElement).disabled).toBe(true);
   fireEvent.change(screen.getByLabelText('客戶名稱'), { target: { value: '示範客戶' } });
+  expect((screen.getByRole('button', { name: '確認本步驟並繼續' }) as HTMLButtonElement).disabled).toBe(false);
   fireEvent.click(screen.getByRole('button', { name: '下載系統設定檔（Recipe JSON）' }));
   expect(contents).toHaveLength(2); const output = JSON.parse(contents[1]);
   validateSchema('recipe', output); expect(output.clientName).toBe('示範客戶');
