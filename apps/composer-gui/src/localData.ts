@@ -1,9 +1,14 @@
 export const fieldTypes = { text: '文字', integer: '整數', decimal: '小數', boolean: '是／否', date: '日期' };
 export type FieldType = keyof typeof fieldTypes;
-export interface FormField { id: string; name: string; type: FieldType; required: boolean }
+// isKey marks a shared identifier (e.g. lot number) that may link forms (spec 4.2, D19).
+export interface FormField { id: string; name: string; type: FieldType; required: boolean; isKey: boolean }
 export interface FormDraft { id: string; name: string; fields: FormField[] }
 export const emptyForm: FormDraft = { id: 'form-1', name: '我的表單', fields: [] };
 export const MAX_FILE_BYTES = 2 * 1024 * 1024;
+// Multi-file limits per selection and per Workflow (D25).
+export const MAX_FILES = 10;
+export const MAX_TOTAL_BYTES = 20 * 1024 * 1024;
+export const MAX_FORMS = 50;
 
 function inferType(value: string): FieldType {
   if (/^(true|false)$/i.test(value)) return 'boolean';
@@ -31,7 +36,7 @@ export function inferFields(text: string, separator: ',' | '\t'): FormField[] {
     if (rowCount === 0) {
       const headers = row.map(v => v.trim());
       if (headers.some(v => !v || v.length > 100) || new Set(headers).size !== headers.length) throw new Error('第一列須為不重複且非空白的欄位名稱，每個名稱最多 100 字。');
-      fields = headers.map((name, index) => ({ id: `field-${index + 1}`, name, type: 'text', required: true }));
+      fields = headers.map((name, index) => ({ id: `field-${index + 1}`, name, type: 'text', required: true, isKey: false }));
     } else {
       if (row.length !== fields.length) throw new Error(`第 ${rowCount + 1} 列的欄位數與標題不一致。`);
       row.forEach((value, index) => {
@@ -71,4 +76,25 @@ export function formError(form: FormDraft): string {
   if (form.fields.some(f => !f.name.trim())) return '請填寫每個欄位的名稱。';
   if (new Set(form.fields.map(f => f.name.trim())).size !== form.fields.length) return '欄位名稱不能重複。';
   return '';
+}
+
+export interface UploadResult { forms: Omit<FormDraft, 'id'>[]; failures: { file: string; message: string }[] }
+// Each file is inferred independently; failures are reported per file, never skipped silently (D25).
+// The form name defaults to the file name without extension; the page reminds users to de-identify it (D27).
+export async function inferForms(files: File[], existingForms: number): Promise<UploadResult> {
+  if (files.length > MAX_FILES) throw new Error(`一次最多選擇 ${MAX_FILES} 個檔案。`);
+  if (files.reduce((total, file) => total + file.size, 0) > MAX_TOTAL_BYTES) throw new Error('所選檔案合計不可超過 20 MB。');
+  if (existingForms + files.length > MAX_FORMS) throw new Error(`流程最多 ${MAX_FORMS} 張表單，目前已有 ${existingForms} 張。`);
+  const result: UploadResult = { forms: [], failures: [] };
+  for (const file of files) {
+    try {
+      if (!/\.(csv|tsv)$/i.test(file.name)) throw new Error('請選擇 CSV 或 TSV 檔案。');
+      if (file.size > MAX_FILE_BYTES) throw new Error('檔案不可超過 2 MB。');
+      const fields = inferFields(await file.text(), /\.tsv$/i.test(file.name) ? '\t' : ',');
+      result.forms.push({ name: file.name.replace(/\.(csv|tsv)$/i, '').trim().slice(0, 100) || '未命名表單', fields });
+    } catch (failure) {
+      result.failures.push({ file: file.name, message: failure instanceof Error ? failure.message : '無法讀取檔案。' });
+    }
+  }
+  return result;
 }

@@ -73,7 +73,7 @@ export function DataPage({ form, onChange }: { form: FormDraft; onChange: (form:
           <button id="add-field" disabled={form.fields.length >= 100} onClick={() => {
             let id: string; do { id = `manual-${++sequence.current}`; } while (form.fields.some(f => f.id === id));
             focus.current = `${id}-name`; selectName.current = true;
-            onChange({ ...form, fields: [...form.fields, { id, name: `新欄位 ${form.fields.length + 1}`, type: 'text', required: false }] });
+            onChange({ ...form, fields: [...form.fields, { id, name: `新欄位 ${form.fields.length + 1}`, type: 'text', required: false, isKey: false }] });
             setNotice('已新增欄位，請填寫名稱並選擇型別。');
           }}><Icon name="plus" />新增欄位</button>
           <button onClick={() => { onChange({ ...form, fields: [] }); setNotice('欄位設定已清除。'); }}><Icon name="trash" />清除全部欄位</button>
