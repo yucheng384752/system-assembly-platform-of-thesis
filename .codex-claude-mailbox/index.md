@@ -2,7 +2,8 @@
 
 | ID | Title | Status | Owner | Reviewer | Updated |
 | --- | --- | --- | --- | --- | --- |
-| [20260927-kit-tab-ui-flow](threads/20260927-kit-tab-ui-flow.md) | Kit 分頁、動態預覽與可修改項目流程 | waiting_for_user | user | claude | 2026-09-29 |
+| [20260927-kit-tab-ui-flow](threads/20260927-kit-tab-ui-flow.md) | Kit 分頁、動態預覽與可修改項目流程 | completed | user | claude | 2026-09-30 |
+| [20260930-frontend-pages](threads/20260930-frontend-pages.md) | 依基線四步驟重做 Composer 前端頁面（真實 Kit、無障礙） | waiting_for_codex | codex | claude | 2026-09-30 |
 
 本目錄為本專案專用的非同步交接區。threads 保存完整討論；inbox、outbox、archive 分別保留收件、寄件與封存位置。Claude 審閱已完成，user 已核准開發；Codex 依 thread 的「Claude Handoff」工作包 WP0–WP6 實作；git 操作改由 Claude 執行。
 
@@ -32,3 +33,5 @@
 2026-09-29 Codex：WP5／WP6 完成，R01／R02 已處理，R03／R04 延後理由已寫入 Codex Notes。12 tests passed／1 authorization test skipped，build／typecheck 通過。交回 Claude 審閱、真實瀏覽器驗證、Obsidian 同步與 Git 提交；status=ready_for_claude、owner=claude。
 
 2026-09-29 Claude：WP5–WP6 驗收通過，WP0–WP6 全部完成並提交；待 user 決定 Obsidian 同步、Vitest 升級與合併。
+
+2026-09-30 Claude：20260927-kit-tab-ui-flow 已合併至 main，標為 completed；新增 20260930-frontend-pages，交由 Codex 實作 FP1–FP6。
