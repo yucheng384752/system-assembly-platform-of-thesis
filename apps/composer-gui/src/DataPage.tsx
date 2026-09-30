@@ -9,7 +9,14 @@ export function DataPage({ form, onChange }: { form: FormDraft; onChange: (form:
   const mounted = useRef(true);
   const focus = useRef('');
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
-  useLayoutEffect(() => { if (focus.current) { document.getElementById(focus.current)?.focus(); focus.current = ''; } }, [form]);
+  // A newly added row selects its placeholder name so typing replaces it instead of appending (G03).
+  const selectName = useRef(false);
+  useLayoutEffect(() => {
+    if (!focus.current) return;
+    const target = document.getElementById(focus.current); target?.focus();
+    if (selectName.current && target instanceof HTMLInputElement) target.select();
+    focus.current = ''; selectName.current = false;
+  }, [form]);
   const validation = formError(form);
   return <>
     <p id="privacy-note">請只上傳已去識別化的 CSV 或 TSV 樣本（2 MB 以下、最多 100 欄與 10000 筆）。檔案只在瀏覽器記憶體解析，不上傳、不保存原始資料列。</p>
@@ -44,7 +51,7 @@ export function DataPage({ form, onChange }: { form: FormDraft; onChange: (form:
       </fieldset>)}
       <button id="add-field" disabled={form.fields.length >= 100} onClick={() => {
         let id: string; do { id = `manual-${++sequence.current}`; } while (form.fields.some(f => f.id === id));
-        focus.current = `${id}-name`;
+        focus.current = `${id}-name`; selectName.current = true;
         onChange({ ...form, fields: [...form.fields, { id, name: `新欄位 ${form.fields.length + 1}`, type: 'text', required: false }] });
         setNotice('已新增欄位，請填寫名稱並選擇型別。');
       }}>新增欄位</button>

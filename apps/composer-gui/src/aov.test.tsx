@@ -16,11 +16,17 @@ test('native keyboard-activatable controls add, move and delete with focus; fail
   // Native button click is the browser's activation result for Enter/Space; no pointer-only handler.
   fireEvent.click(add);
   expect(document.activeElement).toBe(screen.getByLabelText('步驟 1 名稱'));
+  // New step selects its placeholder so typing replaces it rather than producing 「新步驟 1收料檢查」 (G03).
+  const added = document.activeElement as HTMLInputElement;
+  expect([added.selectionStart, added.selectionEnd]).toEqual([0, added.value.length]);
   fireEvent.change(document.activeElement!, { target: { value: '第一個' } }); fireEvent.click(add);
   fireEvent.change(screen.getByLabelText('步驟 2 名稱'), { target: { value: '第二個' } });
   const move = screen.getByRole('button', { name: '上移步驟 2' }); move.focus(); fireEvent.click(move);
   expect((screen.getByLabelText('步驟 1 名稱') as HTMLInputElement).value).toBe('第二個');
   expect(document.activeElement).toBe(screen.getByLabelText('步驟 1 名稱'));
+  // Moving an existing step keeps its name unselected so a stray keystroke cannot wipe it.
+  const moved = document.activeElement as HTMLInputElement;
+  expect(moved.selectionEnd! - moved.selectionStart!).toBe(0);
   fireEvent.click(screen.getByText('進階：貼上流程 JSON'));
   fireEvent.change(screen.getByLabelText('流程 JSON'), { target: { value: '{"steps":[]}' } });
   fireEvent.click(screen.getByRole('button', { name: '匯入流程 JSON' }));

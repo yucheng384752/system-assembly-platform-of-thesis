@@ -10,7 +10,14 @@ export function AovPage({ value, onChange, form }: { value: AovDocument; onChang
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const formIds = form.fields.length && !formError(form) ? [form.id] : [];
-  useLayoutEffect(() => { if (focus.current) { document.getElementById(focus.current)?.focus(); focus.current = ''; } }, [value]);
+  // A newly added row selects its placeholder name so typing replaces it instead of appending (G03).
+  const selectName = useRef(false);
+  useLayoutEffect(() => {
+    if (!focus.current) return;
+    const target = document.getElementById(focus.current); target?.focus();
+    if (selectName.current && target instanceof HTMLInputElement) target.select();
+    focus.current = ''; selectName.current = false;
+  }, [value]);
   function update(id: string, key: 'name' | 'when' | 'owner' | 'formId', next: string) {
     onChange({ ...value, steps: value.steps.map(s => s.id === id ? { ...s, [key]: next } : s) });
   }
@@ -47,7 +54,7 @@ export function AovPage({ value, onChange, form }: { value: AovDocument; onChang
       </li>)}</ol>
       <button id="add-step" disabled={value.steps.length >= 100} onClick={() => {
         let count = 1; while (value.steps.some(s => s.id === `step-${count}`)) count++;
-        const id = `step-${count}`; focus.current = `${id}-name`;
+        const id = `step-${count}`; focus.current = `${id}-name`; selectName.current = true;
         onChange({ ...value, steps: [...value.steps, { id, name: `新步驟 ${value.steps.length + 1}`, when: '', owner: '', formId: '' }] }); setNotice('已新增步驟。');
       }}>新增步驟</button>
       <button onClick={() => transfer(false)}>下載流程規格</button>

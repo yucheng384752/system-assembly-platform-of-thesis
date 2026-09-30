@@ -29,6 +29,11 @@ test('local upload retains only fields, never writes storage or sends network; r
   fireEvent.click(screen.getByRole('button', { name: /02 功能選配/ }));
   fireEvent.click(screen.getByRole('button', { name: /01 資料上傳/ }));
   expect((screen.getByLabelText('欄位 1 名稱') as HTMLInputElement).value).toBe('自訂名稱');
+  // A new field selects its placeholder name so typing replaces it (G03).
+  fireEvent.click(screen.getByRole('button', { name: '新增欄位' }));
+  const added = screen.getByLabelText('欄位 3 名稱') as HTMLInputElement;
+  expect(document.activeElement).toBe(added);
+  expect([added.selectionStart, added.selectionEnd]).toEqual([0, added.value.length]);
   expect(exportRecipe(initialRecipe, catalog)).not.toMatch(/PRIVATE_SAMPLE_SENTINEL|自訂名稱/);
   expect(fetch).not.toHaveBeenCalled(); expect(xhr).not.toHaveBeenCalled(); expect(storage).not.toHaveBeenCalled();
 });
