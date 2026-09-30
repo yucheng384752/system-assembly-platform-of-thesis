@@ -1,16 +1,34 @@
-:root { font-family: system-ui, sans-serif; color: #183044; background: #f4f6f8; }
+﻿:root { font-family: system-ui, 'Microsoft JhengHei', sans-serif; color: var(--ink); background: var(--background); line-height: 1.65; --background: #f4f6f8; --surface: #fff; --ink: #172b3a; --muted: #40576a; --primary: #075e54; --error: #a32222; --border: #718096; --focus: #174ea6; --space-sm: .5rem; --space: 1rem; --space-lg: 1.5rem; --space-xl: 2rem; --radius: .5rem; }
+* { box-sizing: border-box; }
 body { margin: 0; }
-main { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
-fieldset, section { margin: 1rem 0; padding: 1rem; border: 1px solid #b4c3cd; border-radius: 6px; background: white; }
-fieldset > label { display: inline-block; margin-right: 1.25rem; }
-button, input, select, textarea { font: inherit; }
-button { padding: .5rem .8rem; cursor: pointer; }
-[aria-selected="true"] { color: white; background: #245775; }
-:focus-visible { outline: 3px solid #b35300; outline-offset: 2px; }
-.setting { display: grid; grid-template-columns: 15rem minmax(5rem, 1fr); gap: .3rem 1rem; margin: .8rem 0; }
-.setting small, .setting [role="alert"] { grid-column: 2; }
-[role="alert"] { color: #9c2020; }
-table { border-collapse: collapse; margin: 1rem 0; }
-td, th { padding: .5rem; border: 1px solid #b4c3cd; text-align: left; }
-textarea { min-height: 5rem; }
-@media (max-width: 600px) { .setting { display: flex; flex-direction: column; } }
+header, nav, main { padding: var(--space-lg); max-width: 76rem; margin: auto; }
+header { border-bottom: 1px solid var(--border); }
+h1 { font-size: 2rem; } h2 { font-size: 1.5rem; } h3 { font-size: 1.25rem; }
+p { overflow-wrap: anywhere; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button, input:not([type=checkbox]), select, textarea { min-height: 44px; max-width: 100%; border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-sm); background: var(--surface); }
+button, summary { cursor: pointer; }
+button { padding-inline: var(--space); }
+button:disabled { cursor: default; color: var(--muted); border-style: dashed; }
+button[aria-current=step], button[aria-selected=true] { background: var(--primary); color: white; border-color: var(--primary); }
+:focus-visible, h1:focus { outline: 3px solid var(--focus); outline-offset: 3px; }
+label { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); min-height: 44px; }
+input[type=checkbox] { width: 24px; height: 24px; flex: 0 0 auto; accent-color: var(--primary); }
+fieldset, .panel, details { min-width: 0; border: 1px solid var(--border); padding: var(--space); margin-block: var(--space); border-radius: var(--radius); background: var(--surface); }
+legend, summary { font-weight: 600; } summary { min-height: 44px; }
+.steps, [role=tablist], .step-actions, .actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.steps > button { flex: 1 1 14rem; text-align: left; }
+.flow-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: var(--space); }
+.flow-grid .panel { margin: 0; }
+.setting { padding-block: var(--space-sm); display: grid; gap: var(--space-sm); }
+small, .muted { color: var(--muted); }
+[role=alert] { color: var(--error); font-weight: 600; }
+textarea { display: block; width: 100%; }
+.table-scroll { max-width: 100%; overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; margin-block: var(--space); }
+caption { text-align: left; font-weight: 600; }
+th, td { padding: var(--space-sm); border: 1px solid var(--border); text-align: left; overflow-wrap: anywhere; }
+.skip-link { position: absolute; top: -10rem; left: 1rem; padding: 1rem; background: white; color: var(--primary); z-index: 10; }
+.skip-link:focus { top: 0; }
+@media (max-width: 40rem) { header, nav, main { padding: var(--space); } .steps > button { flex-basis: 100%; } h1 { font-size: 1.5rem; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }

@@ -249,7 +249,10 @@
           "type": "string"
         },
         "prefix": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "tags": {
           "type": "array",

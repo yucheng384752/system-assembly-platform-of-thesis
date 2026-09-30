@@ -1,0 +1,24 @@
+{
+  "sourceCommit": "c4b2b7b",
+  "version": "c4b2b7b-ui.1",
+  "replacements": { "tenant-auth-kit": "entry-permission-kit" },
+  "presentation": {
+    "platform-core-kit": { "displayName": "系統基本功能", "businessCapability": "提供基本操作介面與系統運作支援。" },
+    "station-data-link-kit": { "displayName": "站點資料串聯", "businessCapability": "連結不同站點的批次與產品紀錄，方便後續查詢。" },
+    "upload-validation-kit": { "displayName": "檔案上傳與驗證", "businessCapability": "檢查上傳檔案的內容，協助找出缺漏或格式錯誤。" },
+    "import-pipeline-kit": { "displayName": "資料匯入", "businessCapability": "安排匯入工作，檢查資料後將紀錄加入系統。" },
+    "query-traceability-kit": { "displayName": "查詢與追溯", "businessCapability": "依批號或產品編號查詢紀錄，追溯資料來源。" },
+    "analytics-kit": { "displayName": "資料分析", "businessCapability": "整理紀錄摘要與趨勢，協助了解資料變化。" },
+    "station-admin-kit": { "displayName": "站點管理", "businessCapability": "設定站點、欄位與資料檢查規則。" },
+    "audit-edit-kit": { "displayName": "稽核與修正", "businessCapability": "修正紀錄並保留原因與修改前後差異。" },
+    "logs-ops-kit": { "displayName": "運作日誌", "businessCapability": "查閱系統運作紀錄，協助維護與排查問題。" },
+    "mod-subscription-kit": { "displayName": "訂閱服務串接", "businessCapability": "同步訂閱狀態與方案，供系統決定可用功能。" },
+    "generic-forms-kit": { "displayName": "通用表單", "businessCapability": "自訂表單欄位，上傳並瀏覽不同種類的紀錄。" }
+  },
+  "add": [{
+    "id": "entry-permission-kit", "version": "0.1.0", "displayName": "入口與使用權限",
+    "category": "permission", "required": false,
+    "businessCapability": "規劃使用者登入與使用權限；目前僅提供功能設定，尚未串接身分驗證。",
+    "dependencies": ["platform-core-kit"], "subfeatures": []
+  }]
+}

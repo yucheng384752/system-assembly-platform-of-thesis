@@ -1,0 +1,87 @@
+[
+  {
+    "id": "data-import",
+    "name": "資料匯入",
+    "description": "上傳 CSV、Excel 或 PDF，驗證內容後匯入正式資料表",
+    "kits": [
+      "upload-validation-kit",
+      "import-pipeline-kit"
+    ],
+    "required": true,
+    "subflows": [],
+    "pages": [
+      "上傳頁",
+      "匯入工作頁",
+      "錯誤檢視頁"
+    ]
+  },
+  {
+    "id": "query-trace",
+    "name": "查詢追溯",
+    "description": "依 lot、product_id 與動態欄位跨站點查詢與追溯資料",
+    "kits": [
+      "station-data-link-kit",
+      "query-traceability-kit"
+    ],
+    "subflows": [],
+    "pages": [
+      "查詢頁",
+      "追溯結果頁"
+    ]
+  },
+  {
+    "id": "analytics",
+    "name": "資料分析",
+    "description": "儀表板、圖表摘要與異常偵測分析",
+    "kits": [
+      "analytics-kit"
+    ],
+    "requiresFlows": [
+      "query-trace"
+    ],
+    "subflows": [],
+    "pages": [
+      "分析儀表板",
+      "報表頁"
+    ]
+  },
+  {
+    "id": "generic-forms",
+    "name": "通用表格管理",
+    "description": "動態定義表格 schema、上傳 CSV、瀏覽記錄；管理者可在不修改程式碼的情況下新增自訂表格",
+    "kits": [
+      "generic-forms-kit"
+    ],
+    "subflows": [],
+    "pages": [
+      "通用表格頁（Schema 編輯 / CSV 上傳 / 記錄瀏覽）"
+    ]
+  },
+  {
+    "id": "governance",
+    "name": "管理治理",
+    "description": "站點與規則管理、稽核紀錄與系統維運日誌",
+    "kits": [
+      "station-admin-kit",
+      "audit-edit-kit",
+      "logs-ops-kit"
+    ],
+    "subflows": [
+      {
+        "id": "audit",
+        "name": "稽核與資料修正",
+        "description": "保留修改原因與前後差異，完整稽核軌跡"
+      },
+      {
+        "id": "ops-logs",
+        "name": "日誌與維運",
+        "description": "查看、搜尋、統計與下載系統日誌"
+      }
+    ],
+    "pages": [
+      "站點管理頁",
+      "稽核頁",
+      "日誌頁"
+    ]
+  }
+]

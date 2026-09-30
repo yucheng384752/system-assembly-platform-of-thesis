@@ -8,9 +8,10 @@ export interface Option {
   choices?: { value: string; displayName: string }[];
 }
 export interface Kit {
+  required?: boolean;
   id: string; version: string; displayName: string; category: string;
   businessCapability: string; dependencies: string[];
-  subfeatures: { id: string; displayName: string; businessCapability: string; defaultSelected: boolean; options: Option[] }[];
+  subfeatures: { id: string; displayName: string; businessCapability: string; defaultSelected: boolean; required?: boolean; dependencies?: string[]; options: Option[] }[];
 }
 export interface Column { field: string; label: string; visible: boolean; order: number; width: number; renderer: 'text' }
 interface Component { id: string; subfeature_id: string; title: string }
@@ -23,6 +24,7 @@ export interface Definition { schema_version: '1.0.0'; kitId: string; components
 export type Overrides = Record<string, Record<string, Value>>;
 export type Versions = Record<string, { kitVersion: string; schema_version: string }>;
 export interface Recipe {
+  clientName?: string;
   recipeVersion: string; name: string; sourceManifest: string; database: { engine: 'sqlite' | 'postgresql' | 'mysql' };
   enabledKits: string[]; selectedSubfeatures: Record<string, string[]>;
   selectedSubfeatureOptions: Overrides; uiOverrides: Versions;

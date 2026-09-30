@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, expect, test, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { App } from './App';
+// Original WP1-WP6 scenarios run against the shared preview with their original mock catalog.
+import { FixtureApp as App } from './FixtureApp';
 
 afterEach(cleanup);
 test('role metadata is presented as guidance without claiming identity authorization', () => {
