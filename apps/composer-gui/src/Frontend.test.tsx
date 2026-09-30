@@ -5,7 +5,7 @@ import { App } from './App';
 afterEach(cleanup);
 test('real flows select prerequisites and render both real Kit previews', () => {
   render(<App />);
-  fireEvent.click(screen.getByRole('button', { name: /02 功能選配/ }));
+  fireEvent.click(screen.getByRole('button', { name: /04 功能選配/ }));
   expect(screen.queryByText('紀錄 Kit')).toBeNull();
   expect(screen.queryByText('tenant-auth-kit')).toBeNull();
   fireEvent.click(screen.getByRole('checkbox', { name: '資料分析' }));

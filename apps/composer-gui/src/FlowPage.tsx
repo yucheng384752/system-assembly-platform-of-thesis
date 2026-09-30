@@ -13,18 +13,23 @@ const descriptions: Record<string, string> = {
   'generic-forms': '自訂表單欄位，管理不同種類的紀錄。',
   governance: '管理站點、修正紀錄，查看操作歷程。',
 };
-export function FlowPage({ recipe, onChange, requested, manual, onSelect, session }: {
+export function FlowPage({ recipe, onChange, requested, manual, onSelect, session, suggestions = [] }: {
   recipe: Recipe; onChange: (r: Recipe) => void; requested: string[]; manual: string[];
-  onSelect: (flows: string[], kits: string[]) => void; session: number;
+  onSelect: (flows: string[], kits: string[]) => void; session: number; suggestions?: { id: string; reason: string }[];
 }) {
   const [search, setSearch] = useState('');
   const selection = selectKits(catalog.kits, requested, manual);
   const fixed = selectKits(catalog.kits, requested).enabledKits;
+  const pending = suggestions.filter(s => !selection.selectedFlows.includes(s.id));
   return <>
     <p className="visually-hidden">此處為設定與模擬預覽，尚未執行資料匯入或組裝部署。</p>
     <div className="columns">
     <Column id="flows" title="業務流程選擇" lead="選擇本次需要的功能模組。"
       aside={<small className="column-foot"><Icon name="info" />必要功能已自動加入</small>}>
+    {pending.length > 0 && <section className="note note-success" aria-labelledby="suggest-title"><Icon name="info" /><div>
+      <h3 id="suggest-title">依流程規格建議</h3>
+      {pending.map(s => <p key={s.id}>{s.reason}{' '}<button onClick={() => onSelect([...requested, s.id], manual)}><Icon name="plus" />加入「{flows.find(f => f.id === s.id)?.name}」</button></p>)}
+    </div></section>}
     <fieldset><legend className="visually-hidden">業務流程</legend><div className="flow-list">{flows.map(flow => {
       const checked = selection.selectedFlows.includes(flow.id);
       const prerequisite = flows.some(f => selection.selectedFlows.includes(f.id) && f.requiresFlows?.includes(flow.id));

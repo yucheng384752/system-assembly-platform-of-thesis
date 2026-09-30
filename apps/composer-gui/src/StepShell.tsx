@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from './Icons';
 
-export interface StepInfo { number: string; title: string; lead: string; hint: string; note?: string; optional?: boolean }
+export interface StepInfo { number: string; title: string; lead: string; hint: string }
+// The Workflow is the configuration entry point and every step is required (D17, D30).
 export const steps: StepInfo[] = [
-  { number: '01', title: '資料上傳', lead: '選擇樣本，確認欄位，建立表單。', hint: '原始資料列不保留。' },
-  { number: '02', title: '功能選配', lead: '選擇流程，確認畫面，調整設定。', hint: '目前為設定與模擬預覽。' },
-  { number: '03', title: '輸出下載', lead: '確認選配內容，保存系統設定。', hint: 'AoV 流程需另行下載。' },
-  // Optional steps may be skipped; they are never shown as pending.
-  { number: '04', title: 'AoV 設定', lead: '記錄工作步驟與表單關係。', hint: '此步驟可略過；請使用職務名稱，勿填個資。', note: '純說明用途，不影響系統組裝', optional: true },
+  { number: '01', title: '流程步驟', lead: '建立工作步驟，填寫時機與負責職務。', hint: '請使用職務名稱，勿填個資。' },
+  { number: '02', title: '表單', lead: '在各步驟上傳樣本或建立表單，確認欄位。', hint: '原始資料列不保留。' },
+  { number: '03', title: '表單關聯', lead: '確認表單之間以哪個欄位相連。', hint: '推測的關聯須經確認才會輸出。' },
+  { number: '04', title: '功能選配', lead: '選擇流程，確認畫面，調整設定。', hint: '目前為設定與模擬預覽。' },
+  { number: '05', title: '輸出', lead: '下載流程規格與系統設定檔。', hint: '兩個檔案請一起保存。' },
 ];
 // stepError: a non-empty message blocks confirming that step until the content is fixed.
 export function StepShell({ renderStep, stepError = () => '' }: { renderStep: (step: number) => ReactNode; stepError?: (step: number) => string }) {
@@ -28,14 +29,13 @@ export function StepShell({ renderStep, stepError = () => '' }: { renderStep: (s
         return <li key={info.number}><button aria-current={index === step ? 'step' : undefined} onClick={() => setStep(index)}>
           <span className={done ? 'step-number done' : 'step-number'}>{done ? <><Icon name="check" /><span className="visually-hidden">{info.number}</span></> : info.number}</span>
           {' '}<span className="step-name">{info.title}</span>{' '}
-          {done ? <span className="step-state">已確認</span> : info.optional ? <span className="badge">選填</span> : <span className="visually-hidden">待確認</span>}
+          {done ? <span className="step-state">已確認</span> : <span className="visually-hidden">待確認</span>}
         </button></li>;
       })}</ol></nav>
     </header>
     <main id="main-content" tabIndex={-1}>
       <div className="page-head">
         <h1 ref={heading} tabIndex={-1}>{current.title}</h1>
-        {current.note && <p className="badge badge-info"><Icon name="info" />{current.note}</p>}
       </div>
       <p className="lead">{current.lead}</p>
       {renderStep(step)}

@@ -4,7 +4,8 @@ import type { Recipe } from '../../../libs/ui-runtime/types';
 import { downloadJson, readJsonFile } from './fileTransfer';
 import { Icon } from './Icons';
 
-export function RecipeTransfer({ recipe, onImport, catalog, legacy = false }: { recipe: Recipe; onImport: (recipe: Recipe) => void; catalog: Catalog; legacy?: boolean }) {
+// blocked: download stays disabled while the Recipe cannot yet reference a complete Workflow (D29).
+export function RecipeTransfer({ recipe, onImport, catalog, legacy = false, blocked = false }: { recipe: Recipe; onImport: (recipe: Recipe) => void; catalog: Catalog; legacy?: boolean; blocked?: boolean }) {
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -22,7 +23,7 @@ export function RecipeTransfer({ recipe, onImport, catalog, legacy = false }: { 
         const exported = exportRecipe(recipe, catalog);
         if (legacy) setText(exported);
         else downloadJson(exported, 'system.recipe.json');
-        setNotice(legacy ? '匯出成功，可複製下方 JSON 儲存；僅含已選 Kit 與子功能設定。' : '系統設定檔已下載；包含客戶代稱與已選功能的畫面設定。');
+        setNotice(legacy ? '匯出成功，可複製下方 JSON 儲存；僅含已選 Kit 與子功能設定。' : '系統設定檔已下載；包含客戶代稱、已選功能的畫面設定與流程規格校驗碼。');
       }
       setError('');
     } catch (failure) {
@@ -45,8 +46,8 @@ export function RecipeTransfer({ recipe, onImport, catalog, legacy = false }: { 
   </fieldset>;
   return <fieldset disabled={busy}><legend className="visually-hidden">系統設定檔下載與載入</legend>
     <div className="file-card"><Icon name="file" /><div>
-      <strong>system.recipe.json</strong><p className="muted">保存客戶代稱、功能選擇與畫面設定。</p>
-      <button className="primary" onClick={() => transfer(false)} disabled={!recipe.enabledKits.length || !recipe.clientName?.trim()}><Icon name="download" />下載系統設定檔</button>
+      <strong>system.recipe.json</strong><p className="muted">保存客戶代稱、功能選擇、畫面設定，以及流程規格的檔名與校驗碼。</p>
+      <button className="primary" onClick={() => transfer(false)} disabled={blocked || !recipe.enabledKits.length || !recipe.clientName?.trim()}><Icon name="download" />下載系統設定檔</button>
     </div></div>
     <p role="status">{notice}</p>
     <h3>載入既有設定</h3><p className="muted">選擇已有的系統設定檔，匯入以套用相同設定。</p>
@@ -57,6 +58,6 @@ export function RecipeTransfer({ recipe, onImport, catalog, legacy = false }: { 
     <label htmlFor="recipe-file" className="file-button"><Icon name="folder" />選擇 JSON 檔案</label>
     <details><summary>進階：貼上 Recipe JSON</summary>{jsonEditor}</details>
     {errorText}
-    <p id="recipe-note" className="column-foot"><Icon name="info" />匯入成功會替換目前功能與畫面設定；失敗則保留原設定。表單草稿與流程說明另行保留。</p>
+    <p id="recipe-note" className="column-foot"><Icon name="info" />匯入成功會替換目前功能與畫面設定；失敗則保留原設定。流程規格不受影響。</p>
   </fieldset>;
 }

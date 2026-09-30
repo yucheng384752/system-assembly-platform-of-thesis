@@ -6,6 +6,7 @@ import { exportRecipe, importRecipe } from '../../../libs/ui-runtime/recipe';
 import { validateSchema } from '../../../libs/ui-runtime/schema';
 import { catalog } from './previewCatalog';
 import { downloadJson } from './fileTransfer';
+import { sha256Hex } from './workflow';
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 function captureDownloads() {
@@ -17,53 +18,106 @@ function captureDownloads() {
   vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
   return contents;
 }
-test('real file downloads contain validated recipe and independent AOV, never uploaded rows or credentials', async () => {
+function csv(name: string, text: string) {
+  const file = new File([text], name); Object.defineProperty(file, 'text', { value: async () => text }); return file;
+}
+// Two steps with one uploaded form each; the shared 批號 is a key on the upstream form.
+async function buildWorkflow() {
+  render(<App />);
+  for (const [i, name, owner] of [[1, '收料', '倉管'], [2, '檢驗', '品管']] as const) {
+    fireEvent.click(screen.getByRole('button', { name: '新增步驟' }));
+    fireEvent.change(screen.getByLabelText(`步驟 ${i} 名稱`), { target: { value: name } });
+    fireEvent.change(screen.getByLabelText(`步驟 ${i} 負責職務`), { target: { value: owner } });
+  }
+  fireEvent.click(screen.getByRole('button', { name: /02 表單/ }));
+  for (const [step, file] of [['step-1', csv('收料單.csv', '批號,數量\nPRIVATE_UPLOAD_SENTINEL,3')], ['step-2', csv('檢驗單.csv', '批號,結果\nPRIVATE_UPLOAD_SENTINEL,ok')]] as const) {
+    fireEvent.change(screen.getByLabelText('上傳到步驟'), { target: { value: step } });
+    fireEvent.change(screen.getByLabelText('選擇 CSV / TSV（可多選）'), { target: { files: [file] } });
+    await waitFor(() => expect((screen.getByLabelText('表單名稱') as HTMLInputElement).value).toBe(file.name.replace('.csv', '')));
+  }
+  fireEvent.click(screen.getByRole('button', { name: /收料單/ }));
+  fireEvent.click(screen.getByLabelText('欄位 1 識別欄位'));
+}
+test('relations: candidates need confirmation, type mismatches are refused, and the trace names step and owner (D19, A21, A23)', async () => {
+  await buildWorkflow();
+  fireEvent.click(screen.getByRole('button', { name: /03 表單關聯/ }));
+  expect(screen.getByText('尚未確認任何關聯。')).toBeTruthy();
+  // Manual relation with mismatched types (數量 integer vs 結果 text) is refused and both fields are named.
+  fireEvent.change(screen.getByLabelText('上游表單'), { target: { value: 'form-1' } });
+  fireEvent.change(screen.getByLabelText('上游欄位'), { target: { value: 'field-2' } });
+  fireEvent.change(screen.getByLabelText('下游表單'), { target: { value: 'form-2' } });
+  fireEvent.change(screen.getByLabelText('下游欄位'), { target: { value: 'field-2' } });
+  fireEvent.click(screen.getByRole('button', { name: '新增關聯' }));
+  expect(screen.getByRole('alert').textContent).toBe('無法建立關聯：「收料單」的「數量」（整數）與「檢驗單」的「結果」（文字）型別不同，無法作為關聯鍵。');
+  expect(screen.getByText('尚未確認任何關聯。')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: '確認關聯 「收料單」的「批號」 → 「檢驗單」的「批號」' }));
+  expect(screen.getByText('系統推測，已確認')).toBeTruthy();
+  expect(screen.getByText('目前沒有候選關聯。', { exact: false })).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('表單'), { target: { value: 'form-2' } });
+  expect(screen.getByText('收料單（收料・倉管），以「批號」相連')).toBeTruthy();
+  // The relation drives a fixed-rule suggestion that the user applies; tracing brings table management (D26).
+  fireEvent.click(screen.getByRole('button', { name: /04 功能選配/ }));
+  expect((screen.getByRole('checkbox', { name: '查詢追溯' }) as HTMLInputElement).checked).toBe(false);
+  fireEvent.click(screen.getByRole('button', { name: '加入「查詢追溯」' }));
+  expect((screen.getByRole('checkbox', { name: '查詢追溯' }) as HTMLInputElement).checked).toBe(true);
+  expect((screen.getByRole('checkbox', { name: '通用表格管理' }) as HTMLInputElement).checked).toBe(true);
+  expect(screen.queryByRole('button', { name: '加入「查詢追溯」' })).toBeNull();
+});
+test('A22: both downloads validate, carry no rows, and the Recipe checksum matches the downloaded Workflow bytes', async () => {
   const contents = captureDownloads(); const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
   const storage = vi.spyOn(Storage.prototype, 'setItem'); const xhr = vi.spyOn(XMLHttpRequest.prototype, 'open');
-  render(<App />);
-  fireEvent.click(screen.getByRole('button', { name: /01 資料上傳/ }));
-  const file = new File(['name\nPRIVATE_UPLOAD_SENTINEL'], 'sample.csv');
-  Object.defineProperty(file, 'text', { value: async () => 'name\nPRIVATE_UPLOAD_SENTINEL' });
-  fireEvent.change(screen.getByLabelText('選擇 CSV / TSV'), { target: { files: [file] } });
-  await waitFor(() => expect(screen.getByLabelText('欄位 1 名稱')).toBeTruthy());
-  fireEvent.click(screen.getByRole('button', { name: /04 AoV 設定/ }));
-  fireEvent.click(screen.getByRole('button', { name: '新增步驟' }));
-  fireEvent.click(screen.getByRole('button', { name: '下載流程規格' }));
-  validateSchema('aov', JSON.parse(contents[0]));
-  fireEvent.click(screen.getByRole('button', { name: /03 輸出/ }));
-  expect(screen.getByText(/部署套件產生功能尚未提供/)).toBeTruthy();
+  await buildWorkflow();
+  fireEvent.click(screen.getByRole('button', { name: /03 表單關聯/ }));
+  fireEvent.click(screen.getByRole('button', { name: /^確認關聯/ }));
+  fireEvent.click(screen.getByRole('button', { name: /05 輸出/ }));
+  expect(screen.getByText(/打包成單一壓縮檔的功能尚未提供/)).toBeTruthy();
   // Output cannot be confirmed until the required client name is filled (G05).
-  expect((screen.getByRole('button', { name: '確認並繼續' }) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole('button', { name: '確認本步驟' }) as HTMLButtonElement).disabled).toBe(true);
   fireEvent.change(screen.getByLabelText('客戶代稱'), { target: { value: '示範客戶' } });
-  expect((screen.getByRole('button', { name: '確認並繼續' }) as HTMLButtonElement).disabled).toBe(false);
+  expect((screen.getByRole('button', { name: '確認本步驟' }) as HTMLButtonElement).disabled).toBe(false);
+  fireEvent.click(screen.getByRole('button', { name: '下載流程規格' }));
+  await waitFor(() => expect((screen.getByRole('button', { name: '下載系統設定檔' }) as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(screen.getByRole('button', { name: '下載系統設定檔' }));
-  expect(contents).toHaveLength(2); const output = JSON.parse(contents[1]);
-  validateSchema('recipe', output); expect(output.clientName).toBe('示範客戶');
-  expect(output.enabledKits).toEqual(initialRecipe.enabledKits);
+  expect(contents).toHaveLength(2);
+  const workflow = JSON.parse(contents[0]); const recipe = JSON.parse(contents[1]);
+  validateSchema('aov', workflow); validateSchema('recipe', recipe);
+  expect(workflow.relations).toHaveLength(1);
+  expect(workflow.forms.map((f: { name: string }) => f.name)).toEqual(['收料單', '檢驗單']);
+  expect(recipe.clientName).toBe('示範客戶');
+  expect(recipe.workflowRef).toEqual({ path: 'workflow.aov.json', sha256: await sha256Hex(contents[0]) });
   expect(contents.join()).not.toMatch(/PRIVATE_UPLOAD_SENTINEL|password|token|tableData/);
   expect(contents[1]).not.toContain('steps');
   expect(fetch).not.toHaveBeenCalled(); expect(xhr).not.toHaveBeenCalled(); expect(storage).not.toHaveBeenCalled();
 });
+test('an incomplete Workflow blocks both downloads and says why', () => {
+  render(<App />);
+  fireEvent.click(screen.getByRole('button', { name: /05 輸出/ }));
+  fireEvent.change(screen.getByLabelText('客戶代稱'), { target: { value: '示範客戶' } });
+  expect(screen.getByRole('alert').textContent).toContain('請至少建立一個流程步驟');
+  expect((screen.getByRole('button', { name: '下載流程規格' }) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole('button', { name: '下載系統設定檔' }) as HTMLButtonElement).disabled).toBe(true);
+  expect(document.getElementById('step-status')!.textContent).toContain('流程規格尚未完成');
+});
 test('Recipe file import is atomic and restores flow selection and editor settings', async () => {
   render(<App />);
-  fireEvent.click(screen.getByRole('button', { name: /02 功能選配/ }));
+  fireEvent.click(screen.getByRole('button', { name: /04 功能選配/ }));
   fireEvent.click(screen.getByRole('checkbox', { name: '查詢追溯' }));
   fireEvent.click(screen.getByRole('tab', { name: '查詢與追溯' }));
   fireEvent.change(screen.getByLabelText('批號的名稱'), { target: { value: '保留中的欄位' } });
-  fireEvent.click(screen.getByRole('button', { name: /03 輸出/ }));
+  fireEvent.click(screen.getByRole('button', { name: /05 輸出/ }));
   const input = screen.getByLabelText('選擇 JSON 檔案');
   const invalid = new File(['{}'], 'invalid.json'); Object.defineProperty(invalid, 'text', { value: async () => '{}' });
   fireEvent.change(input, { target: { files: [invalid] } });
-  await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('原設定已保留'));
-  fireEvent.click(screen.getByRole('button', { name: /02 功能選配/ }));
+  await waitFor(() => expect(document.getElementById('recipe-error')!.textContent).toContain('原設定已保留'));
+  fireEvent.click(screen.getByRole('button', { name: /04 功能選配/ }));
   fireEvent.click(screen.getByRole('tab', { name: '查詢與追溯' }));
   expect(screen.getByRole('columnheader', { name: '保留中的欄位' })).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: /03 輸出/ }));
+  fireEvent.click(screen.getByRole('button', { name: /05 輸出/ }));
   const good = new File([''], 'valid.json');
   Object.defineProperty(good, 'text', { value: async () => exportRecipe({ ...initialRecipe, clientName: '匯入客戶' }, catalog) });
   fireEvent.change(screen.getByLabelText('選擇 JSON 檔案'), { target: { files: [good] } });
   await waitFor(() => expect((screen.getByLabelText('客戶代稱') as HTMLInputElement).value).toBe('匯入客戶'));
-  fireEvent.click(screen.getByRole('button', { name: /02 功能選配/ }));
+  fireEvent.click(screen.getByRole('button', { name: /04 功能選配/ }));
   expect(screen.queryByRole('tab', { name: '查詢與追溯' })).toBeNull();
   expect((screen.getByRole('checkbox', { name: '查詢追溯' }) as HTMLInputElement).checked).toBe(false);
 });

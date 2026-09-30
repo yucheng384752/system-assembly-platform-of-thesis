@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import type { Recipe } from '../../../libs/ui-runtime/types';
-import { flows, selectKits } from './catalog';
+import { flows, selectKits, suggestFlows } from './catalog';
 import { catalog } from './previewCatalog';
 import { StepShell } from './StepShell';
 import { FlowPage } from './FlowPage';
-import { DataPage } from './DataPage';
-import { emptyForm, formError } from './localData';
-import { emptyAov } from './aov';
+import { emptyAov, formErrors, relationErrors, stepErrors, workflowErrors } from './workflow';
 import { AovPage } from './AovPage';
+import { FormsPage } from './FormsPage';
+import { RelationsPage } from './RelationsPage';
 import { OutputPage } from './OutputPage';
 import './style.css';
 
@@ -24,18 +24,21 @@ export function App() {
   const [recipe, setRecipe] = useState<Recipe>(initialRecipe);
   const [requested, setRequested] = useState<string[]>([]);
   const [manual, setManual] = useState<string[]>([]);
-  const [form, setForm] = useState(emptyForm);
   const [aov, setAov] = useState(emptyAov);
   const [session, setSession] = useState(0);
-  const stepError = (step: number) => step === 0 ? formError(form)
-    : step === 2 && !recipe.clientName?.trim() ? '請填寫客戶代稱。'
-      : step === 3 && aov.steps.some(s => !s.name.trim()) ? '請填寫每個步驟的名稱。' : '';
-  return <StepShell stepError={stepError} renderStep={step => step === 1
-    ? <FlowPage recipe={recipe} onChange={setRecipe} requested={requested} manual={manual} session={session} onSelect={(nextFlows, nextKits) => {
+  // Steps: 01 Workflow steps, 02 forms, 03 relations, 04 feature selection, 05 output (D30).
+  const stepError = (step: number) => [
+    stepErrors(aov)[0], formErrors(aov)[0], relationErrors(aov)[0], '',
+    !recipe.clientName?.trim() ? '請填寫客戶代稱。' : workflowErrors(aov).length ? `流程規格尚未完成：${workflowErrors(aov)[0]}` : '',
+  ][step] ?? '';
+  return <StepShell stepError={stepError} renderStep={step => step === 0 ? <AovPage value={aov} onChange={setAov} />
+    : step === 1 ? <FormsPage value={aov} onChange={setAov} />
+    : step === 2 ? <RelationsPage value={aov} onChange={setAov} />
+    : step === 3 ? <FlowPage recipe={recipe} onChange={setRecipe} requested={requested} manual={manual} session={session} suggestions={suggestFlows(aov.relations.length)} onSelect={(nextFlows, nextKits) => {
       const selection = selectKits(catalog.kits, nextFlows, nextKits);
       setRequested(nextFlows); setManual(nextKits); setRecipe(previous => withSelection(previous, selection.enabledKits));
-    }} /> : step === 0 ? <DataPage form={form} onChange={setForm} /> : step === 3 ? <AovPage value={aov} onChange={setAov} form={form} />
-      : <OutputPage recipe={recipe} selectedFlows={selectKits(catalog.kits, requested, manual).selectedFlows} onChange={setRecipe} onImport={next => {
+    }} />
+      : <OutputPage recipe={recipe} workflow={aov} selectedFlows={selectKits(catalog.kits, requested, manual).selectedFlows} onChange={setRecipe} onImport={next => {
         // Validate required flow membership before replacing any part of the session.
         const importedFlows = flows.filter(f => f.kits.every(id => next.enabledKits.includes(id))).map(f => f.id);
         const selection = selectKits(catalog.kits, importedFlows);

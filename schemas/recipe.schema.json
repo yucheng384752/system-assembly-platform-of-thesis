@@ -168,6 +168,26 @@
         }
       }
     },
+    "workflowRef": {
+      "$comment": "Reference to the AoV Workflow document delivered beside this Recipe (spec 4.2, D29). Optional and additive.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+\\.json$",
+          "maxLength": 100
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
     "uiOverrides": {
       "$comment": "Version metadata only, keyed by kitId::subfeatureId. Override values live exclusively in selectedSubfeatureOptions.",
       "type": "object",

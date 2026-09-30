@@ -28,5 +28,7 @@ export interface Recipe {
   recipeVersion: string; name: string; sourceManifest: string; database: { engine: 'sqlite' | 'postgresql' | 'mysql' };
   enabledKits: string[]; selectedSubfeatures: Record<string, string[]>;
   selectedSubfeatureOptions: Overrides; uiOverrides: Versions;
+  // AoV Workflow document delivered beside the Recipe (spec 4.2, D29).
+  workflowRef?: { path: string; sha256: string };
 }
 export type Sources = Record<string, { fields: string[]; rows: Record<string, string | number>[] }>;

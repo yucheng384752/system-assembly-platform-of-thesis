@@ -62,4 +62,8 @@ export function selectKits(kits: Kit[], requestedFlows: string[], manual: string
   });
   return { enabledKits, selectedFlows, reasons };
 }
+// Fixed, program-decided suggestions from the Workflow (spec 4.2 step 4); never applied without the user.
+export function suggestFlows(confirmedRelations: number): { id: string; reason: string }[] {
+  return confirmedRelations ? [{ id: 'query-trace', reason: `已確認 ${confirmedRelations} 條表單關聯，建議加入「查詢追溯」，以關聯欄位查詢前後步驟的紀錄（會一併加入「通用表格管理」）。` }] : [];
+}
 export const kits = loadKits(rawManifest);

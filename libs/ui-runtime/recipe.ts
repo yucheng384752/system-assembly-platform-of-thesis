@@ -15,6 +15,7 @@ export function importRecipe(text: string, catalog: Catalog): { recipe: Recipe; 
     database: { engine: input.database.engine }, enabledKits: input.enabledKits,
     selectedSubfeatures: input.selectedSubfeatures ?? {},
     selectedSubfeatureOptions: input.selectedSubfeatureOptions ?? {}, uiOverrides: input.uiOverrides ?? {},
+    ...(input.workflowRef ? { workflowRef: { path: input.workflowRef.path, sha256: input.workflowRef.sha256 } } : {}),
   };
   const notices: string[] = [];
   const omitted = Object.keys(input).filter(key => !Object.hasOwn(recipe, key));
@@ -80,6 +81,7 @@ export function exportRecipe(recipe: Recipe, catalog: Catalog): string {
     database: { engine: recipe.database.engine }, enabledKits: [...recipe.enabledKits], selectedSubfeatures,
     selectedSubfeatureOptions: Object.fromEntries(Object.entries(recipe.selectedSubfeatureOptions).filter(([key]) => keys.has(key))),
     uiOverrides: Object.fromEntries(Object.entries(recipe.uiOverrides).filter(([key]) => keys.has(key))),
+    ...(recipe.workflowRef ? { workflowRef: { path: recipe.workflowRef.path, sha256: recipe.workflowRef.sha256 } } : {}),
   };
   return JSON.stringify(importRecipe(JSON.stringify(candidate), catalog).recipe, null, 2);
 }
