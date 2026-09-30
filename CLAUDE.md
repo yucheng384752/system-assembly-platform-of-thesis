@@ -6,18 +6,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 專案背景與技術定義 (Project & Tech Stack)
 
-- **專案名稱與目標**：Composer Platform 重構專案，是 Form System Kit Composer（基線版）的改良版，成果將撰寫成論文。設計須能說明相對基線版的差異與改良理由。規格唯一來源為 `docs/project-spec.md`。
-- **主要程式語言**：
-- **套件管理與環境**：
-- **核心框架與依賴**：
+- **專案名稱與目標**：Composer Platform 重構專案，是 Form System Kit Composer（基線版）的改良版，成果將撰寫成論文。設計須能說明相對基線版的差異與改良理由。規格唯一來源為 `docs/project-spec.md`，決議記錄於 `docs/decision-log.md`。
+- **主要程式語言**：TypeScript（Composer GUI 與 `libs/ui-runtime`）。`kits/` 是基線版副本，含 Python（FastAPI）後端與 TSX 前端，目前不在 typecheck 與測試範圍。
+- **套件管理與環境**：npm（`package-lock.json` 固定版本），Node 需 ^20.19.0 或 >=22.12.0；開發機為 Windows、Node 24.15.0。新增依賴須先經 user 核准。
+- **核心框架與依賴**：React 18、Vite 7、Vitest 4 + jsdom + React Testing Library、Ajv（JSON Schema draft 2020-12）。預覽與產出系統共用同一套解析與 renderer（決策 D13）。
 
 ## 架構總覽 (Architecture)
 
+- `apps/composer-gui/`：Composer 操作介面；使用者只看得到業務語言，不顯示程式、資料表或框架名稱。
+- `libs/ui-runtime/`：驗證 → 合併有效設定（含來源追溯）→ 依元件 type 呈現；Recipe 匯入先在候選物件完成全部驗證才替換工作階段。
+- `schemas/`：Kit、Recipe、UI definition 契約，擴充自基線版 schema；同概念沿用基線名稱（決策 D02）。
+- `kits/`：基線版 Kit 原樣副本（來源見 `kits/BASELINE.md`）；`tenant-auth-kit` 已廢除，由 `entry-permission-kit` 取代（D03）。
+- `.codex-claude-mailbox/`：Codex 與 Claude 的交接紀錄，每個功能一個 thread。
 
+## 常用指令與環境陷阱 (Commands & Gotchas)
 
-## 常用指令 (Commands)
-
-
+- 一鍵啟動：`start.cmd`（`-Check` 先跑 typecheck 與測試、`-Port`、`-NoBrowser`）。`scripts/start.ps1` 須存為 UTF-8 with BOM，否則 Windows PowerShell 5.1 會把中文訊息讀成亂碼。
+- npm 一律用 `npm.cmd`（PowerShell 執行政策會擋 `npm.ps1`）：`npm.cmd run typecheck`、`npm.cmd test`（script 已含 `--configLoader native`）、`npm.cmd run build`、`npm.cmd run dev`。
+- 專案資料夾擁有者是 Codex 沙箱帳號，git 指令須加 `-c safe.directory=C:/Users/gslab/Desktop/composer-refactor`，否則出現 dubious ownership。
+- Codex 沙箱不能寫入 `.git`、沒有網路：Codex 只寫程式，依賴安裝與所有 git 寫入由 Claude 執行；啟動 Codex 時 cwd 必須是專案根目錄。
+- 本機 dev server 與瀏覽器驗證由 Claude 執行（Codex 無法監聽連接埠）。
 
 ## 核心協作原則 (Core Collaboration Principles)
 
@@ -38,6 +46,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 安全基準線 (Security Baseline)
 
+- **資料去識別化為必做項目（M01）**：只用 mock 或已去識別化資料；未去識別化的實際製造資料不得進入 repo、論文、測試 fixture 或任何外部服務（含 LLM）。
+- **秘密值不落地**：連線字串、密碼、token 以外部來源引用（`secret_ref`），不寫進設定、Recipe、UI 定義、手冊、套件或指令列；Recipe 匯出只含已選 Kit 的 UI 設定，不含資料列或連線設定。
+- **角色只是提示**：Composer 尚無身分機制，`allowed_roles` 僅作顯示；不得宣稱已拒絕未授權修改，授權測試標為「未涵蓋」。
+- **預覽無副作用**：預覽與 mock action 不得發出正式寫入請求；使用者可編輯的文字一律以純文字呈現（不用 `dangerouslySetInnerHTML` 或 `innerHTML`）。
+- **基線版唯讀**：`C:\Users\gslab\Documents\New project\form-system-kit-composer` 只可讀取與複製，不得修改。
 
 ## 功能開發分支流程 (Feature Branch Workflow)
 
@@ -64,28 +77,3 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **即時性功能需驗證連線**：WebSocket / 即時刷新類功能完成後，需實際確認連線有被觸發（瀏覽器 Network 分頁或連線 log），不能只憑程式碼合理推斷就宣稱完成。
 - **新增功能拆元件**：頁面 component 過長時抽出共用元件。
 - **輸出格式固定**：先給變更摘要 → 再給檔案清單 → 最後給驗證方式。
-
-## 任務指派格式 (Prompt Format)
-
-指派任務時建議依此結構描述：
-
-- **Context**：任務背景是什麼
-- **Request**：希望完成什麼事
-- **Output Format**：結果以什麼形式交付
-- **Constraints**：有哪些限制、不能假設或越界的地方
-- **Checkpoint**：什麼情況下需停下來詢問使用者
-
-## Clean Code 準則
-
-程式碼檢查與重構時對照：
-
-- **命名**：有意義且可搜尋；類別用名詞、方法用動詞；避免誤導性命名。
-- **函數**：簡短（理想 < 20 行）、只做一件事、單一抽象層級、參數不超過 3 個、避免副作用。
-- **註解**：以程式碼自我說明取代註解；註解無法彌補糟糕程式碼。
-- **錯誤處理**：用 Exception 而非錯誤碼；不回傳或傳遞 null；錯誤處理與業務邏輯分離。
-- **邊界**：以包裝類別封裝第三方程式碼，避免外部程式碼污染內部。
-- **單元測試**：遵循 FIRST（Fast、Independent、Repeatable、Self-validating、Timely）；每個測試一個概念。
-- **類別**：簡短、單一職責、高內聚低耦合、對擴展開放對修改封閉。
-- **重構**：童軍規則——讓程式碼比接手時更乾淨；小步重構配合測試保護。
-
-
