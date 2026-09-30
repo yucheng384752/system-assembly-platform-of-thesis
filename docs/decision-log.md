@@ -32,6 +32,15 @@ date: 2026-09-24
 | D19 | 2026-09-30 | 表單關聯首期只支援「共用識別欄位」；系統依欄位名稱與型別提出候選，一律由使用者確認，未確認者不輸出 | 步驟順序不代表資料關係，自動關聯易誤連；推測規則以程式判斷 | spec §4.2、§13 A21 |
 | D20 | 2026-09-30 | 表單定義與關聯存於 Workflow 文件；Recipe 只記錄 Workflow 的 reference 與 checksum | 不變更 Recipe schema；對應 spec §4 System 的「AoV reference」 | spec §4.2、§12、§13 A22 |
 | D21 | 2026-09-30 | 可執行組裝完成前，Composer 輸出的壓縮檔稱「設定交付包」，不稱「安裝」 | spec §12 不能宣稱套件自包含卻缺失依賴 | spec §12 |
+| D22 | 2026-09-30 | 表單關聯不記錄基數；限制為：同一對表單最多一條、不得自連、整體不成環、單一欄位對 | 共用識別欄位以值相同連結，紀錄層級天然支援一對多與多對多；限制與基線版 `StationLink` 一致（唯一 `(from, to)`、`_would_create_cycle`、`keyMappings` 單一欄位對），日後可一對一轉換 | spec §4.2 |
+| D23 | 2026-09-30 | 一個 Workflow 步驟含 0..N 張表單；每張表單恰屬一個步驟 | A23 須唯一回答「在哪個步驟填寫、由哪個職務負責」；一表單多步驟需執行期資訊，已由 D16 排除 | spec §4.2、A20 |
+| D24 | 2026-09-30 | 研究結論：「站點資料串聯」可承接 FormRelation（對應 `Station`／`StationSchema`／`StationLink`），但模型與建立關聯的 API 位於 `generic-forms-kit`；基線版追溯查詢只比對 `GenericRecord.lot_no`、不讀 `keyMappings`，任意共用欄位在執行期不生效，列為未來工作 | 讀 `kits/` 副本（基線 commit `c4b2b7b`）與基線 thread `20260819-station-data-link-genericization`；執行期不在 D16 範圍 | spec §4.2 |
+| D25 | 2026-09-30 | 多檔上傳：單檔維持 2 MB／100 欄／10000 筆；一次最多 10 檔、合計 20 MB；Workflow 最多 50 張表單；各檔獨立推測，失敗逐檔列出原因 | 沿用既有單檔上限；逐檔回報避免一檔失敗就全部重選，且不靜默略過 | spec §4.2 |
+| D26 | 2026-09-30 | 「查詢追溯」流程綁定「通用表格管理」（`query-trace` 的 `requiresFlows` 加入 `generic-forms`） | user 指定：需要追溯就需要管理表格，不論是否修改；D24 亦顯示 `StationLink` 位於 `generic-forms-kit` | `config/flows.json`、`config/README.md` |
+| D27 | 2026-09-30 | 上傳建立的表單，預設名稱為原始檔名（去副檔名），並提醒使用者去識別化；取代 spec §4.2 FormDefinition「不含原始檔名」 | user 指定；名稱可編輯，去識別化責任以提示落實（M01） | spec §4.2、A22 |
+| D28 | 2026-09-30 | 「設定交付包」壓縮檔另開 `feature/install-package`；本功能只分別下載 Workflow 文件與 Recipe | user 同意；壓縮檔內容範圍尚未定 | spec §12 |
+| D29 | 2026-09-30 | Recipe schema 新增選填 `workflowRef { path, sha256 }`；修正 D20「不變更 Recipe schema」的措辭，改為「只新增選填欄位、向後相容」 | `importRecipe` 拒絕未知欄位、`exportRecipe` 以明確投影輸出，不改契約則無處記錄 reference；user 同意 | spec §4.2、schemas/recipe.schema.json |
+| D30 | 2026-09-30 | GUI 步驟改為 01 流程步驟 → 02 表單 → 03 表單關聯 → 04 功能選配 → 05 輸出，皆為必填；取代 D15 的步驟名稱與順序 | 落實 D17 的建議流程 | DESIGN.md |
 
 ## 必做項目
 

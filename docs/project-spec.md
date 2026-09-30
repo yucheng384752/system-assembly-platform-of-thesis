@@ -97,7 +97,7 @@ Kit 可單獨執行表示具有明確入口、可驗證的相依條件與最小�
 
 ### 4.2 AoV Workflow 驅動表單設定（2026-09-30 決議：D16–D21）
 
-> 決策已核定；介面尚未實作，現行 GUI 仍為 D14／D15 的行為（AoV 選填、排最後），待實作時依本節調整。
+> 決策已核定（D16–D30），實作於分支 `feature/aov-workflow-forms`。
 
 **需求：**一套系統通常需要多張表單，且表單在不同工作步驟填寫、彼此有關聯。使用者希望以 AoV 指定「哪個步驟填寫哪張表單」，並保留表單之間的關聯與可追溯性。
 
@@ -130,21 +130,25 @@ Kit 可單獨執行表示具有明確入口、可驗證的相依條件與最小�
 | 物件 | 建議欄位 | 說明 |
 |---|---|---|
 | WorkflowStep | id、name、when、owner（職務名稱）、formIds | 沿用現行 `composer-aov-list` 步驟欄位；`formId` 由單值改為陣列屬契約變更，需升版 |
-| FormDefinition | id、name、fields[]（id、name、type、required、isKey） | 只含欄位定義，不含資料列、原始檔名或樣本內容（M01） |
+| FormDefinition | id、name、fields[]（id、name、type、required、isKey） | 只含欄位定義，不含資料列或樣本內容（M01）；上傳建立時 name 預設為原始檔名（去副檔名），畫面提醒使用者去識別化（D27） |
 | FormRelation | id、from（formId、fieldId）、to（formId、fieldId）、kind、origin、confirmed | kind 首期只有「共用識別欄位」；origin 為 inferred 或 user；未確認的關聯不得輸出 |
+
+**Workflow 文件（`composer-aov-list` version 2）：**`steps`（`formIds` 陣列）、`forms`、`relations` 三個陣列；檔案中的關聯 `confirmed` 固定為 `true`。version 1 仍可匯入：步驟保留，`formId` 因無表單定義而清空並逐一列出。Recipe 以選填 `workflowRef { path, sha256 }` 記錄 Workflow 文件的檔名與 SHA-256（D29）。
 
 **建議可追溯性定義：**任一表單紀錄可回答：在哪個 Workflow 步驟填寫、由哪個職務負責、經哪些已確認的 FormRelation 連到前後步驟的紀錄。關聯鍵須在兩端表單型別一致；型別不符時阻擋並指出欄位。
 
 **需求（D19）：關聯首期只支援共用識別欄位，推測規則為確定性：**兩張表單中欄位名稱去除空白後相同、型別相同、且至少一端標為 isKey，列為候選；候選一律需使用者確認，推測不得自動生效。
 
-**需求（D20）：**表單定義與關聯存於 Workflow 文件；Recipe 只記錄 Workflow 的 reference 與 checksum，不變更 Recipe schema。
+**需求（D20、D29）：**表單定義與關聯存於 Workflow 文件；Recipe 只記錄 Workflow 的 reference 與 checksum，Recipe schema 僅新增選填欄位 `workflowRef`，向後相容。
 
-**待確認：**
+**已確認（2026-09-30，原待確認四項）：**
 
-1. 共用識別欄位關聯的基數：是否需要一對多、多對多。
-2. 一個步驟可含幾張表單；同一表單可否出現在多個步驟。
-3. 「站點資料串聯」Kit 的實際關聯模型（目前僅依其描述「連結不同站點的批次與產品紀錄」推定，尚未讀其原始碼）是否可承接 FormRelation。
-4. 多檔上傳的數量與總大小上限（現行單檔 2 MB、100 欄、10000 筆）。
+1. 關聯基數（D22）：不記錄基數，紀錄層級以值相同連結，天然支援一對多與多對多。表單層級限制：同一對表單最多一條、不得自連、整體不成環、單一欄位對。
+2. 步驟與表單（D23）：一個步驟含 0..N 張表單；每張表單恰屬一個步驟，且必須指派。
+3. 「站點資料串聯」關聯模型（D24）：`Station`＋`StationSchema`（`unique_key_fields` 對應 isKey）對應 FormDefinition；`StationLink`（有方向、唯一 `(from, to)`、每流程禁止成環、`link_config.keyMappings` 單一欄位對）對應 FormRelation，D22 的限制使兩者可一對一轉換。模型與建立關聯的 API 位於 `generic-forms-kit`，追溯查詢位於 `query-traceability-kit`。缺口：基線版追溯查詢只比對 `GenericRecord.lot_no`、不讀 `keyMappings`，非批號的共用欄位在執行期不生效，列為未來工作（D16）。
+4. 多檔上傳（D25）：單檔 2 MB／100 欄／10000 筆；一次最多 10 檔、合計 20 MB；Workflow 最多 50 張表單；各檔獨立推測，失敗逐檔列出原因。
+
+**功能建議規則（首期）：**存在已確認的表單關聯時，建議「查詢追溯」流程；「查詢追溯」綁定「通用表格管理」（D26）。建議不自動套用，由使用者加入。
 
 ## 5. Configuration-first 與參數解析
 
@@ -307,7 +311,7 @@ Input Adapter → Data Profiler → Task + Site constraints → Eligibility Filt
 
 建議組裝步驟：選 Kit → 解析相依及固定版本 → 套用 Site 與設定 → 驗證資料契約／權限／相容性 → 產生 UI、migration plan、AoV、手冊 → 產生驗證報告 → 封裝。
 
-**需求（2026-09-30，D16–D21，見 §4.2）：**組裝步驟前加上「Workflow 步驟 → 表單 → 已確認的表單關聯」，且 System Package 須包含 Workflow 文件及其 checksum。可執行組裝（P2）完成前，Composer 產出的壓縮檔稱「設定交付包」，不得稱為可安裝系統（D21）。
+**需求（2026-09-30，D16–D21，見 §4.2）：**組裝步驟前加上「Workflow 步驟 → 表單 → 已確認的表單關聯」，且 System Package 須包含 Workflow 文件及其 checksum。可執行組裝（P2）完成前，Composer 產出的壓縮檔稱「設定交付包」，不得稱為可安裝系統（D21）。壓縮檔另於 `feature/install-package` 處理；目前 Workflow 文件與 Recipe 分別下載（D28）。
 
 ```text
 <system-id>-<version>/
@@ -356,7 +360,7 @@ build 不等於部署成功。驗證報告分別列出靜態檢查、測試環�
 | A19 | 其他 Kit 直接引用內部 primitive | 驗證拒絕，要求改經 capability 公開契約 |
 | A20 | （§4.2）Workflow 步驟引用不存在或未完成的表單 | 阻擋確認並指出步驟與表單；不輸出引用失效的 Workflow |
 | A21 | （§4.2）關聯鍵兩端型別不同 | 阻擋並指出兩端欄位；未確認的推測關聯不輸出 |
-| A22 | （§4.2）匯出 Workflow 與表單定義 | 不含資料列、樣本內容或原始檔名；Recipe 記錄的 reference 與 checksum 相符 |
+| A22 | （§4.2）匯出 Workflow 與表單定義 | 不含資料列或樣本內容；表單名稱預設為檔名並提示去識別化（D27）；Recipe 記錄的 reference 與 checksum 相符 |
 | A23 | （§4.2）任一表單紀錄的追溯查詢 | 可回查所屬步驟、負責職務與經已確認關聯相連的前後表單 |
 
 ## 14. 分階段計畫與目錄責任
