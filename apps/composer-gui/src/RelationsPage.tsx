@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { fieldTypes } from './localData';
 import { describeEndpoint, relationErrors, type AovDocument } from './workflow';
-import { addRelation, inferCandidates, traceForm, type Candidate } from './relations';
+import { addRelation, explainMissedCandidates, inferCandidates, traceForm, type Candidate } from './relations';
 import { Column } from './Column';
 import { Icon } from './Icons';
 
+const MAX_MISSED = 10;
 const emptyDraft = { fromForm: '', fromField: '', toForm: '', toField: '' };
 export function RelationsPage({ value, onChange }: { value: AovDocument; onChange: (value: AovDocument) => void }) {
   const [notice, setNotice] = useState('');
@@ -12,6 +13,7 @@ export function RelationsPage({ value, onChange }: { value: AovDocument; onChang
   const [draft, setDraft] = useState(emptyDraft);
   const [traceId, setTraceId] = useState('');
   const candidates = inferCandidates(value);
+  const missed = explainMissedCandidates(value);
   const errors = relationErrors(value);
   const label = (c: Candidate) => `${describeEndpoint(value, c.from)} → ${describeEndpoint(value, c.to)}`;
   // A21: a relation that introduces a new problem (type mismatch, duplicate pair, cycle) is refused and the fields are named.
@@ -29,6 +31,11 @@ export function RelationsPage({ value, onChange }: { value: AovDocument; onChang
       {candidates.length === 0 ? <p className="muted">目前沒有候選關聯。可回到「表單」標示識別欄位，或於中間手動新增。</p>
         : <ul className="check-list">{candidates.map(c => <li key={label(c)}><span>{label(c)}</span>
           <button onClick={() => add(c, 'inferred')}><Icon name="check" />確認<span className="visually-hidden">關聯 {label(c)}</span></button></li>)}</ul>}
+      {missed.length > 0 && <section className="note note-warning" aria-labelledby="missed-title"><Icon name="info" /><div>
+        <h3 id="missed-title">未成為候選的原因</h3>
+        <ul>{missed.slice(0, MAX_MISSED).map(reason => <li key={reason}>{reason}</li>)}</ul>
+        {missed.length > MAX_MISSED && <p>另有 {missed.length - MAX_MISSED} 項未列出，請先處理上列項目。</p>}
+      </div></section>}
     </Column>
     <Column id="relations" title="已確認的關聯" lead="只有已確認的關聯會寫入流程規格。">
       <p id="relation-error" role={error ? 'alert' : undefined}>{error}</p>

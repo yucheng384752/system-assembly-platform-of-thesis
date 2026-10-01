@@ -1,5 +1,5 @@
 import { endpoint, findCycle, nextId, stepOfForm, type AovDocument, type AovStep, type FormEndpoint, type FormRelation } from './workflow';
-import type { FormDraft } from './localData';
+import { fieldTypes, type FormDraft } from './localData';
 
 export interface Candidate { from: FormEndpoint; to: FormEndpoint }
 const key = (name: string) => name.replace(/\s/g, '');
@@ -24,6 +24,37 @@ export function inferCandidates(doc: AovDocument): Candidate[] {
     }
   }));
   return result;
+}
+// Why an identifier field found no partner. Only identifier fields are explained (any other shared column would be noise),
+// and only two deterministic cases: same name but different type, or a similar name that D19 does not match.
+// Hints never create candidates; the user fixes the forms and the candidate appears (D19, A21).
+export function explainMissedCandidates(doc: AovDocument): string[] {
+  const candidatePairs = new Set(inferCandidates(doc).flatMap(c => [`${c.from.formId}|${c.to.formId}`, `${c.to.formId}|${c.from.formId}`]));
+  const similar = (a: string, b: string) => {
+    const [short, long] = [key(a), key(b)].sort((x, y) => x.length - y.length);
+    return short.length >= 2 && short !== long && long.includes(short);
+  };
+  const seen = new Set<string>();
+  const reasons: string[] = [];
+  doc.forms.forEach((a, index) => doc.forms.slice(index + 1).forEach(b => {
+    if (linked(doc, a.id, b.id) || candidatePairs.has(`${a.id}|${b.id}`)) return;
+    for (const [own, other] of [[a, b], [b, a]] as const) for (const field of own.fields.filter(f => f.isKey)) {
+      const same = other.fields.find(f => key(f.name) === key(field.name));
+      const near = same ? undefined : other.fields.find(f => similar(f.name, field.name));
+      const partner = same ?? near;
+      if (!partner) continue;
+      const pair = [`${own.id}:${field.id}`, `${other.id}:${partner.id}`].sort().join('|');
+      if (seen.has(pair)) continue;
+      seen.add(pair);
+      const typeNames = `${fieldTypes[field.type]}與${fieldTypes[partner.type]}`;
+      if (same && same.type !== field.type) {
+        reasons.push(`「${own.name}」的「${field.name}」是${fieldTypes[field.type]}，「${other.name}」的「${same.name}」是${fieldTypes[same.type]}，型別不同，無法相連。請到「表單」把兩邊改成相同型別。`);
+      } else if (near) {
+        reasons.push(`「${own.name}」的識別欄位「${field.name}」在「${other.name}」沒有名稱相同的欄位；「${near.name}」名稱相近。若它們是同一個編號，請到「表單」把名稱改成一致${near.type !== field.type ? `，並把型別改成相同（目前是${typeNames}）` : ''}。`);
+      }
+    }
+  }));
+  return reasons;
 }
 export function addRelation(doc: AovDocument, candidate: Candidate, origin: FormRelation['origin']): AovDocument {
   return { ...doc, relations: [...doc.relations, { id: nextId('rel', doc.relations), kind: 'shared-key', from: { ...candidate.from }, to: { ...candidate.to }, origin, confirmed: true }] };
