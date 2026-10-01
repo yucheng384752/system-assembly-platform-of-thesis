@@ -1,7 +1,7 @@
 ---
 id: "20261001-site-profile"
 title: "Site Profile：匯入、解析層、硬性限制與設定交付包（D54–D60）"
-status: "ready_for_review"
+status: "completed"
 owner: "claude"
 reviewer: "user"
 priority: "high"
@@ -221,4 +221,4 @@ artifacts:
 
 # Closure
 
-待 user 完成第 1 至 3 項後決定是否合併。
+2026-10-01：user 回報人工驗證 1 至 3 項通過（原生檔案對話框匯入場域、實體鍵盤操作、200% 縮放）；以 `--no-ff` 合併至 main。user 另提出兩個既有問題（表單關聯候選缺少、各區塊間距過窄），非本分支造成，另開分支處理。
