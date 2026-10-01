@@ -64,6 +64,13 @@ date: 2026-09-24
 | D51 | 2026-10-01 | 手冊組裝器為純函式：只含已啟用的 Kit 與子功能，依 Kit 相依排序；「可設定項目」表格取自選項定義的角色、風險、變更層級，不另寫一份；跨 Kit 操作路徑由所選流程的頁面清單組出；缺片段、版本不符、缺必備章節、frontmatter 不合契約時列出 Kit、角色與路徑並阻擋正式發佈；不讀連線設定或秘密值 | 對應 A13；避免僅串接片段造成流程斷裂；選項定義已是設定的唯一來源 | spec §11 |
 | D52 | 2026-10-01 | 設定交付包在所選 Kit 的手冊齊全時加入 `docs/manual-<role>.md`（三個角色）；不齊全時 `docs/` 維持列於 `notProvided` 並列出缺少的 Kit；manifest 契約新增產物 role `manual` | 手冊缺少不阻擋設定交付包（D34），齊全時就應交付；修改 D33 的產物數量限制 | spec §12、`schemas/package-manifest.schema.json` |
 | D53 | 2026-10-01 | Kit 的契約宣告（`kit.contract.json`、manifest）與原始碼實作不一致時，手冊以原始碼為準描述目前可操作的行為，另分列「契約宣告」並對找不到可核對實作的項目標示「尚未提供」；不修改 `kits/`，不一致項目列入 Kit 手冊的 Developer 版與 mailbox 待清理清單。首例：`query-traceability-kit` 契約宣告 `GET /api/v2/query/records`，後端只實作 `/lot/{lot_no}` 與 `/trace/{lot_no}`，前端 QueryPage 使用後兩者 | 對應 D49「只依事實、不推測」；手冊不得把宣告當成已實作，也不得把某一方悄悄當作等價；`kits/` 為基線副本（D03、`kits/BASELINE.md`），不同步修正 | spec §11 |
+| D54 | 2026-10-01 | Site Profile 首期為匯入式 JSON（`composer-site-profile` version 1，契約 `schemas/site-profile.schema.json`），由 MIS 編輯檔案、Composer 驗證並顯示結果；不新增編輯用 GUI 步驟；一個設定交付包只對應一個 Site Profile | user 同意建議；編輯畫面需另行設計，先讓契約與驗證可用；多 Site 同時輸出需求未出現 | spec §9 |
+| D55 | 2026-10-01 | 首期內容：場域識別（`siteId`、`siteVersion`、`displayName`、`domain`）、Site 層選項值（`optionOverrides`）、硬性限制（`optionLimits`）、欄位別名與單位語意（`fieldSemantics`）、資料來源引用（`dataSources`，只含 `sourceRef`／`secretRef`）。分析偏好（§10）與站點／設備對應 Workflow 表單暫不做 | user 指定分析偏好暫不做；站點對應需引用 Workflow 表單與 StationSchema（見待決表），待組裝引擎一併設計 | spec §9 |
+| D56 | 2026-10-01 | 選項值優先序為 Kit 預設 < System（Recipe）< Site；Site 設定的選項在 GUI 顯示為「由場域鎖定」，使用者不可改，並顯示來源；有效值的來源追溯需含 Site | 依 spec §5 優先序；預覽與輸出共用同一解析（D13） | spec §5、§9 |
+| D57 | 2026-10-01 | `optionLimits` 套用到所有層的值（Kit 預設、Recipe、Site）；超出限制一律報錯並指出選項與限制，不自動截斷；Site 值自身也須符合選項定義的範圍與限制。Runtime 覆寫（有效期間、授權角色，§15 第 5 項）待可執行組裝時再設計，A03 目前以「任何值超出 Site 限制即拒絕」涵蓋 | user 同意；目前無執行期，無法定義覆寫期限與授權 | spec §9、§13 A03 |
+| D58 | 2026-10-01 | `fieldSemantics`：別名在整份 Site Profile 內須唯一，重複時報歧義並指出兩個欄位；不做自動單位換算；只有 `confirmed: true` 的項目生效，未確認者顯示為「待 MIS 確認」 | spec §9：別名與換算須確認，多重映射歧義須回報；沿用 D19「未確認不生效」的原則 | spec §9 |
+| D59 | 2026-10-01 | `dataSources` 只可含引用（`sourceRef`、`secretRef`），整份 Site Profile 不得出現連線字串、帳密、金鑰或憑證；以欄位名稱與值的型態雙重檢查，違者整份拒絕；`secretRef` 的值只是外部秘密的名稱（不含 `:`、`/`、`@`） | 安全基準線「秘密值不落地」；`secretRef` 是引用，不是秘密值，但既有敏感欄位名稱檢查須明確放行此欄位 | spec §9、§12 |
+| D60 | 2026-10-01 | Recipe 新增選填 `siteRef { path, sha256 }`（比照 D29）；`sha256` 為匯入文字（去除 BOM）的 UTF-8 位元組；設定交付包加入 `config/site/site.profile.json`（位元組與匯入文字相同，role `site-profile`），manifest 產物上限改為 8，驗證報告新增 Site 檢查；有匯入 Site 但 Recipe 的 `siteRef` 不符時不產生交付包 | 保持與 workflowRef 一致的記錄方式；保留原始位元組使校驗碼可核對 | spec §9、§12、`schemas/recipe.schema.json` |
 
 ## 必做項目
 

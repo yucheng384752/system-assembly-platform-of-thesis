@@ -240,7 +240,16 @@ Kit 宣告權限資源與操作、所需 identity provider/session 接口、預�
 
 分析偏好例：偏好可解釋模型、是否允許 GPU、最長執行時間、記憶體預算。欄位別名如 temp/temperature 不代表可以未經確認直接換算；單位與語意需驗證，多重映射歧義須回報。
 
-同一份產品定義與 Kit 版本，搭配不同 Site Profile 可產生不同設定、UI、mapping、分析流程與手冊。場域調整仍須通過完整型別、相依、權限與 migration 驗證。Site Profile 不能放任意業務程式來繞過 Function 契約。
+同一份產品定義與 Kit 版本，搭配不同 Site Profile 可產生不同設定、UI、mapping、分析流程與手冊。
+
+**首期契約（2026-10-01，D54–D60）：**
+
+- 形式：匯入式 JSON（`schemas/site-profile.schema.json`）；一個設定交付包對應一個 Site Profile；Recipe 以選填 `siteRef { path, sha256 }` 記錄，交付包放 `config/site/site.profile.json`。
+- 內容：場域識別、Site 層選項值（`optionOverrides`）、硬性限制（`optionLimits`）、欄位別名與單位語意（`fieldSemantics`）、資料來源引用（`dataSources`）。分析偏好與站點對應 Workflow 表單暫不做。
+- 解析：Kit 預設 < System（Recipe）< Site；Site 設定的選項在 GUI 為「由場域鎖定」；有效值來源可追溯到 Site。
+- 限制：`optionLimits` 套用到所有層的值，超出即報錯，不截斷；Runtime 覆寫待可執行組裝時設計。
+- 語意：別名須唯一，歧義時回報；不自動換算單位；`confirmed: true` 才生效。
+- 秘密值：只可引用，整份拒絕連線字串、帳密、金鑰與憑證。場域調整仍須通過完整型別、相依、權限與 migration 驗證。Site Profile 不能放任意業務程式來繞過 Function 契約。
 
 ## 10. analytical_four → analytics-kit／analytics-engine
 
