@@ -1,7 +1,7 @@
 ---
 id: "20261001-node-typecheck-ci"
 title: "Node 腳本納入 typecheck 與 CI 設定（D47）"
-status: "in_progress"
+status: "ready_for_review"
 owner: "user"
 reviewer: "user"
 priority: "medium"
@@ -39,10 +39,10 @@ artifacts:
 - 突變檢查：腳本內改錯型別、測試檔傳錯參數，都被攔到。
 - 已知限制：想以 `"types": []` 隔離前端與 Node 全域型別，但 `vite` 自己的型別宣告會引用 `@types/node`（`--explainFiles` 確認），前端程式因此仍看得到 `process` 等 Node 全域；該設定無效，已移除。若要隔離，需把 `vite.config.ts` 與測試移出前端 program，不在本次範圍。
 
-## CI（待 user 回答）
+## CI（2026-10-01 user 決定跳過）
 
-專案沒有 git 遠端，也沒有 `.github/`，CI 平台未定。
+專案沒有 git 遠端，也沒有 `.github/`，CI 平台未定；user 決定跳過，不設定 CI。日後若有遠端，再依平台設定，建議的檢查為 typecheck、vitest、build、kits Python 測試。
 
 # Open Questions
 
-- CI 要用哪個平台（GitHub Actions、GitLab CI、Jenkins 或其他）？程式碼將託管在哪裡？
+- 無（CI 已跳過）。
