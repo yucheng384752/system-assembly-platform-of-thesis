@@ -4,3 +4,8 @@ packages/*
 !packages/.gitkeep
 manuals/generated/*
 !manuals/generated/.gitkeep
+.venv/
+# Signing keys, licenses and signatures never belong in the repo (D40).
+*.pem
+license.lic
+*.sig.json
