@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.composer-refactor/schemas/manual.schema.json",
+  "title": "Kit manual fragment frontmatter",
+  "description": "Frontmatter of manuals/kits/<kit-id>/<kit-version>/<role>.md (spec 11, D48-D50). The parser reads a restricted subset: 'key: value' lines and one 'sources:' list of '  - path' lines.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kitId", "kitVersion", "role", "status", "sources"],
+  "properties": {
+    "kitId": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "kitVersion": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$", "maxLength": 50 },
+    "role": { "enum": ["user", "mis", "developer"] },
+    "status": { "enum": ["draft", "reviewed"] },
+    "sources": {
+      "$comment": "Repo-relative files the text was derived from, so each statement can be traced to Kit code (D49).",
+      "type": "array", "minItems": 1, "maxItems": 50, "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^kits/[A-Za-z0-9._/-]+$", "maxLength": 200 }
+    }
+  }
+}

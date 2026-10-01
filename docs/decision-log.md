@@ -58,6 +58,11 @@ date: 2026-09-24
 | D45 | 2026-10-01 | 資料庫與後端同機部署時不啟用資料庫 TLS，前提為資料庫與後端只監聽 127.0.0.1（PostgreSQL `listen_addresses='localhost'`、`pg_hba` 只允許本機且用 scram-sha-256）；資料庫在他機時必須 TLS 且 `sslmode=verify-full`；秘密值沿用 `.env`＋檔案權限；前後端認證歸 `entry-permission-kit`（§8）。部署檔於 P2 產生，本期只定規格 | loopback 流量不離開主機，能攻擊者已有本機權限，可直接讀資料檔與 `.env`，TLS 無額外保護且憑證過期會使離線現場無法啟動；基線版實際風險為後端 port 對外開放 | spec §12.2 |
 | D46 | 2026-10-01 | 產出系統預設所有使用者只經內網連入，不對外網開放；瀏覽器到伺服器是否改用 HTTPS 及憑證來源仍待決，方案比較記錄於本檔「待決／HTTPS 憑證來源」 | user 指定先以內網為前提；保留決策紀錄，避免日後對外開放時默默沿用內網假設 | spec §12.2、§15 |
 | D47 | 2026-10-01 | 新增 `@types/node` 22.20.4（鎖定版本，對應支援的最低 LTS）；新增 `tsconfig.node.json`，讓 `scripts/**/*.mjs` 與 `security.test.mjs` 以 JSDoc 型別納入 `npm run typecheck`；`build` 改為先跑完整 typecheck | user 核准；原本這些檔案只由 vitest 執行，型別錯誤不會被發現（納入後立即抓到測試檔缺少型別）。已知限制：vite 自己的型別宣告會引用 `@types/node`，前端程式因此看得到 Node 全域型別，無法以 tsconfig 隔離 | `package.json`、`tsconfig.node.json` |
+| D48 | 2026-10-01 | 手冊片段位於 `manuals/kits/<kit-id>/<kit-version>/{user,mis,developer}.md`，路徑由命名規則推得，不修改基線 manifest；每份為 Markdown 加受限 frontmatter（`kitId`、`kitVersion`、`role`、`status`、`sources`），契約為 `schemas/manual.schema.json`；必備六節：用途、前置條件、可設定項目、操作步驟、輸入輸出、常見錯誤與復原 | 依 spec §11 建議；沿用命名規則避免 manifest 與手冊兩處來源漂移；`sources` 記錄內容所依據的 Kit 檔案，使每項說明可追溯 | spec §11、`schemas/manual.schema.json` |
+| D49 | 2026-10-01 | 為 Composer 目錄的 12 個 Kit 各寫 user、mis、developer 三份（共 36 份）；`tenant-auth-kit` 已廢除（D03）不寫；`entry-permission-kit` 尚無程式，手冊只寫目前現況，不描述未實作的行為。內容只依 Kit 的 manifest、contract 與原始碼，查不到的寫「尚未提供」，不得推測 | user 指定 13 個 Kit 全寫；目錄資料夾有 13 個，其中一個已由 D03 取代；R08 要求手冊與實際功能一致 | spec §11 |
+| D50 | 2026-10-01 | 片段 `status` 為 `draft` 或 `reviewed`；初稿一律 `draft`，由 user 審閱後改為 `reviewed`；正式發佈只接受 `reviewed`，設定交付包接受 `draft` 並在手冊首頁標示草稿 | 手冊內容依程式整理，無法保證符合現場操作；由人確認後才能對外發佈 | spec §11、§12 |
+| D51 | 2026-10-01 | 手冊組裝器為純函式：只含已啟用的 Kit 與子功能，依 Kit 相依排序；「可設定項目」表格取自選項定義的角色、風險、變更層級，不另寫一份；跨 Kit 操作路徑由所選流程的頁面清單組出；缺片段、版本不符、缺必備章節、frontmatter 不合契約時列出 Kit、角色與路徑並阻擋正式發佈；不讀連線設定或秘密值 | 對應 A13；避免僅串接片段造成流程斷裂；選項定義已是設定的唯一來源 | spec §11 |
+| D52 | 2026-10-01 | 設定交付包在所選 Kit 的手冊齊全時加入 `docs/manual-<role>.md`（三個角色）；不齊全時 `docs/` 維持列於 `notProvided` 並列出缺少的 Kit；manifest 契約新增產物 role `manual` | 手冊缺少不阻擋設定交付包（D34），齊全時就應交付；修改 D33 的產物數量限制 | spec §12、`schemas/package-manifest.schema.json` |
 
 ## 必做項目
 
