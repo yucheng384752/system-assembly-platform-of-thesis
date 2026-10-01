@@ -30,5 +30,6 @@ export interface Recipe {
   selectedSubfeatureOptions: Overrides; uiOverrides: Versions;
   // AoV Workflow document delivered beside the Recipe (spec 4.2, D29).
   workflowRef?: { path: string; sha256: string };
+  siteRef?: { path: 'site.profile.json'; sha256: string };
 }
 export type Sources = Record<string, { fields: string[]; rows: Record<string, string | number>[] }>;

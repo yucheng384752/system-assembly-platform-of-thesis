@@ -3,13 +3,14 @@ import { resolveKit } from '../../../libs/ui-runtime/resolve';
 import { Renderer } from '../../../libs/ui-runtime/Renderer';
 import type { Recipe } from '../../../libs/ui-runtime/types';
 import type { Catalog } from '../../../libs/ui-runtime/recipe';
+import type { SiteProfile } from '../../../libs/ui-runtime/site';
 import { SettingsEditor } from './SettingsEditor';
 import { Column } from './Column';
 import { Icon } from './Icons';
 import './style.css';
 
 // split: renders the preview column and the settings column as two siblings for the configurator grid.
-export function KitPreview({ recipe, onChange, catalog, session = 0, legacy = false, split = false }: { recipe: Recipe; onChange: (recipe: Recipe) => void; catalog: Catalog; session?: number; legacy?: boolean; split?: boolean }) {
+export function KitPreview({ recipe, onChange, catalog, session = 0, legacy = false, split = false, site }: { recipe: Recipe; onChange: (recipe: Recipe) => void; catalog: Catalog; session?: number; legacy?: boolean; split?: boolean; site?: SiteProfile }) {
   const { kits, definitions, sources } = catalog;
   const setRecipe = onChange;
   const [activeId, setActiveId] = useState('');
@@ -19,9 +20,9 @@ export function KitPreview({ recipe, onChange, catalog, session = 0, legacy = fa
   let preview;
   if (active && definition) {
     try {
-      const resolved = resolveKit({ kit: active, definition, sources, overrides: recipe.selectedSubfeatureOptions, versions: recipe.uiOverrides, selectedSubfeatures: recipe.selectedSubfeatures[active.id] });
+      const resolved = resolveKit({ kit: active, definition, sources, site, overrides: recipe.selectedSubfeatureOptions, versions: recipe.uiOverrides, selectedSubfeatures: recipe.selectedSubfeatures[active.id] });
       preview = <Renderer key={`preview-${active.id}`} definition={resolved.definition} sources={sources} />;
-    } catch (error) { preview = <p role="alert">{error instanceof Error ? error.message : '預覽驗證失敗'}</p>; }
+    } catch (error) { preview = <p role="alert">{error instanceof Error ? error.message.replace(/（[^）]*）/g, '') : '預覽驗證失敗'}</p>; }
   }
   if (!active) return <p>尚未選取 Kit。</p>;
   const tabs = <div role="tablist" aria-label="已選 Kit">{selected.map((kit, index) => <button key={kit.id} id={`tab-${kit.id}`} role="tab" aria-selected={active.id === kit.id} aria-controls={`panel-${kit.id}`} tabIndex={active.id === kit.id ? 0 : -1} onClick={() => setActiveId(kit.id)} onKeyDown={event => {
@@ -42,7 +43,7 @@ export function KitPreview({ recipe, onChange, catalog, session = 0, legacy = fa
       if (event.target.checked) addDependencies(sub.id);
       setRecipe({ ...recipe, selectedSubfeatures: { ...recipe.selectedSubfeatures, [active.id]: [...next] } });
     }} />{sub.displayName}</label>)}</fieldset>
-    <SettingsEditor legacy={legacy} key={active.id} kit={active} recipe={recipe} onChange={(subId, optionId, value) => {
+    <SettingsEditor site={site} legacy={legacy} key={active.id} kit={active} recipe={recipe} onChange={(subId, optionId, value) => {
       const key = `${active.id}::${subId}`;
       const candidate: Recipe = { ...recipe,
         selectedSubfeatureOptions: { ...recipe.selectedSubfeatureOptions, [key]: { ...recipe.selectedSubfeatureOptions[key], [optionId]: value } },
@@ -50,7 +51,10 @@ export function KitPreview({ recipe, onChange, catalog, session = 0, legacy = fa
       };
       try {
         resolveKit({ kit: active, definition, sources, overrides: candidate.selectedSubfeatureOptions, versions: candidate.uiOverrides, selectedSubfeatures: candidate.selectedSubfeatures[active.id] });
-        setRecipe(candidate); return '';
+        setRecipe(candidate);
+        // Keep valid Kit values even when the Site conflicts, so the user can repair them explicitly.
+        if (site) resolveKit({ kit: active, definition, sources, site, overrides: candidate.selectedSubfeatureOptions, versions: candidate.uiOverrides, selectedSubfeatures: candidate.selectedSubfeatures[active.id] });
+        return '';
       } catch (error) { return error instanceof Error ? error.message : '設定驗證失敗'; }
     }} />
   </>;

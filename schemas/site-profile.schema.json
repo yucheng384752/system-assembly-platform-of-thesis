@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.composer-refactor/schemas/site-profile.schema.json",
+  "title": "Composer Site Profile",
+  "description": "Imported site-specific settings (spec 9, D54-D60). Option keys are '<kitId>::<subfeatureId>' and option ids as in the Kit definitions. Cross-checks the schema cannot express (unknown Kit or option, value against the option's own range, alias ambiguity, limits consistency, credential-like values) are done by libs/ui-runtime/site.ts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "version", "siteId", "siteVersion", "displayName", "domain"],
+  "properties": {
+    "format": { "const": "composer-site-profile" },
+    "version": { "const": 1 },
+    "siteId": { "type": "string", "pattern": "^[a-z0-9-]+$", "maxLength": 50 },
+    "siteVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$", "maxLength": 20 },
+    "displayName": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "domain": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "optionOverrides": {
+      "type": "object", "maxProperties": 200,
+      "propertyNames": { "$ref": "#/$defs/optionGroupKey" },
+      "additionalProperties": {
+        "type": "object", "minProperties": 1, "maxProperties": 200,
+        "propertyNames": { "$ref": "#/$defs/optionId" },
+        "additionalProperties": { "$ref": "#/$defs/value" }
+      }
+    },
+    "optionLimits": {
+      "type": "object", "maxProperties": 200,
+      "propertyNames": { "$ref": "#/$defs/optionGroupKey" },
+      "additionalProperties": {
+        "type": "object", "minProperties": 1, "maxProperties": 200,
+        "propertyNames": { "$ref": "#/$defs/optionId" },
+        "additionalProperties": { "$ref": "#/$defs/limit" }
+      }
+    },
+    "fieldSemantics": {
+      "type": "array", "maxItems": 200,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "name", "aliases", "confirmed"],
+        "properties": {
+          "id": { "$ref": "#/$defs/localId" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "aliases": { "type": "array", "maxItems": 20, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 100 } },
+          "unit": { "type": "string", "minLength": 1, "maxLength": 20 },
+          "meaning": { "type": "string", "maxLength": 300 },
+          "confirmed": { "type": "boolean" }
+        }
+      }
+    },
+    "dataSources": {
+      "type": "array", "maxItems": 50,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "sourceRef"],
+        "properties": {
+          "id": { "$ref": "#/$defs/localId" },
+          "sourceRef": { "$ref": "#/$defs/reference" },
+          "secretRef": { "$ref": "#/$defs/reference" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "optionGroupKey": { "type": "string", "pattern": "^[a-z0-9-]+::[a-z0-9-]+$", "maxLength": 120 },
+    "optionId": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$", "maxLength": 100 },
+    "localId": { "type": "string", "pattern": "^[a-z0-9-]+$", "maxLength": 100 },
+    "value": { "type": ["string", "number", "boolean"], "maxLength": 1000 },
+    "reference": {
+      "$comment": "A name that points to an external source or secret, never the value itself: no ':', '/', '@' or whitespace (D59).",
+      "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,99}$"
+    },
+    "limit": {
+      "type": "object", "additionalProperties": false, "minProperties": 1,
+      "properties": {
+        "minimum": { "type": "number" },
+        "maximum": { "type": "number" },
+        "allowedValues": { "type": "array", "minItems": 1, "maxItems": 50, "uniqueItems": true, "items": { "$ref": "#/$defs/value" } }
+      }
+    }
+  }
+}

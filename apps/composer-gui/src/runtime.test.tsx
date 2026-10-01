@@ -10,8 +10,8 @@ test('pure merge tracks sources, replaces options and escapes labels in shared r
   const before = JSON.stringify(input);
   const resolved = resolveKit({ ...input, versions, overrides: { 'records-kit::records': { 'name-label': '<img src=x onerror=alert(1)>', 'name-width': 250, 'filter-options': 'open\npending' } } });
   expect(JSON.stringify(input)).toBe(before);
-  expect(resolved.provenance['records-kit::records/name-width'].source).toContain('Recipe');
-  expect(resolved.provenance['records-kit::records/status-width'].source).toContain('default');
+  expect(resolved.provenance['records-kit::records/name-width'].source).toContain('system: Recipe');
+  expect(resolved.provenance['records-kit::records/status-width'].source).toContain('kit-default:');
   const html = renderToStaticMarkup(<Renderer definition={resolved.definition} sources={sources} />);
   expect(html).toContain('&lt;img'); expect(html).not.toContain('<img');
   expect(html).toContain('Mock A'); expect(html).not.toContain('Mock B');
