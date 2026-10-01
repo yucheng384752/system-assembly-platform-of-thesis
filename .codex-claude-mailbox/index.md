@@ -6,6 +6,7 @@
 | [20260930-frontend-pages](threads/20260930-frontend-pages.md) | 依基線四步驟重做 Composer 前端頁面（真實 Kit、無障礙） | completed | user | claude | 2026-09-30 |
 | [20260930-ui-design](threads/20260930-ui-design.md) | 汽車選配式介面改版與 G01–G08 處理 | waiting_for_user | user | claude | 2026-09-30 |
 | [20260930-install-package](threads/20260930-install-package.md) | 設定交付包壓縮檔（D31–D36） | completed | user | user | 2026-09-30 |
+| [20261001-security-hardening](threads/20261001-security-hardening.md) | 安全強化：防篡改、單機授權與通訊（D37–D45） | ready_for_review | user | user | 2026-10-01 |
 
 本目錄為本專案專用的非同步交接區。threads 保存完整討論；inbox、outbox、archive 分別保留收件、寄件與封存位置。Claude 審閱已完成，user 已核准開發；Codex 依 thread 的「Claude Handoff」工作包 WP0–WP6 實作；git 操作改由 Claude 執行。
 
@@ -49,3 +50,5 @@
 2026-09-30 Claude：新增 20260930-install-package，完成設定交付包壓縮檔（自寫 store zip、package-manifest.json、驗證報告，D31–D36）；待 user 審閱與決定是否合併。
 
 2026-09-30 Claude：20260930-install-package 已合併至 main（ec25bd6），標為 completed。
+
+2026-10-01 Claude：新增 20261001-security-hardening，完成簽章與授權工具、license.py 移除 TPM 改以機器識別綁定，以及資料庫通訊規格（D37–D45）；待 user 審閱與決定是否合併。
