@@ -9,7 +9,7 @@
 | [20261001-security-hardening](threads/20261001-security-hardening.md) | 安全強化：防篡改、單機授權與通訊（D37–D45） | completed | user | user | 2026-10-01 |
 | [20261001-node-typecheck-ci](threads/20261001-node-typecheck-ci.md) | Node 腳本納入 typecheck（D47；CI 跳過） | completed | user | user | 2026-10-01 |
 | [20261001-kit-manuals](threads/20261001-kit-manuals.md) | Kit 動態操作手冊（D48–D53） | completed | user | user | 2026-10-01 |
-| [20261001-site-profile](threads/20261001-site-profile.md) | Site Profile：匯入、解析層、硬性限制與設定交付包（D54–D60） | ready_for_claude | claude | claude | 2026-10-01 |
+| [20261001-site-profile](threads/20261001-site-profile.md) | Site Profile：匯入、解析層、硬性限制與設定交付包（D54–D60） | ready_for_review | user | user | 2026-10-01 |
 
 本目錄為本專案專用的非同步交接區。threads 保存完整討論；inbox、outbox、archive 分別保留收件、寄件與封存位置。Claude 審閱已完成，user 已核准開發；Codex 依 thread 的「Claude Handoff」工作包 WP0–WP6 實作；git 操作改由 Claude 執行。
 
