@@ -52,3 +52,5 @@
 2026-09-30 Claude：20260930-install-package 已合併至 main（ec25bd6），標為 completed。
 
 2026-10-01 Claude：新增 20261001-security-hardening，完成簽章與授權工具、license.py 移除 TPM 改以機器識別綁定，以及資料庫通訊規格（D37–D45）；待 user 審閱與決定是否合併。
+
+2026-10-01 Claude：20261001-security-hardening 補上 D46（預設內網、保留 HTTPS 方案比較）與 Linux 實測（192.168.200.63，Ubuntu 22.04，8 項通過）。

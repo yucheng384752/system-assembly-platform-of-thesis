@@ -79,9 +79,20 @@ artifacts:
 - 專案沒有 `@types/node`，`scripts/security/*.mjs` 與 `security.test.mjs` 不在 typecheck 範圍，只由 vitest 執行。若要納入，須經 user 核准新增 `@types/node`。
 - 公鑰填入 `license.py` 屬 P2 組裝工作；目前佔位值會拒絕所有授權。
 - 威脅模型界線見 D44；Docker 部署須唯讀掛載 `/etc/machine-id`。
-- Linux 指紋工具與 Linux 端一致性測試未在本機執行（開發機為 Windows）。
+- 遠端測試主機沒有 Node、Docker，也沒有 pip 與 venv；Node 簽發、Python 驗證的跨語言測試改為在本機簽發、遠端驗證。尚未測的是 Docker 唯讀掛載 `/etc/machine-id`。
+
+## Linux 實測（2026-10-01，192.168.200.63）
+
+環境：Ubuntu 22.04.5、Python 3.10.12、系統 cryptography 3.4.8（即 `license.py` 註解所指的 Ubuntu 22.04 預設環境）。主機無 Node、Docker、pip，系統套件不更動。
+方法：把 `license.py`、`get-machine-fingerprint.sh` 與 `tests/linux_smoke.py`（只用標準函式庫與系統 cryptography）複製到 `/tmp` 暫存目錄，在本機用 Node 簽發綁定遠端指紋的授權，帶到遠端驗證，測完刪除暫存目錄與本機的簽章檔。
+結果 8 項全數通過：
+- shell 指紋工具與 `license.py` 對 `/etc/machine-id` 算出相同指紋。
+- Windows 識別來源在 Linux 上讀不到，授權被明確拒絕。
+- 綁定本機的授權通過；綁定其他機器、已到期的授權被拒絕。
+- Node 簽發的授權在舊版 cryptography 3.4.8 上通過。
+- 另測：修改 payload 後簽章失敗；公鑰為佔位值時拒絕；大寫 machine-id 與工具算出相同指紋。
 
 # Open Questions
 
-- HTTPS 憑證來源（自簽、內部 CA 或其他）。
+- HTTPS 憑證來源：已記錄四個方案的比較（decision-log「HTTPS 憑證來源」），待現場條件確認後決定；暫以內網為前提（D46）。
 - 是否核准新增 `@types/node`。
