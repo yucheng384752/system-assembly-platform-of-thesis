@@ -57,6 +57,7 @@ date: 2026-09-24
 | D44 | 2026-10-01 | 威脅模型：簽章與授權可防一般使用者修改設定、搬移到他機；無法防止擁有本機管理員權限並能修改程式或複製整機映像者 | 純軟體授權只能提高成本；論文與規格不得宣稱更強保證 | spec §12.2 |
 | D45 | 2026-10-01 | 資料庫與後端同機部署時不啟用資料庫 TLS，前提為資料庫與後端只監聽 127.0.0.1（PostgreSQL `listen_addresses='localhost'`、`pg_hba` 只允許本機且用 scram-sha-256）；資料庫在他機時必須 TLS 且 `sslmode=verify-full`；秘密值沿用 `.env`＋檔案權限；前後端認證歸 `entry-permission-kit`（§8）。部署檔於 P2 產生，本期只定規格 | loopback 流量不離開主機，能攻擊者已有本機權限，可直接讀資料檔與 `.env`，TLS 無額外保護且憑證過期會使離線現場無法啟動；基線版實際風險為後端 port 對外開放 | spec §12.2 |
 | D46 | 2026-10-01 | 產出系統預設所有使用者只經內網連入，不對外網開放；瀏覽器到伺服器是否改用 HTTPS 及憑證來源仍待決，方案比較記錄於本檔「待決／HTTPS 憑證來源」 | user 指定先以內網為前提；保留決策紀錄，避免日後對外開放時默默沿用內網假設 | spec §12.2、§15 |
+| D47 | 2026-10-01 | 新增 `@types/node` 22.20.4（鎖定版本，對應支援的最低 LTS）；新增 `tsconfig.node.json`，讓 `scripts/**/*.mjs` 與 `security.test.mjs` 以 JSDoc 型別納入 `npm run typecheck`；`build` 改為先跑完整 typecheck | user 核准；原本這些檔案只由 vitest 執行，型別錯誤不會被發現（納入後立即抓到測試檔缺少型別）。已知限制：vite 自己的型別宣告會引用 `@types/node`，前端程式因此看得到 Node 全域型別，無法以 tsconfig 隔離 | `package.json`、`tsconfig.node.json` |
 
 ## 必做項目
 
