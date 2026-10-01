@@ -79,7 +79,7 @@ artifacts:
 - 專案沒有 `@types/node`，`scripts/security/*.mjs` 與 `security.test.mjs` 不在 typecheck 範圍，只由 vitest 執行。若要納入，須經 user 核准新增 `@types/node`。
 - 公鑰填入 `license.py` 屬 P2 組裝工作；目前佔位值會拒絕所有授權。
 - 威脅模型界線見 D44；Docker 部署須唯讀掛載 `/etc/machine-id`。
-- 遠端測試主機沒有 Docker，也沒有 pip 與 venv。尚未測的是 Docker 唯讀掛載 `/etc/machine-id`（需 sudo 安裝 docker.io，由 user 操作）。
+- 遠端測試主機沒有 pip 與 venv，Linux 端以 `linux_smoke.py` 驗證，不跑 pytest 全套。
 
 ## Linux 實測（2026-10-01，192.168.200.63）
 
@@ -100,6 +100,14 @@ artifacts:
 - `verify-package`：通過；改動 zip 一個位元組後以 exit 1 失敗，指出 SHA-256 與簽章記錄不符。
 - 同一份 Node 簽發的 `license.lic` 交給 `license.py` 驗證通過。
 測完已刪除遠端的 Node、測試檔與測試金鑰。
+
+### Docker 唯讀掛載 machine-id（2026-10-01）
+
+user 在遠端以 sudo 安裝 docker.io 29.1.3；使用 `python:3.10-slim`（測完已刪除映像與測試檔）。
+- 不掛載：容器內沒有 `/etc/machine-id`，指紋工具明確報錯 `cannot read /etc/machine-id`，不會產生錯誤的指紋。
+- `-v /etc/machine-id:/etc/machine-id:ro`：shell 工具與 `license.py` 的指紋都與主機相同；容器內寫入掛載檔被拒絕（Read-only file system）。
+- 容器內安裝 cryptography 50.0.2 後，`linux_smoke.py` 7 項通過。
+結論：D38 的「Docker 須唯讀掛載主機 `/etc/machine-id`」成立；不掛載時授權不會誤通過，而是明確失敗。
 
 # Open Questions
 
