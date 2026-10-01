@@ -310,6 +310,7 @@ Input Adapter → Data Profiler → Task + Site constraints → Eligibility Filt
 - 位置：`manuals/kits/<kit-id>/<kit-version>/{user,mis,developer}.md`。`<kit-version>` 為 Kit 在 Composer 目錄中的版本（基線 Kit 為覆蓋層版本 `c4b2b7b-ui.1`，`entry-permission-kit` 為 `0.1.0`）。
 - frontmatter（`schemas/manual.schema.json`）：`kitId`、`kitVersion`、`role`（user／mis／developer）、`status`（draft／reviewed）、`sources`（內容所依據的 Kit 檔案）。正文須含六節：用途、前置條件、可設定項目、操作步驟、輸入輸出、常見錯誤與復原。
 - 範圍：Composer 目錄的 12 個 Kit 各三份，共 36 份。`tenant-auth-kit` 已廢除（D03）；`entry-permission-kit` 尚無程式，手冊只寫現況。內容只依 Kit 的 manifest、contract 與原始碼，查不到者寫「尚未提供」。
+- 不一致：Kit 契約宣告與原始碼實作不一致時，以原始碼描述目前行為，另分列契約宣告並標示無可核對實作者為「尚未提供」（D53）。
 - 狀態：初稿為 `draft`；正式發佈只接受 `reviewed`；設定交付包接受 `draft` 並在手冊首頁標示草稿。
 - 組裝：只含已啟用的 Kit 與子功能，依相依排序；「可設定項目」表格取自選項定義；跨 Kit 路徑由所選流程的頁面清單組出；缺片段、版本不符、缺必備章節或 frontmatter 不合契約時，列出 Kit、角色與路徑並阻擋正式發佈。設定交付包的處理見 §12。只包含已啟用功能，依依賴排序，補上跨 Kit 的完整操作路徑；不能僅串接片段造成流程斷裂。缺少必要手冊、reference 失效或版本不符時阻擋正式套件發佈。手冊列示設定來源與版本，不輸出秘密值。
 

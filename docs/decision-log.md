@@ -63,6 +63,7 @@ date: 2026-09-24
 | D50 | 2026-10-01 | 片段 `status` 為 `draft` 或 `reviewed`；初稿一律 `draft`，由 user 審閱後改為 `reviewed`；正式發佈只接受 `reviewed`，設定交付包接受 `draft` 並在手冊首頁標示草稿 | 手冊內容依程式整理，無法保證符合現場操作；由人確認後才能對外發佈 | spec §11、§12 |
 | D51 | 2026-10-01 | 手冊組裝器為純函式：只含已啟用的 Kit 與子功能，依 Kit 相依排序；「可設定項目」表格取自選項定義的角色、風險、變更層級，不另寫一份；跨 Kit 操作路徑由所選流程的頁面清單組出；缺片段、版本不符、缺必備章節、frontmatter 不合契約時列出 Kit、角色與路徑並阻擋正式發佈；不讀連線設定或秘密值 | 對應 A13；避免僅串接片段造成流程斷裂；選項定義已是設定的唯一來源 | spec §11 |
 | D52 | 2026-10-01 | 設定交付包在所選 Kit 的手冊齊全時加入 `docs/manual-<role>.md`（三個角色）；不齊全時 `docs/` 維持列於 `notProvided` 並列出缺少的 Kit；manifest 契約新增產物 role `manual` | 手冊缺少不阻擋設定交付包（D34），齊全時就應交付；修改 D33 的產物數量限制 | spec §12、`schemas/package-manifest.schema.json` |
+| D53 | 2026-10-01 | Kit 的契約宣告（`kit.contract.json`、manifest）與原始碼實作不一致時，手冊以原始碼為準描述目前可操作的行為，另分列「契約宣告」並對找不到可核對實作的項目標示「尚未提供」；不修改 `kits/`，不一致項目列入 Kit 手冊的 Developer 版與 mailbox 待清理清單。首例：`query-traceability-kit` 契約宣告 `GET /api/v2/query/records`，後端只實作 `/lot/{lot_no}` 與 `/trace/{lot_no}`，前端 QueryPage 使用後兩者 | 對應 D49「只依事實、不推測」；手冊不得把宣告當成已實作，也不得把某一方悄悄當作等價；`kits/` 為基線副本（D03、`kits/BASELINE.md`），不同步修正 | spec §11 |
 
 ## 必做項目
 
