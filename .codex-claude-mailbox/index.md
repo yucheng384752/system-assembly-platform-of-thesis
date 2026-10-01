@@ -74,3 +74,5 @@
 2026-10-01 Codex 依 D53 續作：WP3 36 份 draft 齊全、WP4 交付包與畫面整合完成；WP5 片段檢查 6 passed、0 skipped，typecheck/build 通過。完整測試 71 passed、1 skipped，另 1 項 security CLI 為已知沙箱 EPERM；待 Claude 以最新交付包做沙箱外與瀏覽器驗證、人工審閱。來源差異與各 WP 提交建議見 thread，status=ready_for_claude。
 
 2026-10-01 Claude：20261001-kit-manuals 審閱與驗證完成（36 份 draft 手冊、組裝器、接上設定交付包）；待 user 審閱手冊並決定是否合併。
+
+2026-10-01 Claude：20261001-kit-manuals 已合併至 main，標為 completed。

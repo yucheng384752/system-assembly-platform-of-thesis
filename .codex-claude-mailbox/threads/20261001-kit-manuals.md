@@ -1,7 +1,7 @@
 ---
 id: "20261001-kit-manuals"
 title: "Kit 動態操作手冊（D48–D52）"
-status: "ready_for_review"
+status: "completed"
 owner: "user"
 reviewer: "user"
 priority: "high"
@@ -254,4 +254,4 @@ Composer 目錄的 Kit（`loadKits`：基線 manifest 去掉 `tenant-auth-kit`�
 
 # Closure
 
-待 user 審閱後決定是否合併。
+2026-10-01：user 同意合併；以 `--no-ff` 合併至 main，合併後 typecheck、build 通過，vitest 72 passed、1 skipped，test:kits 14 passed、1 skipped。36 份手冊仍為 `draft`，人工審閱待 user 進行。
