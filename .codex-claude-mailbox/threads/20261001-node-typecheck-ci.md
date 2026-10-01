@@ -1,7 +1,7 @@
 ---
 id: "20261001-node-typecheck-ci"
 title: "Node 腳本納入 typecheck 與 CI 設定（D47）"
-status: "ready_for_review"
+status: "completed"
 owner: "user"
 reviewer: "user"
 priority: "medium"
@@ -42,6 +42,10 @@ artifacts:
 ## CI（2026-10-01 user 決定跳過）
 
 專案沒有 git 遠端，也沒有 `.github/`，CI 平台未定；user 決定跳過，不設定 CI。日後若有遠端，再依平台設定，建議的檢查為 typecheck、vitest、build、kits Python 測試。
+
+# Closure
+
+2026-10-01：user 同意合併；以 `--no-ff` 合併至 main，合併後 typecheck、build 通過，vitest 55 passed、1 skipped，test:kits 14 passed、1 skipped。CI 依 user 決定跳過。
 
 # Open Questions
 
