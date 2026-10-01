@@ -1,0 +1,19 @@
+{
+  "format": "composer-site-profile",
+  "version": 1,
+  "siteId": "demo-site-a",
+  "siteVersion": "1.0.0",
+  "displayName": "模擬場域 A",
+  "domain": "模擬資料驗證",
+  "optionOverrides": {
+    "upload-validation-kit::csv-excel-error-summary": { "row-label": "模擬列號 A", "row-width": 240 }
+  },
+  "optionLimits": {
+    "upload-validation-kit::csv-excel-error-summary": { "row-width": { "minimum": 120, "maximum": 300 }, "message-width": { "maximum": 300 } }
+  },
+  "fieldSemantics": [
+    { "id": "mock-row", "name": "模擬列號", "aliases": ["mock-row-number"], "confirmed": true },
+    { "id": "mock-message", "name": "模擬說明", "aliases": ["mock-message"], "confirmed": false }
+  ],
+  "dataSources": [{ "id": "mock-source", "sourceRef": "mock-source-a", "secretRef": "mock-secret-reference" }]
+}
