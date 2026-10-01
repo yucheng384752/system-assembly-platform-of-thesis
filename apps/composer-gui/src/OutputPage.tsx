@@ -10,11 +10,13 @@ import { loadFragments } from './manual';
 import { exportAov, sha256Hex, WORKFLOW_FILE, type AovDocument } from './workflow';
 import { Column } from './Column';
 import { Icon } from './Icons';
+import { SiteTransfer } from './SiteTransfer';
+import type { SiteSession } from './siteSession';
 
 const included = ['客戶代稱', '已選功能', '可調整的畫面設定', '流程規格的檔名與校驗碼'];
 const workflowIncluded = ['流程步驟、時機與負責職務', '各步驟的表單欄位定義', '已確認的表單關聯'];
 const excluded = ['原始資料列與樣本內容', '連線資訊與密碼', '未確認的推測關聯'];
-export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport }: { recipe: Recipe; workflow: AovDocument; selectedFlows: string[]; onChange: (recipe: Recipe) => void; onImport: (recipe: Recipe) => void }) {
+export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport, site, siteConflict = '', onSiteChange }: { recipe: Recipe; workflow: AovDocument; selectedFlows: string[]; onChange: (recipe: Recipe) => void; onImport: (recipe: Recipe) => void; site?: SiteSession; siteConflict?: string; onSiteChange?: (site?: SiteSession) => void }) {
   const name = (id: string) => catalog.kits.find(k => k.id === id)?.displayName ?? id;
   const groups = flows.filter(f => selectedFlows.includes(f.id)).map(f => ({ id: f.id, title: f.name, kits: f.kits.filter(id => recipe.enabledKits.includes(id)) }));
   // Required features and dependencies that no selected flow names directly.
@@ -29,7 +31,8 @@ export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport
     return () => { current = false; };
   }, [exported.text]);
   const sha256 = exported.text && digest.text === exported.text ? digest.sha256 : '';
-  const linked: Recipe = sha256 ? { ...recipe, workflowRef: { path: WORKFLOW_FILE, sha256 } } : recipe;
+  const linked: Recipe = { ...recipe, ...(sha256 ? { workflowRef: { path: WORKFLOW_FILE, sha256 } } : {}),
+    ...(site && !recipe.siteRef ? { siteRef: { path: 'site.profile.json', sha256: site.sha256 } } : {}) };
   const [packing, setPacking] = useState(false);
   const [packageError, setPackageError] = useState('');
   const [packageNotice, setPackageNotice] = useState('');
@@ -37,9 +40,10 @@ export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport
   const manualStatus = deliveryManualStatus(recipe, catalog, fragments);
   // Packs the same bytes as the separate downloads, so the package and the loose files never disagree (D36).
   async function downloadPackage() {
+    if (siteConflict) { setPackageError(siteConflict); return; }
     setPacking(true);
     try {
-      const built = await buildDeliveryPackage(exportRecipe(linked, catalog), exported.text, catalog, { selectedFlows, flows, fragments });
+      const built = await buildDeliveryPackage(exportRecipe(linked, catalog), exported.text, catalog, { selectedFlows, flows, fragments }, site?.text);
       downloadBlob(new Blob([built.bytes], { type: 'application/zip' }), built.fileName);
       setPackageError(''); setPackageNotice(`已下載 ${built.fileName}；不含資料列、樣本內容或秘密值。`);
     } catch (failure) {
@@ -65,7 +69,9 @@ export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport
       <input id="client-name" value={recipe.clientName ?? ''} maxLength={100} required aria-describedby="client-note client-error" onChange={e => onChange({ ...recipe, clientName: e.target.value })} />
       <p id="client-note" className="muted">使用去識別化代稱，勿包含個資或秘密值。</p>
       <p id="client-error">{!recipe.clientName?.trim() ? '請填寫客戶代稱後下載。' : ''}</p>
-      <RecipeTransfer recipe={linked} catalog={catalog} blocked={!sha256} onImport={next => {
+      {onSiteChange && <SiteTransfer current={site} referenced={Boolean(recipe.siteRef)} onChange={onSiteChange} />}
+      <p id="site-conflict" role={siteConflict ? 'alert' : undefined}>{siteConflict ? `場域設定衝突：${siteConflict} 修正前無法下載設定。` : ''}</p>
+      <RecipeTransfer recipe={linked} catalog={catalog} blocked={!sha256 || Boolean(siteConflict)} onImport={next => {
         onImport(next);
         setNotice(next.workflowRef && next.workflowRef.sha256 !== sha256 ? '注意：載入的設定檔記錄的流程規格與目前流程不同。請在「流程步驟」匯入對應的流程規格，或重新下載兩個檔案。' : '');
       }} />
@@ -77,7 +83,7 @@ export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport
       <section aria-labelledby="deployment-title"><h3 id="deployment-title">設定交付包</h3>
         <p className="muted">將上述兩個檔案、檢查報告與檔案清單打包成單一壓縮檔。內容是設定，不能直接安裝或部署。</p>
         <p id="manual-status" role="status">{manualStatus.description}</p>
-        <button className="primary" disabled={packing || !sha256 || !recipe.clientName?.trim()} aria-describedby="package-error manual-status" onClick={downloadPackage}><Icon name="download" />下載設定交付包</button>
+        <button className="primary" disabled={packing || !sha256 || !recipe.clientName?.trim() || Boolean(siteConflict)} aria-describedby="package-error manual-status site-conflict" onClick={downloadPackage}><Icon name="download" />下載設定交付包</button>
         <p id="package-error" role={packageError ? 'alert' : undefined}>{packageError}</p>
         <p role="status">{packageNotice}</p></section>
     </Column>

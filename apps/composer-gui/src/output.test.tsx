@@ -9,6 +9,8 @@ import { downloadJson } from './fileTransfer';
 import { sha256Hex } from './workflow';
 import { readZip } from './testZip';
 import * as manual from './manual';
+import siteA from '../../../config/site/examples/demo-site-a.site.json';
+import siteB from '../../../config/site/examples/demo-site-b.site.json';
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 function captureDownloads(binary: Uint8Array[] = []) {
@@ -170,4 +172,54 @@ test('real Recipe rejects omitted dependencies and projects out secrets; downloa
   captureDownloads(); vi.useFakeTimers(); downloadJson('{}', 'example.json');
   expect(document.querySelector('a[download]')).toBeNull();
   vi.advanceTimersByTime(1000); expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock');
+});
+
+// A09/D60 integration: real import -> locked preview -> exact package bytes, replace Site, then remove it.
+test('場域 A／B 匯入、預覽及交付包使用同一份設定，移除後還原使用者值', async () => {
+  const zips: Uint8Array[] = []; const contents = captureDownloads(zips);
+  const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
+  const storage = vi.spyOn(Storage.prototype, 'setItem');
+  const xhr = vi.spyOn(XMLHttpRequest.prototype, 'open');
+  await buildWorkflow();
+  const page = (number: string) => fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${number} `) }));
+  page('04'); fireEvent.click(screen.getByRole('tab', { name: '檔案上傳與驗證' }));
+  fireEvent.change(screen.getByLabelText('資料列的欄寬'), { target: { value: '210' } });
+  page('05'); fireEvent.change(screen.getByLabelText('客戶代稱'), { target: { value: '模擬客戶' } });
+  for (const [index, site] of [siteA, siteB].entries()) {
+    const text = ` ${JSON.stringify(site, null, 3)}\r\n`;
+    fireEvent.change(screen.getByLabelText('匯入場域設定'), { target: { files: [csv('mock.site.json', `\uFEFF${text}`)] } });
+    await screen.findByText(`目前場域：${site.displayName}，版本 1.0.0`);
+    page('04'); fireEvent.click(screen.getByRole('tab', { name: '檔案上傳與驗證' }));
+    const key = 'upload-validation-kit::csv-excel-error-summary';
+    const width = screen.getByLabelText('資料列的欄寬') as HTMLInputElement;
+    expect(width.disabled).toBe(true);
+    expect(width.value).toBe(String(site.optionOverrides[key]['row-width']));
+    expect(document.getElementById(`${width.id}-site`)?.textContent).toContain(`最大 ${site.optionLimits[key]['row-width'].maximum}`);
+    expect(screen.getByRole('columnheader', { name: site.optionOverrides[key]['row-label'] }).style.width).toBe(`${width.value}px`);
+    page('05');
+    await waitFor(() => expect((screen.getByRole('button', { name: '下載設定交付包' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '下載系統設定檔' }));
+    fireEvent.click(screen.getByRole('button', { name: '下載設定交付包' }));
+    await waitFor(() => expect(zips).toHaveLength(index + 1));
+    const files = Object.fromEntries(readZip(zips[index]).map(e => [e.path, new TextDecoder().decode(e.data)]));
+    expect(files['config/site/site.profile.json']).toBe(text);
+    const recipe = JSON.parse(files['config/system.recipe.json']);
+    expect(files['config/system.recipe.json']).toBe(contents[index]);
+    expect(recipe.siteRef).toEqual({ path: 'site.profile.json', sha256: await sha256Hex(text) });
+    // Recipe preserves the user's lower layer; Site stays in its own declared artifact.
+    expect(recipe.selectedSubfeatureOptions[key]['row-width']).toBe(210);
+  }
+  expect(zips[0]).not.toEqual(zips[1]);
+  fireEvent.click(screen.getByRole('button', { name: '移除場域' }));
+  page('04'); fireEvent.click(screen.getByRole('tab', { name: '檔案上傳與驗證' }));
+  expect((screen.getByLabelText('資料列的欄寬') as HTMLInputElement).value).toBe('210');
+  expect((screen.getByLabelText('資料列的欄寬') as HTMLInputElement).disabled).toBe(false);
+  page('05');
+  await waitFor(() => expect((screen.getByRole('button', { name: '下載設定交付包' }) as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(screen.getByRole('button', { name: '下載設定交付包' }));
+  await waitFor(() => expect(zips).toHaveLength(3));
+  const removed = Object.fromEntries(readZip(zips[2]).map(e => [e.path, new TextDecoder().decode(e.data)]));
+  expect(removed['config/site/site.profile.json']).toBeUndefined();
+  expect(JSON.parse(removed['config/system.recipe.json']).siteRef).toBeUndefined();
+  expect(fetch).not.toHaveBeenCalled(); expect(xhr).not.toHaveBeenCalled(); expect(storage).not.toHaveBeenCalled();
 });

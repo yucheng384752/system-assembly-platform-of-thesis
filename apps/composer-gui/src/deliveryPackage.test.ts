@@ -7,6 +7,7 @@ import { buildDeliveryPackage, MANIFEST_FILE, sensitiveKeys } from './deliveryPa
 import { exportAov, sha256Hex, type AovDocument } from './workflow';
 import { readZip } from './testZip';
 import { fragmentPath, loadFragments, manualRoles } from './manual';
+import siteA from '../../../config/site/examples/demo-site-a.site.json';
 
 const workflow: AovDocument = {
   format: 'composer-aov-list', version: 2,
@@ -20,6 +21,43 @@ async function inputs() {
   return { workflowText, recipeText };
 }
 const decode = (data: Uint8Array) => new TextDecoder().decode(data);
+
+// D60: the imported text (including whitespace) is the checksum input, never a reserialization.
+test('場域原文、Recipe 引用與 manifest 位元組一致，報告列出待確認語意', async () => {
+  const { workflowText, recipeText } = await inputs();
+  const siteText = ` ${JSON.stringify(siteA, null, 3)}\r\n`;
+  const siteRef = { path: 'site.profile.json', sha256: await sha256Hex(siteText) };
+  const recipe = JSON.stringify({ ...JSON.parse(recipeText), siteRef });
+  const built = await buildDeliveryPackage(recipe, workflowText, catalog, {}, `\uFEFF${siteText}`);
+  const files = Object.fromEntries(readZip(built.bytes).map(e => [e.path, e.data]));
+  const path = 'config/site/site.profile.json';
+  expect(files[path]).toEqual(new TextEncoder().encode(siteText));
+  expect(built.manifest.artifacts).toHaveLength(8);
+  expect(schemas.packageManifest(built.manifest)).toBe(true);
+  expect(built.manifest.artifacts.find(a => a.role === 'site-profile')).toEqual({ path, role: 'site-profile', sha256: siteRef.sha256, bytes: files[path].length });
+  expect(JSON.parse(decode(files['config/system.recipe.json'])).siteRef).toEqual(siteRef);
+  expect(decode(files['README.md'])).toContain(path);
+  const report = JSON.parse(decode(files['validation/report.json']));
+  expect(report.staticChecks).toContainEqual({ id: 'site-semantics', description: expect.stringContaining('待 MIS 確認：模擬說明'), status: 'not-provided' });
+  for (const id of ['site-profile', 'site-ref', 'site-limits']) expect(report.staticChecks).toContainEqual({ id, description: expect.any(String), status: 'passed' });
+  expect((await buildDeliveryPackage(recipe, workflowText, catalog, {}, siteText)).bytes).toEqual(built.bytes);
+});
+
+// Packaging revalidates even when called outside the UI, preventing a missing file, stale reference or conflict bypass.
+test('交付包拒絕場域引用不符、未提供檔案、秘密值及任一層超限', async () => {
+  const { workflowText, recipeText } = await inputs();
+  const siteText = JSON.stringify(siteA);
+  const recipe = { ...JSON.parse(recipeText), siteRef: { path: 'site.profile.json', sha256: await sha256Hex(siteText) } };
+  await expect(buildDeliveryPackage(recipeText, workflowText, catalog, {}, siteText)).rejects.toThrow('場域校驗碼');
+  await expect(buildDeliveryPackage(JSON.stringify(recipe), workflowText, catalog, {}, siteText + ' ')).rejects.toThrow('場域校驗碼');
+  await expect(buildDeliveryPackage(JSON.stringify(recipe), workflowText, catalog)).rejects.toThrow('場域設定尚未提供');
+  await expect(buildDeliveryPackage(JSON.stringify(recipe), workflowText, catalog, {}, JSON.stringify({ ...siteA, password: 'mock' }))).rejects.toThrow('秘密值欄位');
+  const key = 'upload-validation-kit::csv-excel-error-summary';
+  const kit = catalog.kits.find(k => k.id === 'upload-validation-kit')!;
+  recipe.selectedSubfeatureOptions = { [key]: { 'row-width': 350 } };
+  recipe.uiOverrides = { [key]: { kitVersion: kit.version, schema_version: '1.0.0' } };
+  await expect(buildDeliveryPackage(JSON.stringify(recipe), workflowText, catalog, {}, siteText)).rejects.toThrow(/system.*最大 300/);
+});
 
 test('the package holds only real artifacts, each listed with a matching checksum, and says it is not installable (D21, D32, A15)', async () => {
   const { workflowText, recipeText } = await inputs();

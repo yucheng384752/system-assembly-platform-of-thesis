@@ -5,6 +5,7 @@ import { catalog } from './previewCatalog';
 import { KitPreview } from './KitPreview';
 import { Column } from './Column';
 import { Icon } from './Icons';
+import type { SiteProfile } from '../../../libs/ui-runtime/site';
 
 const descriptions: Record<string, string> = {
   'data-import': '選擇上傳、檢查與匯入資料所需的功能。',
@@ -13,9 +14,9 @@ const descriptions: Record<string, string> = {
   'generic-forms': '自訂表單欄位，管理不同種類的紀錄。',
   governance: '管理站點、修正紀錄，查看操作歷程。',
 };
-export function FlowPage({ recipe, onChange, requested, manual, onSelect, session, suggestions = [] }: {
+export function FlowPage({ recipe, onChange, requested, manual, onSelect, session, suggestions = [], site }: {
   recipe: Recipe; onChange: (r: Recipe) => void; requested: string[]; manual: string[];
-  onSelect: (flows: string[], kits: string[]) => void; session: number; suggestions?: { id: string; reason: string }[];
+  onSelect: (flows: string[], kits: string[]) => void; session: number; suggestions?: { id: string; reason: string }[]; site?: SiteProfile;
 }) {
   const [search, setSearch] = useState('');
   const selection = selectKits(catalog.kits, requested, manual);
@@ -53,7 +54,7 @@ export function FlowPage({ recipe, onChange, requested, manual, onSelect, sessio
       <p>必要或相依功能不能直接取消；請先取消需要它的流程或功能。</p>
     </details>
     </Column>
-    <KitPreview key={session} split recipe={recipe} onChange={onChange} catalog={catalog} session={session} />
+    <KitPreview key={session} split site={site} recipe={recipe} onChange={onChange} catalog={catalog} session={session} />
     </div>
   </>;
 }

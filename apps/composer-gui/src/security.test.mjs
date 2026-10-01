@@ -13,18 +13,21 @@ import { exportAov, sha256Hex } from './workflow';
 import { createZip } from './zip';
 import { readZip } from './testZip';
 import { inspectPackage, readStoreZip, REPO_ROOT, signPackage, verifyPackage } from '../../../scripts/security/lib.mjs';
+import siteA from '../../../config/site/examples/demo-site-a.site.json';
 
 const FINGERPRINT = 'f'.repeat(64);
 const keys = () => generateKeyPairSync('rsa', { modulusLength: 2048, publicKeyEncoding: { type: 'spki', format: 'pem' }, privateKeyEncoding: { type: 'pkcs8', format: 'pem' } });
 const issuer = keys();
-async function deliveryPackage(stepName = '收料') {
+async function deliveryPackage(stepName = '收料', withSite = false) {
   /** @type {import('./workflow').AovDocument} */
   const workflow = { format: 'composer-aov-list', version: 2,
     steps: [{ id: 'step-1', name: stepName, when: '', owner: '倉管', formIds: ['form-1'] }],
     forms: [{ id: 'form-1', name: '收料單', fields: [{ id: 'field-1', name: '批號', type: 'text', required: true, isKey: true }] }], relations: [] };
   const workflowText = exportAov(workflow);
-  const recipeText = exportRecipe({ ...initialRecipe, clientName: '示範客戶', workflowRef: { path: 'workflow.aov.json', sha256: await sha256Hex(workflowText) } }, catalog);
-  return buildDeliveryPackage(recipeText, workflowText, catalog);
+  const siteText = withSite ? JSON.stringify(siteA) : undefined;
+  const recipeText = exportRecipe({ ...initialRecipe, clientName: '示範客戶', workflowRef: { path: 'workflow.aov.json', sha256: await sha256Hex(workflowText) },
+    ...(siteText ? { siteRef: { path: /** @type {const} */ ('site.profile.json'), sha256: await sha256Hex(siteText) } } : {}) }, catalog);
+  return buildDeliveryPackage(recipeText, workflowText, catalog, {}, siteText);
 }
 /** @param {Uint8Array} bytes @param {string} fileName @param {string} [privateKeyPem] */
 const sign = (bytes, fileName, privateKeyPem = issuer.privateKey) =>
@@ -44,6 +47,17 @@ test('a signed package verifies, and the license binds client, machine and this 
   expect(Date.parse(license.expiresAt) - Date.parse(license.issuedAt)).toBe(365 * 86400000);
   expect(license).not.toHaveProperty('machinePublicKey');
   expect(JSON.stringify(signed)).not.toMatch(/PRIVATE KEY/);
+});
+
+// D60: the existing signer/verifier must cover the added artifact without changing security/lib.mjs.
+test('含場域的交付包可簽章驗證，修改場域原文會被拒絕', async () => {
+  const built = await deliveryPackage('收料', true);
+  const signed = sign(built.bytes, built.fileName);
+  expect(inspectPackage(built.bytes).manifest.artifacts.some((/** @type {{ role: string }} */ a) => a.role === 'site-profile')).toBe(true);
+  expect(() => verifyPackage({ zipBytes: built.bytes, zipName: built.fileName, signature: signed.signature, license: signed.license, publicKeyPem: issuer.publicKey })).not.toThrow();
+  const edited = swap(built.bytes, 'config/site/site.profile.json', '{}');
+  expect(() => sign(edited, built.fileName)).toThrow('config/site/site.profile.json 與 manifest 記錄不符');
+  expect(() => verifyPackage({ zipBytes: edited, zipName: built.fileName, signature: signed.signature, license: signed.license, publicKeyPem: issuer.publicKey })).toThrow('SHA-256');
 });
 test('editing any packaged file is detected, before signing and before installing', async () => {
   const built = await deliveryPackage();
@@ -104,7 +118,7 @@ test('CLI: keys stay outside the repo, signing and verification succeed, and a t
   const keyDir = join(work, 'keys');
   expect(cli('generate-keys.mjs', '--out-dir', keyDir).status).toBe(0);
   expect(cli('generate-keys.mjs', '--out-dir', keyDir).stderr).toContain('不覆寫');
-  const built = await deliveryPackage();
+  const built = await deliveryPackage('收料', true);
   const zipPath = join(work, built.fileName); writeFileSync(zipPath, built.bytes);
   const signArgs = ['--zip', zipPath, '--machine-fingerprint', FINGERPRINT, '--fingerprint-source', 'windows-machine-guid'];
   const keyInRepo = cli('sign-package.mjs', '--key', resolve(REPO_ROOT, 'package.json'), ...signArgs);
