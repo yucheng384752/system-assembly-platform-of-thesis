@@ -1,9 +1,9 @@
 ---
 id: "20261001-site-profile"
 title: "Site Profile：匯入、解析層、硬性限制與設定交付包（D54–D60）"
-status: "ready_for_codex"
-owner: "codex"
-reviewer: "claude"
+status: "ready_for_review"
+owner: "claude"
+reviewer: "user"
 priority: "high"
 created_by: "claude"
 created_at: "2026-10-01"
@@ -127,8 +127,85 @@ artifacts:
 
 # Codex Notes
 
-（尚未開始）
+## WP1 完成（2026-10-01）
+
+- 變更：註冊 site schema；新增 M01 模擬場域 A／B，引用 previewCatalog 實際的資料驗證欄位；加入契約正反例。
+- 檔案：libs/ui-runtime/schema.ts、config/site/examples/demo-site-a.site.json、config/site/examples/demo-site-b.site.json、config/README.md、apps/composer-gui/src/siteSchema.test.ts。
+- 驗證：`npm.cmd test -- apps/composer-gui/src/siteSchema.test.ts`：13 passed、0 failed、0 skipped（1 test file passed）。
+- 未涵蓋：語意驗證、解析、GUI、交付包於後續 WP；身分授權不在本期。
+- 建議提交：feat(site): register profile schema and mock examples
+
+## WP2 完成（2026-10-01）
+
+- 變更：純函式匯入驗證（UTF-8 2 MB、BOM、契約、引用、型別／限制、別名歧義、秘密值）、有效語意與鎖定集合；共用 resolveKit 依三層解析且逐層檢查限制。
+- 來源相容性：source 仍是字串，保留原 Recipe 路徑與 Kit 版本內容，加上 system／kit-default／site 前綴以辨識層級；既有測試同步檢查前綴，不改無 Site 時的有效設定。
+- 檔案：libs/ui-runtime/site.ts、libs/ui-runtime/resolve.ts、apps/composer-gui/src/site.test.ts、apps/composer-gui/src/runtime.test.tsx、apps/composer-gui/src/recipe.test.ts。
+- 驗證：`npm.cmd test -- apps/composer-gui/src/site.test.ts apps/composer-gui/src/siteSchema.test.ts apps/composer-gui/src/runtime.test.tsx apps/composer-gui/src/recipe.test.ts`：31 passed、0 failed、0 skipped（4 files）；突變還原後重跑相同結果。
+- 型別：`npm.cmd run typecheck` 首次 exit 1（1 個 TS2352，Ajv unknown 邊界型別轉換），已修正；重跑 exit 0（1 command passed、0 failed、0 skipped）。
+- 突變：分別停用限制檢查、Site 優先序、別名唯一性、秘密值檢查後，`npm.cmd test -- apps/composer-gui/src/site.test.ts` 每次皆 12 passed、1 failed、0 skipped；4/4 突變被攔截，原檔均以 finally 還原。
+- 未涵蓋：Runtime 授權覆寫與身分授權依 D57 延後；GUI／交付包由後續 WP 驗證。
+- 建議提交：feat(site): validate profiles and resolve constrained site overrides
+
+## WP3 完成（2026-10-01）
+
+- 變更：Recipe 新增選填 siteRef；固定 path，匯入／匯出以明確投影保留，舊檔不受影響。
+- 檔案：schemas/recipe.schema.json、libs/ui-runtime/types.ts、libs/ui-runtime/recipe.ts、apps/composer-gui/src/recipe.test.ts。
+- 驗證：`npm.cmd test -- apps/composer-gui/src/recipe.test.ts apps/composer-gui/src/schema.test.ts`：9 passed、0 failed、0 skipped（2 files）。
+- 未涵蓋：引用與實際檔案雜湊核對於 WP5。
+- 建議提交：feat(recipe): preserve optional site profile references
+
+## WP4 完成（2026-10-01）
+
+- 變更：App 工作階段保存原文／解析／SHA-256；05 原子匯入、通知與移除場域；04 共用解析、停用鎖定控制項並顯示有效值／限制；既有或新輸入的場域衝突保留使用者值，阻擋步驟確認及設定下載。缺少引用檔案或雜湊不符亦阻擋。
+- 檔案：apps/composer-gui/src/{App.tsx,FlowPage.tsx,KitPreview.tsx,SettingsEditor.tsx,OutputPage.tsx,SiteTransfer.tsx,siteSession.ts,siteUi.test.tsx}、DESIGN.md。
+- 驗證：`npm.cmd test -- apps/composer-gui/src/siteUi.test.tsx apps/composer-gui/src/Frontend.test.tsx apps/composer-gui/src/output.test.tsx` 初次 8 passed、1 failed、0 skipped（測試誤用 input.disabled 判斷父 fieldset 的停用狀態，過早完成等待）；改以 :disabled 後重跑 9 passed、0 failed、0 skipped（3 files）。
+- 型別：`npm.cmd run typecheck` exit 0（1 command passed、0 failed、0 skipped）。
+- 未涵蓋：真實瀏覽器視覺／鍵盤／縮放驗證依交接由 Claude 執行；交付包內場域檔案於 WP5 接入。
+- 建議提交：feat(gui): import site settings and show locked options and conflicts
+
+## WP5 完成（2026-10-01；CLI 沙箱外驗證待 Claude）
+
+- 變更：manifest 新增 site-profile／上限 8；交付包重驗 Site、每層限制與引用雜湊，保留去 BOM 原文位元組；README 與報告加入 Site 檢查及待確認語意；無 Site 時不新增產物或報告項目；05 使用目前 Site 產生引用與交付包。
+- 檔案：schemas/package-manifest.schema.json、apps/composer-gui/src/{deliveryPackage.ts,OutputPage.tsx,deliveryPackage.test.ts,security.test.mjs}。scripts/security/lib.mjs 未修改，既有簽章／驗證直接接受含 Site 的包，竄改 Site 會被拒絕。
+- 驗證：`npm.cmd test -- apps/composer-gui/src/deliveryPackage.test.ts apps/composer-gui/src/security.test.mjs`：14 passed、1 failed、0 skipped（1 file passed、1 file failed）；唯一測試失敗為已知 security CLI 沙箱限制，另 afterAll 清理同目錄 EPERM，非本次程式失敗。
+- 原文錯誤：`EPERM: operation not permitted, open 'C:\Users\gslab\AppData\Local\Temp\composer-security-tBKdJf\keys\signing-private-key.pem'`；清理為 `Error: EPERM, Permission denied`，殘留目錄 `C:\Users\gslab\AppData\Local\Temp\composer-security-tBKdJf`，未嘗試繞過或清理。
+- 型別：`npm.cmd run typecheck` 首次 exit 1（1 個 TS7006：新增安全測試回呼缺 JSDoc 型別），補上明確型別後重跑 exit 0（1 command passed、0 failed、0 skipped）。
+- 未涵蓋：security CLI 完整流程由 Claude 沙箱外重跑；端到端場域交付下載於 WP6。
+- 建議提交：feat(package): include validated site profiles with matching checksums
+
+## WP6 自動化驗證完成（2026-10-01；沙箱外與真實瀏覽器待 Claude）
+
+- 變更：新增 A09／D60 整合測試，從場域 A 匯入、04 鎖定／限制／預覽、05 Recipe 與交付包下載，切換 B，再移除場域還原使用者值；驗證原文位元組、兩份 Recipe 一致、引用雜湊、無網路請求及無 localStorage 寫入。安全 CLI 情境改用含 Site 的交付包供 Claude 沙箱外驗證；契約錯誤位置補上未知欄位名稱。
+- 本 WP 檔案：apps/composer-gui/src/output.test.tsx、apps/composer-gui/src/security.test.mjs、libs/ui-runtime/site.ts，以及本 thread 與 mailbox index。
+- 聚焦整合：`npm.cmd test -- apps/composer-gui/src/output.test.tsx apps/composer-gui/src/siteUi.test.tsx`：9 passed、0 failed、0 skipped（2 files）。
+- 最終型別：`npm.cmd run typecheck` exit 0（1 command passed、0 failed、0 skipped）。
+- 最終完整測試：`npm.cmd test`：104 passed、1 failed、1 skipped，共 106 tests；20 files passed、1 file failed。唯一 failed 是已知 security CLI 沙箱 EPERM，不是本次程式失敗；1 skipped 是既有身分授權未實作測試（App.test.tsx）。安全函式測試（包含 Site 簽章、驗證、竄改偵測）均通過。
+- 最終 build：`npm.cmd run build` exit 0（1 command passed、0 failed、0 skipped）；含 TypeScript 與 Node 腳本型別檢查，Vite 278 modules。
+- 基線測試：`npm.cmd run test:kits` exit 1，原文 `did not find executable at 'C:\Users\gslab\AppData\Local\Programs\Python\Python313\python.exe': ?????`。pytest 未啟動，0 tests executed，passed／failed／skipped 測試數不可取得；此為交接已知環境限制，未嘗試繞過，由 Claude 沙箱外驗證。
+- 最終 security CLI 原文：`EPERM: operation not permitted, open 'C:\Users\gslab\AppData\Local\Temp\composer-security-Aef0Sl\keys\signing-private-key.pem'`；afterAll 亦為 `Error: EPERM, Permission denied`。本次留下的暫存目錄共兩個：`C:\Users\gslab\AppData\Local\Temp\composer-security-tBKdJf`、`C:\Users\gslab\AppData\Local\Temp\composer-security-Aef0Sl`，請 Claude 沙箱外清理；未讀取私鑰內容。
+- 範圍檢查：`git -c safe.directory=C:/Users/gslab/Desktop/composer-refactor diff --check` exit 0；分支 feature/site-profile；無 Git 寫入、無新依賴，kits/、schemas/site-profile.schema.json、scripts/security/lib.mjs 均未變更。無新增 any 型別。
+- 未涵蓋／交接：Claude 需執行 security CLI、test:kits、真實瀏覽器檔案選擇／鍵盤操作／200% 縮放與視覺驗證、程式審閱及 Git 提交；未宣稱以上已通過。Runtime 覆寫、真實身分授權與現場部署仍不在本期。
+- 建議提交：test(site): verify profile switching and exact delivery artifacts
+
+### 最終檔案清單（8 新增、21 修改）
+
+- 新增：libs/ui-runtime/site.ts；apps/composer-gui/src/SiteTransfer.tsx、siteSession.ts、site.test.ts、siteSchema.test.ts、siteUi.test.tsx；config/site/examples/demo-site-a.site.json、demo-site-b.site.json。
+- 修改：libs/ui-runtime/schema.ts、resolve.ts、recipe.ts、types.ts；schemas/recipe.schema.json、package-manifest.schema.json；apps/composer-gui/src/App.tsx、FlowPage.tsx、KitPreview.tsx、SettingsEditor.tsx、OutputPage.tsx、deliveryPackage.ts、deliveryPackage.test.ts、output.test.tsx、recipe.test.ts、runtime.test.tsx、security.test.mjs；config/README.md、DESIGN.md；.codex-claude-mailbox/index.md、threads/20261001-site-profile.md。
 
 # Open Questions
 
 （無）
+
+## Claude 審閱與驗證（2026-10-01）
+
+- Codex 第一次派工（task-mup9qler）因 Codex 使用額度上限在 1 分 14 秒失敗，沒有改任何檔案；第二次（task-mupd5tjl，16 分 20 秒）完成。
+- 沙箱外驗證：`npm.cmd run typecheck` 通過；`npm.cmd test` 21 個檔案、105 passed、1 skipped；`npm.cmd run test:kits` 14 passed、1 skipped；`npm.cmd run build` 通過。Codex 回報的 1 項失敗（security CLI 暫存目錄 EPERM）與 `test:kits` 無法執行是沙箱限制，沙箱外皆通過；沙箱留下的兩個暫存金鑰目錄（`composer-security-tBKdJf`、`composer-security-Aef0Sl`）已由 Claude 刪除。
+- 程式審閱：`site.ts` 的秘密值檢查只放行 `dataSources[n].secretRef`；Site 未載入時限制檢查直接略過，有效值不變；Kit 預設、Recipe、Site 三層皆檢查限制；Site 鎖定仍會檢查被覆蓋的 Recipe 值是否有效。
+- 突變檢查 6 項：5 項被測試攔到；`secretRef` 放行範圍放寬那一項為等價變體（schema 的 `additionalProperties: false` 已拒絕 `dataSources` 以外的 `secretRef`）。
+- Chrome 實測見 Obsidian 筆記「24 Site Profile」：危險檔案被拒；場域 A、B 的鎖定、限制、預覽、交付包位元組與校驗碼、移除還原；720 寬、44px 皆正常。
+- 已知限制：有效值來源字串多了層級前綴；`site.ts` 與 `resolve.ts` 循環相依（目前可運作）；手冊設定項目一覽尚未反映 Site 的值；console 監聽未在整個流程期間啟用。
+- 未涵蓋：實體鍵盤操作；Runtime 覆寫、分析偏好、站點對應 Workflow 表單（D55、D57）；用瀏覽器產出的交付包實際跑簽章工具（簽章測試以含 Site 的交付包執行）。
+
+# Closure
+
+待 user 審閱後決定是否合併。

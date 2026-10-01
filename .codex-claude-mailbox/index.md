@@ -9,7 +9,7 @@
 | [20261001-security-hardening](threads/20261001-security-hardening.md) | 安全強化：防篡改、單機授權與通訊（D37–D45） | completed | user | user | 2026-10-01 |
 | [20261001-node-typecheck-ci](threads/20261001-node-typecheck-ci.md) | Node 腳本納入 typecheck（D47；CI 跳過） | completed | user | user | 2026-10-01 |
 | [20261001-kit-manuals](threads/20261001-kit-manuals.md) | Kit 動態操作手冊（D48–D53） | completed | user | user | 2026-10-01 |
-| [20261001-site-profile](threads/20261001-site-profile.md) | Site Profile：匯入、解析層、硬性限制與設定交付包（D54–D60） | ready_for_codex | codex | claude | 2026-10-01 |
+| [20261001-site-profile](threads/20261001-site-profile.md) | Site Profile：匯入、解析層、硬性限制與設定交付包（D54–D60） | ready_for_claude | claude | claude | 2026-10-01 |
 
 本目錄為本專案專用的非同步交接區。threads 保存完整討論；inbox、outbox、archive 分別保留收件、寄件與封存位置。Claude 審閱已完成，user 已核准開發；Codex 依 thread 的「Claude Handoff」工作包 WP0–WP6 實作；git 操作改由 Claude 執行。
 
@@ -79,3 +79,7 @@
 2026-10-01 Claude：20261001-kit-manuals 已合併至 main，標為 completed。
 
 2026-10-01 Claude：新增 20261001-site-profile，決策 D54–D60、`schemas/site-profile.schema.json` 與工作包 WP1–WP6 已寫入，交由 Codex 實作。
+
+2026-10-01 Codex：Site Profile WP1–WP5 實作及 WP6 自動化驗證完成；typecheck/build 通過；完整測試 104 passed、1 failed（已知 security CLI EPERM）、1 skipped（既有身分授權）。test:kits 因已知 Python 路徑失效未啟動。待 Claude 沙箱外安全／Kit 測試、真實瀏覽器驗證、審閱與 Git 提交；兩個 security 暫存目錄與每個 WP 的完整結果見 thread，status=ready_for_claude。
+
+2026-10-01 Claude：20261001-site-profile 審閱與驗證完成（匯入式場域設定、Site 解析層與鎖定、限制、交付包）；待 user 審閱並決定是否合併。
