@@ -56,6 +56,7 @@ date: 2026-09-24
 | D43 | 2026-10-01 | Python 測試環境為專案內 `.venv`，固定 pytest 9.1.1、cryptography 50.0.2（`kits/platform-core-kit/requirements-test.txt`）；首次將 `license.py` 納入測試 | user 核准；`kits/` 原不在測試範圍 | `package.json`、`.gitignore` |
 | D44 | 2026-10-01 | 威脅模型：簽章與授權可防一般使用者修改設定、搬移到他機；無法防止擁有本機管理員權限並能修改程式或複製整機映像者 | 純軟體授權只能提高成本；論文與規格不得宣稱更強保證 | spec §12.2 |
 | D45 | 2026-10-01 | 資料庫與後端同機部署時不啟用資料庫 TLS，前提為資料庫與後端只監聽 127.0.0.1（PostgreSQL `listen_addresses='localhost'`、`pg_hba` 只允許本機且用 scram-sha-256）；資料庫在他機時必須 TLS 且 `sslmode=verify-full`；秘密值沿用 `.env`＋檔案權限；前後端認證歸 `entry-permission-kit`（§8）。部署檔於 P2 產生，本期只定規格 | loopback 流量不離開主機，能攻擊者已有本機權限，可直接讀資料檔與 `.env`，TLS 無額外保護且憑證過期會使離線現場無法啟動；基線版實際風險為後端 port 對外開放 | spec §12.2 |
+| D46 | 2026-10-01 | 產出系統預設所有使用者只經內網連入，不對外網開放；瀏覽器到伺服器是否改用 HTTPS 及憑證來源仍待決，方案比較記錄於本檔「待決／HTTPS 憑證來源」 | user 指定先以內網為前提；保留決策紀錄，避免日後對外開放時默默沿用內網假設 | spec §12.2、§15 |
 
 ## 必做項目
 
@@ -81,6 +82,19 @@ date: 2026-09-24
 | System configuration 與 Recipe | 沿用 Recipe；`config/system.json` 改為 Recipe 檔 | 同一概念；基線版 GUI 匯出、resolver、Resolved Plan 均以 Recipe 為基礎 |
 | Site Profile 與 StationSchema | Site Profile 上位包含，以 reference 引用多份 StationSchema（1:N） | 範圍不同；平行會造成 mapping 雙重定義；tenant key 規則只需改一處 |
 | System Package | 延伸基線版部署包，保留新名稱 | 保留已驗證的部署能力；新增 manifest／checksum／手冊／AoV／驗證報告屬新機制 |
+
+### HTTPS 憑證來源（D46，2026-10-01 起保留紀錄）
+
+前提：使用者只經內網連入（D46）。資料庫與後端之間的通訊已由 D45 決定，本項只涉及瀏覽器到伺服器（反向代理）。
+
+| 方案 | 做法 | 優點 | 缺點 | 適用 |
+|---|---|---|---|---|
+| A 維持 HTTP | 只在內網提供 HTTP | 無憑證維護 | 內網中任一台被入侵或可監聽的設備即可讀取帳密與資料；瀏覽器標示不安全 | 僅限封閉、受控網段的暫行做法 |
+| B 每台自簽 | 安裝時產生自簽憑證，顯示指紋供人工核對 | 不需外部服務、可離線 | 瀏覽器警告；使用者習慣按「繼續」會削弱防偽效果；需自行處理到期更新 | 小型、單一站點 |
+| C 內部 CA | 以企業或專案自建 CA 簽發，CA 憑證由 MIS 透過群組原則等方式派送到用戶端 | 無警告、可集中撤銷與更新 | 需 CA 管理流程與用戶端信任設定 | 已有 MIS 與網域管理的工廠 |
+| D 公開 CA | Let's Encrypt 等公開憑證，內網可用 DNS-01 驗證 | 無警告、自動更新 | 需公開網域與 DNS API；離線現場無法更新 | 有網域且可連外者 |
+
+待確認：現場是否已有內部 CA 或網域管理；是否有離線站點；憑證到期時的處理責任。
 
 ### 規格與目錄
 
