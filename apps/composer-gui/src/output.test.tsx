@@ -8,6 +8,7 @@ import { catalog } from './previewCatalog';
 import { downloadJson } from './fileTransfer';
 import { sha256Hex } from './workflow';
 import { readZip } from './testZip';
+import * as manual from './manual';
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 function captureDownloads(binary: Uint8Array[] = []) {
@@ -74,6 +75,9 @@ test('A22, A15: downloads validate, carry no rows, the Recipe checksum matches t
   fireEvent.click(screen.getByRole('button', { name: /03 表單關聯/ }));
   fireEvent.click(screen.getByRole('button', { name: /^確認關聯/ }));
   fireEvent.click(screen.getByRole('button', { name: /05 輸出/ }));
+  // D52: draft manuals are included, and their status must be readable before the download.
+  expect(document.getElementById('manual-status')?.textContent).toContain('手冊齊全');
+  expect(document.getElementById('manual-status')?.textContent).toContain('含草稿內容');
   expect((screen.getByRole('button', { name: '下載設定交付包' }) as HTMLButtonElement).disabled).toBe(true);
   // Output cannot be confirmed until the required client name is filled (G05).
   expect((screen.getByRole('button', { name: '確認本步驟' }) as HTMLButtonElement).disabled).toBe(true);
@@ -97,8 +101,33 @@ test('A22, A15: downloads validate, carry no rows, the Recipe checksum matches t
   const packed = Object.fromEntries(readZip(zips[0]).map(e => [e.path, new TextDecoder().decode(e.data)]));
   expect(packed['aov/workflow.aov.json']).toBe(contents[0]);
   expect(packed['config/system.recipe.json']).toBe(contents[1]);
+  for (const role of manual.manualRoles) expect(packed[`docs/manual-${role}.md`]).toContain('本手冊含草稿內容，尚未經審閱');
+  expect(packed['docs/manual-user.md']).toContain('操作順序：上傳頁 → 匯入工作頁 → 錯誤檢視頁');
   expect(Object.values(packed).join()).not.toMatch(/PRIVATE_UPLOAD_SENTINEL/);
   expect(fetch).not.toHaveBeenCalled(); expect(xhr).not.toHaveBeenCalled(); expect(storage).not.toHaveBeenCalled();
+});
+
+// D34: missing manual text must name the feature and role without disabling an otherwise valid download.
+test('missing manual status names the feature and role while configuration delivery stays available', async () => {
+  const fragments = manual.loadFragments();
+  const kit = catalog.kits.find(k => k.id === initialRecipe.enabledKits[0])!;
+  delete fragments[manual.fragmentPath(kit, 'user')];
+  vi.spyOn(manual, 'loadFragments').mockReturnValue(fragments);
+  const zips: Uint8Array[] = []; captureDownloads(zips);
+  await buildWorkflow();
+  fireEvent.click(screen.getByRole('button', { name: /05 輸出/ }));
+  const status = document.getElementById('manual-status')!;
+  expect(status.getAttribute('role')).toBe('status');
+  expect(status.textContent).toContain(`${kit.displayName}（一般使用者）`);
+  expect(status.textContent).toContain('仍可下載設定');
+  expect(status.textContent).not.toContain(kit.id);
+  fireEvent.change(screen.getByLabelText('客戶代稱'), { target: { value: '示範客戶' } });
+  const button = screen.getByRole('button', { name: '下載設定交付包' }) as HTMLButtonElement;
+  expect(button.getAttribute('aria-describedby')).toContain('manual-status');
+  await waitFor(() => expect(button.disabled).toBe(false));
+  fireEvent.click(button);
+  await waitFor(() => expect(zips).toHaveLength(1));
+  expect(readZip(zips[0]).some(file => file.path.startsWith('docs/'))).toBe(false);
 });
 test('an incomplete Workflow blocks every download and says why', () => {
   render(<App />);

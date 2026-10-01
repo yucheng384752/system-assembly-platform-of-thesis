@@ -5,7 +5,8 @@ import { catalog } from './previewCatalog';
 import { RecipeTransfer } from './RecipeTransfer';
 import { exportRecipe } from '../../../libs/ui-runtime/recipe';
 import { downloadBlob, downloadJson } from './fileTransfer';
-import { buildDeliveryPackage } from './deliveryPackage';
+import { buildDeliveryPackage, deliveryManualStatus } from './deliveryPackage';
+import { loadFragments } from './manual';
 import { exportAov, sha256Hex, WORKFLOW_FILE, type AovDocument } from './workflow';
 import { Column } from './Column';
 import { Icon } from './Icons';
@@ -32,11 +33,13 @@ export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport
   const [packing, setPacking] = useState(false);
   const [packageError, setPackageError] = useState('');
   const [packageNotice, setPackageNotice] = useState('');
+  const fragments = useMemo(() => loadFragments(), []);
+  const manualStatus = deliveryManualStatus(recipe, catalog, fragments);
   // Packs the same bytes as the separate downloads, so the package and the loose files never disagree (D36).
   async function downloadPackage() {
     setPacking(true);
     try {
-      const built = await buildDeliveryPackage(exportRecipe(linked, catalog), exported.text, catalog);
+      const built = await buildDeliveryPackage(exportRecipe(linked, catalog), exported.text, catalog, { selectedFlows, flows, fragments });
       downloadBlob(new Blob([built.bytes], { type: 'application/zip' }), built.fileName);
       setPackageError(''); setPackageNotice(`已下載 ${built.fileName}；不含資料列、樣本內容或秘密值。`);
     } catch (failure) {
@@ -73,7 +76,8 @@ export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport
       <ul className="check-list excluded"><li className="list-title">皆不包含</li>{excluded.map(item => <li key={item}><Icon name="minus" />{item}</li>)}</ul>
       <section aria-labelledby="deployment-title"><h3 id="deployment-title">設定交付包</h3>
         <p className="muted">將上述兩個檔案、檢查報告與檔案清單打包成單一壓縮檔。內容是設定，不能直接安裝或部署。</p>
-        <button className="primary" disabled={packing || !sha256 || !recipe.clientName?.trim()} aria-describedby="package-error" onClick={downloadPackage}><Icon name="download" />下載設定交付包</button>
+        <p id="manual-status" role="status">{manualStatus.description}</p>
+        <button className="primary" disabled={packing || !sha256 || !recipe.clientName?.trim()} aria-describedby="package-error manual-status" onClick={downloadPackage}><Icon name="download" />下載設定交付包</button>
         <p id="package-error" role={packageError ? 'alert' : undefined}>{packageError}</p>
         <p role="status">{packageNotice}</p></section>
     </Column>
