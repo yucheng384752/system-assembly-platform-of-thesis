@@ -79,7 +79,7 @@ artifacts:
 - 專案沒有 `@types/node`，`scripts/security/*.mjs` 與 `security.test.mjs` 不在 typecheck 範圍，只由 vitest 執行。若要納入，須經 user 核准新增 `@types/node`。
 - 公鑰填入 `license.py` 屬 P2 組裝工作；目前佔位值會拒絕所有授權。
 - 威脅模型界線見 D44；Docker 部署須唯讀掛載 `/etc/machine-id`。
-- 遠端測試主機沒有 Node、Docker，也沒有 pip 與 venv；Node 簽發、Python 驗證的跨語言測試改為在本機簽發、遠端驗證。尚未測的是 Docker 唯讀掛載 `/etc/machine-id`。
+- 遠端測試主機沒有 Docker，也沒有 pip 與 venv。尚未測的是 Docker 唯讀掛載 `/etc/machine-id`（需 sudo 安裝 docker.io，由 user 操作）。
 
 ## Linux 實測（2026-10-01，192.168.200.63）
 
@@ -91,6 +91,15 @@ artifacts:
 - 綁定本機的授權通過；綁定其他機器、已到期的授權被拒絕。
 - Node 簽發的授權在舊版 cryptography 3.4.8 上通過。
 - 另測：修改 payload 後簽章失敗；公鑰為佔位值時拒絕；大寫 machine-id 與工具算出相同指紋。
+
+### Linux 上的 Node 工具（2026-10-01）
+
+以官方 Node v22.23.3 linux-x64（SHA-256 與 SHASUMS256.txt 相符）解壓到使用者目錄，不使用 sudo、不改系統套件；以本機實際建出的設定交付包（`buildDeliveryPackage`）在遠端執行：
+- `generate-keys`：目標在 repo 內被拒絕；repo 外成功，私鑰權限 600；重複執行不覆寫。
+- `sign-package`：以遠端 `get-machine-fingerprint.sh` 的指紋簽發；未加 `--force` 不覆寫。
+- `verify-package`：通過；改動 zip 一個位元組後以 exit 1 失敗，指出 SHA-256 與簽章記錄不符。
+- 同一份 Node 簽發的 `license.lic` 交給 `license.py` 驗證通過。
+測完已刪除遠端的 Node、測試檔與測試金鑰。
 
 # Open Questions
 
