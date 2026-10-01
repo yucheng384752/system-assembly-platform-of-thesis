@@ -326,6 +326,23 @@ Input Adapter → Data Profiler → Task + Site constraints → Eligibility Filt
 
 zip 為 store 格式、固定順序與時間戳，相同設定產出相同位元組；manifest 不記錄產生時間。`kits/`、`frontend/`、`database/migrations/`、`permissions/`、`docs/`（手冊）、`deployment/` 未提供，列於 `notProvided`，不建立空目錄，也不附安裝腳本。靜態檢查任一未通過即不產生交付包。
 
+### 12.2 防篡改、單機授權與通訊安全（2026-10-01，D37–D45）
+
+**流程：**
+
+```text
+目標機器：get-machine-fingerprint（.ps1／.sh）→ { machineFingerprint, fingerprintSource }
+簽章端（離線，私鑰在 repo 外）：generate-keys → sign-package <交付包.zip> → <交付包>.sig.json、license.lic
+安裝前：verify-package → zip 簽章、授權簽章、授權的 packageManifestSha256、manifest 列出的各產物 SHA-256
+產出系統啟動：license.py → 授權簽章 → 到期日 → 本機指紋（依 fingerprintSource）；任一失敗即拒絕啟動
+```
+
+**授權檔（`schemas/license.schema.json`）：**`{ payload, signature, algorithm: "RSA-PSS-SHA256" }`，`payload` 為簽章的原始 JSON 字串，內容為 `schemaVersion: "2.0"`、`issuedAt`、`expiresAt`、`licensee.name`（客戶代稱）、`recipe`、`enabledKits`、`machineFingerprint`、`fingerprintSource`（`windows-machine-guid`／`linux-machine-id`）、`packageManifestSha256`。zip 簽章沿用基線版 `schemaVersion: "1.0"`、`zipFile`、`sha256`、`recipe`。
+
+**威脅模型（D44）：**可防一般使用者修改設定或交付包內容、把系統搬到另一台機器；無法防止具本機管理員權限並能改程式、或複製整機映像者。機器識別會隨 VM／磁碟映像複製（D38）。
+
+**通訊（D45）：**資料庫與後端同機時只監聽 127.0.0.1，不啟用資料庫 TLS；資料庫在他機時必須 TLS 並 `sslmode=verify-full`。後端不得直接對外開 port，只經反向代理。產出系統預設只供內網使用者連入、不對外網開放（D46）；瀏覽器到伺服器是否改用 HTTPS 及憑證來源待確認，方案比較見 decision-log「HTTPS 憑證來源」（§15）。秘密值沿用 `.env` 與檔案權限；前後端認證屬 §8。部署檔於 P2 產生，屆時列入組裝檢查。
+
 ```text
 <system-id>-<version>/
 ├─ system-manifest.json
@@ -399,6 +416,7 @@ build 不等於部署成功。驗證報告分別列出靜態檢查、測試環�
 6. 資料來源接口及 renderer 相容要求（UI 框架已定為 React 18 + TypeScript；首期元件為表格與下拉）。
 7. System Package 的目標 OS／runtime、離線需求及部署責任。
 8. Kit 單獨運行的最低環境、共享依賴與失敗隔離需求。
+9. 內網前提下（D46），瀏覽器到伺服器是否改用 HTTPS 及憑證來源（維持 HTTP、每台自簽、內部 CA、公開 CA）（§12.2；比較表見 decision-log）。
 
 主要風險：設定檔分散導致來源不明（以來源追蹤處理）、資料模型與 UI 變更混淆（分離契約）、假 rollback（明確不可逆性）、通用分析過度承諾（限定 registry 支援範圍）、文件與版本漂移（由固定 manifest 組裝）。
 

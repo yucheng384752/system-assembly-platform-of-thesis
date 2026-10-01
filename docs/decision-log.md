@@ -47,6 +47,16 @@ date: 2026-09-24
 | D34 | 2026-09-30 | 缺少手冊不阻擋設定交付包，於 `notProvided` 標示；§11 的阻擋規則適用於正式 System Package | 設定交付包依 D21 不是正式發佈；`manuals/kits/` 尚無任何手冊 | spec §11、§12 |
 | D35 | 2026-09-30 | 驗證報告列出靜態檢查（兩份檔案的 schema、`workflowRef` 相符、敏感鍵名掃描），測試環境演練與現場驗證標為「未執行」；任一靜態檢查未通過即不產生交付包 | §12 要求三類分列；不得宣稱已部署驗證 | spec §12 |
 | D36 | 2026-09-30 | 保留流程規格與系統設定檔的分別下載（設定檔亦用於載入）；本期只輸出交付包，不支援匯入；檔名為 `<Recipe name>-delivery-<manifest sha256 前 12 碼>.zip` | 最小改動；客戶代稱為任意文字，不放進檔名 | spec §12 |
+| D37 | 2026-10-01 | 防篡改與授權沿用基線版方式：RSA-2048、RSA-PSS-SHA256（salt 32）簽 `license.lic` 與 `<zip>.sig.json`，產出系統啟動時驗證，失敗即拒絕啟動；移除 TPM 驗證（EK 指紋與 challenge-response） | user 指定沿用基線、移除 TPM；TPM 需硬體與 tpm2-tools，現場不一定具備 | spec §12.2 |
+| D38 | 2026-10-01 | 單機綁定改用作業系統機器識別：Windows `MachineGuid`、Linux `/etc/machine-id`，取小寫去空白後的 SHA-256；授權檔必須綁定機器並記錄 `fingerprintSource`，不再發不綁機器的授權 | 修正基線版 H1（指紋來源未記錄、兩平台算法不同導致誤拒）；user 接受此識別會隨 VM／磁碟映像複製，只防「把檔案搬到另一台機器」；Docker 部署須唯讀掛載主機 `/etc/machine-id` | spec §12.2 |
+| D39 | 2026-10-01 | 授權 payload 升為 `schemaVersion` 2.0，新增 `packageManifestSha256` 綁定設定交付包；`licensee` 只記客戶代稱，不記 email | manifest 已記錄各產物 SHA-256（D33），一個簽章即可涵蓋整包；email 屬個資，Recipe 匯出亦不含 | spec §12.2、`schemas/license.schema.json` |
+| D40 | 2026-10-01 | 金鑰產生、簽章與驗證為本機離線 Node 工具（`scripts/security/`，只用內建 crypto）；私鑰必須存放在 repo 以外，目標路徑位於 repo 內即拒絕；新增驗證工具，檢查 zip 簽章、授權簽章與整包 SHA-256 | 依「秘密值不落地」私鑰不可進瀏覽器或 repo；補上基線版 `.sig.json` 無任何程式驗證的缺口 | spec §12.2 |
+| D41 | 2026-10-01 | `platform-core-kit` 的 `license.py`：公鑰仍為佔位值時拒絕啟動；舊版授權（無 `fingerprintSource`、含 `machinePublicKey`、或未綁機器）明確拒絕並說明原因 | 防止基線版公鑰與金鑰不符造成的 crash-loop 被誤判為授權問題；不靜默接受舊格式 | `kits/platform-core-kit`、`kits/BASELINE.md` |
+| D42 | 2026-10-01 | 授權有效期預設 365 天，不設離線寬限期 | 沿用基線版 `expiresAfterDays` 預設值；驗證完全離線，無需寬限 | spec §12.2 |
+| D43 | 2026-10-01 | Python 測試環境為專案內 `.venv`，固定 pytest 9.1.1、cryptography 50.0.2（`kits/platform-core-kit/requirements-test.txt`）；首次將 `license.py` 納入測試 | user 核准；`kits/` 原不在測試範圍 | `package.json`、`.gitignore` |
+| D44 | 2026-10-01 | 威脅模型：簽章與授權可防一般使用者修改設定、搬移到他機；無法防止擁有本機管理員權限並能修改程式或複製整機映像者 | 純軟體授權只能提高成本；論文與規格不得宣稱更強保證 | spec §12.2 |
+| D45 | 2026-10-01 | 資料庫與後端同機部署時不啟用資料庫 TLS，前提為資料庫與後端只監聽 127.0.0.1（PostgreSQL `listen_addresses='localhost'`、`pg_hba` 只允許本機且用 scram-sha-256）；資料庫在他機時必須 TLS 且 `sslmode=verify-full`；秘密值沿用 `.env`＋檔案權限；前後端認證歸 `entry-permission-kit`（§8）。部署檔於 P2 產生，本期只定規格 | loopback 流量不離開主機，能攻擊者已有本機權限，可直接讀資料檔與 `.env`，TLS 無額外保護且憑證過期會使離線現場無法啟動；基線版實際風險為後端 port 對外開放 | spec §12.2 |
+| D46 | 2026-10-01 | 產出系統預設所有使用者只經內網連入，不對外網開放；瀏覽器到伺服器是否改用 HTTPS 及憑證來源仍待決，方案比較記錄於本檔「待決／HTTPS 憑證來源」 | user 指定先以內網為前提；保留決策紀錄，避免日後對外開放時默默沿用內網假設 | spec §12.2、§15 |
 
 ## 必做項目
 
@@ -72,6 +82,19 @@ date: 2026-09-24
 | System configuration 與 Recipe | 沿用 Recipe；`config/system.json` 改為 Recipe 檔 | 同一概念；基線版 GUI 匯出、resolver、Resolved Plan 均以 Recipe 為基礎 |
 | Site Profile 與 StationSchema | Site Profile 上位包含，以 reference 引用多份 StationSchema（1:N） | 範圍不同；平行會造成 mapping 雙重定義；tenant key 規則只需改一處 |
 | System Package | 延伸基線版部署包，保留新名稱 | 保留已驗證的部署能力；新增 manifest／checksum／手冊／AoV／驗證報告屬新機制 |
+
+### HTTPS 憑證來源（D46，2026-10-01 起保留紀錄）
+
+前提：使用者只經內網連入（D46）。資料庫與後端之間的通訊已由 D45 決定，本項只涉及瀏覽器到伺服器（反向代理）。
+
+| 方案 | 做法 | 優點 | 缺點 | 適用 |
+|---|---|---|---|---|
+| A 維持 HTTP | 只在內網提供 HTTP | 無憑證維護 | 內網中任一台被入侵或可監聽的設備即可讀取帳密與資料；瀏覽器標示不安全 | 僅限封閉、受控網段的暫行做法 |
+| B 每台自簽 | 安裝時產生自簽憑證，顯示指紋供人工核對 | 不需外部服務、可離線 | 瀏覽器警告；使用者習慣按「繼續」會削弱防偽效果；需自行處理到期更新 | 小型、單一站點 |
+| C 內部 CA | 以企業或專案自建 CA 簽發，CA 憑證由 MIS 透過群組原則等方式派送到用戶端 | 無警告、可集中撤銷與更新 | 需 CA 管理流程與用戶端信任設定 | 已有 MIS 與網域管理的工廠 |
+| D 公開 CA | Let's Encrypt 等公開憑證，內網可用 DNS-01 驗證 | 無警告、自動更新 | 需公開網域與 DNS API；離線現場無法更新 | 有網域且可連外者 |
+
+待確認：現場是否已有內部 CA 或網域管理；是否有離線站點；憑證到期時的處理責任。
 
 ### 規格與目錄
 
