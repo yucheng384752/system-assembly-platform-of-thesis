@@ -21,6 +21,7 @@ system-ui、Microsoft JhengHei、sans-serif；正文 1rem、行高 1.6；頁面�
 - 布林設定以開關（role="switch" 的核取框）呈現。
 - 圖示為手寫內嵌 SVG（Icons.tsx），一律 aria-hidden 且旁邊有文字；不使用圖示庫。
 - 表格在區塊內捲動。選取、錯誤與完成狀態有文字提示。
+- 設定交付包：下載按鈕前以文字狀態區（role="status"）標示三角色手冊是否齊全、是否含草稿；缺漏時列出功能顯示名稱與角色，說明仍可下載設定但不含手冊。不只靠顏色；沿用至少 44px 的下載按鈕，並以 aria-describedby 關聯狀態。
 ## Motion
 不使用動畫；prefers-reduced-motion 下關閉動畫與平滑捲動。
 ## Data-viz rules

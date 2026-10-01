@@ -3,9 +3,11 @@ import type { Recipe } from '../../../libs/ui-runtime/types';
 import { validateSchema } from '../../../libs/ui-runtime/schema';
 import { sha256Hex, WORKFLOW_FILE } from './workflow';
 import { createZip } from './zip';
+import { flows, type Flow } from './catalog';
+import { assembleManual, checkManuals, fragmentPath, loadFragments, manualRoles, roleNames, type Fragments } from './manual';
 
 // Configuration delivery package (spec 12, D21, D31-D36): settings only, never an installable system.
-export type ArtifactRole = 'readme' | 'recipe' | 'workflow' | 'validation-report';
+export type ArtifactRole = 'readme' | 'recipe' | 'workflow' | 'validation-report' | 'manual';
 export interface PackageManifest {
   format: 'composer-delivery-package'; version: 1; installable: false; clientName: string;
   recipe: { name: string; recipeVersion: string };
@@ -15,7 +17,7 @@ export interface PackageManifest {
 }
 export interface ValidationReport {
   format: 'composer-validation-report'; version: 1;
-  staticChecks: { id: string; description: string; status: 'passed' }[];
+  staticChecks: { id: string; description: string; status: 'passed' | 'not-provided' }[];
   rehearsal: { status: 'not-run'; note: string };
   siteVerification: { status: 'not-run'; note: string };
 }
@@ -26,9 +28,22 @@ export const notProvided: PackageManifest['notProvided'] = [
   { path: 'frontend/', reason: '前端產物需等可執行組裝（P2）完成。' },
   { path: 'database/migrations/', reason: 'DB migration 尚未實作（spec 7）。' },
   { path: 'permissions/', reason: '入口權限設定尚未實作（spec 8）。' },
-  { path: 'docs/', reason: 'Kit 操作手冊尚未撰寫（spec 11、D34）。' },
+  { path: 'docs/', reason: '所選功能的操作手冊尚未齊全（spec 11、D34）。' },
   { path: 'deployment/', reason: '不提供部署腳本；設定交付包不能安裝（D21）。' },
 ];
+
+// Shared by the visible status and packaging so missing fragments never silently change the delivery promise.
+export function deliveryManualStatus(recipe: Pick<Recipe, 'enabledKits'>, catalog: Catalog, fragments: Fragments) {
+  const issues = checkManuals({ kits: catalog.kits, enabledKits: recipe.enabledKits, fragments, mode: 'package' });
+  const hasDraft = catalog.kits.filter(kit => recipe.enabledKits.includes(kit.id)).some(kit => manualRoles.some(role => {
+    const fragment = fragments[fragmentPath(kit, role)];
+    return fragment && 'meta' in fragment && fragment.meta.status === 'draft';
+  }));
+  const description = issues.length
+    ? `手冊未齊全：${issues.map(issue => `${catalog.kits.find(kit => kit.id === issue.kitId)?.displayName ?? '未知功能'}（${roleNames[issue.role]}）`).join('、')}。本次交付包不含操作手冊，仍可下載設定。`
+    : `手冊齊全：包含一般使用者、維護人員及開發人員三份手冊。${hasDraft ? '含草稿內容，尚未經審閱。' : '內容已審閱。'}`;
+  return { issues, description };
+}
 // Key names that would mean connection settings or credentials leaked into an exported file (A15).
 const SENSITIVE_KEY = /password|passwd|secret|token|credential|connection|dsn|api[_-]?key|private[_-]?key|licensee|deploymentconfig/i;
 export function sensitiveKeys(value: unknown, at = '$'): string[] {
@@ -45,6 +60,7 @@ function readme(manifest: Omit<PackageManifest, 'artifacts'>): string {
     '- `config/system.recipe.json`：系統設定檔（已選功能與畫面設定）。',
     '- `aov/workflow.aov.json`：流程規格（流程步驟、表單欄位定義與已確認的表單關聯）。',
     '- `validation/report.json`：靜態檢查結果；測試環境演練與現場驗證尚未執行。',
+    ...(!manifest.notProvided.some(item => item.path === 'docs/') ? manualRoles.map(role => `- \`docs/manual-${role}.md\`：${roleNames[role]}操作手冊；審閱狀態見各手冊首頁。`) : []),
     '- `package-manifest.json`：各檔案的 SHA-256 與位元組數，以及未提供的項目與原因。', '',
     '## 不包含', '',
     '- 原始資料列、樣本內容、連線資訊與密碼。',
@@ -56,7 +72,9 @@ function readme(manifest: Omit<PackageManifest, 'artifacts'>): string {
 }
 
 // recipeText and workflowText must be the exact exported files, so the package matches the separate downloads.
-export async function buildDeliveryPackage(recipeText: string, workflowText: string, catalog: Catalog): Promise<{ fileName: string; bytes: Uint8Array<ArrayBuffer>; manifest: PackageManifest }> {
+export async function buildDeliveryPackage(recipeText: string, workflowText: string, catalog: Catalog,
+  manuals: { selectedFlows?: string[]; flows?: Flow[]; fragments?: Fragments } = {},
+): Promise<{ fileName: string; bytes: Uint8Array<ArrayBuffer>; manifest: PackageManifest }> {
   const recipe = JSON.parse(recipeText) as Recipe; const workflow: unknown = JSON.parse(workflowText);
   const failures: string[] = [];
   const check = (condition: boolean, failure: string) => { if (!condition) failures.push(failure); };
@@ -73,6 +91,16 @@ export async function buildDeliveryPackage(recipeText: string, workflowText: str
   check(!!recipe.clientName?.trim(), '請填寫客戶代稱。');
   if (failures.length) throw new Error(`設定交付包未產生：${failures.join(' ')}`);
 
+  const fragments = manuals.fragments ?? loadFragments();
+  const manualStatus = deliveryManualStatus(recipe, catalog, fragments);
+  const missing = notProvided.filter(item => item.path !== 'docs/');
+  if (manualStatus.issues.length) missing.push({ path: 'docs/', reason: manualStatus.issues.map(issue => issue.reason).join('；') });
+  const manualFiles = manualStatus.issues.length ? [] : manualRoles.map(role => ({
+    path: `docs/manual-${role}.md`, role: 'manual' as const,
+    text: assembleManual({ role, kits: catalog.kits, enabledKits: recipe.enabledKits,
+      selectedSubfeatures: recipe.selectedSubfeatures, overrides: recipe.selectedSubfeatureOptions,
+      flows: manuals.flows ?? flows, selectedFlows: manuals.selectedFlows ?? [], fragments, catalog }),
+  }));
   const report: ValidationReport = {
     format: 'composer-validation-report', version: 1,
     staticChecks: [
@@ -81,17 +109,19 @@ export async function buildDeliveryPackage(recipeText: string, workflowText: str
       { id: 'workflow-ref', description: '系統設定檔的 workflowRef 與流程規格的 SHA-256 相符', status: 'passed' },
       { id: 'sensitive-keys', description: '兩份檔案皆無連線、密碼或金鑰類欄位名稱（只檢查欄位名稱，不檢查使用者輸入的文字）', status: 'passed' },
       { id: 'kit-versions', description: '每項已選功能皆有固定版本', status: 'passed' },
+      { id: 'manuals', description: manualStatus.description, status: manualStatus.issues.length ? 'not-provided' : 'passed' },
     ],
     rehearsal: { status: 'not-run', note: '尚無可執行組裝，未在測試環境演練。' },
     siteVerification: { status: 'not-run', note: '未在現場驗證；本包不能安裝。' },
   };
   const base = { format: 'composer-delivery-package', version: 1, installable: false, clientName: recipe.clientName!.trim(),
-    recipe: { name: recipe.name, recipeVersion: recipe.recipeVersion }, kits, notProvided } as const;
+    recipe: { name: recipe.name, recipeVersion: recipe.recipeVersion }, kits, notProvided: missing } as const;
   const files: { path: string; role: ArtifactRole; text: string }[] = [
     { path: 'README.md', role: 'readme', text: readme(base) },
     { path: 'config/system.recipe.json', role: 'recipe', text: recipeText },
     { path: `aov/${WORKFLOW_FILE}`, role: 'workflow', text: workflowText },
     { path: 'validation/report.json', role: 'validation-report', text: JSON.stringify(report, null, 2) },
+    ...manualFiles,
   ];
   const encoder = new TextEncoder();
   const encoded = files.map(file => ({ ...file, data: encoder.encode(file.text) }));

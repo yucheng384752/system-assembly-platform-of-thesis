@@ -8,6 +8,7 @@
 | [20260930-install-package](threads/20260930-install-package.md) | 設定交付包壓縮檔（D31–D36） | completed | user | user | 2026-09-30 |
 | [20261001-security-hardening](threads/20261001-security-hardening.md) | 安全強化：防篡改、單機授權與通訊（D37–D45） | completed | user | user | 2026-10-01 |
 | [20261001-node-typecheck-ci](threads/20261001-node-typecheck-ci.md) | Node 腳本納入 typecheck（D47；CI 跳過） | completed | user | user | 2026-10-01 |
+| [20261001-kit-manuals](threads/20261001-kit-manuals.md) | Kit 動態操作手冊（D48–D52） | ready_for_claude | codex | claude | 2026-10-01 |
 
 本目錄為本專案專用的非同步交接區。threads 保存完整討論；inbox、outbox、archive 分別保留收件、寄件與封存位置。Claude 審閱已完成，user 已核准開發；Codex 依 thread 的「Claude Handoff」工作包 WP0–WP6 實作；git 操作改由 Claude 執行。
 
@@ -65,3 +66,11 @@
 2026-10-01 Claude：20261001-node-typecheck-ci 依 user 決定跳過 CI，只含 typecheck 部分，待 user 決定是否合併。
 
 2026-10-01 Claude：20261001-node-typecheck-ci 已合併至 main，標為 completed。
+
+2026-10-01 Claude：新增 20261001-kit-manuals，決策 D48–D52、`schemas/manual.schema.json` 與工作包 WP1–WP5 已寫入，交由 Codex 實作（12 個 Kit 三份手冊、組裝器、接上設定交付包）。
+
+2026-10-01 Codex：Kit 手冊 WP1、WP2 與 WP3 第一批 9 份完成；第二批發現查詢 API 契約與來源不一致，依停止條件交回 Claude。完整測試 63 passed、5 failed、1 skipped；typecheck/build 通過；test:kits 因既有 Python 路徑失效未啟動。WP4／WP5 未完成，詳見 thread。
+
+2026-10-01 Codex 依 D53 續作：WP3 36 份 draft 齊全、WP4 交付包與畫面整合完成；WP5 片段檢查 6 passed、0 skipped，typecheck/build 通過。完整測試 71 passed、1 skipped，另 1 項 security CLI 為已知沙箱 EPERM；待 Claude 以最新交付包做沙箱外與瀏覽器驗證、人工審閱。來源差異與各 WP 提交建議見 thread，status=ready_for_claude。
+
+2026-10-01 Claude：20261001-kit-manuals 審閱與驗證完成（36 份 draft 手冊、組裝器、接上設定交付包）；待 user 審閱手冊並決定是否合併。

@@ -303,7 +303,16 @@ Input Adapter → Data Profiler → Task + Site constraints → Eligibility Filt
 
 組裝依據為鎖定的 Kit/version、啟用功能、角色、Site Profile 與有效設定。產出目錄放 `manuals/generated/`，交付時複製進 System Package 的 docs。
 
-每份 Kit 手冊至少包含用途、前置條件、可設定項目／角色／風險、操作步驟、輸入輸出、常見錯誤與復原。只包含已啟用功能，依依賴排序，補上跨 Kit 的完整操作路徑；不能僅串接片段造成流程斷裂。缺少必要手冊、reference 失效或版本不符時阻擋正式套件發佈。手冊列示設定來源與版本，不輸出秘密值。
+每份 Kit 手冊至少包含用途、前置條件、可設定項目／角色／風險、操作步驟、輸入輸出、常見錯誤與復原。
+
+**手冊片段契約（2026-10-01，D48–D52）：**
+
+- 位置：`manuals/kits/<kit-id>/<kit-version>/{user,mis,developer}.md`。`<kit-version>` 為 Kit 在 Composer 目錄中的版本（基線 Kit 為覆蓋層版本 `c4b2b7b-ui.1`，`entry-permission-kit` 為 `0.1.0`）。
+- frontmatter（`schemas/manual.schema.json`）：`kitId`、`kitVersion`、`role`（user／mis／developer）、`status`（draft／reviewed）、`sources`（內容所依據的 Kit 檔案）。正文須含六節：用途、前置條件、可設定項目、操作步驟、輸入輸出、常見錯誤與復原。
+- 範圍：Composer 目錄的 12 個 Kit 各三份，共 36 份。`tenant-auth-kit` 已廢除（D03）；`entry-permission-kit` 尚無程式，手冊只寫現況。內容只依 Kit 的 manifest、contract 與原始碼，查不到者寫「尚未提供」。
+- 不一致：Kit 契約宣告與原始碼實作不一致時，以原始碼描述目前行為，另分列契約宣告並標示無可核對實作者為「尚未提供」（D53）。
+- 狀態：初稿為 `draft`；正式發佈只接受 `reviewed`；設定交付包接受 `draft` 並在手冊首頁標示草稿。
+- 組裝：只含已啟用的 Kit 與子功能，依相依排序；「可設定項目」表格取自選項定義；跨 Kit 路徑由所選流程的頁面清單組出；缺片段、版本不符、缺必備章節或 frontmatter 不合契約時，列出 Kit、角色與路徑並阻擋正式發佈。設定交付包的處理見 §12。只包含已啟用功能，依依賴排序，補上跨 Kit 的完整操作路徑；不能僅串接片段造成流程斷裂。缺少必要手冊、reference 失效或版本不符時阻擋正式套件發佈。手冊列示設定來源與版本，不輸出秘密值。
 
 ## 12. System Package 與組裝流程
 
@@ -324,7 +333,7 @@ Input Adapter → Data Profiler → Task + Site constraints → Eligibility Filt
 └─ validation/report.json  靜態檢查結果；測試環境演練與現場驗證標為「未執行」
 ```
 
-zip 為 store 格式、固定順序與時間戳，相同設定產出相同位元組；manifest 不記錄產生時間。`kits/`、`frontend/`、`database/migrations/`、`permissions/`、`docs/`（手冊）、`deployment/` 未提供，列於 `notProvided`，不建立空目錄，也不附安裝腳本。靜態檢查任一未通過即不產生交付包。
+所選 Kit 的手冊齊全時，交付包另含 `docs/manual-user.md`、`docs/manual-mis.md`、`docs/manual-developer.md`；不齊全時 `docs/` 列於 `notProvided` 並列出缺少的 Kit（D52）。zip 為 store 格式、固定順序與時間戳，相同設定產出相同位元組；manifest 不記錄產生時間。`kits/`、`frontend/`、`database/migrations/`、`permissions/`、`docs/`（手冊）、`deployment/` 未提供，列於 `notProvided`，不建立空目錄，也不附安裝腳本。靜態檢查任一未通過即不產生交付包。
 
 ### 12.2 防篡改、單機授權與通訊安全（2026-10-01，D37–D45）
 
