@@ -8,7 +8,7 @@
 ## Typography
 system-ui、Microsoft JhengHei、sans-serif；正文 1rem、行高 1.6；頁面標題 2rem、欄標題 1.25rem。
 ## Spacing & layout grid
-間距 0.5、1、1.5、2rem；主內容最大寬 100rem；三欄比例 1:2:1。寬度 64rem 以上才顯示三欄；寬度 64rem 且高度 40rem 以上時，04 的預覽欄與底部操作列固定（sticky），否則回到單欄、一般流動，確保 200% 縮放不破版。DOM 與堆疊順序皆為 左 → 中 → 右。
+間距 0.5、1、1.5、2rem；主內容最大寬 100rem；三欄比例 1:2:1。寬度 64rem 以上才顯示三欄；寬度 64rem 且高度 40rem 以上時，04 的預覽欄與底部操作列固定（sticky），否則回到單欄、一般流動，確保 200% 縮放不破版。DOM 與堆疊順序皆為 左 → 中 → 右。欄內直接相鄰的有框區塊（卡片、清單、上傳框）之間至少 1rem 的間距，不得貼在一起。
 ## Radius / borders / elevation
 控制項圓角 0.5rem、欄卡片 0.75rem、標籤全圓；1px 邊框；不使用陰影。
 ## Components

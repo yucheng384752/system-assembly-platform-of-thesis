@@ -58,6 +58,9 @@ main { max-width: var(--page-max); margin: auto; padding: var(--space-lg) var(--
 .column { min-width: 0; background: var(--surface); border: 1px solid var(--card-border); border-radius: var(--radius-lg); padding: var(--space-lg); }
 .column-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); }
 .column .lead { margin-top: .25rem; }
+/* Bordered groups stacked directly in a column keep the standard gap (DESIGN.md spacing). */
+.column > .flow-card + .flow-card, .column > .check-list + .check-list,
+.column > .drop-zone, .column > .drop-zone + button { margin-top: var(--space); }
 .column-foot { display: flex; align-items: center; gap: var(--space-sm); color: var(--muted); margin-bottom: 0; }
 .step-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); padding: var(--space) 0; border-top: 1px solid var(--card-border); background: var(--background); }
 .step-actions [role=status] { display: flex; align-items: center; gap: var(--space-sm); flex: 1 1 16rem; margin: 0; color: var(--muted); }
