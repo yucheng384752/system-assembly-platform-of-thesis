@@ -1,7 +1,7 @@
 ---
 id: "20261001-security-hardening"
 title: "安全強化：防篡改、單機授權與通訊（D37–D45）"
-status: "ready_for_review"
+status: "completed"
 owner: "user"
 reviewer: "user"
 priority: "high"
@@ -109,7 +109,11 @@ user 在遠端以 sudo 安裝 docker.io 29.1.3；使用 `python:3.10-slim`（測
 - 容器內安裝 cryptography 50.0.2 後，`linux_smoke.py` 7 項通過。
 結論：D38 的「Docker 須唯讀掛載主機 `/etc/machine-id`」成立；不掛載時授權不會誤通過，而是明確失敗。
 
+# Closure
+
+2026-10-01：user 同意合併；以 `--no-ff` 合併至 main（8ae2972），合併後 typecheck、build 通過，vitest 55 passed、1 skipped，test:kits 14 passed、1 skipped。user 核准新增 `@types/node` 並設定 CI，另開分支處理。
+
 # Open Questions
 
 - HTTPS 憑證來源：已記錄四個方案的比較（decision-log「HTTPS 憑證來源」），待現場條件確認後決定；暫以內網為前提（D46）。
-- 是否核准新增 `@types/node`。
+- 已核准新增 `@types/node`（見 thread 20261001-node-typecheck-ci）。
