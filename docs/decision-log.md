@@ -71,6 +71,7 @@ date: 2026-09-24
 | D58 | 2026-10-01 | `fieldSemantics`：別名在整份 Site Profile 內須唯一，重複時報歧義並指出兩個欄位；不做自動單位換算；只有 `confirmed: true` 的項目生效，未確認者顯示為「待 MIS 確認」 | spec §9：別名與換算須確認，多重映射歧義須回報；沿用 D19「未確認不生效」的原則 | spec §9 |
 | D59 | 2026-10-01 | `dataSources` 只可含引用（`sourceRef`、`secretRef`），整份 Site Profile 不得出現連線字串、帳密、金鑰或憑證；以欄位名稱與值的型態雙重檢查，違者整份拒絕；`secretRef` 的值只是外部秘密的名稱（不含 `:`、`/`、`@`） | 安全基準線「秘密值不落地」；`secretRef` 是引用，不是秘密值，但既有敏感欄位名稱檢查須明確放行此欄位 | spec §9、§12 |
 | D60 | 2026-10-01 | Recipe 新增選填 `siteRef { path, sha256 }`（比照 D29）；`sha256` 為匯入文字（去除 BOM）的 UTF-8 位元組；設定交付包加入 `config/site/site.profile.json`（位元組與匯入文字相同，role `site-profile`），manifest 產物上限改為 8，驗證報告新增 Site 檢查；有匯入 Site 但 Recipe 的 `siteRef` 不符時不產生交付包 | 保持與 workflowRef 一致的記錄方式；保留原始位元組使校驗碼可核對 | spec §9、§12、`schemas/recipe.schema.json` |
+| D61 | 2026-10-01 | 表單關聯頁在候選區下方列出「未成為候選的原因」：只針對標為識別欄位的欄位，只有兩種確定性規則（名稱相同但型別不同；名稱相近但不相同，相近＝一方名稱包含另一方且較短者至少 2 字）；只提示不生效，不改變 D19 的候選條件；每對欄位只列一次，最多顯示 10 項；已相連或已是候選的配對不列 | user 回報三張表單只出現一個候選，實際是 production 的識別欄位名稱與型別和其他表單不同，畫面卻沒有說明；沿用 D19 的確定性原則，不用 LLM | spec §4.2、`apps/composer-gui/src/relations.ts` |
 
 ## 必做項目
 
