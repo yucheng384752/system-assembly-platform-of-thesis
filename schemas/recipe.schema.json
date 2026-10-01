@@ -168,6 +168,15 @@
         }
       }
     },
+    "siteRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "const": "site.profile.json" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
     "workflowRef": {
       "$comment": "Reference to the AoV Workflow document delivered beside this Recipe (spec 4.2, D29). Optional and additive.",
       "type": "object",

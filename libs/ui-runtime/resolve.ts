@@ -1,5 +1,6 @@
 import { validateSchema } from './schema';
 import type { Definition, Kit, Option, Overrides, Sources, Value, Versions } from './types';
+import { checkSiteLimit, type SiteProfile } from './site';
 
 export function checkReferences(kit: Kit, definition: Definition, sources: Sources): void {
   validateSchema('ui', definition);
@@ -24,7 +25,7 @@ export function checkReferences(kit: Kit, definition: Definition, sources: Sourc
   }
 }
 
-function checkValue(option: Option, value: Value): void {
+export function checkValue(option: Option, value: Value): void {
   const type = option.type === 'text' || option.type === 'select' ? 'string' : option.type;
   if (typeof value !== type) throw new Error(`${option.id} 型別錯誤`);
   const range = option.range;
@@ -55,9 +56,9 @@ function applyValue(definition: Definition, option: Option, value: Value, subfea
 
 export interface ResolveInput {
   kit: Kit; definition: Definition; sources: Sources; overrides?: Overrides;
-  versions?: Versions; selectedSubfeatures?: string[];
+  versions?: Versions; selectedSubfeatures?: string[]; site?: SiteProfile;
 }
-export function resolveKit({ kit, definition, sources, overrides = {}, versions = {}, selectedSubfeatures }: ResolveInput) {
+export function resolveKit({ kit, definition, sources, overrides = {}, versions = {}, selectedSubfeatures, site }: ResolveInput) {
   validateSchema('kit', { manifestVersion: '0.1.0', name: 'runtime', kits: [kit] });
   checkReferences(kit, definition, sources);
   const effective = structuredClone(definition);
@@ -78,9 +79,17 @@ export function resolveKit({ kit, definition, sources, overrides = {}, versions 
     const key = `${kit.id}::${sub.id}`;
     for (const option of sub.options) {
       const overridden = Object.hasOwn(overrides[key] ?? {}, option.id);
-      const value = overridden ? overrides[key][option.id] : option.defaultValue;
+      const locked = Object.hasOwn(site?.optionOverrides?.[key] ?? {}, option.id);
+      const limit = site?.optionLimits?.[key]?.[option.id];
+      const location = `${kit.displayName}／${option.displayName}（${key}/${option.id}）`;
+      checkSiteLimit(limit, option.defaultValue, location, '預設（kit-default）');
+      if (overridden) checkSiteLimit(limit, overrides[key][option.id], location, '使用者設定（system）');
+      if (locked) checkSiteLimit(limit, site!.optionOverrides![key][option.id], location, '場域（site）');
+      // Even a Site override must not conceal an invalid System value.
+      if (locked && overridden) checkValue(option, overrides[key][option.id]);
+      const value = locked ? site!.optionOverrides![key][option.id] : overridden ? overrides[key][option.id] : option.defaultValue;
       applyValue(effective, option, value, sub.id);
-      provenance[`${key}/${option.id}`] = { value, source: overridden ? `Recipe.selectedSubfeatureOptions.${key}` : `Kit ${kit.id}@${kit.version} default` };
+      provenance[`${key}/${option.id}`] = { value, source: locked ? `site: ${site!.siteId}@${site!.siteVersion}.${key}` : overridden ? `system: Recipe.selectedSubfeatureOptions.${key}` : `kit-default: Kit ${kit.id}@${kit.version} default` };
     }
   }
   checkReferences(kit, effective, sources);

@@ -11,6 +11,18 @@ const legacy = {
   selectedSubfeatureOptions: { [key]: { 'name-label': '自訂欄位', 'name-width': 250 } },
 };
 
+// D60: optional references must round-trip without changing old files or permitting arbitrary paths.
+test('場域引用往返保留且拒絕不合法路徑與校驗碼', () => {
+  const { recipe } = importRecipe(JSON.stringify(legacy), catalog);
+  expect(importRecipe(exportRecipe(recipe, catalog), catalog).recipe.siteRef).toBeUndefined();
+  const siteRef = { path: 'site.profile.json' as const, sha256: 'a'.repeat(64) };
+  expect(importRecipe(exportRecipe({ ...recipe, siteRef }, catalog), catalog).recipe.siteRef).toEqual(siteRef);
+  for (const invalid of [
+    { ...siteRef, path: '../site.profile.json' }, { ...siteRef, path: 'other.json' },
+    { ...siteRef, sha256: 'A'.repeat(64) }, { path: siteRef.path }, { ...siteRef, extra: true },
+  ]) expect(() => importRecipe(JSON.stringify({ ...recipe, siteRef: invalid }), catalog)).toThrow();
+});
+
 test('legacy import migrates versions, resolves values and round-trips without mutating input', () => {
   const original = JSON.stringify(legacy);
   const { recipe, notices } = importRecipe(original, catalog);
@@ -18,7 +30,7 @@ test('legacy import migrates versions, resolves values and round-trips without m
   const resolved = resolveKit({ kit: kits[0], definition: definitions['records-kit'], sources,
     overrides: recipe.selectedSubfeatureOptions, versions: recipe.uiOverrides });
   expect(resolved.definition.components.find(c => c.type === 'table')).toMatchObject({ columns: [{ label: '自訂欄位', width: 250 }, {}] });
-  expect(resolved.provenance[`${key}/name-label`].source).toContain('Recipe.selectedSubfeatureOptions');
+  expect(resolved.provenance[`${key}/name-label`].source).toContain('system: Recipe.selectedSubfeatureOptions');
   expect(importRecipe(exportRecipe(recipe, catalog), catalog).recipe).toEqual(recipe);
   // The Workflow reference survives the explicit export projection unchanged (D29).
   const workflowRef = { path: 'workflow.aov.json', sha256: 'b'.repeat(64) };
