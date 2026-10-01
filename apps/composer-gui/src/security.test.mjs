@@ -26,9 +26,11 @@ async function deliveryPackage(stepName = '收料') {
   const recipeText = exportRecipe({ ...initialRecipe, clientName: '示範客戶', workflowRef: { path: 'workflow.aov.json', sha256: await sha256Hex(workflowText) } }, catalog);
   return buildDeliveryPackage(recipeText, workflowText, catalog);
 }
+/** @param {Uint8Array} bytes @param {string} fileName @param {string} [privateKeyPem] */
 const sign = (bytes, fileName, privateKeyPem = issuer.privateKey) =>
   signPackage({ zipBytes: bytes, zipName: fileName, privateKeyPem, machineFingerprint: FINGERPRINT, fingerprintSource: 'windows-machine-guid' });
 // Rebuilds the archive with one file swapped but the original manifest, like a hand edit of an extracted package.
+/** @param {Uint8Array} bytes @param {string} path @param {string} text */
 const swap = (bytes, path, text) =>
   createZip(readZip(bytes).map(e => ({ path: e.path, data: e.path === path ? new TextEncoder().encode(text) : e.data })));
 
@@ -66,6 +68,7 @@ test('a license cannot be reused for another package, another issuer, or after e
 });
 test('licenses must be machine-bound with a known source (D38)', async () => {
   const built = await deliveryPackage();
+  /** @param {string} machineFingerprint @param {string} fingerprintSource */
   const attempt = (machineFingerprint, fingerprintSource) =>
     signPackage({ zipBytes: built.bytes, zipName: built.fileName, privateKeyPem: issuer.privateKey, machineFingerprint, fingerprintSource });
   expect(() => attempt('', 'windows-machine-guid')).toThrow('licensePayload 格式不正確');
@@ -90,6 +93,7 @@ afterAll(() => {
   // If the repo guard ever regresses, never leave a generated private key inside the project.
   rmSync(resolve(REPO_ROOT, 'keys-should-not-exist'), { recursive: true, force: true });
 });
+/** @param {string} name @param {...string} args */
 const cli = (name, ...args) => spawnSync(process.execPath, [resolve(REPO_ROOT, 'scripts', 'security', name), ...args], { encoding: 'utf8' });
 test('CLI: keys stay outside the repo, signing and verification succeed, and a tampered zip fails with exit code 1', async () => {
   const inRepo = cli('generate-keys.mjs', '--out-dir', resolve(REPO_ROOT, 'keys-should-not-exist'));

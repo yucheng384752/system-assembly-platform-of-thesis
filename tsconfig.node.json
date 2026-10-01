@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "types": ["node"]
+  },
+  "include": ["scripts/**/*.mjs", "apps/composer-gui/src/security.test.mjs", "apps/composer-gui/src/vite-env.d.ts"]
+}
