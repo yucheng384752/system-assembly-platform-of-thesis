@@ -1,9 +1,9 @@
 ---
 id: "20261001-kit-manuals"
 title: "Kit 動態操作手冊（D48–D52）"
-status: "ready_for_codex"
-owner: "codex"
-reviewer: "claude"
+status: "ready_for_review"
+owner: "user"
+reviewer: "user"
 priority: "high"
 created_by: "claude"
 created_at: "2026-10-01"
@@ -183,7 +183,55 @@ Composer 目錄的 Kit（`loadKits`：基線 manifest 去掉 `tenant-auth-kit`�
 - 未涵蓋：其餘 27 份手冊、交付包／輸出頁接線、完整手冊驗收；真實瀏覽器與基線業務操作驗證。安全測試的暫存目錄清除失敗需 Claude 處理，路徑 C:/Users/gslab/AppData/Local/Temp/composer-security-PF193P；未讀取或輸出私鑰內容。
 - 建議提交訊息：docs(mailbox): record manual source conflict and blocked verification
 - 交回 Claude：status 設為 ready_for_claude；其餘 frontmatter 保持原值。沒有執行 git 寫入、新增依賴或修改 kits/。
+## WP3 第二批續作（完成，D53）
+
+- 變更摘要：新增上傳驗證、匯入、查詢追溯的三角色 draft，共 9 份；依目前來源描述操作，另列契約宣告與尚未提供的實作。
+- 檔案：manuals/kits/{upload-validation-kit,import-pipeline-kit,query-traceability-kit}/c4b2b7b-ui.1/{user,mis,developer}.md；本 thread。
+- 驗證：npm.cmd test -- apps/composer-gui/src/manualFiles.test.ts -t 'manual batch 2'：1 passed、4 skipped（名稱篩選）；本批 9 份解析、路徑版本、draft 與來源存在檢查通過。
+- 來源衝突／待清理清單：query-traceability-kit 宣告 /records，原始碼為 /lot 與 /trace；consumes 宣告資料 capability，但目前路由直接查詢模型；追溯只按批號匹配，未讀 keyMappings。upload-validation-kit 宣告的上傳／轉換 API 在副本只有樣式、無可核對路由；import-pipeline-kit 宣告的工作 API 尚無可核對路由，現有來源為追溯模型與 orchestrator。以上均依 D53 分列，未修改 kits/。
+- 未涵蓋：基線服務啟動、現場操作及人工內容審閱；不把宣告視為已實作。
+- 建議提交訊息：docs(manuals): add upload import and query role drafts
+## WP3 第三批（完成，D53）
+
+- 變更摘要：新增分析、通用表單、站點管理三角色 draft，共 9 份；明列統計上限、實際上傳入口與未知操作。
+- 檔案：manuals/kits/{analytics-kit,generic-forms-kit,station-admin-kit}/c4b2b7b-ui.1/{user,mis,developer}.md；本 thread。
+- 驗證：npm.cmd test -- apps/composer-gui/src/manualFiles.test.ts -t 'manual batch 3'：1 passed、4 skipped（名稱篩選）；9 份片段檢查通過。
+- 來源衝突／待清理清單續：generic-forms-kit 原始碼有表單寫入、匯入及 dataflow links，contract 僅列兩個讀取 API；manifest.runtimeEnv 為空但原始碼讀取 GENERIC_FORMS_ASYNC_THRESHOLD_MB；資料 capability adapter 未在此 Kit 提供。station-admin-kit 宣告 GET /api/stations，但副本只有樣式、無可核對路由。analytics-kit 三個宣告路由與來源相符；記錄畫面摘要只讀每表 200 筆、數值趨勢最多 5000 筆的限制，未宣稱全量。
+- 未涵蓋：現場執行、資料復原演練與人工內容審閱。
+- 建議提交訊息：docs(manuals): add analytics forms and station admin drafts
+## WP3 第四批（完成；四批共 36 份 draft）
+
+- 變更摘要：新增稽核修正、日誌維運、訂閱串接各三角色手冊；描述實際操作、限制及未提供項目。
+- 檔案：manuals/kits/{audit-edit-kit,logs-ops-kit,mod-subscription-kit}/c4b2b7b-ui.1/{user,mis,developer}.md；本 thread。
+- 驗證：npm.cmd test -- apps/composer-gui/src/manualFiles.test.ts -t 'manual batch 4'：1 passed、4 skipped（名稱篩選）；本批 9 份檢查通過。全量檢查留至 WP5。
+- 來源衝突／待清理清單續：audit-edit-kit 實作直接匯入 generic-forms-kit 的 _coerce，未反映在 capability consumes；資料 capability adapter 未在本 Kit 提供。logs-ops-kit 的 contract 只列 /api/logs，現行使用 /api/logs/ 並有 /summary；manifest 的清理／下載未找到實作。mod-subscription-kit 宣告 /api/mod-subscription，但實作為 /api/mod/subscriptions/*；manifest 未列出三個實際讀取的環境變數；通知依外部識別查詢但模型只保證租戶內唯一，權益函式未檢查到期時間。手冊如實標示，未改基線。
+- 未涵蓋：基線服務實際執行、現場復原演練；所有片段仍待人工審閱，未標 reviewed。
+- 建議提交訊息：docs(manuals): add audit logs and subscription drafts
+## WP4 設定交付包整合（完成）
+
+- 變更摘要：manifest 允許 4–7 個產物與 manual role；沿用既有 path 模式。交付前使用 WP2 檢查，齊全時打包三角色 Markdown、同步 README 並移除 docs/ 未提供項；缺漏／格式錯誤時維持四個產物，列出 Kit、角色、路徑。staticChecks 新增 manuals 結果並說明草稿。
+- 輸出頁：共用同一手冊狀態計算，以業務名稱及角色顯示缺漏，status 區關聯下載按鈕；沿用既有 44px 控制項，無新增依賴。將目前流程選擇及相同片段傳入交付器。
+- 檔案：schemas/package-manifest.schema.json、apps/composer-gui/src/deliveryPackage.ts、OutputPage.tsx、deliveryPackage.test.ts、output.test.tsx、DESIGN.md、本 thread。
+- 驗證：npm.cmd test -- apps/composer-gui/src/deliveryPackage.test.ts apps/composer-gui/src/output.test.tsx：12 passed、0 skipped；npm.cmd run typecheck：通過。
+- 測試斷言更新理由：D52 已允許 docs/ 的真實手冊產物，因此原本禁止所有 docs/ 的斷言改為要求三份 manual 與各自 SHA-256／bytes；仍禁止可部署程式產物。追加缺一份、格式錯誤、草稿說明、選取流程／子功能及覆寫值不外洩的情境。畫面測試確認缺手冊仍可下載設定，且不露出 Kit 技術識別碼。
+- 未涵蓋：真實瀏覽器視覺與鍵盤驗收由 Claude 執行；本次僅自動化 DOM 與既有樣式規則。未修改已提交的 WP1／WP2 或第一批手冊。
+- 建議提交訊息：feat(delivery): include available role manuals and show coverage
+## WP5 全量驗證與交接（實作及沙箱內驗證完成）
+
+- 變更摘要：manualFiles.test.ts 新增一次遍歷全部實際檔案的測試，直接 parseFragment、比對路徑／目錄版本／角色、確認 draft 及 sources 存在；另一測試以 12 個 Kit 確認 package 無問題、release 恰有 36 項尚未審閱。
+- 檔案：apps/composer-gui/src/manualFiles.test.ts、本 thread、.codex-claude-mailbox/index.md。WP3 新增的 27 份檔案路徑見上述分批清單，總數 36；既有 9 份不變。
+- 驗證：npm.cmd test -- apps/composer-gui/src/manualFiles.test.ts：6 passed、0 skipped（包含四批檢查、36 檔遍歷及全目錄 package/release 檢查）。
+- 驗證：npm.cmd run typecheck：exit 0；npm.cmd run build：exit 0，274 modules transformed。git diff --check：exit 0，無空白錯誤。
+- 完整驗證：npm.cmd test：71 passed、1 skipped、1 failed（73 tests；17 test files passed、1 failed）。唯一未通過為已知 security CLI 沙箱 EPERM，afterAll 清除暫存目錄也遭 EPERM；本次沒有任何手冊、交付包或輸出頁測試失敗。1 skipped 為既有身分授權情境，未調整任何 skip 或測試環境以繞過限制。
+- 沙箱外項目：依 Claude 回覆與 user 本次指示，不重試／修復 test:kits 的 Python 可見性限制；沿用 Claude 已執行的 14 passed、1 skipped 紀錄，這不是本次沙箱重跑結果。security CLI 請 Claude 以最新含手冊交付包重跑；暫存目錄 C:/Users/gslab/AppData/Local/Temp/composer-security-5ZaYPV 需由 Claude 清理，未讀取或輸出私鑰內容。
+- 保護範圍：git diff 確認 kits/、package.json、package-lock.json、已提交 WP1／WP2 與第一批手冊皆無修改；無 git 寫入、無新依賴、無實際製造資料與秘密值。
+- 未涵蓋：真實瀏覽器視覺／鍵盤驗證、基線業務服務與現場操作、所有 draft 的人工審閱；正式 System Package 發佈仍由 release 檢查阻擋。來源差異依 D53 保留在手冊及各批待清理清單，未修正基線程式。
+- 建議提交訊息：test(manuals): verify all draft fragments and release coverage
+- 狀態：WP1／WP2 沿用已提交結果；WP3／WP4 實作完成；WP5 全部要求的命令已執行，手冊驗收通過，完整綠燈需 Claude 在沙箱外確認 security CLI。thread 設為 ready_for_claude，未標示 completed。
 # Open Questions
+
+本次續作：原問題 1 已由 D53 解決；原問題 2 已確認為沙箱限制，不再要求修復 Python 或變更測試。沒有新增阻擋問題。待 Claude 執行最新 security CLI／瀏覽器驗收、清理本次暫存目錄，以及人工審閱草稿；原始問題與回覆保留如下。
+
 
 1. 查詢手冊的來源衝突：契約宣告 GET /api/v2/query/records，但目前前後端使用 /lot/{lot_no} 與 /trace/{lot_no}。是否允許手冊分列契約宣告與原始碼實作、未找到者寫「尚未提供」，User 操作依 QueryPage 撰寫？或請 Claude 先修正來源？詳見 Codex Notes。
 2. 請 Claude 修復本機既有 test:kits 的 Python313 虛擬環境路徑（目前測試無法啟動），並在具有權限的環境重跑 security CLI 測試及清除其殘留暫存目錄。
@@ -194,3 +242,16 @@ Composer 目錄的 Kit（`loadKits`：基線 manifest 去掉 `tenant-auth-kit`�
 - 抽查第一批：安裝順序 10、無相依宣告、`GET /healthz`、`entry-permission-kit` 現況皆與來源相符。
 - 回答問題：可以。決策 D53：契約宣告與原始碼實作不一致時，以原始碼描述目前行為，另分列「契約宣告」並標示無可核對實作者為「尚未提供」。User 手冊依 `QueryPage` 目前使用的 `/lot/{lot_no}`、`/trace/{lot_no}` 撰寫；Developer 手冊分列契約宣告的 `GET /api/v2/query/records` 並標「尚未提供可核對實作」。不修改 `kits/`。其他 Kit 若遇到同類不一致，比照處理，並在 Codex Notes 彙整清單。
 - 請繼續：WP3 第二至四批、WP4、WP5。完成後跑 `npm.cmd test`（含 36 份完整性檢查）。
+
+## Claude 審閱與驗證（2026-10-01）
+
+- 沙箱外驗證：`npm.cmd run typecheck` 通過；`npm.cmd test` 18 個檔案、72 passed、1 skipped；`npm.cmd run test:kits` 14 passed、1 skipped；`npm.cmd run build` 通過。Codex 回報的 1 項失敗（security CLI 暫存目錄 EPERM）是沙箱限制，沙箱外通過；殘留的暫存金鑰目錄 `composer-security-5ZaYPV` 已刪除。
+- 內容抽查：Codex 列出的契約與程式不一致項目，抽查 mod-subscription、logs-ops、station-admin、audit-edit、query-traceability 皆屬實；36 份沒有 emoji、沒有標 `reviewed`、User 手冊本文沒有技術識別碼。
+- 突變檢查 4 項（缺手冊仍打包、完整時仍標未提供、草稿標示失效、正式發佈接受草稿）皆被測試攔到。
+- Chrome 實測 05 輸出（dev server 5173）：手冊狀態文字顯示；下載的交付包含 7 個產物，SHA-256 全部相符；手冊只含選到的 5 個功能；`installable` 仍為 false；不含樣本值；下載按鈕 44px，`aria-describedby` 關聯手冊狀態；720 寬無水平溢出。
+- 未涵蓋：36 份手冊的人工審閱（皆 `draft`）；以瀏覽器產出的交付包實際跑簽章工具（簽章測試以同一個 `buildDeliveryPackage` 產出的交付包執行，包含手冊）；實體鍵盤操作；console 監聽於操作中途才啟用。
+- 基線版缺口清單見 Obsidian 筆記「23 Kit 動態操作手冊」。其中權益不檢查到期時間、通知來源在未設定密鑰時不驗證，屬安全相關缺口，是否修正待 user 決定。
+
+# Closure
+
+待 user 審閱後決定是否合併。
