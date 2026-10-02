@@ -183,6 +183,28 @@ Kit 可單獨執行表示具有明確入口、可驗證的相依條件與最小�
 
 **待後續：**畫面（在步驟內選擇 Action、檢視推導原因、處理待決與缺口）；其餘 Kit 的登錄；`flows.json` 退役；mService 與 Function 的版本規則。
 
+### 4.4 畫布式 Workflow 文件 version 4（2026-10-02 決議：D70–D75）
+
+> 資料模型、驗證與轉換已實作於分支 `feature/workflow-graph-model`；畫布畫面由功能 2 處理。
+
+**方向：**Workflow 由畫布建立，完整建立後才由所選節點推導 Kit、mService 與 Function（§4.3）。節點可再往下建立子 AoV。
+
+**文件（`composer-aov-list` version 4，沿用基線版 AoV 名稱）：**`rootGraphId`、`graphs[]`（`nodes[]`、`edges[]`）、`layout`、頂層 `forms` 與 `relations`。節點：`id`、`name`、`when`、`owner`、`actionId`（可為空）、`params`、`formId`（可為空）、`childGraphId`（可為空）。
+
+| 規範 | 內容 |
+|---|---|
+| 節點與動作 | 一個節點最多一個 Action，取代 version 3 的「步驟含 0..N 個 Action」；無 Action 的節點是純業務節點，不產生 Kit。推導輸入為所有 graph 的 `actionId` 聯集 |
+| 連線 | 只表示先後順序；無文字、無條件、不得成環、不得自連、不得重複、不得跨 graph；多條出線視為平行（D18） |
+| 子 AoV（D71） | 最多 3 層，第 3 層節點不可再有子流程；graphs 為一棵樹，子流程不可共用；每個 graph 最多 100 節點，整份文件最多 30 個 graph、50 張表單。超出即拒絕匯入，不截斷 |
+| 節點表單（D72） | 節點最多一張標準表單，每張表單恰屬一個節點；欄位 `validation`：整數與小數 `minimum`／`maximum`，文字 `maxLength`／`allowedValues`，日期 `minimumDate`／`maximumDate`（ISO 8601 `YYYY-MM-DD`，須為有效日期），是／否無規則。關聯沿用 `relations` |
+| 動作參數（D73） | ActionType 的 `parameters`（number、text、boolean，可有預設與範圍）與 `needs`（`form`、`relation`）。首批只含原始碼可查證的參數：`allowDuplicate`、`flowCode` |
+
+**驗證分兩類（同 version 3 的作法）：**結構錯誤（重複識別碼、斷裂引用、超過層數、成環、共用子流程、表單歸屬、未知參數與型別錯誤）拒絕匯入並保留原流程；完成度錯誤（未命名、必填參數缺值、數值超出範圍、動作所需的表單與關聯缺少、欄位規則自相矛盾、表單未指派節點）在畫面顯示並擋下匯出。
+
+**舊格式轉換（D75）：**`importWorkflow` 可讀 version 1 到 4，一律回傳 version 4。步驟依序展開為根 graph 的節點並串接；Action 作用於多張表單時屬有損轉換，逐項提示。`importAov`（目前的列表畫面）遇 version 4 回報尚未支援；列表頁面於功能 2 退役。
+
+**畫布外觀（D74，功能 2）：**所有節點皆為圓形、只顯示名稱，細項在右側節點細項；連線不顯示文字。
+
 ## 5. Configuration-first 與參數解析
 
 **需求：**可調整的業務參數抽出程式碼，依責任拆檔；基礎設施正常運作參數不納入本次業務設定治理。連線憑證與秘密值使用外部秘密來源引用，不寫入一般設定、UI Schema、手冊或套件。

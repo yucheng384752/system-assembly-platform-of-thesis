@@ -1,8 +1,8 @@
 ---
 id: "20261002-workflow-graph"
 title: "畫布式 AoV Workflow：圖形文件模型（功能 1）與畫布編輯器（功能 2）"
-status: "waiting_for_user"
-owner: "user"
+status: "in_progress"
+owner: "claude"
 reviewer: "user"
 priority: "high"
 created_by: "claude"
@@ -129,3 +129,18 @@ Node: { id, name, when, owner, actionId | null, params: { <paramId>: string|numb
 # Claude Notes
 
 - 2026-10-02：功能 `feature/workflow-action-registry` 已合併到 main（9bf6b9b）。本 thread 由此開始；功能 1 在 user 審閱前不寫程式。
+
+- 2026-10-02：user 回覆「按提案」，並補充：日期驗證採 ISO 格式、連線不要文字標示、節點一律圓形且只顯示名稱。決議已寫入 D70–D75（d817086）；ISO 的解讀（日期規則的邊界值與格式皆為 ISO 8601 的 `YYYY-MM-DD`，並檢查日期是否真實存在）待 user 確認。
+- 2026-10-02：功能 1 完成。`schemas/aov.schema.json`（version 4）、`schemas/action-catalog.schema.json`（`parameters`、`needs`）、`config/actions.json`、`libs/ui-runtime/registry.ts`（參數語意檢查）、`apps/composer-gui/src/workflowGraph.ts`（型別、結構與完成度驗證、匯入匯出、v1 到 v3 轉換）、`workflow.ts`（輔助函式放寬為只需 `forms`、`relations`；`importAov` 遇 version 4 回報尚未支援）、`localData.ts`（`FieldValidation`）。測試 209 項：208 通過、1 項既有略過（授權「未涵蓋」）；新增 `workflowGraph.test.ts` 54 項。以暫時把 `MAX_DEPTH` 改成 4 驗證測試會失敗後已還原。
+- 與提案的差異：v3 轉 v4 並非完全無損。一個節點只能有一張表單，Action 原本作用於多張表單時會拆節點並逐項提示（D75）；thread 原稿寫「無資料遺失」是錯的，已更正。
+- 功能 2 開始前仍待 user 回答：Open Question 4（`suggestFlows` 保留、改為建議加入「查詢追溯」節點，或移除）。
+
+# 功能 2 Handoff（草稿，user 回答 Open Question 4 後補完）
+
+- 新分支 `feature/workflow-canvas`（由 main 開出，功能 1 合併後）；依賴 `@xyflow/react` 由 Claude 安裝，Codex 不得自行新增依賴。
+- 必讀：`CLAUDE.md`、`DESIGN.md`、本 thread、`docs/decision-log.md` D62、D66 到 D75、`docs/project-spec.md` §4.3 與 §4.4、`apps/composer-gui/src/workflowGraph.ts`、`workflow.ts`、`localData.ts`、`libs/ui-runtime/actions.ts`、`registry.ts`、`config/actions.json`、`config/registry/*.json`、`App.tsx`、`StepShell.tsx`、`FlowPage.tsx`。
+- 資料契約已定，需要改動請停止並提問：不得修改 `schemas/`、`workflowGraph.ts` 的驗證規則與 `config/`；畫面只呼叫 `integrityErrors`、`graphErrors`、`nodeErrors`、`importWorkflow`、`exportAovGraph`、`graphActionIds`、`deriveKits`。
+- 畫面：左側工具箱（4 個動作加純業務節點）、中間畫布、右側節點細項；節點一律圓形只顯示名稱；連線無文字；子 AoV 以麵包屑進出且最多 3 層；節點細項含名稱、時機、職務、動作參數、標準表單上傳與欄位設定（必填、識別欄位、驗證規則、關聯）；日期規則以 `YYYY-MM-DD` 輸入並即時驗證。
+- 推導：畫布完成後才顯示「依流程動作帶出的功能」，每個 Kit 附業務語言的原因；缺口與待決以業務語言呈現，不顯示 capability 名稱、程式術語或路徑。必帶 Kit 鎖定不可取消。
+- 退役：`AovPage`、`FormsPage`、`RelationsPage` 與 version 3 的編輯狀態，同時移除 `workflow.ts` 內只服務它們的函式（保留 `importAov` 與 `listToGraph` 所需部分）。
+- 驗證：`npm.cmd run typecheck`、`npm.cmd test`；畫布與子 AoV 進出須由 Claude 在瀏覽器實測（Codex 無法監聽連接埠）。
