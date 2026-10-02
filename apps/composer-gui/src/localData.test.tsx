@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { openFlow } from './testNav';
 import { afterEach, expect, test, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { inferFields } from './localData';
@@ -21,7 +22,7 @@ function csv(name: string, text: string) {
 test('multi-file upload builds one form per file in the chosen step, lists failures, and never keeps rows or sends them', async () => {
   const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
   const xhr = vi.spyOn(XMLHttpRequest.prototype, 'open'); const storage = vi.spyOn(Storage.prototype, 'setItem');
-  render(<App />);
+  render(<App />); openFlow();
   fireEvent.click(screen.getByRole('button', { name: '新增步驟' })); fireEvent.change(screen.getByLabelText('步驟 1 名稱'), { target: { value: '收料' } });
   fireEvent.click(screen.getByRole('button', { name: '新增步驟' })); fireEvent.change(screen.getByLabelText('步驟 2 名稱'), { target: { value: '檢驗' } });
   fireEvent.click(screen.getByRole('button', { name: /02 表單/ }));
@@ -53,7 +54,7 @@ test('multi-file upload builds one form per file in the chosen step, lists failu
   expect(fetch).not.toHaveBeenCalled(); expect(xhr).not.toHaveBeenCalled(); expect(storage).not.toHaveBeenCalled();
 });
 test('a form moved out of its step or left unassigned blocks the forms step and names the form (A20)', async () => {
-  render(<App />);
+  render(<App />); openFlow();
   fireEvent.click(screen.getByRole('button', { name: '新增步驟' }));
   fireEvent.click(screen.getByRole('button', { name: /02 表單/ }));
   fireEvent.click(screen.getByRole('button', { name: '新增空白表單' }));

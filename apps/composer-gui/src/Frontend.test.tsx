@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
+import { openFlow } from './testNav';
 import { afterEach, expect, test } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { App } from './App';
 afterEach(cleanup);
 test('real flows select prerequisites and render both real Kit previews', () => {
-  render(<App />);
+  render(<App />); openFlow();
   fireEvent.click(screen.getByRole('button', { name: /04 功能選配/ }));
   expect(screen.queryByText('紀錄 Kit')).toBeNull();
   expect(screen.queryByText('tenant-auth-kit')).toBeNull();
