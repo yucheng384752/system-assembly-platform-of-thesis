@@ -96,7 +96,7 @@ describe('登錄資料檢查', () => {
   });
 
   test('動作需要未登錄的 capability 時被檢出', () => {
-    const catalog = parseActionCatalog({ ...actions, actions: [{ id: 'x', name: '測試', description: '測試', requires: ['no.such.capability'] }] });
+    const catalog = parseActionCatalog({ ...actions, actions: [{ id: 'x', name: '測試', description: '測試', requires: ['no.such.capability'], parameters: [], needs: [] }] });
     expect(checkActionCatalog(catalog, entries).map(i => i.subject)).toEqual(['x']);
   });
 });

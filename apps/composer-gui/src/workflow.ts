@@ -27,11 +27,13 @@ export function nextId(prefix: string, taken: { id: string }[]): string {
 export function stepOfForm(doc: AovDocument, formId: string): AovStep | undefined {
   return doc.steps.find(step => step.formIds.includes(formId));
 }
-export function endpoint(doc: AovDocument, at: FormEndpoint) {
+// Form and relation helpers only need these two lists, so the graph document (version 4) reuses them.
+export type FormsAndRelations = Pick<AovDocument, 'forms' | 'relations'>;
+export function endpoint(doc: FormsAndRelations, at: FormEndpoint) {
   const form = doc.forms.find(f => f.id === at.formId);
   return { form, field: form?.fields.find(f => f.id === at.fieldId) };
 }
-export function describeEndpoint(doc: AovDocument, at: FormEndpoint): string {
+export function describeEndpoint(doc: FormsAndRelations, at: FormEndpoint): string {
   const { form, field } = endpoint(doc, at);
   return form && field ? `「${formName(form)}」的「${field.name.trim() || '（未命名欄位）'}」` : '（已刪除的欄位）';
 }
@@ -57,7 +59,7 @@ export function formErrors(doc: AovDocument): string[] {
   return errors;
 }
 // A21 and D22: endpoints exist, key types match, one relation per form pair, no self link and no cycle.
-export function relationErrors(doc: AovDocument): string[] {
+export function relationErrors(doc: FormsAndRelations): string[] {
   const errors: string[] = [];
   const pairs = new Set<string>();
   for (const relation of doc.relations) {
@@ -87,7 +89,7 @@ export function usedActionIds(doc: AovDocument): string[] {
 }
 
 // Directed form graph; returns the first cycle as a closed path of form IDs.
-export function findCycle(doc: AovDocument, extra?: { from: string; to: string }): string[] | undefined {
+export function findCycle(doc: FormsAndRelations, extra?: { from: string; to: string }): string[] | undefined {
   const edges = [...doc.relations.map(r => ({ from: r.from.formId, to: r.to.formId })), ...(extra ? [extra] : [])]
     .filter(e => e.from !== e.to && doc.forms.some(f => f.id === e.from) && doc.forms.some(f => f.id === e.to));
   const done = new Set<string>();
@@ -122,6 +124,7 @@ export function importAov(text: string): { value: AovDocument; notices: string[]
   let input: AovDocument | AovDocumentV2 | AovDocumentV1;
   try { input = JSON.parse(text.replace(/^﻿/, '')); validateSchema('aov', input); }
   catch { throw new Error('流程規格格式不正確。請使用本系統下載的流程規格檔。原流程已保留。'); }
+  if ((input as { version: number }).version === 4) throw new Error('此流程規格是畫布版本（version 4），目前的編輯畫面尚未支援。原流程已保留。');
   const notices: string[] = [];
   let value: AovDocument;
   if (input.version === 1) {

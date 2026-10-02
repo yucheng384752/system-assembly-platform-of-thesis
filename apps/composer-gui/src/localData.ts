@@ -1,7 +1,9 @@
 export const fieldTypes = { text: '文字', integer: '整數', decimal: '小數', boolean: '是／否', date: '日期' };
 export type FieldType = keyof typeof fieldTypes;
 // isKey marks a shared identifier (e.g. lot number) that may link forms (spec 4.2, D19).
-export interface FormField { id: string; name: string; type: FieldType; required: boolean; isKey: boolean }
+// Field rules (D72); which rule applies depends on the type. Dates are ISO 8601 calendar dates, YYYY-MM-DD.
+export interface FieldValidation { minimum?: number; maximum?: number; maxLength?: number; allowedValues?: string[]; minimumDate?: string; maximumDate?: string }
+export interface FormField { id: string; name: string; type: FieldType; required: boolean; isKey: boolean; validation?: FieldValidation }
 export interface FormDraft { id: string; name: string; fields: FormField[] }
 export const MAX_FILE_BYTES = 2 * 1024 * 1024;
 // Multi-file limits per selection and per Workflow (D25).

@@ -52,7 +52,7 @@ describe('由 Action 推導 Kit', () => {
   });
 
   test('capability 無法證實時列為缺口，且不因此選入任何 Kit', () => {
-    const custom = parseActionCatalog({ ...actionData, actions: [{ id: 'search', name: '搜尋', description: '搜尋', requires: ['query.records.search'] }] });
+    const custom = parseActionCatalog({ ...actionData, actions: [{ id: 'search', name: '搜尋', description: '搜尋', requires: ['query.records.search'], parameters: [], needs: [] }] });
     const derived = deriveKits(['search'], custom, entries);
     expect(derived.kits).toEqual([]);
     expect(derived.gaps).toHaveLength(1);
@@ -61,7 +61,7 @@ describe('由 Action 推導 Kit', () => {
   });
 
   test('必帶的 Kit 尚未登錄時仍選入，但列為缺口', () => {
-    const custom = parseActionCatalog({ ...actionData, actions: [{ id: 'x', name: '測試', description: '測試', requires: ['forms.create'], requiresKits: [{ kitId: 'unregistered-kit', reason: '測試' }] }] });
+    const custom = parseActionCatalog({ ...actionData, actions: [{ id: 'x', name: '測試', description: '測試', requires: ['forms.create'], parameters: [], needs: [], requiresKits: [{ kitId: 'unregistered-kit', reason: '測試' }] }] });
     const derived = deriveKits(['x'], custom, entries);
     expect(derived.kits.find(k => k.kitId === 'unregistered-kit')).toMatchObject({ registered: false });
     expect(derived.gaps.map(g => g.kind)).toContain('kit-not-registered');
