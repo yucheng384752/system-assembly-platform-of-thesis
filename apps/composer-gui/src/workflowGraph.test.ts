@@ -6,7 +6,7 @@ import { importAov, type AovDocument } from './workflow';
 import type { FormField } from './localData';
 import {
   emptyGraph, exportAovGraph, graphActionIds, graphDepths, graphErrors, importAovGraph, importWorkflow, integrityErrors, isIsoDate,
-  listToGraph, nodeErrors, validationError, type AovGraphDocument, type GraphNode,
+  listToGraph, nodeErrors, nodeOfForm, orderedNodes, suggestActions, validationError, type AovGraphDocument, type GraphNode,
 } from './workflowGraph';
 import { actionCatalog } from './workflow';
 
@@ -133,6 +133,45 @@ describe('D72: 欄位驗證規則', () => {
     const unknown = sample();
     (unknown.forms[0].fields[0] as FormField & { validation: Record<string, unknown> }).validation = { pattern: '^a' };
     expect(schemas.aov(JSON.parse(JSON.stringify(unknown)))).toBe(false);
+  });
+});
+
+describe('順序、表單歸屬與建議', () => {
+  test('節點依連線先後排列，子流程緊接在所屬節點之後，並帶有層級', () => {
+    expect(orderedNodes(sample()).map(({ node, depth }) => `${depth}:${node.id}`))
+      .toEqual(['1:node-1', '2:node-4', '3:node-5', '3:node-6', '1:node-2', '1:node-3']);
+  });
+
+  // The stored order is only a tiebreaker; edges win, so "earlier" really means "before" in the workflow.
+  test('連線優先於儲存順序，沒有連線的節點維持儲存順序', () => {
+    const doc = sample();
+    doc.graphs[0].nodes.reverse();
+    expect(orderedNodes(doc).filter(e => e.depth === 1).map(e => e.node.id)).toEqual(['node-1', 'node-2', 'node-3']);
+    doc.graphs[0].edges = [];
+    expect(orderedNodes(doc).filter(e => e.depth === 1).map(e => e.node.id)).toEqual(['node-3', 'node-2', 'node-1']);
+  });
+
+  test('排序遇到壞資料也不會卡住或遺漏節點', () => {
+    const doc = sample();
+    doc.graphs[0].edges.push({ id: 'edge-9', from: 'node-3', to: 'node-1' });
+    doc.graphs[2].nodes[0].childGraphId = 'graph-root';
+    expect(orderedNodes(doc).map(e => e.node.id).sort()).toEqual(['node-1', 'node-2', 'node-3', 'node-4', 'node-5', 'node-6']);
+  });
+
+  test('表單屬於擁有它的節點，沒有擁有者時為空', () => {
+    expect(nodeOfForm(sample(), 'form-2')?.name).toBe('檢驗');
+    expect(nodeOfForm(sample(), 'form-9')).toBeUndefined();
+  });
+
+  test('有已確認的關聯而還沒有查詢追溯節點時建議加入；已有（任何層）或沒有關聯則不建議', () => {
+    const doc = sample();
+    doc.graphs[0].nodes[2].actionId = null;
+    expect(suggestActions(doc)).toEqual([{ actionId: 'trace-records', reason: '已確認 1 條表單關聯，可加入「查詢追溯」節點，以關聯欄位查詢前後步驟的紀錄。' }]);
+    doc.graphs[2].nodes[0].actionId = 'trace-records';
+    expect(suggestActions(doc)).toEqual([]);
+    doc.graphs[2].nodes[0].actionId = null;
+    doc.relations = [];
+    expect(suggestActions(doc)).toEqual([]);
   });
 });
 
