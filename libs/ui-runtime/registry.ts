@@ -13,13 +13,13 @@ export interface KitRegistry {
   format: 'composer-kit-registry'; version: 1; kitId: string; scope?: string;
   capabilities: Capability[]; consumes: Consume[]; mServices: MService[]; functions: RegistryFunction[];
 }
-export interface ActionType { id: string; name: string; description: string; requires: string[] }
+export interface ActionType { id: string; name: string; description: string; requires: string[]; requiresKits?: { kitId: string; reason: string }[] }
 export interface ActionCatalog { format: 'composer-action-catalog'; version: 1; actions: ActionType[] }
 
 // error: the data contradicts itself. gap: the registry cannot prove something the contract or an action relies on.
 // note: baseline contract and source differ; kept visible instead of corrected (D67).
 export type IssueSeverity = 'error' | 'gap' | 'note';
-export type IssueKind = 'duplicate-kit' | 'broken-reference' | 'chain-broken' | 'unresolved-provider' | 'unresolved-consume' | 'unverified' | 'undeclared' | 'multiple-declarers' | 'unknown-capability';
+export type IssueKind = 'duplicate-kit' | 'broken-reference' | 'chain-broken' | 'unresolved-provider' | 'unresolved-consume' | 'unverified' | 'undeclared' | 'multiple-declarers' | 'unknown-capability' | 'missing-provider' | 'kit-not-registered';
 export interface RegistryIssue { severity: IssueSeverity; kind: IssueKind; kitId: string; subject: string; message: string }
 
 export function parseRegistry(value: unknown): KitRegistry {
