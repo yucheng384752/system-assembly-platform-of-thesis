@@ -10,7 +10,7 @@ afterEach(cleanup);
 const field = (id: string, name: string, type: FieldType, isKey = false) => ({ id, name, type, required: true, isKey });
 const form = (id: string, name: string, ...fields: FormDraft['fields']): FormDraft => ({ id, name, fields });
 const doc = (forms: FormDraft[], relations: AovDocument['relations'] = []): AovDocument => ({ ...emptyAov,
-  steps: [{ id: 'step-1', name: '錫膏流程', when: '', owner: 'OP', formIds: forms.map(f => f.id) }], forms, relations });
+  steps: [{ id: 'step-1', name: '錫膏流程', when: '', owner: 'OP', formIds: forms.map(f => f.id), actions: [] }], forms, relations });
 
 // Reported case: only two of three forms share an identically named and typed key; production calls it something else.
 // Field names and types only; the shape comes from real sample headers, no row values are used (M01).

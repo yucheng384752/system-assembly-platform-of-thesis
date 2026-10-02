@@ -20,8 +20,8 @@ const keys = () => generateKeyPairSync('rsa', { modulusLength: 2048, publicKeyEn
 const issuer = keys();
 async function deliveryPackage(stepName = '收料', withSite = false) {
   /** @type {import('./workflow').AovDocument} */
-  const workflow = { format: 'composer-aov-list', version: 2,
-    steps: [{ id: 'step-1', name: stepName, when: '', owner: '倉管', formIds: ['form-1'] }],
+  const workflow = { format: 'composer-aov-list', version: 3,
+    steps: [{ id: 'step-1', name: stepName, when: '', owner: '倉管', formIds: ['form-1'], actions: [] }],
     forms: [{ id: 'form-1', name: '收料單', fields: [{ id: 'field-1', name: '批號', type: 'text', required: true, isKey: true }] }], relations: [] };
   const workflowText = exportAov(workflow);
   const siteText = withSite ? JSON.stringify(siteA) : undefined;

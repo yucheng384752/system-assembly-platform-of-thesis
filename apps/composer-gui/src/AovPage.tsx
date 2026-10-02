@@ -45,7 +45,7 @@ export function AovPage({ value, onChange }: { value: AovDocument; onChange: (va
       {value.steps.length === 0 && <p className="muted">尚未建立步驟。</p>}
       <button id="add-step" className="file-button" disabled={busy || value.steps.length >= 100} onClick={() => {
         const id = nextId('step', value.steps); focus.current = `${id}-name`; selectName.current = true; setSelectedId(id);
-        onChange({ ...value, steps: [...value.steps, { id, name: `新步驟 ${value.steps.length + 1}`, when: '', owner: '', formIds: [] }] }); setNotice('已新增步驟。');
+        onChange({ ...value, steps: [...value.steps, { id, name: `新步驟 ${value.steps.length + 1}`, when: '', owner: '', formIds: [], actions: [] }] }); setNotice('已新增步驟。');
       }}><Icon name="plus" />新增步驟</button>
     </Column>
     <Column id="aov-edit" title={step ? `編輯步驟 ${number(index)}` : '編輯步驟'} lead="設定此步驟的名稱、填寫時機與負責職務。">

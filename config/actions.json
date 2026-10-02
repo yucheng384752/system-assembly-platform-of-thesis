@@ -1,0 +1,81 @@
+{
+  "format": "composer-action-catalog",
+  "version": 1,
+  "actions": [
+    {
+      "id": "define-form",
+      "name": "建立表單",
+      "description": "建立一張表單並設定它的欄位",
+      "requires": [
+        "forms.create",
+        "forms.schema.set"
+      ],
+      "requiresKits": [
+        {
+          "kitId": "generic-forms-kit",
+          "reason": "使用表格的動作一律需要通用表格管理"
+        },
+        {
+          "kitId": "station-data-link-kit",
+          "reason": "使用表格的動作一律需要站點資料串聯"
+        }
+      ]
+    },
+    {
+      "id": "import-records",
+      "name": "匯入紀錄",
+      "description": "上傳 CSV，先預覽驗證結果，再匯入表單",
+      "requires": [
+        "forms.import.preview",
+        "forms.import.commit"
+      ],
+      "requiresKits": [
+        {
+          "kitId": "generic-forms-kit",
+          "reason": "使用表格的動作一律需要通用表格管理"
+        },
+        {
+          "kitId": "station-data-link-kit",
+          "reason": "使用表格的動作一律需要站點資料串聯"
+        }
+      ]
+    },
+    {
+      "id": "link-forms",
+      "name": "串聯表單",
+      "description": "以共用的識別欄位把兩張表單的紀錄串起來",
+      "requires": [
+        "dataflows.links.upsert"
+      ],
+      "requiresKits": [
+        {
+          "kitId": "generic-forms-kit",
+          "reason": "使用表格的動作一律需要通用表格管理"
+        },
+        {
+          "kitId": "station-data-link-kit",
+          "reason": "使用表格的動作一律需要站點資料串聯"
+        }
+      ]
+    },
+    {
+      "id": "trace-records",
+      "name": "查詢追溯",
+      "description": "以批號跨表單查詢紀錄，並沿串聯追溯前後步驟",
+      "requires": [
+        "query.lot.search",
+        "query.trace.lot"
+      ],
+      "requiresKits": [
+        {
+          "kitId": "generic-forms-kit",
+          "reason": "使用表格的動作一律需要通用表格管理"
+        },
+        {
+          "kitId": "station-data-link-kit",
+          "reason": "使用表格的動作一律需要站點資料串聯"
+        }
+      ]
+    }
+  ]
+}

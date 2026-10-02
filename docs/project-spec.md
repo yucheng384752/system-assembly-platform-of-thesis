@@ -150,6 +150,39 @@ Kit 可單獨執行表示具有明確入口、可驗證的相依條件與最小�
 
 **功能建議規則（首期）：**存在已確認的表單關聯時，建議「查詢追溯」流程；「查詢追溯」綁定「通用表格管理」（D26）。建議不自動套用，由使用者加入。
 
+### 4.3 Workflow Action 與 Kit Registry（2026-10-02 決議：D62、D66–D69）
+
+> 實作於分支 `feature/workflow-action-registry`。資料與推導已完成；畫面由後續功能處理。
+
+**方向（D62）：**組裝由 Workflow 驅動。步驟內的 Action 決定所需 capability，再由 Registry 找出實作它的 Kit；使用者不再從固定清單選配，可檢視推導結果並調整。Kit 仍是 capability 的封裝單位（D04）。
+
+**資料模型（Data-First）：**
+
+| 物件 | 位置 | 內容 |
+|---|---|---|
+| ActionType | `config/actions.json`、`schemas/action-catalog.schema.json` | `id`、`name`、`description`、`requires`（capability，沿用基線名稱）、`requiresKits`（必帶 Kit，每項附原因）。依業務動作分類：建立表單、匯入紀錄、串聯表單、查詢追溯 |
+| 步驟內 Action | `schemas/aov.schema.json` version 3 | `steps[].actions[]`，每項只存 `actionId` 與 `formIds`；Kit 與 capability 一律推導，不寫入文件。version 1、2 匯入時升為 3，version 2 無資料遺失 |
+| KitRegistry | `config/registry/<kit-id>.json`、`schemas/kit-registry.schema.json` | capability → mService → Function 三層。每個 capability 記錄 `declared`（基線契約是否宣告）、`implementedBy`（原始碼實際所在）、`verified`，差異必須附說明 |
+
+**驗證與推導：**
+
+- `checkRegistry`：引用是否斷裂、每個 mService 的 Function 能否依序由輸入串接到輸出（§4.1 完整性檢查）；結果分為 error（自相矛盾）、gap（無法證實）、note（基線契約與原始碼的差異）。
+- `deriveKits`：Kit 的來源有三種並逐項記錄原因：Action 所需 capability 的實作者、Action 的必帶 Kit、已選 Kit 的 consumes 所需的實作者（含契約未宣告的原始碼相依）。多個實作者時不自動選，列為待決；無法證實的 capability 與未登錄的 Kit 列為缺口。
+- 與表格相關的四個 Action 一律帶出通用表格管理與站點資料串聯（D69）。
+- Workflow 驗證：不存在的動作、同一步驟重複動作、動作引用不存在的表單會拒絕匯入；動作引用的表單已不在該步驟時顯示為步驟錯誤並擋下匯出。
+
+**第一版範圍（D68）：**只登錄 `generic-forms-kit`、`station-data-link-kit`、`query-traceability-kit` 與 `platform-core-kit` 的 `db.*`；其餘 Kit 視為契約未完整，不參與推導。`flows.json` 暫時保留，測試證明查詢追溯的推導結果涵蓋其選配後再退役。
+
+**基線版契約與原始碼的差異（登錄資料如實保留，不修正）：**
+
+1. `station-data-link-kit` 沒有原始碼，其 `db.*` 能力實作在 `platform-core-kit`；`platform-core-kit` 的契約也宣告其中三項。
+2. `query-traceability-kit` 契約的 `query.records.search` 在原始碼找不到對應路由。
+3. `query-traceability-kit` 直接 import `generic-forms-kit` 的 `Station`、`StationLink`，契約未宣告；這是 D26 的實際原因。
+4. `generic-forms-kit` 契約只宣告兩條端點，建立表單、設定 schema、匯入、站點串聯等實際端點未宣告。
+5. `db.tenants.read` 只由已廢除的 `tenant-auth-kit` 提供（D03），仍被多個 Kit 使用。
+
+**待後續：**畫面（在步驟內選擇 Action、檢視推導原因、處理待決與缺口）；其餘 Kit 的登錄；`flows.json` 退役；mService 與 Function 的版本規則。
+
 ## 5. Configuration-first 與參數解析
 
 **需求：**可調整的業務參數抽出程式碼，依責任拆檔；基礎設施正常運作參數不納入本次業務設定治理。連線憑證與秘密值使用外部秘密來源引用，不寫入一般設定、UI Schema、手冊或套件。

@@ -1,0 +1,556 @@
+{
+  "format": "composer-kit-registry",
+  "version": 1,
+  "kitId": "generic-forms-kit",
+  "scope": "登錄表單清單、紀錄清單、建立表單、設定 schema、CSV 匯入預覽與提交、站點串聯的查詢與新增；未登錄 CSV 直接上傳、刪除表單、刪除紀錄與刪除串聯。身分相依（get_current_tenant）未登錄",
+  "capabilities": [
+    {
+      "id": "forms.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/forms",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "generic-forms-kit",
+        "mService": "form-catalog"
+      },
+      "verified": true
+    },
+    {
+      "id": "forms.records.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/forms/{code}/records",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "generic-forms-kit",
+        "mService": "form-catalog"
+      },
+      "verified": true
+    },
+    {
+      "id": "forms.create",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/forms",
+      "declared": false,
+      "implementedBy": {
+        "kitId": "generic-forms-kit",
+        "mService": "form-definition"
+      },
+      "verified": true,
+      "note": "契約未宣告，由原始碼路由確認；/api 前綴沿用契約中 forms.list 的路徑推定"
+    },
+    {
+      "id": "forms.schema.set",
+      "kind": "api",
+      "method": "PUT",
+      "path": "/api/forms/{code}/schema",
+      "declared": false,
+      "implementedBy": {
+        "kitId": "generic-forms-kit",
+        "mService": "form-definition"
+      },
+      "verified": true,
+      "note": "契約未宣告，由原始碼路由確認；/api 前綴沿用契約中 forms.list 的路徑推定"
+    },
+    {
+      "id": "forms.import.preview",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/forms/{code}/import/preview",
+      "declared": false,
+      "implementedBy": {
+        "kitId": "generic-forms-kit",
+        "mService": "csv-import"
+      },
+      "verified": true,
+      "note": "契約未宣告，由原始碼路由確認；/api 前綴沿用契約中 forms.list 的路徑推定"
+    },
+    {
+      "id": "forms.import.commit",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/forms/{code}/import/commit",
+      "declared": false,
+      "implementedBy": {
+        "kitId": "generic-forms-kit",
+        "mService": "csv-import"
+      },
+      "verified": true,
+      "note": "契約未宣告，由原始碼路由確認；/api 前綴沿用契約中 forms.list 的路徑推定"
+    },
+    {
+      "id": "dataflows.links.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/dataflows/links",
+      "declared": false,
+      "implementedBy": {
+        "kitId": "generic-forms-kit",
+        "mService": "dataflow-links"
+      },
+      "verified": true,
+      "note": "契約未宣告，由原始碼路由確認；/api 前綴沿用契約中 forms.list 的路徑推定"
+    },
+    {
+      "id": "dataflows.links.upsert",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/dataflows/links",
+      "declared": false,
+      "implementedBy": {
+        "kitId": "generic-forms-kit",
+        "mService": "dataflow-links"
+      },
+      "verified": true,
+      "note": "契約未宣告，由原始碼路由確認；/api 前綴沿用契約中 forms.list 的路徑推定"
+    },
+    {
+      "id": "forms.station-model",
+      "kind": "model",
+      "declared": false,
+      "implementedBy": {
+        "kitId": "generic-forms-kit"
+      },
+      "verified": true,
+      "note": "Station、StationSchema、StationLink 資料模型；契約未宣告，但 query-traceability-kit 直接 import 使用"
+    }
+  ],
+  "consumes": [
+    {
+      "capability": "db.tenants.read",
+      "kind": "db",
+      "declared": true
+    },
+    {
+      "capability": "db.edit-reasons.validate",
+      "kind": "db",
+      "declared": true
+    }
+  ],
+  "mServices": [
+    {
+      "id": "form-catalog",
+      "name": "表單與紀錄瀏覽",
+      "responsibility": "列出表單與其紀錄；領域資料表與通用紀錄兩種儲存都能瀏覽",
+      "provides": [
+        "forms.list",
+        "forms.records.list"
+      ],
+      "inputs": [
+        {
+          "name": "code",
+          "type": "string"
+        },
+        {
+          "name": "page",
+          "type": "integer"
+        },
+        {
+          "name": "page_size",
+          "type": "integer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "forms",
+          "type": "json"
+        },
+        {
+          "name": "records",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "list-forms",
+        "list-records"
+      ],
+      "failure": "表單代碼不存在回報 404"
+    },
+    {
+      "id": "form-definition",
+      "name": "表單定義",
+      "responsibility": "建立表單類型並設定其現行 schema",
+      "provides": [
+        "forms.create",
+        "forms.schema.set"
+      ],
+      "inputs": [
+        {
+          "name": "code",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "fields",
+          "type": "json"
+        },
+        {
+          "name": "reason_id",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "form",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "create-form",
+        "set-form-schema"
+      ],
+      "failure": "代碼重複回報 409；修改原因無效回報 422"
+    },
+    {
+      "id": "csv-import",
+      "name": "CSV 匯入",
+      "responsibility": "解析 CSV、依現行 schema 預覽驗證結果，再提交匯入",
+      "provides": [
+        "forms.import.preview",
+        "forms.import.commit"
+      ],
+      "inputs": [
+        {
+          "name": "code",
+          "type": "string"
+        },
+        {
+          "name": "file",
+          "type": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "preview",
+          "type": "json"
+        },
+        {
+          "name": "result",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "parse-csv",
+        "validate-rows",
+        "commit-rows"
+      ],
+      "failure": "未定義 schema 或 CSV 無法解析回報 422；預覽不寫入資料庫"
+    },
+    {
+      "id": "dataflow-links",
+      "name": "站點資料串聯",
+      "responsibility": "查詢與建立站點之間的有向串聯與鍵欄位對應，同一流程內禁止成環",
+      "provides": [
+        "dataflows.links.list",
+        "dataflows.links.upsert"
+      ],
+      "inputs": [
+        {
+          "name": "flow_code",
+          "type": "string"
+        },
+        {
+          "name": "from_station_code",
+          "type": "string"
+        },
+        {
+          "name": "to_station_code",
+          "type": "string"
+        },
+        {
+          "name": "parent_column",
+          "type": "string"
+        },
+        {
+          "name": "child_column",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "links",
+          "type": "json"
+        },
+        {
+          "name": "link",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "list-links",
+        "upsert-link"
+      ],
+      "failure": "指向自己回報 422；成環回報 409；站點不存在回報 404"
+    }
+  ],
+  "functions": [
+    {
+      "id": "list-forms",
+      "primitive": "list-forms",
+      "input": [],
+      "output": [
+        {
+          "name": "forms",
+          "type": "json"
+        }
+      ],
+      "failures": [],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/generic-forms-kit/src/backend/app/api/routes_generic_forms.py",
+        "symbol": "list_forms"
+      }
+    },
+    {
+      "id": "list-records",
+      "primitive": "list-records",
+      "input": [
+        {
+          "name": "code",
+          "type": "string"
+        },
+        {
+          "name": "page",
+          "type": "integer"
+        },
+        {
+          "name": "page_size",
+          "type": "integer"
+        }
+      ],
+      "output": [
+        {
+          "name": "records",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "404 表單代碼不存在"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/generic-forms-kit/src/backend/app/api/routes_generic_forms.py",
+        "symbol": "list_records"
+      }
+    },
+    {
+      "id": "create-form",
+      "primitive": "create-form",
+      "input": [
+        {
+          "name": "code",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "form",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "422 缺少 code",
+        "409 代碼已存在"
+      ],
+      "sideEffects": [
+        "新增 stations 資料列"
+      ],
+      "source": {
+        "path": "kits/generic-forms-kit/src/backend/app/api/routes_generic_forms.py",
+        "symbol": "create_form"
+      }
+    },
+    {
+      "id": "set-form-schema",
+      "primitive": "set-form-schema",
+      "input": [
+        {
+          "name": "code",
+          "type": "string"
+        },
+        {
+          "name": "fields",
+          "type": "json"
+        },
+        {
+          "name": "reason_id",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "form",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "404 表單不存在",
+        "422 修改原因無效"
+      ],
+      "sideEffects": [
+        "停用舊 schema 並新增 station_schemas 資料列"
+      ],
+      "source": {
+        "path": "kits/generic-forms-kit/src/backend/app/api/routes_generic_forms.py",
+        "symbol": "set_schema"
+      }
+    },
+    {
+      "id": "parse-csv",
+      "primitive": "parse-csv",
+      "input": [
+        {
+          "name": "file",
+          "type": "file"
+        }
+      ],
+      "output": [
+        {
+          "name": "rows",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "422 CSV 無法解析"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/generic-forms-kit/src/backend/app/api/routes_generic_forms.py",
+        "symbol": "_parse_csv_content"
+      }
+    },
+    {
+      "id": "validate-rows",
+      "primitive": "validate-rows",
+      "input": [
+        {
+          "name": "code",
+          "type": "string"
+        },
+        {
+          "name": "rows",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "preview",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "422 尚未定義 schema"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/generic-forms-kit/src/backend/app/api/routes_generic_forms.py",
+        "symbol": "import_preview"
+      }
+    },
+    {
+      "id": "commit-rows",
+      "primitive": "commit-rows",
+      "input": [
+        {
+          "name": "code",
+          "type": "string"
+        },
+        {
+          "name": "rows",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "result",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "422 尚未定義 schema"
+      ],
+      "sideEffects": [
+        "新增 generic_records 資料列；檔案達門檻時改為背景工作"
+      ],
+      "source": {
+        "path": "kits/generic-forms-kit/src/backend/app/api/routes_generic_forms.py",
+        "symbol": "import_commit"
+      }
+    },
+    {
+      "id": "list-links",
+      "primitive": "list-links",
+      "input": [
+        {
+          "name": "flow_code",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "links",
+          "type": "json"
+        }
+      ],
+      "failures": [],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/generic-forms-kit/src/backend/app/api/routes_generic_forms.py",
+        "symbol": "list_dataflow_links"
+      }
+    },
+    {
+      "id": "upsert-link",
+      "primitive": "upsert-link",
+      "input": [
+        {
+          "name": "flow_code",
+          "type": "string"
+        },
+        {
+          "name": "from_station_code",
+          "type": "string"
+        },
+        {
+          "name": "to_station_code",
+          "type": "string"
+        },
+        {
+          "name": "parent_column",
+          "type": "string"
+        },
+        {
+          "name": "child_column",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "link",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "422 缺少 flow_code 或指向自己",
+        "404 站點不存在",
+        "409 形成循環"
+      ],
+      "sideEffects": [
+        "新增或更新 station_links 資料列"
+      ],
+      "source": {
+        "path": "kits/generic-forms-kit/src/backend/app/api/routes_generic_forms.py",
+        "symbol": "upsert_dataflow_link"
+      }
+    }
+  ]
+}

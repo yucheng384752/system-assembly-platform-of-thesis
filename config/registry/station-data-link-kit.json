@@ -1,0 +1,61 @@
+{
+  "format": "composer-kit-registry",
+  "version": 1,
+  "kitId": "station-data-link-kit",
+  "scope": "此 Kit 的目錄只有契約、manifest 與安裝腳本，沒有原始碼；契約宣告的四項 db.* 能力，實作在 platform-core-kit。站點串聯（StationLink）的實作在 generic-forms-kit（D24）",
+  "capabilities": [
+    {
+      "id": "db.tables.resolve",
+      "kind": "db",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "platform-core-kit",
+        "mService": "db-tables-resolve"
+      },
+      "verified": true,
+      "note": "契約宣告，實作在 platform-core-kit；platform-core-kit 的契約也宣告同一能力"
+    },
+    {
+      "id": "db.forms.list",
+      "kind": "db",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "platform-core-kit",
+        "mService": "db-forms-list"
+      },
+      "verified": true,
+      "note": "契約宣告，實作在 platform-core-kit；platform-core-kit 的契約也宣告同一能力"
+    },
+    {
+      "id": "db.records.search",
+      "kind": "db",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "platform-core-kit",
+        "mService": "db-records-search"
+      },
+      "verified": true,
+      "note": "契約宣告，實作在 platform-core-kit；platform-core-kit 的契約也宣告同一能力"
+    },
+    {
+      "id": "db.records.trend",
+      "kind": "db",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "platform-core-kit",
+        "mService": "db-records-trend"
+      },
+      "verified": true,
+      "note": "契約宣告，實作在 platform-core-kit，後者的契約未宣告"
+    }
+  ],
+  "consumes": [
+    {
+      "capability": "db.tenants.read",
+      "kind": "db",
+      "declared": true
+    }
+  ],
+  "mServices": [],
+  "functions": []
+}
