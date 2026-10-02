@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Composer Kit registry entry",
+  "description": "One Kit's capability, mService and Function layers (D04, D67). Records both what the baseline contract declares and what the source actually implements; differences are kept visible, never silently corrected.",
+  "type": "object", "additionalProperties": false,
+  "required": ["format", "version", "kitId", "capabilities", "consumes", "mServices", "functions"],
+  "properties": {
+    "format": { "const": "composer-kit-registry" },
+    "version": { "const": 1 },
+    "kitId": { "$ref": "#/$defs/kitId" },
+    "scope": { "type": "string", "maxLength": 300 },
+    "capabilities": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/capability" } },
+    "consumes": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/consume" } },
+    "mServices": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/mService" } },
+    "functions": { "type": "array", "maxItems": 300, "items": { "$ref": "#/$defs/fn" } }
+  },
+  "$defs": {
+    "kitId": { "type": "string", "pattern": "^[a-z0-9-]+$", "maxLength": 100 },
+    "capId": { "type": "string", "pattern": "^[a-z0-9.-]+$", "maxLength": 100 },
+    "id": { "type": "string", "pattern": "^[a-z0-9-]+$", "maxLength": 100 },
+    "text": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "port": {
+      "type": "object", "additionalProperties": false, "required": ["name", "type"],
+      "properties": { "name": { "type": "string", "pattern": "^[a-z0-9_]+$", "maxLength": 100 }, "type": { "type": "string", "pattern": "^[a-z0-9_\\[\\]]+$", "maxLength": 50 } }
+    },
+    "capability": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "kind", "declared", "implementedBy", "verified"],
+      "properties": {
+        "id": { "$ref": "#/$defs/capId" },
+        "kind": { "enum": ["api", "db", "model"] },
+        "method": { "enum": ["GET", "POST", "PUT", "DELETE"] },
+        "path": { "type": "string", "pattern": "^/", "maxLength": 200 },
+        "declared": { "type": "boolean" },
+        "implementedBy": { "oneOf": [
+          { "type": "null" },
+          { "type": "object", "additionalProperties": false, "required": ["kitId", "mService"], "properties": { "kitId": { "$ref": "#/$defs/kitId" }, "mService": { "$ref": "#/$defs/id" } } }
+        ] },
+        "verified": { "type": "boolean" },
+        "note": { "$ref": "#/$defs/text" }
+      },
+      "allOf": [
+        { "if": { "properties": { "kind": { "const": "api" } } }, "then": { "required": ["method", "path"] } },
+        { "if": { "properties": { "verified": { "const": false } } }, "then": { "required": ["note"] } },
+        { "if": { "properties": { "declared": { "const": false } } }, "then": { "required": ["note"] } },
+        { "if": { "properties": { "implementedBy": { "type": "null" } } }, "then": { "properties": { "verified": { "const": false } } } }
+      ]
+    },
+    "consume": {
+      "type": "object", "additionalProperties": false,
+      "required": ["capability", "kind", "declared"],
+      "properties": {
+        "capability": { "$ref": "#/$defs/capId" },
+        "kind": { "enum": ["api", "db", "model"] },
+        "declared": { "type": "boolean" },
+        "evidence": { "$ref": "#/$defs/text" }
+      },
+      "if": { "properties": { "declared": { "const": false } } }, "then": { "required": ["evidence"] }
+    },
+    "mService": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name", "responsibility", "provides", "inputs", "outputs", "functions", "failure"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "$ref": "#/$defs/text" },
+        "responsibility": { "$ref": "#/$defs/text" },
+        "provides": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/capId" } },
+        "inputs": { "type": "array", "items": { "$ref": "#/$defs/port" } },
+        "outputs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/port" } },
+        "functions": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/id" } },
+        "failure": { "$ref": "#/$defs/text" }
+      }
+    },
+    "fn": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "primitive", "input", "output", "failures", "sideEffects", "source"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "primitive": { "$ref": "#/$defs/id" },
+        "input": { "type": "array", "items": { "$ref": "#/$defs/port" } },
+        "output": { "type": "array", "items": { "$ref": "#/$defs/port" } },
+        "failures": { "type": "array", "items": { "$ref": "#/$defs/text" } },
+        "sideEffects": { "type": "array", "items": { "$ref": "#/$defs/text" } },
+        "source": {
+          "type": "object", "additionalProperties": false, "required": ["path", "symbol"],
+          "properties": { "path": { "type": "string", "pattern": "^kits/", "maxLength": 300 }, "symbol": { "type": "string", "minLength": 1, "maxLength": 100 } }
+        }
+      }
+    }
+  }
+}

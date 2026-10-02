@@ -1,0 +1,374 @@
+{
+  "format": "composer-kit-registry",
+  "version": 1,
+  "kitId": "platform-core-kit",
+  "scope": "只登錄 db_capabilities.py 的五項 db.* 能力；platform.health、kit.* 與 admin.* 端點以及 db.upload.jobs.list 未登錄",
+  "capabilities": [
+    {
+      "id": "db.forms.list",
+      "kind": "db",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "platform-core-kit",
+        "mService": "db-forms-list"
+      },
+      "verified": true
+    },
+    {
+      "id": "db.tables.resolve",
+      "kind": "db",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "platform-core-kit",
+        "mService": "db-tables-resolve"
+      },
+      "verified": true
+    },
+    {
+      "id": "db.records.search",
+      "kind": "db",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "platform-core-kit",
+        "mService": "db-records-search"
+      },
+      "verified": true
+    },
+    {
+      "id": "db.records.trend",
+      "kind": "db",
+      "declared": false,
+      "implementedBy": {
+        "kitId": "platform-core-kit",
+        "mService": "db-records-trend"
+      },
+      "verified": true,
+      "note": "本 Kit 契約未宣告；station-data-link-kit 的契約宣告此能力，實作在本 Kit"
+    },
+    {
+      "id": "db.edit-reasons.validate",
+      "kind": "db",
+      "declared": false,
+      "implementedBy": {
+        "kitId": "platform-core-kit",
+        "mService": "db-edit-reasons-validate"
+      },
+      "verified": true,
+      "note": "本 Kit 契約未宣告；audit-edit-kit 的契約宣告此能力，實作在本 Kit"
+    }
+  ],
+  "consumes": [],
+  "mServices": [
+    {
+      "id": "db-forms-list",
+      "name": "表單清單",
+      "responsibility": "列出租戶下的表單與其現行欄位定義",
+      "provides": [
+        "db.forms.list"
+      ],
+      "inputs": [
+        {
+          "name": "tenant_id",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "forms",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "list-forms"
+      ],
+      "failure": "來源模型未安裝時回報 501，不回傳空清單"
+    },
+    {
+      "id": "db-tables-resolve",
+      "name": "資料表解析",
+      "responsibility": "依 table_code 取得登錄的資料表與最新 schema",
+      "provides": [
+        "db.tables.resolve"
+      ],
+      "inputs": [
+        {
+          "name": "table_code",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "table",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "resolve-table"
+      ],
+      "failure": "缺少 table_code 回報 422；找不到資料表回傳空值而非錯誤"
+    },
+    {
+      "id": "db-records-search",
+      "name": "紀錄搜尋",
+      "responsibility": "依站點與日期範圍取得紀錄，涵蓋通用紀錄與領域資料表兩種儲存",
+      "provides": [
+        "db.records.search"
+      ],
+      "inputs": [
+        {
+          "name": "tenant_id",
+          "type": "string"
+        },
+        {
+          "name": "station_id",
+          "type": "string"
+        },
+        {
+          "name": "limit",
+          "type": "integer"
+        },
+        {
+          "name": "date_from",
+          "type": "string"
+        },
+        {
+          "name": "date_to",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "records",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "search-records"
+      ],
+      "failure": "limit 超出範圍或結果超過 limit 時回報 422，不截斷"
+    },
+    {
+      "id": "db-records-trend",
+      "name": "紀錄趨勢",
+      "responsibility": "依站點與日期範圍統計每日紀錄筆數",
+      "provides": [
+        "db.records.trend"
+      ],
+      "inputs": [
+        {
+          "name": "tenant_id",
+          "type": "string"
+        },
+        {
+          "name": "station_code",
+          "type": "string"
+        },
+        {
+          "name": "date_from",
+          "type": "string"
+        },
+        {
+          "name": "date_to",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "trend",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "records-trend"
+      ],
+      "failure": "來源模型未安裝時回報 501"
+    },
+    {
+      "id": "db-edit-reasons-validate",
+      "name": "修改原因驗證",
+      "responsibility": "確認 reason_id 指向租戶下啟用中的修改原因",
+      "provides": [
+        "db.edit-reasons.validate"
+      ],
+      "inputs": [
+        {
+          "name": "tenant_id",
+          "type": "string"
+        },
+        {
+          "name": "reason_id",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "reason",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "validate-edit-reason"
+      ],
+      "failure": "缺少參數或原因無效時回報 422"
+    }
+  ],
+  "functions": [
+    {
+      "id": "list-forms",
+      "primitive": "list-forms",
+      "input": [
+        {
+          "name": "tenant_id",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "forms",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "501 來源模型未安裝"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/platform-core-kit/src/backend/app/core/db_capabilities.py",
+        "symbol": "list_forms"
+      }
+    },
+    {
+      "id": "resolve-table",
+      "primitive": "resolve-table",
+      "input": [
+        {
+          "name": "table_code",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "table",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "422 缺少 table_code",
+        "501 table registry 未安裝"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/platform-core-kit/src/backend/app/core/db_capabilities.py",
+        "symbol": "resolve_table"
+      }
+    },
+    {
+      "id": "search-records",
+      "primitive": "search-records",
+      "input": [
+        {
+          "name": "tenant_id",
+          "type": "string"
+        },
+        {
+          "name": "station_id",
+          "type": "string"
+        },
+        {
+          "name": "limit",
+          "type": "integer"
+        },
+        {
+          "name": "date_from",
+          "type": "string"
+        },
+        {
+          "name": "date_to",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "records",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "422 limit 須介於 1 到 5000",
+        "422 結果超過 limit，須縮小日期範圍",
+        "501 紀錄模型未安裝"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/platform-core-kit/src/backend/app/core/db_capabilities.py",
+        "symbol": "search_records"
+      }
+    },
+    {
+      "id": "records-trend",
+      "primitive": "records-trend",
+      "input": [
+        {
+          "name": "tenant_id",
+          "type": "string"
+        },
+        {
+          "name": "station_code",
+          "type": "string"
+        },
+        {
+          "name": "date_from",
+          "type": "string"
+        },
+        {
+          "name": "date_to",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "trend",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "501 紀錄模型未安裝"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/platform-core-kit/src/backend/app/core/db_capabilities.py",
+        "symbol": "records_trend"
+      }
+    },
+    {
+      "id": "validate-edit-reason",
+      "primitive": "validate-edit-reason",
+      "input": [
+        {
+          "name": "tenant_id",
+          "type": "string"
+        },
+        {
+          "name": "reason_id",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "reason",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "422 缺少 tenant_id 或 reason_id",
+        "422 reason_id 未指向啟用中的修改原因",
+        "501 修改原因模型未安裝"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/platform-core-kit/src/backend/app/core/db_capabilities.py",
+        "symbol": "validate_edit_reason"
+      }
+    }
+  ]
+}

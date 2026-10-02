@@ -1,0 +1,192 @@
+{
+  "format": "composer-kit-registry",
+  "version": 1,
+  "kitId": "query-traceability-kit",
+  "scope": "登錄原始碼中的批號查詢與追溯兩條路由，以及契約宣告但原始碼找不到的 query.records.search",
+  "capabilities": [
+    {
+      "id": "query.records.search",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/v2/query/records",
+      "declared": true,
+      "implementedBy": null,
+      "verified": false,
+      "note": "契約宣告 GET /api/v2/query/records，但 routes_query_v2.py 只有 /lot/{lot_no} 與 /trace/{lot_no}，在 kits/ 內找不到對應實作"
+    },
+    {
+      "id": "query.lot.search",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/v2/query/lot/{lot_no}",
+      "declared": false,
+      "implementedBy": {
+        "kitId": "query-traceability-kit",
+        "mService": "lot-search"
+      },
+      "verified": true,
+      "note": "契約未宣告，由原始碼路由確認；/api/v2/query 前綴沿用契約中 query.records.search 的路徑推定"
+    },
+    {
+      "id": "query.trace.lot",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/v2/query/trace/{lot_no}",
+      "declared": false,
+      "implementedBy": {
+        "kitId": "query-traceability-kit",
+        "mService": "lot-trace"
+      },
+      "verified": true,
+      "note": "契約未宣告，由原始碼路由確認；/api/v2/query 前綴沿用契約中 query.records.search 的路徑推定"
+    }
+  ],
+  "consumes": [
+    {
+      "capability": "db.records.search",
+      "kind": "db",
+      "declared": true,
+      "evidence": "契約宣告；routes_query_v2.py 未呼叫 DB_CAPABILITIES，改為直接查詢 GenericRecord"
+    },
+    {
+      "capability": "db.forms.list",
+      "kind": "db",
+      "declared": true,
+      "evidence": "契約宣告；routes_query_v2.py 未呼叫 DB_CAPABILITIES，改為直接查詢 Station"
+    },
+    {
+      "capability": "forms.station-model",
+      "kind": "model",
+      "declared": false,
+      "evidence": "routes_query_v2.py 直接 from app.models.station import Station, StationLink；模型屬 generic-forms-kit"
+    }
+  ],
+  "mServices": [
+    {
+      "id": "lot-search",
+      "name": "批號查詢",
+      "responsibility": "以批號跨站點取得紀錄，容許批號格式差異（原始值或正規化值皆可命中）",
+      "provides": [
+        "query.lot.search"
+      ],
+      "inputs": [
+        {
+          "name": "lot_no",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "results",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "find-lot-records",
+        "group-by-station"
+      ],
+      "failure": "批號無法正規化時退回只比對原始值，不回報錯誤"
+    },
+    {
+      "id": "lot-trace",
+      "name": "批號追溯",
+      "responsibility": "沿站點串聯走訪該批號的紀錄，每筆紀錄只輸出一次，深度上限 5 並防止循環",
+      "provides": [
+        "query.trace.lot"
+      ],
+      "inputs": [
+        {
+          "name": "lot_no",
+          "type": "string"
+        },
+        {
+          "name": "flow_code",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "graph",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "find-lot-records",
+        "walk-station-links"
+      ],
+      "failure": "查無紀錄回傳空圖；串聯成環時仍回傳資料而不遞迴"
+    }
+  ],
+  "functions": [
+    {
+      "id": "find-lot-records",
+      "primitive": "find-lot-records",
+      "input": [
+        {
+          "name": "lot_no",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "lot_records",
+          "type": "json"
+        }
+      ],
+      "failures": [],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/query-traceability-kit/src/backend/app/api/routes_query_v2.py",
+        "symbol": "_records_by_station_for_lot"
+      }
+    },
+    {
+      "id": "group-by-station",
+      "primitive": "group-by-station",
+      "input": [
+        {
+          "name": "lot_records",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "results",
+          "type": "json"
+        }
+      ],
+      "failures": [],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/query-traceability-kit/src/backend/app/api/routes_query_v2.py",
+        "symbol": "search_lot"
+      }
+    },
+    {
+      "id": "walk-station-links",
+      "primitive": "walk-station-links",
+      "input": [
+        {
+          "name": "lot_records",
+          "type": "json"
+        },
+        {
+          "name": "flow_code",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "graph",
+          "type": "json"
+        }
+      ],
+      "failures": [],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/query-traceability-kit/src/backend/app/api/routes_query_v2.py",
+        "symbol": "trace_lot"
+      }
+    }
+  ]
+}
