@@ -133,14 +133,91 @@ Node: { id, name, when, owner, actionId | null, params: { <paramId>: string|numb
 - 2026-10-02：user 回覆「按提案」，並補充：日期驗證採 ISO 格式、連線不要文字標示、節點一律圓形且只顯示名稱。決議已寫入 D70–D75（d817086）；ISO 的解讀（日期規則的邊界值與格式皆為 ISO 8601 的 `YYYY-MM-DD`，並檢查日期是否真實存在）待 user 確認。
 - 2026-10-02：功能 1 完成。`schemas/aov.schema.json`（version 4）、`schemas/action-catalog.schema.json`（`parameters`、`needs`）、`config/actions.json`、`libs/ui-runtime/registry.ts`（參數語意檢查）、`apps/composer-gui/src/workflowGraph.ts`（型別、結構與完成度驗證、匯入匯出、v1 到 v3 轉換）、`workflow.ts`（輔助函式放寬為只需 `forms`、`relations`；`importAov` 遇 version 4 回報尚未支援）、`localData.ts`（`FieldValidation`）。測試 209 項：208 通過、1 項既有略過（授權「未涵蓋」）；新增 `workflowGraph.test.ts` 54 項。以暫時把 `MAX_DEPTH` 改成 4 驗證測試會失敗後已還原。
 - 與提案的差異：v3 轉 v4 並非完全無損。一個節點只能有一張表單，Action 原本作用於多張表單時會拆節點並逐項提示（D75）；thread 原稿寫「無資料遺失」是錯的，已更正。
-- 功能 2 開始前仍待 user 回答：Open Question 4（`suggestFlows` 保留、改為建議加入「查詢追溯」節點，或移除）。
+- 2026-10-02：Open Question 4 已回答：`suggestFlows` 改用 toast 或畫布右下提示「可加入 XX 節點」。Claude 選畫布右下的靜態提示（D76，因 DESIGN.md 不使用動畫）；若 user 偏好 toast 再調整。功能 1 已合併到 main（b62abbd），功能 2 在 `feature/workflow-canvas` 開始；依賴 `@xyflow/react` 12.12.0 已安裝（ee9c847），`orderedNodes`、`nodeOfForm`、`suggestActions` 已補（1df2206）。
 
-# 功能 2 Handoff（草稿，user 回答 Open Question 4 後補完）
+# 功能 2 Claude Handoff（畫布編輯器，分支 `feature/workflow-canvas`）
 
-- 新分支 `feature/workflow-canvas`（由 main 開出，功能 1 合併後）；依賴 `@xyflow/react` 由 Claude 安裝，Codex 不得自行新增依賴。
-- 必讀：`CLAUDE.md`、`DESIGN.md`、本 thread、`docs/decision-log.md` D62、D66 到 D75、`docs/project-spec.md` §4.3 與 §4.4、`apps/composer-gui/src/workflowGraph.ts`、`workflow.ts`、`localData.ts`、`libs/ui-runtime/actions.ts`、`registry.ts`、`config/actions.json`、`config/registry/*.json`、`App.tsx`、`StepShell.tsx`、`FlowPage.tsx`。
-- 資料契約已定，需要改動請停止並提問：不得修改 `schemas/`、`workflowGraph.ts` 的驗證規則與 `config/`；畫面只呼叫 `integrityErrors`、`graphErrors`、`nodeErrors`、`importWorkflow`、`exportAovGraph`、`graphActionIds`、`deriveKits`。
-- 畫面：左側工具箱（4 個動作加純業務節點）、中間畫布、右側節點細項；節點一律圓形只顯示名稱；連線無文字；子 AoV 以麵包屑進出且最多 3 層；節點細項含名稱、時機、職務、動作參數、標準表單上傳與欄位設定（必填、識別欄位、驗證規則、關聯）；日期規則以 `YYYY-MM-DD` 輸入並即時驗證。
-- 推導：畫布完成後才顯示「依流程動作帶出的功能」，每個 Kit 附業務語言的原因；缺口與待決以業務語言呈現，不顯示 capability 名稱、程式術語或路徑。必帶 Kit 鎖定不可取消。
-- 退役：`AovPage`、`FormsPage`、`RelationsPage` 與 version 3 的編輯狀態，同時移除 `workflow.ts` 內只服務它們的函式（保留 `importAov` 與 `listToGraph` 所需部分）。
-- 驗證：`npm.cmd run typecheck`、`npm.cmd test`；畫布與子 AoV 進出須由 Claude 在瀏覽器實測（Codex 無法監聽連接埠）。
+## User 已確認（2026-10-02）
+
+1. 版面：左側工具箱、中間 React 畫布、右側節點細項。節點一律圓形、只顯示名稱；連線不顯示文字（D74）。
+2. 節點可建立子 AoV，最多 3 層（D71）。
+3. 選擇節點後上傳一份標準欄位，並設定欄位的「關聯」「必填」「驗證」（D72）。日期驗證用 ISO 8601 `YYYY-MM-DD`。
+4. 建議加入功能：畫布右下角提示「可加入『查詢追溯』節點」，或 toast；Claude 選右下角靜態提示（D76）。
+5. `@xyflow/react` 12.12.0 已核准並由 Claude 安裝（`ee9c847`）。
+
+Claude 的推論（待 user 確認，已寫入決議）：步驟由 5 個改為 3 個（D77）；日期驗證的 ISO 解讀。
+
+## 角色分工
+
+- Codex：寫程式與測試。
+- Claude：git 寫入、依賴、瀏覽器驗證（畫布、拖放、子 AoV 進出）、審閱。
+- Codex 沙箱不能寫 `.git`、沒有網路、不能監聽連接埠；不得新增依賴；不得修改 `kits/`；啟動 cwd 必須是專案根目錄。
+- 已知沙箱限制：`security.test.mjs` 的 CLI 測試會因暫存目錄不可寫而 EPERM，`npm.cmd run test:kits` 找不到 Python。由 Claude 在沙箱外驗證，不要繞過，也不要回報為程式失敗。
+
+## 必讀
+
+`CLAUDE.md`、`DESIGN.md`、本 thread、`docs/decision-log.md` D62、D66 到 D77、`docs/project-spec.md` §4.3 與 §4.4、`apps/composer-gui/src/`：`workflowGraph.ts`（全部）、`workflow.ts`、`localData.ts`、`relations.ts`、`catalog.ts`、`App.tsx`、`AppShell.tsx`、`StepShell.tsx`、`FlowPage.tsx`、`OutputPage.tsx`、`deliveryPackage.ts`、`AovPage.tsx`、`FormsPage.tsx`、`FormEditor.tsx`、`RelationsPage.tsx`、`style.css`，以及 `libs/ui-runtime/actions.ts`、`registry.ts`、`schema.ts`，`config/actions.json`、`config/registry/*.json`。
+
+## 資料契約（已定；需要改動請停止並提問）
+
+- 不得修改：`schemas/`、`config/`、`libs/ui-runtime/`、`workflowGraph.ts` 內的驗證與規則函式。新增畫面所需的純函式可以放在新檔案，不可放寬既有規則。
+- 畫面只透過這些函式讀寫文件：`integrityErrors`、`graphErrors`、`nodeErrors`、`validationError`、`isIsoDate`、`orderedNodes`、`nodeOfForm`、`graphDepths`、`graphActionIds`、`suggestActions`、`importWorkflow`、`exportAovGraph`，以及 `deriveKits`。
+- 文件以不可變方式更新（`onChange(next)`），每次更新後呼叫 `integrityErrors`；有結構錯誤的狀態不得存入工作階段。
+- 動作清單來自 `actionCatalog`（`workflow.ts`），參數表單由 `ActionType.parameters` 產生，不得寫死四個動作。
+
+## 硬性規範
+
+- `DESIGN.md`：不使用陰影、不使用動畫（含 React Flow 的轉場；`fitView` 的 duration 為 0，且 `prefers-reduced-motion` 下關閉）、控制項高度至少 44px、對比至少 4.6:1、圖示用手寫內嵌 SVG（`Icons.tsx`）且 `aria-hidden` 旁有文字，不使用圖示庫與 emoji。不使用 React Flow 內建的 Controls 與 MiniMap（內建圖示）；縮放與「適合畫面」用自己的按鈕。保留 React Flow 預設的 attribution，不使用 `proOptions` 隱藏。
+- 使用者只看得到業務語言：不顯示 capability 名稱、路徑、`mService`、`Function`、Kit 的 id、程式或資料表名稱。Kit 以 `displayName` 呈現。
+- 全部介面文字為繁體中文；不使用 `any`；使用者輸入一律純文字呈現，不用 `dangerouslySetInnerHTML`。
+- 預覽無副作用；不發出任何網路請求。M01：上傳的樣本只推測欄位，原始資料列不保留（沿用 `inferForms`）。
+- 鍵盤與輔助技術：畫布上的所有操作都要有鍵盤可用的替代方式。尤其「連線」不能只靠拖曳：節點細項提供「接續在哪些節點之後」的核取清單（同一 graph 的其他節點），勾選即建立或刪除連線。工具箱的每個項目除了拖放，也有「加入到畫布」按鈕。節點要有可聚焦與完整名稱（`aria-label`，名稱過長時圓形內截短、完整名稱在 `title` 與右側細項）。
+- 刪除前在頁面內確認（不得使用 `window.confirm`）：刪除節點會一併刪除其子流程（遞迴）、該節點擁有的表單，以及牽涉該表單的關聯；確認文字要列出將被刪除的內容。
+- 每個工作包結束時 `npm.cmd run typecheck` 與 `npm.cmd test` 必須通過，不得刪減或放寬既有測試的意圖；既有測試需要改寫時，保留它驗證的規則（D19、D22、D61、A21、A23、D23 的對應）。
+
+## 工作包
+
+### WP1 畫布骨架（先並存，不動既有步驟）
+
+- 新增 `WorkflowCanvas.tsx` 與相關元件，暫時由 App 內的獨立狀態 `graph`（初值 `emptyGraph`）驅動，既有的 v3 頁面保持運作。
+- 圓形節點（自訂 node type）、無文字連線、工具箱（4 個動作加「業務節點」，各附一句說明；加入按鈕與拖放）、節點選取、連線（拖曳與細項核取清單兩種）、節點與連線的位置寫入 `layout`。
+- 子 AoV：節點細項的「建立子流程」「進入子流程」，畫布上方的麵包屑（主流程 > 子流程 > ...），深度 3 時停用「建立子流程」並說明原因。
+- 測試：jsdom 需要的 React Flow 環境（`ResizeObserver`、元素尺寸）放在測試輔助檔，不修改正式碼來配合。
+- 驗收：A-C1 可加入節點並出現在 `graph`；A-C2 無滑鼠也能建立連線並被 `integrityErrors` 擋下成環；A-C3 第 3 層沒有建立子流程；A-C4 節點只顯示名稱。
+
+### WP2 節點細項
+
+- 基本：名稱、時機、負責職務、動作（選單；選項附說明，可選「無（純業務節點）」）。
+- 參數：依所選動作的 `parameters` 產生控制項（number、text、boolean；預設值、最小與最大值）；切換動作時清掉不屬於新動作的參數；顯示 `nodeErrors` 的完成度問題（業務語言、不只靠顏色）。
+- 標準表單：上傳 CSV 以 `inferForms` 推測欄位（單檔，因為一個節點最多一張表單）或建立空白表單；欄位列表可改名、型別、必填、識別欄位；每個欄位的「驗證」依型別顯示可用規則（整數與小數：最小、最大；文字：最大長度、允許值；日期：最早與最晚日期，輸入 `YYYY-MM-DD`；是／否：無），用 `validationError` 即時驗證。沿用 D25、D27 的限制與提示（去識別化提醒、2 MB／100 欄／10000 筆）。
+- 驗收：A-C5 參數越界與缺值即時顯示原因；A-C6 日期 `2026-02-30` 被指出；A-C7 切換動作不留下殘餘參數；A-C8 原始資料列不進入狀態（沿用既有斷言）。
+
+### WP3 關聯
+
+- 將 `relations.ts` 移植為操作 `AovGraphDocument`：「上游」改為在 `orderedNodes` 中較前的表單，追溯顯示節點名稱與負責職務（`nodeOfForm`）。D19 的候選規則、D22 的限制、D61 的原因說明完全不變。
+- 節點細項的「關聯」：列出此節點表單的欄位與其候選（確認才生效）、已確認的關聯可移除；原因說明（`explainMissedCandidates`）以業務語言顯示。
+- 驗收：A-C9 既有 `relationReasons.test.tsx` 與 `workflow.test.ts` 中關聯相關的斷言以圖形文件改寫後全部成立；A-C10 在節點細項確認關聯後，另一端節點的細項同步出現。
+
+### WP4 串接步驟、功能選配與輸出
+
+- `StepShell`：3 個步驟（D77）：01 流程畫布、02 功能選配、03 輸出；`stepError` 對應 `integrityErrors`、`graphErrors`、客戶代稱與場域衝突。
+- 功能選配：以 `deriveKits(graphActionIds(graph), actionCatalog, registry)` 計算；顯示每個推導出的功能（Kit `displayName`）與業務語言的原因（例如「因為『收料』要做『建立表單』」「因為使用『查詢與追溯』，系統會自動加入『通用表格』」），必帶功能鎖定不可取消。推導結果與手動選配合併成 `enabledKits`（擴充 `selectKits`，保持舊簽名可用）。
+- 待決（多個實作者）：列出候選功能名稱請使用者選擇，選擇後以手動選配記錄。缺口：只顯示業務語言的數量與說明，不顯示 id。
+- 畫布右下角建議（D76）：用 `suggestActions`，靜態提示加「加入『查詢追溯』節點」按鈕（加入到目前的 graph），`role="status"`；加入後提示消失。移除 `suggestFlows` 與其在 `FlowPage` 的呈現。
+- 輸出：流程規格輸出 `exportAovGraph`（檔名沿用 `workflow.aov.json`），`workflowRef` 與設定交付包使用新文字；匯入走 `importWorkflow`，舊版轉換的 `notices` 逐項顯示，匯入失敗時保留原流程。`AppShell` 的計數改為節點數、表單數、已確認關聯數、已啟用功能數。
+- Registry 資料：新增 `registryData.ts`，匯入 `config/registry/*.json` 並以 `parseRegistry` 解析（登錄檔格式見 `kit-registry.schema.json`）；Kit 的顯示名稱來自 `catalog.kits`。
+- 驗收：A-C11 只含「查詢追溯」節點的流程推導出 4 個功能且 `generic-forms-kit`、`station-data-link-kit` 鎖定；A-C12 匯入 version 2 文件顯示轉換提示並得到可用的畫布；A-C13 匯出的檔案 SHA-256 與 Recipe 的 `workflowRef` 一致；A-C14 畫面任何位置不出現 `forms.create` 之類的 capability 字串。
+
+### WP5 退役舊頁面
+
+- 移除 `AovPage`、`FormsPage`、`RelationsPage`、`FormEditor`（若畫布已不使用）與 App 內的 v3 狀態；`workflow.ts` 只保留 `importAov`（供 `importWorkflow` 轉換）、型別、`actionCatalog`、關聯輔助函式與 `sha256Hex` 所需部分，移除只服務舊頁面的函式與其測試，移除時在 Codex Notes 逐項列出。
+- 更新 `DESIGN.md` 的步驟與畫布規範（步驟條、右下角提示、節點外觀），並更新 `Frontend.test.tsx` 等端到端測試。
+- 驗收：A-C15 沒有未使用的匯出；`npm.cmd run typecheck`、`npm.cmd test`、`npm.cmd run build` 通過。
+
+## 停止條件
+
+需要改動資料契約或驗證規則、需要新增依賴、與 `DESIGN.md` 衝突、既有測試的意圖無法保留時，立即停止並在 Codex Notes 寫下問題，不要自行變通。每個工作包完成後在 Codex Notes 記錄：做了什麼、變更的檔案、測試結果（含略過項目）、尚未解決的事。
+
+## Codex Notes
+
+（Codex 在此續寫）
