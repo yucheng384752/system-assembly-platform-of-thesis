@@ -10,8 +10,8 @@ import { fragmentPath, loadFragments, manualRoles } from './manual';
 import siteA from '../../../config/site/examples/demo-site-a.site.json';
 
 const workflow: AovDocument = {
-  format: 'composer-aov-list', version: 2,
-  steps: [{ id: 'step-1', name: '收料', when: '', owner: '倉管', formIds: ['form-1'] }],
+  format: 'composer-aov-list', version: 3,
+  steps: [{ id: 'step-1', name: '收料', when: '', owner: '倉管', formIds: ['form-1'], actions: [] }],
   forms: [{ id: 'form-1', name: '收料單', fields: [{ id: 'field-1', name: '批號', type: 'text', required: true, isKey: true }] }],
   relations: [],
 };

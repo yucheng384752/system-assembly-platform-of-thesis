@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { emptyAov, exportAov, formErrors, importAov, relationErrors, sha256Hex, stepErrors, workflowErrors, type AovDocument } from './workflow';
+import { actionErrors, emptyAov, exportAov, formErrors, importAov, relationErrors, sha256Hex, stepErrors, usedActionIds, workflowErrors, type AovDocument } from './workflow';
 import { addRelation, inferCandidates, traceForm } from './relations';
 import { inferForms, MAX_FILES } from './localData';
 
@@ -8,9 +8,9 @@ const field = (id: string, name: string, type: 'text' | 'integer' = 'text', isKe
 function sample(): AovDocument {
   return { ...emptyAov,
     steps: [
-      { id: 'step-1', name: '收料', when: '到貨時', owner: '倉管', formIds: ['form-1'] },
-      { id: 'step-2', name: '檢驗', when: '收料後', owner: '品管', formIds: ['form-2'] },
-      { id: 'step-3', name: '出貨', when: '', owner: '物流', formIds: ['form-3'] },
+      { id: 'step-1', name: '收料', when: '到貨時', owner: '倉管', formIds: ['form-1'], actions: [] },
+      { id: 'step-2', name: '檢驗', when: '收料後', owner: '品管', formIds: ['form-2'], actions: [] },
+      { id: 'step-3', name: '出貨', when: '', owner: '物流', formIds: ['form-3'], actions: [] },
     ],
     forms: [
       { id: 'form-1', name: '收料單', fields: [field('field-1', '批號', 'text', true), field('field-2', '數量', 'integer')] },
@@ -103,6 +103,54 @@ test('import rejects broken structure atomically and migrates version 1 with an 
   const migrated = importAov(JSON.stringify(v1));
   expect(migrated.value.steps.map(s => s.formIds)).toEqual([[], []]);
   expect(migrated.notices).toEqual(['舊版流程規格不含表單定義，已清除以下步驟的表單指派：「檢查」。']);
+});
+
+// D66: version 3 stores only which action runs at a step and on which of its forms; Kits stay derived, never stored.
+const withActions = (actions: { actionId: string; formIds: string[] }[]): AovDocument => {
+  const doc = sample(); doc.steps[0].actions = actions; return doc;
+};
+
+test('D66: actions round-trip through export and import, and no derived Kit data is written', () => {
+  const doc = withActions([{ actionId: 'import-records', formIds: ['form-1'] }, { actionId: 'define-form', formIds: [] }]);
+  const text = exportAov(doc);
+  expect(importAov(text).value).toEqual(doc);
+  expect(JSON.parse(text).version).toBe(3);
+  expect(text).not.toMatch(/Kit|capability|requires/i);
+});
+
+test('D66: a version 2 document opens as version 3 without losing anything and without a notice', () => {
+  const v2 = JSON.parse(exportAov(sample()));
+  v2.version = 2; for (const step of v2.steps) delete step.actions;
+  const migrated = importAov(JSON.stringify(v2));
+  expect(migrated.value).toEqual(sample());
+  expect(migrated.notices).toEqual([]);
+});
+
+test.each([
+  ['an action missing from the catalog', (d: AovDocument) => { d.steps[0].actions = [{ actionId: 'no-such-action', formIds: [] }]; }, '不存在的動作「no-such-action」'],
+  ['the same action twice in one step', (d: AovDocument) => { d.steps[0].actions = [{ actionId: 'define-form', formIds: [] }, { actionId: 'define-form', formIds: [] }]; }, '不可重複相同的動作'],
+  ['an action on a form that does not exist', (d: AovDocument) => { d.steps[0].actions = [{ actionId: 'define-form', formIds: ['form-9'] }]; }, '動作引用的表單不存在'],
+])('D66: import rejects %s and keeps the current workflow', (_name, mutate, message) => {
+  const doc = sample(); mutate(doc);
+  const bad = JSON.stringify({ ...doc });
+  expect(() => importAov(bad)).toThrow(`${message}。原流程已保留。`);
+});
+
+// A form moved to another step leaves the action pointing at a form it no longer owns: the user must see it, and export must stop.
+test('D66: an action whose form left the step is a visible error and blocks export', () => {
+  const doc = withActions([{ actionId: 'import-records', formIds: ['form-1'] }]);
+  expect(actionErrors(doc)).toEqual([]);
+  doc.steps[0].formIds = []; doc.steps[1].formIds.push('form-1');
+  expect(actionErrors(doc)).toEqual(['步驟「收料」的動作「匯入紀錄」引用的表單已不在此步驟，請重新選擇。']);
+  expect(workflowErrors(doc)).toContain(actionErrors(doc)[0]);
+  expect(() => exportAov(doc)).toThrow('流程規格尚未完成');
+});
+
+test('D66: used actions are listed once, in first-use order, across steps', () => {
+  const doc = withActions([{ actionId: 'link-forms', formIds: [] }, { actionId: 'define-form', formIds: [] }]);
+  doc.steps[1].actions = [{ actionId: 'define-form', formIds: [] }, { actionId: 'trace-records', formIds: [] }];
+  expect(usedActionIds(doc)).toEqual(['link-forms', 'define-form', 'trace-records']);
+  expect(usedActionIds(emptyAov)).toEqual([]);
 });
 
 test('D25 and D27: each file is inferred independently, failures are listed, and the form keeps the file name', async () => {

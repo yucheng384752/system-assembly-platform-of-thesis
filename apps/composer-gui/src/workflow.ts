@@ -1,16 +1,22 @@
 import { validateSchema } from '../../../libs/ui-runtime/schema';
+import { parseActionCatalog } from '../../../libs/ui-runtime/registry';
+import actionData from '../../../config/actions.json';
 import { fieldTypes, formError, type FormDraft } from './localData';
 
 // AoV Workflow document (business view, D18): steps, the forms filled at each step and confirmed relations (spec 4.2).
-export interface AovStep { id: string; name: string; when: string; owner: string; formIds: string[] }
+// An action only names what the step does and on which of its forms; the Kits it needs are derived from the registry (D62, D66).
+export interface AovAction { actionId: string; formIds: string[] }
+export interface AovStep { id: string; name: string; when: string; owner: string; formIds: string[]; actions: AovAction[] }
 export interface FormEndpoint { formId: string; fieldId: string }
 // Only confirmed relations are stored; inferred candidates stay derived until the user confirms them (D19).
 export interface FormRelation { id: string; kind: 'shared-key'; from: FormEndpoint; to: FormEndpoint; origin: 'inferred' | 'user'; confirmed: true }
-export interface AovDocument { format: 'composer-aov-list'; version: 2; steps: AovStep[]; forms: FormDraft[]; relations: FormRelation[] }
+export interface AovDocument { format: 'composer-aov-list'; version: 3; steps: AovStep[]; forms: FormDraft[]; relations: FormRelation[] }
+interface AovDocumentV2 { format: 'composer-aov-list'; version: 2; steps: Omit<AovStep, 'actions'>[]; forms: FormDraft[]; relations: FormRelation[] }
 interface AovDocumentV1 { format: 'composer-aov-list'; version: 1; steps: { id: string; name: string; when: string; owner: string; formId: string }[] }
 
 export const WORKFLOW_FILE = 'workflow.aov.json';
-export const emptyAov: AovDocument = { format: 'composer-aov-list', version: 2, steps: [], forms: [], relations: [] };
+export const actionCatalog = parseActionCatalog(actionData);
+export const emptyAov: AovDocument = { format: 'composer-aov-list', version: 3, steps: [], forms: [], relations: [] };
 
 const formName = (form: FormDraft) => form.name.trim() || '（未命名表單）';
 const stepName = (step: AovStep) => step.name.trim() || '（未命名步驟）';
@@ -67,8 +73,17 @@ export function relationErrors(doc: AovDocument): string[] {
   if (cycle) errors.push(`關聯形成循環：${cycle.map(id => formName(doc.forms.find(f => f.id === id)!)).join(' → ')}。`);
   return errors;
 }
+// An action may only act on forms that still belong to its own step; moving a form away leaves the action visibly incomplete.
+export function actionErrors(doc: AovDocument): string[] {
+  return doc.steps.flatMap(step => step.actions.flatMap(action => action.formIds.some(id => !step.formIds.includes(id))
+    ? [`步驟「${stepName(step)}」的動作「${actionCatalog.actions.find(a => a.id === action.actionId)?.name ?? action.actionId}」引用的表單已不在此步驟，請重新選擇。`] : []));
+}
 export function workflowErrors(doc: AovDocument): string[] {
-  return [...stepErrors(doc), ...formErrors(doc), ...relationErrors(doc)];
+  return [...stepErrors(doc), ...formErrors(doc), ...relationErrors(doc), ...actionErrors(doc)];
+}
+// Distinct actions of the whole workflow in first-use order; the input of deriveKits.
+export function usedActionIds(doc: AovDocument): string[] {
+  return [...new Set(doc.steps.flatMap(step => step.actions.map(action => action.actionId)))];
 }
 
 // Directed form graph; returns the first cycle as a closed path of form IDs.
@@ -94,13 +109,17 @@ function integrityError(doc: AovDocument): string {
   if (doc.steps.some(s => s.formIds.some(id => !doc.forms.some(f => f.id === id)))) return '流程步驟引用的表單不存在。';
   if (doc.forms.some(f => doc.steps.filter(s => s.formIds.includes(f.id)).length > 1)) return '同一張表單不可屬於多個步驟。';
   if (doc.relations.some(r => !endpoint(doc, r.from).field || !endpoint(doc, r.to).field)) return '表單關聯引用的表單或欄位不存在。';
+  const unknown = doc.steps.flatMap(s => s.actions.map(a => a.actionId)).find(id => !actionCatalog.actions.some(a => a.id === id));
+  if (unknown) return `流程步驟引用了不存在的動作「${unknown}」。`;
+  if (doc.steps.some(s => !unique(s.actions.map(a => a.actionId)))) return '同一個步驟不可重複相同的動作。';
+  if (doc.steps.some(s => s.actions.some(a => a.formIds.some(id => !doc.forms.some(f => f.id === id))))) return '動作引用的表單不存在。';
   return '';
 }
 
 // Imports into a detached candidate; callers replace the session only after this returns.
 export function importAov(text: string): { value: AovDocument; notices: string[] } {
   if (text.length > 2 * 1024 * 1024) throw new Error('流程規格不可超過 2 MB。');
-  let input: AovDocument | AovDocumentV1;
+  let input: AovDocument | AovDocumentV2 | AovDocumentV1;
   try { input = JSON.parse(text.replace(/^﻿/, '')); validateSchema('aov', input); }
   catch { throw new Error('流程規格格式不正確。請使用本系統下載的流程規格檔。原流程已保留。'); }
   const notices: string[] = [];
@@ -109,8 +128,9 @@ export function importAov(text: string): { value: AovDocument; notices: string[]
     // Version 1 has no form definitions, so its single form references cannot be resolved.
     const dropped = input.steps.filter(s => s.formId).map(s => `「${s.name}」`);
     if (dropped.length) notices.push(`舊版流程規格不含表單定義，已清除以下步驟的表單指派：${dropped.join('、')}。`);
-    value = { ...emptyAov, steps: input.steps.map(({ formId: _formId, ...step }) => ({ ...step, formIds: [] })) };
-  } else value = input;
+    value = { ...emptyAov, steps: input.steps.map(({ formId: _formId, ...step }) => ({ ...step, formIds: [], actions: [] })) };
+  } else if (input.version === 2) value = { ...input, version: 3, steps: input.steps.map(step => ({ ...step, actions: [] })) };
+  else value = input;
   const error = integrityError(value);
   if (error) throw new Error(`${error}原流程已保留。`);
   return { value, notices };
@@ -121,8 +141,8 @@ export function exportAov(doc: AovDocument): string {
   const errors = workflowErrors(doc);
   if (errors.length) throw new Error(`流程規格尚未完成：${errors[0]}`);
   const value: AovDocument = {
-    format: 'composer-aov-list', version: 2,
-    steps: doc.steps.map(({ id, name, when, owner, formIds }) => ({ id, name, when, owner, formIds: [...formIds] })),
+    format: 'composer-aov-list', version: 3,
+    steps: doc.steps.map(({ id, name, when, owner, formIds, actions }) => ({ id, name, when, owner, formIds: [...formIds], actions: actions.map(a => ({ actionId: a.actionId, formIds: [...a.formIds] })) })),
     forms: doc.forms.map(({ id, name, fields }) => ({ id, name, fields: fields.map(({ id, name, type, required, isKey }) => ({ id, name, type, required, isKey })) })),
     relations: doc.relations.map(({ id, from, to, origin }) => ({ id, kind: 'shared-key', from: { ...from }, to: { ...to }, origin, confirmed: true })),
   };
