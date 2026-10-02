@@ -4,7 +4,7 @@ import { validateSchema } from './schema';
 export interface Port { name: string; type: string }
 export interface Capability {
   id: string; kind: 'api' | 'db' | 'model'; method?: string; path?: string;
-  declared: boolean; implementedBy: { kitId: string; mService: string } | null; verified: boolean; note?: string;
+  declared: boolean; implementedBy: { kitId: string; mService?: string } | null; verified: boolean; note?: string;
 }
 export interface Consume { capability: string; kind: 'api' | 'db' | 'model'; declared: boolean; evidence?: string }
 export interface MService { id: string; name: string; responsibility: string; provides: string[]; inputs: Port[]; outputs: Port[]; functions: string[]; failure: string }
@@ -85,6 +85,7 @@ export function checkRegistry(entries: KitRegistry[]): RegistryIssue[] {
       const target = byKit.get(cap.implementedBy.kitId);
       const service = target?.mServices.find(s => s.id === cap.implementedBy!.mService);
       if (!target) issues.push(issue('gap', 'unresolved-provider', entry.kitId, cap.id, `「${cap.id}」的實作在 Kit「${cap.implementedBy.kitId}」，該 Kit 尚未登錄。`));
+      else if (cap.kind === 'model') continue; // data models are owned by a Kit, not realised by an mService
       else if (!service) issues.push(issue('error', 'broken-reference', entry.kitId, cap.id, `「${cap.id}」指向 Kit「${target.kitId}」不存在的 mService「${cap.implementedBy.mService}」。`));
       else if (!service.provides.includes(cap.id)) issues.push(issue('error', 'broken-reference', entry.kitId, cap.id, `「${cap.id}」指向的 mService「${service.id}」未列為提供者。`));
     }

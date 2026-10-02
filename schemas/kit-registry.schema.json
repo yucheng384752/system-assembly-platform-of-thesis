@@ -34,12 +34,13 @@
         "declared": { "type": "boolean" },
         "implementedBy": { "oneOf": [
           { "type": "null" },
-          { "type": "object", "additionalProperties": false, "required": ["kitId", "mService"], "properties": { "kitId": { "$ref": "#/$defs/kitId" }, "mService": { "$ref": "#/$defs/id" } } }
+          { "type": "object", "additionalProperties": false, "required": ["kitId"], "properties": { "kitId": { "$ref": "#/$defs/kitId" }, "mService": { "$ref": "#/$defs/id" } } }
         ] },
         "verified": { "type": "boolean" },
         "note": { "$ref": "#/$defs/text" }
       },
       "allOf": [
+        { "if": { "required": ["implementedBy"], "properties": { "kind": { "enum": ["api", "db"] }, "implementedBy": { "type": "object" } } }, "then": { "properties": { "implementedBy": { "required": ["mService"] } } } },
         { "if": { "properties": { "kind": { "const": "api" } } }, "then": { "required": ["method", "path"] } },
         { "if": { "properties": { "verified": { "const": false } } }, "then": { "required": ["note"] } },
         { "if": { "properties": { "declared": { "const": false } } }, "then": { "required": ["note"] } },

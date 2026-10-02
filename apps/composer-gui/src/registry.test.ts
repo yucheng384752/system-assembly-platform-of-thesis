@@ -24,6 +24,7 @@ describe('登錄資料契約', () => {
     ['契約未宣告卻沒有說明', genericForms as KitRegistry, c => { delete (c.capabilities.find(x => !x.declared) as Partial<Capability>).note; }],
     ['api 能力缺少 method', genericForms as KitRegistry, c => { delete (c.capabilities.find(x => x.kind === 'api') as Partial<Capability>).method; }],
     ['原始碼相依沒有證據', queryTrace as KitRegistry, c => { delete (c.consumes.find(x => !x.declared) as Partial<Consume>).evidence; }],
+    ['api 能力的實作沒有指向 mService', genericForms as KitRegistry, c => { delete c.capabilities.find(x => x.kind === 'api')!.implementedBy!.mService; }],
     ['來源路徑不在基線副本內', genericForms as KitRegistry, c => { c.functions[0].source.path = '../outside.py'; }],
   ];
   test.each(cases)('登錄契約拒絕：%s', (_name, source, mutate) => {
@@ -66,6 +67,8 @@ describe('登錄資料檢查', () => {
     expect(use?.declared).toBe(false);
     const model = genericForms.capabilities.find(c => c.id === 'forms.station-model');
     expect(model?.implementedBy?.kitId).toBe('generic-forms-kit');
+    // A data model belongs to a Kit; it is not realised by an mService.
+    expect(model?.implementedBy?.mService).toBeUndefined();
   });
 
   // D05: a capability is only credible when its Functions chain from the mService inputs to its outputs.

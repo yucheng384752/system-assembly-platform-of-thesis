@@ -111,8 +111,7 @@
       "kind": "model",
       "declared": false,
       "implementedBy": {
-        "kitId": "generic-forms-kit",
-        "mService": "dataflow-links"
+        "kitId": "generic-forms-kit"
       },
       "verified": true,
       "note": "Station、StationSchema、StationLink 資料模型；契約未宣告，但 query-traceability-kit 直接 import 使用"
@@ -248,8 +247,7 @@
       "responsibility": "查詢與建立站點之間的有向串聯與鍵欄位對應，同一流程內禁止成環",
       "provides": [
         "dataflows.links.list",
-        "dataflows.links.upsert",
-        "forms.station-model"
+        "dataflows.links.upsert"
       ],
       "inputs": [
         {
