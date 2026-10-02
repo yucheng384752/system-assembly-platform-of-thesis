@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { openFlow } from './testNav';
 import { afterEach, expect, test, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App, initialRecipe } from './App';
@@ -30,7 +31,7 @@ function csv(name: string, text: string) {
 }
 // Two steps with one uploaded form each; the shared 批號 is a key on the upstream form.
 async function buildWorkflow() {
-  render(<App />);
+  render(<App />); openFlow();
   for (const [i, name, owner] of [[1, '收料', '倉管'], [2, '檢驗', '品管']] as const) {
     fireEvent.click(screen.getByRole('button', { name: '新增步驟' }));
     fireEvent.change(screen.getByLabelText(`步驟 ${i} 名稱`), { target: { value: name } });
@@ -132,7 +133,7 @@ test('missing manual status names the feature and role while configuration deliv
   expect(readZip(zips[0]).some(file => file.path.startsWith('docs/'))).toBe(false);
 });
 test('an incomplete Workflow blocks every download and says why', () => {
-  render(<App />);
+  render(<App />); openFlow();
   fireEvent.click(screen.getByRole('button', { name: /05 輸出/ }));
   fireEvent.change(screen.getByLabelText('客戶代稱'), { target: { value: '示範客戶' } });
   expect(screen.getByRole('alert').textContent).toContain('請至少建立一個流程步驟');
@@ -142,7 +143,7 @@ test('an incomplete Workflow blocks every download and says why', () => {
   expect(document.getElementById('step-status')!.textContent).toContain('流程規格尚未完成');
 });
 test('Recipe file import is atomic and restores flow selection and editor settings', async () => {
-  render(<App />);
+  render(<App />); openFlow();
   fireEvent.click(screen.getByRole('button', { name: /04 功能選配/ }));
   fireEvent.click(screen.getByRole('checkbox', { name: '查詢追溯' }));
   fireEvent.click(screen.getByRole('tab', { name: '查詢與追溯' }));

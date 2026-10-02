@@ -154,3 +154,22 @@ dd { margin: 0 0 0 var(--space); }
   .form-grid > p { grid-column: 1; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+
+/* Application shell (D63): light sidebar in the existing green palette, no shadows (D64) */
+.app-shell { display: grid; grid-template-columns: 1fr; min-height: 100vh; }
+.sidebar { display: flex; flex-direction: column; gap: var(--space); padding: var(--space); background: var(--surface); border-bottom: 1px solid var(--card-border); }
+.sidebar ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.sidebar nav button { width: 100%; justify-content: flex-start; border-color: transparent; background: none; }
+.sidebar nav button[aria-current=page] { background: var(--selected); border-color: var(--primary); color: var(--primary); }
+.sidebar-foot { margin: 0; font-size: .875rem; overflow-wrap: anywhere; }
+.shell-content { min-width: 0; }
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--space); margin: var(--space) 0; }
+.summary-grid > div { padding: var(--space); border: 1px solid var(--card-border); border-radius: var(--radius); background: var(--preview); }
+.summary-grid dt { margin: 0; font-weight: 400; color: var(--muted); }
+.summary-grid dd { margin: 0; font-size: 2rem; font-weight: 600; }
+.shell-content > main > .column { margin-block: var(--space); }
+@media (min-width: 64rem) {
+  .app-shell { grid-template-columns: 14rem minmax(0, 1fr); }
+  .sidebar { position: sticky; top: 0; height: 100vh; border-bottom: 0; border-right: 1px solid var(--card-border); }
+  .sidebar ul { flex-direction: column; }
+}

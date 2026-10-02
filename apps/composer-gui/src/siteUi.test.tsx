@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { openFlow } from './testNav';
 import { afterEach, expect, test, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from './App';
@@ -18,7 +19,7 @@ function preview() { page('04'); fireEvent.click(screen.getByRole('tab', { name:
 // D54/D56: import is atomic and session-only; controls and preview must resolve the same Site values.
 test('場域切換鎖定有效值，匯入失敗保留原場域，移除後還原使用者值', async () => {
   const storage = vi.spyOn(Storage.prototype, 'setItem');
-  render(<App />); preview();
+  render(<App />); openFlow(); preview();
   fireEvent.change(screen.getByLabelText('資料列的欄寬'), { target: { value: '200' } });
   page('05'); await upload(a);
   expect(screen.getByText('目前場域：模擬場域 A，版本 1.0.0')).toBeTruthy();
@@ -44,7 +45,7 @@ test('場域切換鎖定有效值，匯入失敗保留原場域，移除後還�
 
 // D57: preserve conflicting selections and block both confirmation and output until explicitly repaired.
 test('既有選項及新輸入超限時顯示限制並阻擋輸出，不截斷', async () => {
-  render(<App />); preview();
+  render(<App />); openFlow(); preview();
   fireEvent.change(screen.getByLabelText('錯誤說明的欄寬'), { target: { value: '350' } });
   page('05'); await upload(a);
   expect(document.getElementById('site-conflict')?.textContent).toContain('最大 300');

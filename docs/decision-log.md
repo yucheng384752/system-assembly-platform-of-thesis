@@ -72,6 +72,10 @@ date: 2026-09-24
 | D59 | 2026-10-01 | `dataSources` 只可含引用（`sourceRef`、`secretRef`），整份 Site Profile 不得出現連線字串、帳密、金鑰或憑證；以欄位名稱與值的型態雙重檢查，違者整份拒絕；`secretRef` 的值只是外部秘密的名稱（不含 `:`、`/`、`@`） | 安全基準線「秘密值不落地」；`secretRef` 是引用，不是秘密值，但既有敏感欄位名稱檢查須明確放行此欄位 | spec §9、§12 |
 | D60 | 2026-10-01 | Recipe 新增選填 `siteRef { path, sha256 }`（比照 D29）；`sha256` 為匯入文字（去除 BOM）的 UTF-8 位元組；設定交付包加入 `config/site/site.profile.json`（位元組與匯入文字相同，role `site-profile`），manifest 產物上限改為 8，驗證報告新增 Site 檢查；有匯入 Site 但 Recipe 的 `siteRef` 不符時不產生交付包 | 保持與 workflowRef 一致的記錄方式；保留原始位元組使校驗碼可核對 | spec §9、§12、`schemas/recipe.schema.json` |
 | D61 | 2026-10-01 | 表單關聯頁在候選區下方列出「未成為候選的原因」：只針對標為識別欄位的欄位，只有兩種確定性規則（名稱相同但型別不同；名稱相近但不相同，相近＝一方名稱包含另一方且較短者至少 2 字）；只提示不生效，不改變 D19 的候選條件；每對欄位只列一次，最多顯示 10 項；已相連或已是候選的配對不列 | user 回報三張表單只出現一個候選，實際是 production 的識別欄位名稱與型別和其他表單不同，畫面卻沒有說明；沿用 D19 的確定性原則，不用 LLM | spec §4.2、`apps/composer-gui/src/relations.ts` |
+| D62 | 2026-10-02 | 組裝驅動改為「Workflow 的 Action 決定所需 capability，再由 Registry 找出可行的 mService 與 Function」；Kit 保留為 capability 的封裝單位（D04 不變），不再由使用者從固定清單選配。取代 D14 的「功能選配」概念，以及 D26、D30 中「04 功能選配為使用者選擇」的部分；選配結果改為由 Workflow 推導，使用者可檢視並調整。本決議只定方向，推導規則與 Registry 契約由後續功能定義，目前程式行為不變 | user 與 Codex 討論後指定拋棄固定式功能；完全移除 Kit 會失去 D02、D06 的基線版對照，且 D05 的完整性檢查需要 Kit 邊界 | 本檔；spec §4 待實作時同步 |
+| D63 | 2026-10-02 | Composer GUI 新增應用殼層：左側導覽含 5 項（首頁、流程、資料集、執行記錄、系統設定；Migration 為系統設定內的分頁，依設計圖），頁首顯示專案與場域；設計圖第 7 張「實際系統表單頁」屬產出系統（摘要 §14.1），不放進 Composer 導覽，仍由 04 步驟的預覽呈現；D30 的 5 個必填步驟與驗證原封不動，收進「流程」頁。尚未實作的頁面只做骨架，內容標「尚未提供」，不以擬真資料冒充功能 | 參照 user 提供的 7 頁設計圖與討論摘要 §14.1；先建結構再逐頁填入，符合最小改動；D16 仍限制只做設定期 | `DESIGN.md`、`apps/composer-gui/src/` |
+| D64 | 2026-10-02 | 視覺沿用 DESIGN.md：主色 #075e54、無陰影、對比與 44px 觸控區規範不變，不採設計圖的深藍側欄與藍色主色；設計圖只作為版面與資訊架構參考。側欄為淺底（沿用 `--surface`），選取項以 `--selected` 加文字標示，不只靠顏色。設計圖中的表情符號與歡迎語不採用 | user 指定保留現有綠色；DESIGN.md 要求文字對比至少 4.6:1 並禁止 emoji | `DESIGN.md` |
+| D65 | 2026-10-02 | 「下一步建議」首期只提供規則式候選（依輸出契約與相容條件篩選），不實作 Markov 排序；畫面不顯示機率或信心分數，資料不足時標示「資料不足」。Markov 待有已發布流程的歷史資料與最小樣本條件後再議（摘要 §9 的建議不視為決議） | 目前沒有任何已發布流程可統計，顯示百分比等於虛構；沿用 D61 的確定性原則，推薦不得突破相容與權限限制 | 本檔；摘要 §9.1 |
 
 ## 必做項目
 
@@ -97,6 +101,7 @@ date: 2026-09-24
 | System configuration 與 Recipe | 沿用 Recipe；`config/system.json` 改為 Recipe 檔 | 同一概念；基線版 GUI 匯出、resolver、Resolved Plan 均以 Recipe 為基礎 |
 | Site Profile 與 StationSchema | Site Profile 上位包含，以 reference 引用多份 StationSchema（1:N） | 範圍不同；平行會造成 mapping 雙重定義；tenant key 規則只需改一處 |
 | System Package | 延伸基線版部署包，保留新名稱 | 保留已驗證的部署能力；新增 manifest／checksum／手冊／AoV／驗證報告屬新機制 |
+| AoV | 依 user 說明定義為「描述工作流的架構，由節點與有向連線構成」；縮寫全名未知，不自行編造，論文以此定義說明 | user 於 2026-10-02 口述；沿用基線名稱（D02），Workflow 與 Dataflow 的區分見 D18 |
 
 ### HTTPS 憑證來源（D46，2026-10-01 起保留紀錄）
 

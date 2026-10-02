@@ -23,7 +23,6 @@ export function StepShell({ renderStep, stepError = () => '' }: { renderStep: (s
   return <>
     <a className="skip-link" href="#main-content">跳到主要內容</a>
     <header className="topbar">
-      <p className="brand"><Icon name="logo" className="brand-logo" /><strong>Composer</strong> 系統組裝</p>
       <nav aria-label="組裝步驟"><ol className="stepper">{steps.map((info, index) => {
         const done = completed.includes(index);
         return <li key={info.number}><button aria-current={index === step ? 'step' : undefined} onClick={() => setStep(index)}>
