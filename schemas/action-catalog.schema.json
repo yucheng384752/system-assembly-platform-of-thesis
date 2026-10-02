@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Composer Workflow Action catalog",
-  "description": "Business-level actions a Workflow step can contain (D66). Each action names the capabilities it needs, using baseline capability names (D02), and may name Kits it always brings along with a reason (D69).",
+  "description": "Business-level actions a Workflow step can contain (D66). Each action names the capabilities it needs, using baseline capability names (D02), may name Kits it always brings along with a reason (D69), and declares node parameters and what a node must have before it is complete (D73).",
   "type": "object", "additionalProperties": false,
   "required": ["format", "version", "actions"],
   "properties": {
@@ -9,12 +9,25 @@
     "version": { "const": 1 },
     "actions": { "type": "array", "minItems": 1, "maxItems": 50, "items": {
       "type": "object", "additionalProperties": false,
-      "required": ["id", "name", "description", "requires"],
+      "required": ["id", "name", "description", "requires", "parameters", "needs"],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9-]+$", "maxLength": 100 },
         "name": { "type": "string", "minLength": 1, "maxLength": 100 },
         "description": { "type": "string", "minLength": 1, "maxLength": 300 },
         "requires": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z0-9.-]+$", "maxLength": 100 } },
+        "parameters": { "type": "array", "maxItems": 20, "items": {
+          "type": "object", "additionalProperties": false, "required": ["id", "name", "type", "required"],
+          "properties": {
+            "id": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9]*$", "maxLength": 50 },
+            "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+            "type": { "enum": ["number", "text", "boolean"] },
+            "required": { "type": "boolean" },
+            "default": { "type": ["string", "number", "boolean"], "maxLength": 100 },
+            "minimum": { "type": "number" },
+            "maximum": { "type": "number" }
+          }
+        } },
+        "needs": { "type": "array", "uniqueItems": true, "items": { "enum": ["form", "relation"] } },
         "requiresKits": { "type": "array", "uniqueItems": true, "items": {
           "type": "object", "additionalProperties": false, "required": ["kitId", "reason"],
           "properties": { "kitId": { "type": "string", "pattern": "^[a-z0-9-]+$", "maxLength": 100 }, "reason": { "type": "string", "minLength": 1, "maxLength": 200 } }

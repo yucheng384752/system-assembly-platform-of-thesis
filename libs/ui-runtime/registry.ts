@@ -13,7 +13,13 @@ export interface KitRegistry {
   format: 'composer-kit-registry'; version: 1; kitId: string; scope?: string;
   capabilities: Capability[]; consumes: Consume[]; mServices: MService[]; functions: RegistryFunction[];
 }
-export interface ActionType { id: string; name: string; description: string; requires: string[]; requiresKits?: { kitId: string; reason: string }[] }
+export type ParamValue = string | number | boolean;
+export interface ActionParameter { id: string; name: string; type: 'number' | 'text' | 'boolean'; required: boolean; default?: ParamValue; minimum?: number; maximum?: number }
+// needs: what a node must have before it counts as complete (D73).
+export interface ActionType {
+  id: string; name: string; description: string; requires: string[];
+  parameters: ActionParameter[]; needs: ('form' | 'relation')[]; requiresKits?: { kitId: string; reason: string }[];
+}
 export interface ActionCatalog { format: 'composer-action-catalog'; version: 1; actions: ActionType[] }
 
 // error: the data contradicts itself. gap: the registry cannot prove something the contract or an action relies on.
@@ -33,6 +39,16 @@ export function parseActionCatalog(value: unknown): ActionCatalog {
   for (const action of catalog.actions) {
     if (seen.has(action.id)) throw new Error(`actionCatalog: 動作識別碼重複：${action.id}`);
     seen.add(action.id);
+    const ids = new Set<string>();
+    for (const p of action.parameters) {
+      const at = `動作「${action.id}」的參數「${p.id}」`;
+      if (ids.has(p.id)) throw new Error(`actionCatalog: ${at}重複。`);
+      ids.add(p.id);
+      if (p.type !== 'number' && (p.minimum !== undefined || p.maximum !== undefined)) throw new Error(`actionCatalog: ${at}不是數值，不可設定最小值或最大值。`);
+      if (p.minimum !== undefined && p.maximum !== undefined && p.minimum > p.maximum) throw new Error(`actionCatalog: ${at}的最小值大於最大值。`);
+      if (p.default !== undefined && (typeof p.default !== (p.type === 'text' ? 'string' : p.type))) throw new Error(`actionCatalog: ${at}的預設值型別與參數不符。`);
+      if (typeof p.default === 'number' && ((p.minimum !== undefined && p.default < p.minimum) || (p.maximum !== undefined && p.default > p.maximum))) throw new Error(`actionCatalog: ${at}的預設值超出範圍。`);
+    }
   }
   return catalog;
 }

@@ -10,6 +10,10 @@
         "forms.create",
         "forms.schema.set"
       ],
+      "parameters": [],
+      "needs": [
+        "form"
+      ],
       "requiresKits": [
         {
           "kitId": "generic-forms-kit",
@@ -29,6 +33,18 @@
         "forms.import.preview",
         "forms.import.commit"
       ],
+      "parameters": [
+        {
+          "id": "allowDuplicate",
+          "name": "允許重複紀錄",
+          "type": "boolean",
+          "required": false,
+          "default": false
+        }
+      ],
+      "needs": [
+        "form"
+      ],
       "requiresKits": [
         {
           "kitId": "generic-forms-kit",
@@ -46,6 +62,19 @@
       "description": "以共用的識別欄位把兩張表單的紀錄串起來",
       "requires": [
         "dataflows.links.upsert"
+      ],
+      "parameters": [
+        {
+          "id": "flowCode",
+          "name": "流程代碼",
+          "type": "text",
+          "required": true,
+          "default": "default"
+        }
+      ],
+      "needs": [
+        "form",
+        "relation"
       ],
       "requiresKits": [
         {
@@ -65,6 +94,19 @@
       "requires": [
         "query.lot.search",
         "query.trace.lot"
+      ],
+      "parameters": [
+        {
+          "id": "flowCode",
+          "name": "流程代碼",
+          "type": "text",
+          "required": true,
+          "default": "default"
+        }
+      ],
+      "needs": [
+        "form",
+        "relation"
       ],
       "requiresKits": [
         {
