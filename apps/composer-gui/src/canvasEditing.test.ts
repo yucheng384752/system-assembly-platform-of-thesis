@@ -6,36 +6,27 @@ const withLogic = (name = 'A 廠'): AovGraphDocument => addLogic(addFactory(empt
 const lines = (doc: AovGraphDocument, graphId = 'graph-1') => doc.graphs.find(g => g.id === graphId)!.edges.map(e => `${e.from}>${e.to}`).sort();
 const at = (doc: AovGraphDocument, id: string) => doc.graphs.flatMap(g => g.nodes).find(n => n.id === id)!;
 
-describe('D80: new nodes are wired into the flow', () => {
-  test('the first node goes between the start and the end, and the end moves to make room', () => {
-    const doc = addCanvasNode(withLogic(), 'graph-1', null);
-    expect(lines(doc)).toEqual(['graph-1-start>node-1', 'node-1>graph-1-end']);
-    expect(doc.layout['graph-1']['node-1'].x).toBe(240);
-    expect(doc.layout['graph-1']['graph-1-end'].x).toBe(360);
+describe('D84: lines exist only where the user draws them', () => {
+  test('a new node has no lines, and the start and end stay where they were', () => {
+    const base = withLogic();
+    const doc = addCanvasNode(base, 'graph-1', null);
+    expect(lines(doc)).toEqual([]);
+    expect(doc.layout['graph-1']['graph-1-end']).toEqual(base.layout['graph-1']['graph-1-end']);
     expect(integrityErrors(doc)).toEqual([]);
   });
 
-  test('a node added while another is selected follows it; a direct line to the end is replaced, not duplicated', () => {
-    let doc = addCanvasNode(withLogic(), 'graph-1', null);
-    doc = addCanvasNode(doc, 'graph-1', null, undefined, 'node-1');
-    expect(lines(doc)).toEqual(['graph-1-start>node-1', 'node-1>node-2', 'node-2>graph-1-end']);
-    // Adding after the first node again branches in parallel: node-1 leads to both, both lead to the end.
-    doc = addCanvasNode(doc, 'graph-1', null, undefined, 'node-1');
-    expect(lines(doc)).toEqual(['graph-1-start>node-1', 'node-1>node-2', 'node-1>node-3', 'node-2>graph-1-end', 'node-3>graph-1-end']);
-    expect(integrityErrors(doc)).toEqual([]);
+  test('new nodes take free spots in a row below the start and end, six to a row', () => {
+    let doc = withLogic();
+    for (let i = 0; i < 7; i++) doc = addCanvasNode(doc, 'graph-1', null);
+    const spots = ['node-1', 'node-2', 'node-6', 'node-7'].map(id => doc.layout['graph-1'][id]);
+    expect(spots).toEqual([{ x: 0, y: 120 }, { x: 100, y: 120 }, { x: 500, y: 120 }, { x: 0, y: 240 }]);
+    expect(new Set(Object.values(doc.layout['graph-1']).map(p => `${p.x},${p.y}`)).size).toBe(Object.keys(doc.layout['graph-1']).length);
   });
 
-  test('a selected end or an unknown node falls back to the start', () => {
-    const base = addCanvasNode(withLogic(), 'graph-1', null);
-    expect(lines(addCanvasNode(base, 'graph-1', null, undefined, 'graph-1-end'))).toContain('graph-1-start>node-2');
-    expect(lines(addCanvasNode(base, 'graph-1', null, undefined, 'node-99'))).toContain('graph-1-start>node-2');
-  });
-
-  test('a dropped node keeps the position the user chose and does not move the end', () => {
+  test('a dropped node keeps the position the user chose', () => {
     const doc = addCanvasNode(withLogic(), 'graph-1', null, { x: 500, y: 90 });
     expect(doc.layout['graph-1']['node-1']).toEqual({ x: 500, y: 90 });
-    expect(doc.layout['graph-1']['graph-1-end'].x).toBe(240);
-    expect(lines(doc)).toEqual(['graph-1-start>node-1', 'node-1>graph-1-end']);
+    expect(lines(doc)).toEqual([]);
   });
 
   test('an action node starts with the action name and its default parameters', () => {
@@ -47,28 +38,28 @@ describe('D80: new nodes are wired into the flow', () => {
     const doc = patchCanvasNode(withLogic(), 'graph-1-start', { name: '改名', actionId: 'define-form' });
     expect(at(doc, 'graph-1-start')).toMatchObject({ name: '開始', actionId: null });
   });
+
+  test('connecting and disconnecting touch only the chosen line', () => {
+    let doc = addCanvasNode(addCanvasNode(withLogic(), 'graph-1', null), 'graph-1', null);
+    doc = connectCanvasNodes(doc, 'graph-1', 'graph-1-start', 'node-1', true);
+    doc = connectCanvasNodes(doc, 'graph-1', 'node-1', 'node-2', true);
+    expect(lines(doc)).toEqual(['graph-1-start>node-1', 'node-1>node-2']);
+    expect(lines(connectCanvasNodes(doc, 'graph-1', 'node-1', 'node-2', false))).toEqual(['graph-1-start>node-1']);
+  });
 });
 
-describe('D80: deleting a node keeps the path connected', () => {
-  test('the neighbours are joined, nothing else changes', () => {
-    let doc = addCanvasNode(withLogic(), 'graph-1', null);
-    doc = addCanvasNode(doc, 'graph-1', null, undefined, 'node-1');
-    doc = addCanvasNode(doc, 'graph-1', null, undefined, 'node-2');
-    const removed = deleteCanvasNode(doc, 'node-2');
-    expect(removed.nodes.map(n => n.id)).toEqual(['node-2']);
-    expect(lines(removed.value)).toEqual(['graph-1-start>node-1', 'node-1>node-3', 'node-3>graph-1-end']);
-    expect(integrityErrors(removed.value)).toEqual([]);
-  });
+describe('D84: deleting a node removes only its own lines', () => {
+  const chain = () => {
+    let doc = addCanvasNode(addCanvasNode(addCanvasNode(withLogic(), 'graph-1', null), 'graph-1', null), 'graph-1', null);
+    for (const [from, to] of [['graph-1-start', 'node-1'], ['node-1', 'node-2'], ['node-2', 'node-3'], ['node-3', 'graph-1-end']]) doc = connectCanvasNodes(doc, 'graph-1', from, to, true);
+    return doc;
+  };
 
-  test('a node with several neighbours is bridged pair by pair without duplicate lines', () => {
-    let doc = addCanvasNode(withLogic(), 'graph-1', null);
-    doc = addCanvasNode(doc, 'graph-1', null, undefined, 'node-1');
-    doc = addCanvasNode(doc, 'graph-1', null, undefined, 'node-1');
-    doc = connectCanvasNodes(doc, 'graph-1', 'node-2', 'node-3', true);
-    // node-2 led to node-3 and to the end: node-1 now leads to the end directly, and node-1>node-3 already existed so it is not added twice.
-    const value = deleteCanvasNode(doc, 'node-2').value;
-    expect(lines(value)).toEqual(['graph-1-start>node-1', 'node-1>graph-1-end', 'node-1>node-3', 'node-3>graph-1-end']);
-    expect(integrityErrors(value)).toEqual([]);
+  test('the neighbours are not joined: the user redraws what should still connect', () => {
+    const removed = deleteCanvasNode(chain(), 'node-2');
+    expect(removed.nodes.map(n => n.id)).toEqual(['node-2']);
+    expect(lines(removed.value)).toEqual(['graph-1-start>node-1', 'node-3>graph-1-end']);
+    expect(integrityErrors(removed.value)).toEqual([]);
   });
 
   test('the start and end are refused with an empty projection', () => {

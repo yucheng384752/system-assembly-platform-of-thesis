@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { actionCatalog } from './workflow';
 import { WorkflowCanvas } from './WorkflowCanvas';
 import { emptyGraph, integrityErrors, listToGraph, type AovGraphDocument } from './workflowGraph';
-import { addCanvasNode, addChildGraph, addFactory, addLogic, deleteCanvasNode, patchCanvasNode } from './canvasEditing';
+import { addCanvasNode, addChildGraph, addFactory, addLogic, connectCanvasNodes, deleteCanvasNode, patchCanvasNode } from './canvasEditing';
 import { startLogic } from './testNav';
 afterEach(cleanup);
 let current = emptyGraph;
@@ -29,18 +29,20 @@ test('A-C10: confirming a relation in one node updates both endpoints', () => {
   expect(screen.getByRole('button', { name: /移除關聯/ })).toBeTruthy();
   expect(screen.getByText(/收料單（收料・作業員）/)).toBeTruthy();
 });
-test('A-C1/C2: keyboard alternatives add nodes in order and reject a cycle without changing the document', () => {
+test('A-C1/C2: keyboard alternatives add unconnected nodes, connect them by choice and reject a cycle without changing the document', () => {
   fresh();
   click('加入到畫布：業務節點');
   fireEvent.change(screen.getByLabelText('名稱'), { target: { value: '收料' } });
   click('加入到畫布：業務節點');
   fireEvent.change(screen.getByLabelText('名稱'), { target: { value: '檢驗' } });
-  // D80: each new node is wired after the selected one and before the end, so no line is drawn by hand.
-  expect(edges()).toEqual(['graph-1-start>node-1', 'node-1>node-2', 'node-2>graph-1-end']);
+  // D84: a new node starts with no lines at all; the user chooses what it follows.
+  expect(edges()).toEqual([]);
+  fireEvent.click(screen.getByRole('checkbox', { name: '收料' }));
+  expect(edges()).toEqual(['node-1>node-2']);
   click('收料');
   fireEvent.click(screen.getByRole('checkbox', { name: '檢驗' }));
   expect(screen.getByRole('alert').textContent).toContain('循環');
-  expect(edges()).toHaveLength(3);
+  expect(edges()).toEqual(['node-1>node-2']);
   expect(integrityErrors(current)).toEqual([]);
 });
 test('A-C5/C7: parameter controls follow the catalog, show missing and range errors, and clear on action change', () => {
@@ -84,10 +86,11 @@ test('A-C3/C4: third level disables child creation and circles contain names onl
   // Every circle shows its name only; the start and end of the opened sub-flow are there too (D80).
   expect([...container.querySelectorAll('.business-node')].map(n => n.textContent).sort()).toEqual(['開始', '結束', '業務節點'].sort());
 });
-test('deletion needs in-page confirmation, cascades through descendants, forms, relations and layout, and keeps the path connected', () => {
+test('deletion needs in-page confirmation and cascades through descendants, forms, relations and layout; only the lines of the deleted node go', () => {
   let doc = addLogic(addFactory(emptyGraph, 'A 廠')!.value, 'factory-1', '')!.value;
   doc = addCanvasNode(doc, 'graph-1', null);
-  doc = addCanvasNode(doc, 'graph-1', null, undefined, 'node-1');
+  doc = addCanvasNode(doc, 'graph-1', null);
+  for (const [from, to] of [['graph-1-start', 'node-1'], ['node-1', 'node-2'], ['node-2', 'graph-1-end']]) doc = connectCanvasNodes(doc, 'graph-1', from, to, true);
   doc = patchCanvasNode(doc, 'node-1', { name: '收料' });
   doc = addChildGraph(doc, 'node-1');
   doc = addCanvasNode(doc, 'graph-2', null);
@@ -102,8 +105,8 @@ test('deletion needs in-page confirmation, cascades through descendants, forms, 
   expect(current.forms).toEqual([]);
   expect(current.graphs).toHaveLength(1);
   expect(current.layout['graph-2']).toBeUndefined();
-  // 收料 sat between the start and node-2; deleting it joins them instead of leaving node-2 stranded.
-  expect(edges().sort()).toEqual(['graph-1-start>node-2', 'node-2>graph-1-end']);
+  // 收料 sat between the start and node-2; its lines go with it and nothing is drawn in their place (D84).
+  expect(edges()).toEqual(['node-2>graph-1-end']);
   expect(integrityErrors(current)).toEqual([]);
   expect(deleteCanvasNode(doc, 'node-1').value.graphs).toHaveLength(1);
 });
@@ -151,4 +154,35 @@ test('the start and end cannot be edited, deleted or given a predecessor they sh
   click('業務節點');
   expect(screen.queryByRole('checkbox', { name: '結束' })).toBeNull();
   expect(screen.getByRole('checkbox', { name: '開始' })).toBeTruthy();
+});
+
+// D84: the add button is an icon to the right of the tool name; its accessible name still says what it does.
+test('each tool has an icon button to the right of its name, named for assistive technology', () => {
+  fresh();
+  const tools = screen.getByRole('region', { name: '工具箱' });
+  const cards = [...tools.querySelectorAll('section.tool-card')];
+  expect(cards).toHaveLength(actionCatalog.actions.length + 1);
+  for (const card of cards) {
+    const name = card.querySelector('h3')!.textContent!;
+    const button = card.querySelector('button')!;
+    expect(button.nextElementSibling).toBeNull();
+    expect(card.querySelector('h3')!.nextElementSibling).toBe(button);
+    expect(button.querySelector('svg')).toBeTruthy();
+    expect(button.getAttribute('title')).toBe(`加入到畫布：${name}`);
+    expect(screen.getByRole('button', { name: `加入到畫布：${name}` })).toBe(button);
+    expect(card.textContent!.replace(`加入到畫布：${name}`, '')).toBe(name);
+  }
+});
+
+// D84: lines are directed. The arrow marker is declared once a line is drawn (jsdom has no node sizes, so how the path meets it is checked in the browser).
+test('a drawn line is directed and ends in an arrow', () => {
+  const { container } = fresh();
+  click('加入到畫布：業務節點');
+  expect(container.querySelector('marker')).toBeNull();
+  fireEvent.click(screen.getByRole('checkbox', { name: '開始' }));
+  expect(edges()).toEqual(['graph-1-start>node-1']);
+  const marker = container.querySelector('marker');
+  expect(marker).toBeTruthy();
+  expect(marker!.querySelector('polyline')).toBeTruthy();
+  expect(marker!.id).toContain('arrowclosed');
 });

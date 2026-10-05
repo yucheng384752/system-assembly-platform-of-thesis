@@ -1,26 +1,21 @@
 import { actionCatalog, nextId } from './workflow';
-import { MAX_FACTORIES, MAX_GRAPHS, MAX_LOGICS, newGraphParts, type AovGraphDocument, type Graph, type GraphEdge, type GraphNode, type Position } from './workflowGraph';
+import { MAX_FACTORIES, MAX_GRAPHS, MAX_LOGICS, newGraphParts, type AovGraphDocument, type GraphNode, type Position } from './workflowGraph';
 
 const allEdges = (doc: AovGraphDocument) => doc.graphs.flatMap(g => g.edges);
 const clip = (name: string) => name.trim().slice(0, 100);
 
-// Adding a node wires it into the flow (D80): after `after` (the start when there is none), before the end. A direct line from
-// that node to the end is replaced by the two lines through the new node, so the flow stays one connected path.
-export function addCanvasNode(doc: AovGraphDocument, graphId: string, actionId: string | null, position?: Position, after?: string): AovGraphDocument {
+// A new node is not connected to anything (D84): lines exist only where the user draws them. Without a chosen position it
+// is placed on a free spot in a row below the start and end.
+export function addCanvasNode(doc: AovGraphDocument, graphId: string, actionId: string | null, position?: Position): AovGraphDocument {
   const graph = doc.graphs.find(g => g.id === graphId)!;
   const action = actionCatalog.actions.find(a => a.id === actionId);
   const id = nextId('node', doc.graphs.flatMap(g => g.nodes));
-  const start = graph.nodes.find(n => n.kind === 'start')!; const end = graph.nodes.find(n => n.kind === 'end')!;
-  const before = graph.nodes.find(n => n.id === after && n.kind !== 'end') ?? start;
   const node: GraphNode = { id, kind: 'node', name: action?.name ?? '業務節點', when: '', owner: '', actionId,
     params: Object.fromEntries(action?.parameters.filter(p => p.default !== undefined).map(p => [p.id, p.default!]) ?? []), formId: null, childGraphId: null };
-  const positions = doc.layout[graphId] ?? {};
-  const endAt = positions[end.id] ?? { x: 240, y: 0 };
-  const placed = position ?? { x: endAt.x, y: positions[before.id]?.y ?? 0 };
-  const edges: GraphEdge[] = graph.edges.filter(e => !(e.from === before.id && e.to === end.id));
-  for (const [from, to] of [[before.id, id], [id, end.id]]) edges.push({ id: nextId('edge', [...allEdges(doc), ...edges]), from, to });
-  return { ...doc, graphs: doc.graphs.map(g => g.id === graphId ? { ...g, nodes: [...g.nodes, node], edges } : g),
-    layout: { ...doc.layout, [graphId]: { ...positions, [id]: placed, ...(position ? {} : { [end.id]: { x: endAt.x + 120, y: endAt.y } }) } } };
+  const count = graph.nodes.filter(n => n.kind === 'node').length;
+  const placed = position ?? { x: 100 * (count % 6), y: 120 + 120 * Math.floor(count / 6) };
+  return { ...doc, graphs: doc.graphs.map(g => g.id === graphId ? { ...g, nodes: [...g.nodes, node] } : g),
+    layout: { ...doc.layout, [graphId]: { ...doc.layout[graphId], [id]: placed } } };
 }
 
 export function patchCanvasNode(doc: AovGraphDocument, nodeId: string, patch: Partial<GraphNode>): AovGraphDocument {
@@ -87,19 +82,11 @@ function removal(doc: AovGraphDocument, graphIds: Set<string>, nodeIds: Set<stri
   return { value, nodes: removedNodes.filter(n => n.kind === 'node'), graphs: doc.graphs.filter(g => graphIds.has(g.id)), forms: doc.forms.filter(f => formIds.has(f.id)), relations };
 }
 
-// Deleting a node bridges its neighbours (every line into it to every line out of it) so the path stays connected.
+// Deleting a node removes its own lines and nothing else; the user redraws what should still connect (D84).
 export function deleteCanvasNode(doc: AovGraphDocument, nodeId: string) {
-  const owner = doc.graphs.find(g => g.nodes.some(n => n.id === nodeId));
-  const node = owner?.nodes.find(n => n.id === nodeId);
-  if (!owner || !node || node.kind !== 'node') return { value: doc, nodes: [], graphs: [], forms: [], relations: [] };
-  const result = removal(doc, withDescendants(doc, node.childGraphId ? [node.childGraphId] : []), new Set([nodeId]));
-  const into = owner.edges.filter(e => e.to === nodeId); const out = owner.edges.filter(e => e.from === nodeId);
-  const bridged: Graph = result.value.graphs.find(g => g.id === owner.id)!;
-  const edges = [...bridged.edges];
-  for (const a of into) for (const b of out) {
-    if (!edges.some(e => e.from === a.from && e.to === b.to)) edges.push({ id: nextId('edge', [...allEdges(result.value), ...edges]), from: a.from, to: b.to });
-  }
-  return { ...result, value: { ...result.value, graphs: result.value.graphs.map(g => g.id === owner.id ? { ...g, edges } : g) } };
+  const node = doc.graphs.flatMap(g => g.nodes).find(n => n.id === nodeId);
+  if (!node || node.kind !== 'node') return { value: doc, nodes: [], graphs: [], forms: [], relations: [] };
+  return removal(doc, withDescendants(doc, node.childGraphId ? [node.childGraphId] : []), new Set([nodeId]));
 }
 export function deleteLogic(doc: AovGraphDocument, graphId: string) {
   return removal(doc, withDescendants(doc, [graphId]), new Set());

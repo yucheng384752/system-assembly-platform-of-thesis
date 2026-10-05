@@ -1,5 +1,5 @@
 ﻿// @vitest-environment jsdom
-import { openFlow, startLogic } from './testNav';
+import { openFlow, startLogic, wireChain } from './testNav';
 import { afterEach, expect, test } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { App } from './App';
@@ -15,6 +15,10 @@ test('D17: the workflow is the first required step; an empty graph cannot be con
   expect((screen.getByRole('button', { name: '確認並繼續' }) as HTMLButtonElement).disabled).toBe(true);
   expect(document.getElementById('step-status')!.textContent).toContain('尚未建立節點');
   click('加入到畫布：業務節點');
+  // A new node starts unconnected (D84), so the step is still not complete until the user draws its lines.
+  expect((screen.getByRole('button', { name: '確認並繼續' }) as HTMLButtonElement).disabled).toBe(true);
+  expect(document.getElementById('step-status')!.textContent).toContain('尚未接到開始與結束');
+  wireChain(['業務節點']);
   expect((screen.getByRole('button', { name: '確認並繼續' }) as HTMLButtonElement).disabled).toBe(false);
 });
 test('native controls add, move and delete; failed import retains the selected node and work', () => {

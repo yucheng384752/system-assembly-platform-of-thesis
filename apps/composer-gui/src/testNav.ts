@@ -8,3 +8,16 @@ export function startLogic(factory = 'A 廠') {
   fireEvent.change(screen.getByLabelText('工廠名稱'), { target: { value: factory } });
   fireEvent.click(screen.getByRole('button', { name: '建立生產邏輯：新工廠' }));
 }
+
+// Lines exist only where the user draws them (D84). This joins the start, the named nodes in order and the end the way a keyboard
+// user does: through each node's list of nodes it follows.
+export function wireChain(names: string[]) {
+  let previous = '開始';
+  for (const name of names) {
+    fireEvent.click(screen.getByRole('button', { name }));
+    fireEvent.click(screen.getByRole('checkbox', { name: previous }));
+    previous = name;
+  }
+  fireEvent.click(screen.getByRole('button', { name: '結束' }));
+  fireEvent.click(screen.getByRole('checkbox', { name: previous }));
+}

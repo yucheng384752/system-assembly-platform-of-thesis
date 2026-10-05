@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { openFlow, startLogic } from './testNav';
+import { openFlow, startLogic, wireChain } from './testNav';
 import { afterEach, expect, test, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App, initialRecipe } from './App';
@@ -42,9 +42,11 @@ async function buildWorkflow() {
     fireEvent.change(screen.getByLabelText('選擇標準 CSV 樣本'), { target: { files: [file] } });
     await waitFor(() => expect((screen.getByLabelText('表單名稱') as HTMLInputElement).value).toBe(file.name.replace('.csv', '')));
   }
+  wireChain(['收料', '檢驗']);
   fireEvent.click(screen.getByRole('button', { name: '收料' }));
   fireEvent.click(screen.getByLabelText('欄位 1 識別欄位'));
 }
+
 test('relations: candidates need confirmation, type mismatches are refused, and the trace names step and owner (D19, A21, A23)', async () => {
   await buildWorkflow();
   expect(screen.getByText('尚未確認任何關聯。')).toBeTruthy();
