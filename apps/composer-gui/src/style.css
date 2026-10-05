@@ -234,3 +234,14 @@ dd { margin: 0 0 0 var(--space); }
 /* Controls stacked in a card, a form, a field group or an advanced block keep a gap, so an input never touches the button under it (D85).
    Tool cards lay their name and button side by side, so they are left out. */
 :is(.column, .canvas-toolbar) :is(fieldset, details, form.flow-card, .flow-card:not(.tool-card)) > * + * { margin-top: var(--space-sm); }
+
+/* Field settings laid out like the CSV: a column per field, a row per setting (D87). It scrolls sideways on its own. */
+.field-table-wrap { overflow-x: auto; max-width: 100%; margin-block: var(--space-sm); border: 1px solid var(--card-border); border-radius: var(--radius); }
+.field-table { border-collapse: collapse; min-width: 100%; }
+.field-table th, .field-table td { border: 1px solid var(--card-border); padding: var(--space-sm); vertical-align: top; text-align: left; font-weight: 400; min-width: 9rem; }
+.field-table thead th { background: var(--preview); }
+.field-table tbody th, .field-table thead th:first-child { position: sticky; left: 0; z-index: 1; min-width: 5.5rem; font-weight: 600; background: var(--surface); }
+.field-table thead th:first-child { background: var(--preview); }
+.field-table input:not([type=checkbox]), .field-table select, .field-table textarea { width: 100%; }
+.field-table .check-cell { text-align: center; }
+.field-no { display: block; font-size: .875rem; color: var(--muted); font-weight: 400; }

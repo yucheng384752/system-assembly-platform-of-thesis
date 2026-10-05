@@ -43,14 +43,25 @@ export function NodeForm({ value, node, onChange }: { value: AovGraphDocument; n
     </fieldset> : <>
       <label htmlFor="node-form-name">表單名稱</label><input id="node-form-name" maxLength={100} value={form.name} onChange={e => changeForm({ ...form, name: e.target.value })} />
       <p role="status">{!form.fields.length ? '尚未建立欄位。' : formError(form)}</p>
-      {form.fields.map((f, index) => <fieldset className="flow-card" key={f.id}><legend>欄位 {index + 1}</legend>
-        <label htmlFor={`${f.id}-name`}>欄位 {index + 1} 名稱</label><input id={`${f.id}-name`} maxLength={100} value={f.name} onChange={e => field(f.id, { name: e.target.value })} />
-        <label htmlFor={`${f.id}-type`}>欄位 {index + 1} 型別</label><select id={`${f.id}-type`} value={f.type} onChange={e => field(f.id, { type: e.target.value as FieldType, validation: undefined })}>{Object.entries(fieldTypes).map(([type, name]) => <option key={type} value={type}>{name}</option>)}</select>
-        <label><input type="checkbox" checked={f.required} onChange={e => field(f.id, { required: e.target.checked })} />欄位 {index + 1} 必填</label>
-        <label><input type="checkbox" checked={f.isKey} onChange={e => field(f.id, { isKey: e.target.checked })} />欄位 {index + 1} 識別欄位</label>
-        <FieldRules field={f} onChange={validation => field(f.id, { validation })} />
-        <button className="danger" onClick={() => setDeleting(f.id)}>刪除欄位 {index + 1}</button>
-      </fieldset>)}
+      {form.fields.length > 0 && <div className="field-table-wrap" role="region" aria-label="欄位設定" tabIndex={0}>
+        {/* Laid out like the CSV: one column per field with its name on top, one row per setting (D87). */}
+        <table className="field-table">
+          <caption className="visually-hidden">每一欄是一個欄位，每一列是欄位的一項設定</caption>
+          <thead><tr><th scope="col"><span className="visually-hidden">設定項目</span></th>{form.fields.map((f, index) => <th scope="col" key={f.id}>
+            <span className="field-no">欄位 {index + 1}</span>
+            <input id={`${f.id}-name`} aria-label={`欄位 ${index + 1} 名稱`} maxLength={100} value={f.name} onChange={e => field(f.id, { name: e.target.value })} />
+          </th>)}</tr></thead>
+          <tbody>
+            <tr><th scope="row">型別</th>{form.fields.map((f, index) => <td key={f.id}>
+              <select id={`${f.id}-type`} aria-label={`欄位 ${index + 1} 型別`} value={f.type} onChange={e => field(f.id, { type: e.target.value as FieldType, validation: undefined })}>{Object.entries(fieldTypes).map(([type, name]) => <option key={type} value={type}>{name}</option>)}</select>
+            </td>)}</tr>
+            <tr><th scope="row">必填</th>{form.fields.map((f, index) => <td key={f.id} className="check-cell"><input type="checkbox" aria-label={`欄位 ${index + 1} 必填`} checked={f.required} onChange={e => field(f.id, { required: e.target.checked })} /></td>)}</tr>
+            <tr><th scope="row">識別欄位</th>{form.fields.map((f, index) => <td key={f.id} className="check-cell"><input type="checkbox" aria-label={`欄位 ${index + 1} 識別欄位`} checked={f.isKey} onChange={e => field(f.id, { isKey: e.target.checked })} /></td>)}</tr>
+            <tr><th scope="row">驗證</th>{form.fields.map(f => <td key={f.id}><FieldRules field={f} onChange={validation => field(f.id, { validation })} /></td>)}</tr>
+            <tr><th scope="row">操作</th>{form.fields.map((f, index) => <td key={f.id}><button className="danger" aria-label={`刪除欄位 ${index + 1}`} onClick={() => setDeleting(f.id)}>刪除</button></td>)}</tr>
+          </tbody>
+        </table>
+      </div>}
       <div className="actions"><button id="node-add-field" disabled={form.fields.length >= 100} onClick={() => {
         const id = nextId('field', form.fields); focus.current = `${id}-name`;
         changeForm({ ...form, fields: [...form.fields, { id, name: `新欄位 ${form.fields.length + 1}`, type: 'text', required: false, isKey: false }] });
@@ -88,7 +99,8 @@ function FieldRules({ field, onChange }: { field: FormField; onChange: (rules: F
     }
     setInputError(''); onChange(next);
   };
-  return <details><summary>驗證：{field.name}</summary>{keys.length ? keys.map(key => <div key={key}>
+  const count = Object.keys(rules).length; const problem = Boolean(inputError || validationError(field));
+  return <details><summary>{problem ? '請檢查' : count ? `${count} 項規則` : '未設定'}</summary>{keys.length ? keys.map(key => <div key={key}>
     <label htmlFor={`${field.id}-${key}`}>{labels[key]}</label>
     {key === 'allowedValues' ? <textarea id={`${field.id}-${key}`} defaultValue={rules.allowedValues?.join('\n') ?? ''} onBlur={e => update(key, e.target.value)} />
       : <input id={`${field.id}-${key}`} type={key.endsWith('Date') ? 'text' : 'number'} placeholder={key.endsWith('Date') ? 'YYYY-MM-DD' : undefined} step={field.type === 'integer' || key === 'maxLength' ? 1 : 'any'} min={key === 'maxLength' ? 1 : undefined} max={key === 'maxLength' ? 10000 : undefined} value={rules[key] ?? ''} onChange={e => update(key, e.target.value)} />}

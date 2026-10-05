@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { useState } from 'react';
 import { afterEach, expect, test } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { actionCatalog } from './workflow';
 import { WorkflowCanvas } from './WorkflowCanvas';
 import { emptyGraph, integrityErrors, listToGraph, type AovGraphDocument } from './workflowGraph';
@@ -206,4 +206,29 @@ test('the toolbox shows categories first and opens one category at a time to rea
   fireEvent.click(toggles[0]);
   expect(screen.queryByRole('button', { name: `加入到畫布：${actionCatalog.actions[0].name}` })).toBeNull();
   expect(screen.getByRole('button', { name: '加入到畫布：業務節點' })).toBeTruthy();
+});
+
+// D87: the form's fields are laid out like the CSV they came from: field names across the top, one row per setting.
+test('field settings are a table with a column per field and a row per setting, scrollable from the keyboard', () => {
+  fresh(); addTool('建立表單'); click('新增空白表單'); click('新增欄位'); click('新增欄位');
+  const region = screen.getByRole('region', { name: '欄位設定' });
+  expect(region.getAttribute('tabindex')).toBe('0');
+  const table = within(region).getByRole('table');
+  // The first row holds the field names; the first column names each setting.
+  const header = within(within(table).getAllByRole('row')[0]);
+  expect(header.getAllByRole('textbox').map(i => i.getAttribute('aria-label'))).toEqual(['欄位 1 名稱', '欄位 2 名稱']);
+  expect(within(table).getAllByRole('rowheader').map(h => h.textContent)).toEqual(['型別', '必填', '識別欄位', '驗證', '操作']);
+  // Every setting row has one cell per field.
+  const rows = within(table).getAllByRole('row');
+  expect(rows).toHaveLength(6);
+  for (const row of rows.slice(1)) expect(within(row).getAllByRole('cell')).toHaveLength(2);
+  expect(within(rows[2]).getAllByRole('checkbox').map(c => c.getAttribute('aria-label'))).toEqual(['欄位 1 必填', '欄位 2 必填']);
+  expect(within(rows[3]).getAllByRole('checkbox').map(c => c.getAttribute('aria-label'))).toEqual(['欄位 1 識別欄位', '欄位 2 識別欄位']);
+  // The settings still change the document, and a column is removed from its own 操作 cell after the usual confirmation.
+  fireEvent.click(screen.getByLabelText('欄位 2 識別欄位'));
+  expect(current.forms[0].fields.map(f => f.isKey)).toEqual([false, true]);
+  fireEvent.click(screen.getByRole('button', { name: '刪除欄位 1' }));
+  click('確認刪除表單內容');
+  expect(current.forms[0].fields).toHaveLength(1);
+  expect(within(within(screen.getByRole('table')).getAllByRole('row')[0]).getAllByRole('textbox')).toHaveLength(1);
 });

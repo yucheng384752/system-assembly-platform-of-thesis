@@ -9,6 +9,8 @@ import { FactoryPage } from './FactoryPage';
 import { Icon } from './Icons';
 import { NodeDetails } from './NodeDetails';
 
+// Press and release within this many pixels is a click (selects, opens the details); moving further is a drag (moves the node and nothing else).
+const DRAG_PX = 4;
 type BusinessNode = Node<{ label: string; kind: NodeKind }, 'business'>;
 function CircleNode({ data }: NodeProps<BusinessNode>) {
   return <div className={`business-node business-node-${data.kind}`} title={data.label}>
@@ -38,6 +40,9 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
   // The toolbox opens in two steps, category then tool (D85); all categories start closed.
   const [openGroups, setOpenGroups] = useState<string[]>([]);
   const focus = useRef(false);
+  // True from the moment a drag really starts until just after it ends: the click the browser sends when the button is released over
+  // the dragged node must not select it or open its details (D87).
+  const dragged = useRef(false);
   const selectName = useRef(false);
   useLayoutEffect(() => {
     if (focus.current) { const input = document.getElementById('node-name'); input?.focus(); if (selectName.current && input instanceof HTMLInputElement) input.select(); focus.current = false; selectName.current = false; }
@@ -99,14 +104,16 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
         <ReactFlow<BusinessNode> key={resetKey} nodes={graph.nodes.map((n, i) => ({ id: n.id, type: 'business', data: { label: n.name || '（未命名節點）', kind: n.kind },
           position: value.layout[graph.id]?.[n.id] ?? { x: i * 180, y: 0 }, selected: n.id === selected, ariaLabel: n.name || '（未命名節點）' }))}
           edges={graph.edges.map(e => ({ id: e.id, source: e.from, target: e.to, animated: false, focusable: false, markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: '#40576a' } }))} nodeTypes={nodeTypes}
-          deleteKeyCode={null} nodesFocusable edgesFocusable={false} autoPanOnNodeFocus={false}
+          deleteKeyCode={null} selectNodesOnDrag={false} nodeDragThreshold={DRAG_PX} nodeClickDistance={DRAG_PX} nodesFocusable edgesFocusable={false} autoPanOnNodeFocus={false}
           ariaLabelConfig={{ 'node.a11yDescription.default': '按 Enter 或空白鍵選取節點，方向鍵移動；先後順序與刪除請使用節點細項。', 'node.a11yDescription.keyboardDisabled': '請使用工具箱選取節點。', 'node.a11yDescription.ariaLiveMessage': ({ x, y }) => `節點已移至橫向 ${x}、縱向 ${y}。`, 'edge.a11yDescription.default': '請在節點細項調整先後順序。', 'handle.ariaLabel': '連線接點' }}
-          onNodeClick={(_, n) => { setSelected(n.id); setDeleting(false); }}
+          onNodeDragStart={() => { dragged.current = true; }}
+          onNodeDragStop={() => { window.setTimeout(() => { dragged.current = false; }, 0); }}
+          onNodeClick={(_, n) => { if (dragged.current) return; setSelected(n.id); setDeleting(false); }}
           onNodesChange={changes => {
             const positions = changes.filter(c => c.type === 'position').filter(c => c.position);
             if (positions.length) commit({ ...value, layout: { ...value.layout, [graph.id]: { ...value.layout[graph.id], ...Object.fromEntries(positions.map(c => [c.id, c.position!])) } } });
             const picked = changes.find(c => c.type === 'select' && c.selected);
-            if (picked?.type === 'select') { setSelected(picked.id); setDeleting(false); }
+            if (picked?.type === 'select' && !dragged.current) { setSelected(picked.id); setDeleting(false); }
           }}
           onConnect={c => commit(connectCanvasNodes(value, graph.id, c.source, c.target, true))}
           onPaneClick={() => { setSelected(''); setDeleting(false); }}
