@@ -22,11 +22,11 @@ function sample(): AovDocument {
     relations: [] };
 }
 const graph = (): AovGraphDocument => listToGraph(sample()).value;
-const nodes = (doc: AovGraphDocument) => doc.graphs[0].nodes;
+const nodes = (doc: AovGraphDocument) => doc.graphs[0].nodes.filter(n => n.kind === 'node');
 
 test('A20: nodes must reference existing, complete forms and each form belongs to exactly one node', () => {
   expect(graphErrors(graph()).filter(e => !e.includes('關聯'))).toEqual([]);
-  expect(graphErrors(emptyGraph)).toEqual(['請至少建立一個節點。']);
+  expect(graphErrors(emptyGraph)).toEqual(['請先建立工廠與生產邏輯。']);
   const dangling = graph(); nodes(dangling)[0].formId = 'form-9';
   expect(integrityErrors(dangling)[0]).toContain('節點「收料」引用的表單不存在');
   const incomplete = graph(); incomplete.forms[1].fields = [];

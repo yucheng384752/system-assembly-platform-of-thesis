@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { openFlow } from './testNav';
+import { openFlow, startLogic } from './testNav';
 import { afterEach, expect, test } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { App } from './App';
@@ -30,7 +30,7 @@ test('real flows select prerequisites and render both real Kit previews', () => 
 test('A-C11/C14: tracing derives four functions, locks required ones, and uses business names only', () => {
   const result = deriveKits(['trace-records'], actionCatalog, registry);
   expect(result.kits.map(k => k.kitId)).toHaveLength(4);
-  render(<App />); openFlow();
+  render(<App />); openFlow(); startLogic();
   fireEvent.click(screen.getByRole('button', { name: '加入到畫布：查詢追溯' }));
   fireEvent.click(screen.getByRole('button', { name: /02 功能選配/ }));
   for (const name of ['通用表單', '站點資料串聯']) {
@@ -38,5 +38,6 @@ test('A-C11/C14: tracing derives four functions, locks required ones, and uses b
     expect(input.checked).toBe(true); expect(input.disabled).toBe(true);
   }
   expect(document.body.textContent).not.toMatch(/forms\.create|query\.trace|mService|Function|generic-forms-kit|station-data-link-kit/);
-  expect(screen.getAllByText(/因為「查詢追溯」要做「查詢追溯」/).length).toBeGreaterThan(0);
+  // The reason names where the node sits: factory, production logic, then the node (D81).
+  expect(screen.getAllByText(/因為「A 廠」的「生產邏輯 1」中，「查詢追溯」要做「查詢追溯」/).length).toBeGreaterThan(0);
 });

@@ -13,7 +13,7 @@ export function WorkflowTransfer({ onChange }: { onChange: (doc: AovGraphDocumen
       const errors = integrityErrors(result.value);
       if (errors.length) throw new Error(`${errors.join(' ')}原流程已保留。`);
       onChange(result.value);
-      const legacy = JSON.parse(input.replace(/^\uFEFF/, '')).version !== 4;
+      const legacy = JSON.parse(input.replace(/^\uFEFF/, '')).version !== 5;
       setNotices(['流程匯入成功，已替換流程、表單與關聯。', ...(legacy ? ['舊版流程已轉換為畫布，請確認節點與表單設定。'] : []), ...result.notices]); setError('');
     } catch (failure) { setError(failure instanceof Error ? failure.message : '流程匯入失敗，原流程已保留。'); setNotices([]); }
   }

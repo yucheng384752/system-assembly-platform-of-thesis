@@ -8,6 +8,9 @@
 }
 .workflow-canvas { height: 32rem; min-width: 0; margin-block: var(--space); border: 1px solid var(--border); }
 .business-node { width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(--border); background: var(--surface); color: var(--ink); display: grid; place-items: center; padding: 4px; font-size: .75rem; line-height: 1.2; text-align: center; }
+.business-node-start, .business-node-end { border-width: 3px; font-weight: 600; }
+.workflow-page > .canvas-toolbar { margin-block: var(--space-sm) var(--space); }
+.crumb { align-self: center; padding-inline: var(--space-sm); font-weight: 600; }
 .business-node span { max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: anywhere; }
 .react-flow__node.selected .business-node { background: var(--selected); border-color: var(--primary); }
 .workflow-canvas .react-flow__node { box-shadow: none; }
@@ -207,7 +210,7 @@ dd { margin: 0 0 0 var(--space); }
 }
 /* Canvas, toolbox and details share one height so the scroll bars stay inside the first screen above the pinned action bar. */
 @media (min-width: 64rem) and (min-height: 40rem) {
-  .workflow-columns { --canvas-h: calc(100vh - 26.5rem); }
+  .workflow-columns { --canvas-h: calc(100vh - 24rem); }
   .workflow-canvas { height: max(var(--canvas-h), 28rem); }
-  .workflow-tools, .workflow-details { position: sticky; top: var(--space); max-height: calc(max(var(--canvas-h), 28rem) + 5rem); }
+  .workflow-tools, .workflow-details { position: sticky; top: var(--space); max-height: calc(max(var(--canvas-h), 28rem) + 2.25rem); }
 }

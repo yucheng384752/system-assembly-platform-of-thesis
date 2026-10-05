@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { openFlow } from './testNav';
+import { openFlow, startLogic } from './testNav';
 import { afterEach, expect, test, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App, initialRecipe } from './App';
@@ -31,7 +31,7 @@ function csv(name: string, text: string) {
 }
 // Two steps with one uploaded form each; the shared 批號 is a key on the upstream form.
 async function buildWorkflow() {
-  render(<App />); openFlow();
+  render(<App />); openFlow(); startLogic();
   for (const [i, name, owner] of [[1, '收料', '倉管'], [2, '檢驗', '品管']] as const) {
     fireEvent.click(screen.getByRole('button', { name: '加入到畫布：業務節點' }));
     fireEvent.change(screen.getByLabelText('名稱'), { target: { value: name } });
@@ -132,7 +132,7 @@ test('an incomplete Workflow blocks every download and says why', () => {
   render(<App />); openFlow();
   fireEvent.click(screen.getByRole('button', { name: /03 輸出/ }));
   fireEvent.change(screen.getByLabelText('客戶代稱'), { target: { value: '示範客戶' } });
-  expect(screen.getByRole('alert').textContent).toContain('請至少建立一個節點');
+  expect(screen.getByRole('alert').textContent).toContain('請先建立工廠與生產邏輯');
   expect((screen.getByRole('button', { name: '下載流程規格' }) as HTMLButtonElement).disabled).toBe(true);
   expect((screen.getByRole('button', { name: '下載系統設定檔' }) as HTMLButtonElement).disabled).toBe(true);
   expect((screen.getByRole('button', { name: '下載設定交付包' }) as HTMLButtonElement).disabled).toBe(true);

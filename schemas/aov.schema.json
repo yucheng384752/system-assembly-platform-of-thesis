@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Composer AoV Workflow document",
-  "description": "Version 4 is a graph of nodes with sub-graphs, node-owned forms and field validation (D70-D73). Version 3 adds the actions of each step (D66). Version 2 carries steps, form definitions and confirmed form relations (spec 4.2, D16-D29). Version 1 (steps only) remains importable.",
-  "oneOf": [{ "$ref": "#/$defs/v4" }, { "$ref": "#/$defs/v3" }, { "$ref": "#/$defs/v2" }, { "$ref": "#/$defs/v1" }],
+  "description": "Version 5 adds factories (each holding production-logic graphs) and start and end nodes in every graph (D78-D82). Version 4 is a graph of nodes with sub-graphs, node-owned forms and field validation (D70-D73). Version 3 adds the actions of each step (D66). Version 2 carries steps, form definitions and confirmed form relations (spec 4.2, D16-D29). Version 1 (steps only) remains importable.",
+  "oneOf": [{ "$ref": "#/$defs/v5" }, { "$ref": "#/$defs/v4" }, { "$ref": "#/$defs/v3" }, { "$ref": "#/$defs/v2" }, { "$ref": "#/$defs/v1" }],
   "$defs": {
     "id": { "type": "string", "pattern": "^[a-z0-9-]+$", "maxLength": 100 },
     "name": { "type": "string", "minLength": 1, "maxLength": 100 },
@@ -132,6 +132,55 @@
           "additionalProperties": { "type": ["string", "number", "boolean"], "maxLength": 100 } },
         "formId": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/id" }] },
         "childGraphId": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/id" }] }
+      }
+    },
+    "nodeV5": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "kind", "name", "when", "owner", "actionId", "params", "formId", "childGraphId"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["start", "end", "node"] },
+        "name": { "$ref": "#/$defs/name" },
+        "when": { "type": "string", "maxLength": 300 },
+        "owner": { "type": "string", "maxLength": 100 },
+        "actionId": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/id" }] },
+        "params": { "type": "object", "maxProperties": 20, "propertyNames": { "pattern": "^[a-zA-Z][a-zA-Z0-9]*$", "maxLength": 50 },
+          "additionalProperties": { "type": ["string", "number", "boolean"], "maxLength": 100 } },
+        "formId": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/id" }] },
+        "childGraphId": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/id" }] }
+      }
+    },
+    "v5": {
+      "type": "object", "additionalProperties": false,
+      "required": ["format", "version", "factories", "graphs", "layout", "forms", "relations"],
+      "properties": {
+        "format": { "const": "composer-aov-list" },
+        "version": { "const": 5 },
+        "factories": { "type": "array", "maxItems": 20, "items": {
+          "type": "object", "additionalProperties": false,
+          "required": ["id", "name", "logicGraphIds"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "name": { "$ref": "#/$defs/name" },
+            "logicGraphIds": { "type": "array", "uniqueItems": true, "maxItems": 20, "items": { "$ref": "#/$defs/id" } }
+          }
+        } },
+        "graphs": { "type": "array", "maxItems": 100, "items": {
+          "type": "object", "additionalProperties": false,
+          "required": ["id", "name", "nodes", "edges"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "name": { "$ref": "#/$defs/name" },
+            "nodes": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/nodeV5" } },
+            "edges": { "type": "array", "maxItems": 500, "items": {
+              "type": "object", "additionalProperties": false, "required": ["id", "from", "to"],
+              "properties": { "id": { "$ref": "#/$defs/id" }, "from": { "$ref": "#/$defs/id" }, "to": { "$ref": "#/$defs/id" } }
+            } }
+          }
+        } },
+        "layout": { "type": "object", "additionalProperties": { "type": "object", "additionalProperties": { "$ref": "#/$defs/position" } } },
+        "forms": { "$ref": "#/$defs/formsV4" },
+        "relations": { "$ref": "#/$defs/relations" }
       }
     },
     "v4": {
