@@ -30,3 +30,9 @@ export function addTool(name: string) {
   openToolGroups();
   fireEvent.click(screen.getByRole('button', { name: `加入到畫布：${name}` }));
 }
+
+// The loose downloads and the settings loader sit under an advanced disclosure on the output step (D86).
+export function openAdvancedFiles() {
+  const toggle = screen.getByRole('button', { name: '進階：個別檔案與載入設定' });
+  if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
+}

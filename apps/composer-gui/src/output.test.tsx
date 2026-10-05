@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { openFlow, startLogic, wireChain, addTool } from './testNav';
+import { addTool, openAdvancedFiles, openFlow, startLogic, wireChain } from './testNav';
 import { afterEach, expect, test, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { App, initialRecipe } from './App';
 import { exportRecipe, importRecipe } from '../../../libs/ui-runtime/recipe';
 import { validateSchema } from '../../../libs/ui-runtime/schema';
@@ -84,6 +84,7 @@ test('A22, A15: downloads validate, carry no rows, the Recipe checksum matches t
   expect((screen.getByRole('button', { name: '確認本步驟' }) as HTMLButtonElement).disabled).toBe(true);
   fireEvent.change(screen.getByLabelText('客戶代稱'), { target: { value: '示範客戶' } });
   expect((screen.getByRole('button', { name: '確認本步驟' }) as HTMLButtonElement).disabled).toBe(false);
+  openAdvancedFiles();
   fireEvent.click(screen.getByRole('button', { name: '下載流程規格' }));
   await waitFor(() => expect((screen.getByRole('button', { name: '下載系統設定檔' }) as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(screen.getByRole('button', { name: '下載系統設定檔' }));
@@ -135,6 +136,7 @@ test('an incomplete Workflow blocks every download and says why', () => {
   fireEvent.click(screen.getByRole('button', { name: /03 輸出/ }));
   fireEvent.change(screen.getByLabelText('客戶代稱'), { target: { value: '示範客戶' } });
   expect(screen.getByRole('alert').textContent).toContain('請先建立工廠與生產邏輯');
+  openAdvancedFiles();
   expect((screen.getByRole('button', { name: '下載流程規格' }) as HTMLButtonElement).disabled).toBe(true);
   expect((screen.getByRole('button', { name: '下載系統設定檔' }) as HTMLButtonElement).disabled).toBe(true);
   expect((screen.getByRole('button', { name: '下載設定交付包' }) as HTMLButtonElement).disabled).toBe(true);
@@ -197,6 +199,7 @@ test('場域 A／B 匯入、預覽及交付包使用同一份設定，移除後�
     expect(screen.getByRole('columnheader', { name: site.optionOverrides[key]['row-label'] }).style.width).toBe(`${width.value}px`);
     page('03');
     await waitFor(() => expect((screen.getByRole('button', { name: '下載設定交付包' }) as HTMLButtonElement).disabled).toBe(false));
+  openAdvancedFiles();
     fireEvent.click(screen.getByRole('button', { name: '下載系統設定檔' }));
     fireEvent.click(screen.getByRole('button', { name: '下載設定交付包' }));
     await waitFor(() => expect(zips).toHaveLength(index + 1));
@@ -221,4 +224,38 @@ test('場域 A／B 匯入、預覽及交付包使用同一份設定，移除後�
   expect(removed['config/site/site.profile.json']).toBeUndefined();
   expect(JSON.parse(removed['config/system.recipe.json']).siteRef).toBeUndefined();
   expect(fetch).not.toHaveBeenCalled(); expect(xhr).not.toHaveBeenCalled(); expect(storage).not.toHaveBeenCalled();
+});
+
+// D86: the package is the one download to hand over; the loose files and the settings loader are tucked under an advanced disclosure.
+test('the output step leads with the delivery package and keeps the loose files under an advanced disclosure', () => {
+  render(<App />); openFlow();
+  fireEvent.click(screen.getByRole('button', { name: /03 輸出/ }));
+  const packageButton = screen.getByRole('button', { name: '下載設定交付包' });
+  expect(packageButton.className).toContain('primary');
+  // Closed: the loose downloads are not offered (and not reachable by assistive technology).
+  const toggle = screen.getByRole('button', { name: '進階：個別檔案與載入設定' });
+  expect(toggle.getAttribute('aria-expanded')).toBe('false');
+  expect(screen.queryByRole('button', { name: '下載流程規格' })).toBeNull();
+  expect(screen.queryByRole('button', { name: '下載系統設定檔' })).toBeNull();
+  fireEvent.click(toggle);
+  expect(toggle.getAttribute('aria-expanded')).toBe('true');
+  const workflowButton = screen.getByRole('button', { name: '下載流程規格' });
+  const recipeButton = screen.getByRole('button', { name: '下載系統設定檔' });
+  // The loose files are secondary and say what they are for; the package is the only primary download.
+  expect(workflowButton.className).not.toContain('primary');
+  expect(recipeButton.className).not.toContain('primary');
+  expect([...document.querySelectorAll('.columns button.primary')].map(b => b.textContent)).toEqual(['下載設定交付包']);
+  expect(screen.getByText(/交付請使用上面的設定交付包/)).toBeTruthy();
+  // The package comes first in reading order, before the advanced block.
+  expect(packageButton.compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+test('the contents column says what the package holds and that it is not an installer', () => {
+  render(<App />); openFlow();
+  fireEvent.click(screen.getByRole('button', { name: /03 輸出/ }));
+  const contents = screen.getByRole('region', { name: '檔案內容' });
+  expect(within(contents).getByText('設定交付包包含')).toBeTruthy();
+  expect(within(contents).getByText(/檔案清單：各檔案的校驗碼/)).toBeTruthy();
+  expect(within(contents).getByText(/程式碼、資料庫變更與安裝腳本：設定交付包不是安裝包/)).toBeTruthy();
+  expect(screen.getByRole('region', { name: '設定交付包' }).textContent).toContain('不能直接安裝或部署');
 });
