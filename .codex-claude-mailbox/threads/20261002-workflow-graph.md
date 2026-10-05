@@ -1,8 +1,8 @@
 ---
 id: "20261002-workflow-graph"
 title: "畫布式 AoV Workflow：圖形文件模型（功能 1）與畫布編輯器（功能 2）"
-status: "in_progress"
-owner: "claude"
+status: "waiting_for_user"
+owner: "user"
 reviewer: "user"
 priority: "high"
 created_by: "claude"
@@ -221,3 +221,51 @@ Claude 的推論（待 user 確認，已寫入決議）：步驟由 5 個改為 
 ## Codex Notes
 
 （Codex 在此續寫）
+
+### 2026-10-02 WP1 完成
+
+- 新增獨立畫布與工具箱：加入／拖放、圓形名稱節點、位置儲存、鍵盤連線替代操作、成環拒絕、三層子流程及麵包屑；刪除前列出節點、子流程、表單與關聯並於頁內確認。App 暫存獨立 graph，原五步驟保持運作。
+- 變更：新增 apps/composer-gui/src/WorkflowCanvas.tsx、canvasEditing.ts、WorkflowCanvas.test.tsx、testCanvas.ts；修改 App.tsx、style.css、vite.config.ts（測試環境）。
+- npm.cmd run typecheck：通過。npm.cmd test：215 passed、1 skipped（既有身分授權未涵蓋）、1 failed（security CLI 既知暫存路徑 EPERM，另清理 hook 同樣受限）；沒有其他程式測試失敗。未執行 test:kits（已知 Python 限制），未啟動伺服器，真實瀏覽器與拖放由 Claude 驗證。
+- 尚待後續工作包：完整細項、關聯、推導／匯入匯出及舊頁面退役。
+
+### 2026-10-02 WP2 完成
+
+- 節點細項新增名稱、時機、負責職務、資料驅動的動作與參數控制項；切換動作只保留新動作預設參數，即時顯示 nodeErrors。
+- 標準表單支援單檔 CSV 推測、空白表單、欄位名稱／型別／必填／識別欄位、各型別驗證規則與有效日期提示；刪除表單或欄位先於頁內列出相關關聯並確認。非同步上傳只加入仍存在且沒有表單的原節點，樣本資料列不進入文件。
+- 變更：新增 apps/composer-gui/src/NodeDetails.tsx、NodeForm.tsx；修改 WorkflowCanvas.tsx、WorkflowCanvas.test.tsx。
+- npm.cmd run typecheck：通過。npm.cmd test：218 passed、1 skipped（既有身分授權）、1 failed（已知 security CLI EPERM；清理 hook 同樣受限）。test:kits 未執行（已知 Python 限制）；真實瀏覽器驗證留給 Claude。
+- 尚待 WP3 關聯與 WP4／WP5 整合，沒有新增契約或依賴。
+
+### 2026-10-02 WP3 完成
+
+- relations.ts 支援圖形文件，上游依 orderedNodes，追溯以 nodeOfForm 取得節點與職務；暫留舊列表型別相容至 WP5。候選、名稱近似原因、同型別／每對表單唯一／不得自連或成環規則維持不變。
+- 新增 NodeRelations.tsx，節點細項可確認候選、手動建立、頁內確認移除、查看兩端關聯與追溯。relationReasons.test.tsx 全部改用圖形文件；workflow.test.ts 的 D19、D22／A21、A23 斷言改用圖形文件，原規則皆保留。新增兩端同步 UI 測試。
+- 變更：新增 apps/composer-gui/src/NodeRelations.tsx；修改 relations.ts、NodeDetails.tsx、relationReasons.test.tsx、workflow.test.ts、WorkflowCanvas.test.tsx。
+- npm.cmd run typecheck：通過。npm.cmd test：219 passed、1 skipped（既有身分授權）、1 failed（已知 security CLI EPERM；清理 hook 同樣受限）。test:kits 未執行（已知 Python 限制），瀏覽器由 Claude 驗證。
+- 尚待 WP4 整合與 WP5 退役；無契約變更。
+
+### 2026-10-02 WP4 完成
+
+- App 主流程接上圖形狀態、三步驟驗證與首頁節點計數。新增 registryData.ts 載入並驗證登錄資料，以 deriveKits(graphActionIds(...)) 推導；selectKits 增加相容的第五參數，合併必帶與手動功能。畫面列出業務原因、鎖定功能、候選選擇、缺口數量及未納入推導功能。
+- 新增 WorkflowTransfer.tsx，匯入舊版列出轉換提示、失敗保留原流程。畫布以 suggestActions 顯示右下靜態提示；suggestFlows 已移除，其測試改驗相同「僅已確認關聯才建議」規則。輸出改用 exportAovGraph，交付包使用相同下載原文与 SHA-256。
+- 變更：新增 registryData.ts、WorkflowTransfer.tsx；修改 App.tsx、AppShell.tsx、StepShell.tsx、WorkflowCanvas.tsx、FlowPage.tsx、catalog.ts、OutputPage.tsx、deliveryPackage.ts、style.css；測試修改 Frontend.test.tsx、StepShell.test.tsx、shell.test.tsx、aov.test.tsx、localData.test.tsx、output.test.tsx、siteUi.test.tsx、catalog.test.ts。
+- 原 UI 測試逐項移植：鍵盤與焦點／失敗匯入保留、欄位推測失敗原因與資料不外送、必填與未指派表單、候選確認與型別限制／追溯職務、Recipe 匯入原子性、場域鎖定及兩份下載與交付包位元組一致。舊多檔推測的函式規則仍由 workflow.test.ts 驗證；畫布入口改為確認的一節點一檔規則。
+- npm.cmd run typecheck：通過。npm.cmd test：220 passed、1 skipped（既有身分授權）、1 failed（已知 security CLI EPERM；清理 hook 同樣受限）。test:kits 未執行（已知 Python 限制），未啟動伺服器。
+- WP5 尚待舊頁面與專用函式清除、DESIGN.md 更新及 build。
+
+### 2026-10-05 Claude 接手 WP5
+
+- Codex 任務 `task-muqpgv6j-j8hst6` 於 WP5 中途失敗：`You've hit your usage limit`（約 30 分鐘後中止，10 月 2 日 17:02 之後沒有任何檔案異動）。依 user 的指示（Codex 未在預期時間內完成就由 Claude 接手），由 Claude 完成 WP5。Codex 未動任何資料契約檔：`schemas/`、`config/`、`libs/`、`kits/`、`package*.json` 與 `workflowGraph.ts` 皆無異動。
+- 接手時的狀態：`workflow.ts` 已被精簡，四個舊頁面已刪除，但 `workflow.test.ts`、`deliveryPackage.test.ts`、`relationReasons.test.tsx`、`security.test.mjs` 仍引用被移除的 API，`npm.cmd run typecheck` 失敗。
+- Claude 做了：
+  - 測試移植而非刪除：`workflow.test.ts` 的 A20、D19、A21、D22、A22、A23 以圖形文件改寫，保留各自的規則與斷言；舊版匯入的原子性、版本 1 提示、版本 2 轉 3、D66 三種拒絕情形改為驗證 `importAov`。`deliveryPackage.test.ts`、`security.test.mjs`、`relationReasons.test.tsx` 的 fixture 改為舊格式轉圖形後匯出。
+  - 移除三個只屬於 version 3 列表編輯狀態的測試，意圖已由圖形測試涵蓋或因 D70 而不存在：「動作隨匯出匯入往返並不寫入 Kit 資料」（`workflowGraph.test.ts` 的往返測試涵蓋）、「動作引用的表單離開步驟」（節點直接擁有表單，這種狀態不存在）、「使用的動作依序列出」（`graphActionIds` 已有測試）。
+  - `relations.ts` 與 `NodeRelations.tsx` 的追溯欄位由 `step` 改名為 `node`，因為步驟已不存在。
+  - 更新 `DESIGN.md`：3 個步驟、畫布外觀、鍵盤替代操作、右下角建議、節點細項、功能選配。
+- 驗證（沙箱外）：`npm.cmd run typecheck` 通過；`npm.cmd test` 27 個檔案、218 通過、1 略過（既有授權「未涵蓋」），包含 Codex 一直無法執行的 `security.test.mjs` CLI 測試；`npm.cmd run build` 通過（主 chunk 約 640 kB，超過 500 kB 警告，因加入 React Flow；`@xyflow/react` 的 `use client` 指令警告無害）。沒有留下無人使用的匯出函式。
+- 真實瀏覽器驗證（Chrome，開發伺服器）：
+  - 通過：首頁計數改為節點數；流程頁為三欄（工具箱、畫布、節點細項）與 3 步驟；工具箱按鈕的無障礙名稱含動作名稱；加入節點後右側細項自動聚焦並選取名稱；動作切換顯示參數（允許重複紀錄、流程代碼）；子流程 1、2、3 層與麵包屑，第 3 層「建立子流程」停用並以 `aria-describedby` 說明；空白表單、欄位、日期規則輸入框帶 `YYYY-MM-DD` 提示，`2026-02-30` 與「最早晚於最晚」即時指出，合法值無訊息；兩張表單各有識別欄位「批號」時出現候選關聯，需按「確認關聯」才生效；確認後右下角出現 `role="status"` 的建議，按下加入「查詢追溯」節點且提示消失；功能選配依節點推導出通用表單、系統基本功能、查詢與追溯、站點資料串聯，附業務語言原因並鎖定，缺口顯示為「有 2 項功能需求尚無完整驗證資料」，頁面沒有任何 capability、路徑或 id 字串。
+  - 未能驗證：視覺外觀（圓形大小、裁切、縮放、窄螢幕）。測試用的 Chrome 分頁 `document.hidden` 為 true，截圖是舊畫面且 React Flow 量到的畫布尺寸不可靠（縮放 0.5、位移為負），因此不能憑截圖判斷。第一個節點看起來被裁在左上角、自動置中是否有效，都無法在此環境證實，Claude 曾嘗試加入自動「適合畫面」的修正，因無法驗證而全部還原。需要 user 在可見的 Chrome 視窗目視確認一次（含 400px 寬度）。
+  - 觀察（不修）：同一個事件迴圈內連續觸發三次「加入到畫布」只會保留最後一個，因為 `add` 以閉包內舊的 `value` 整份覆寫；真人逐次點擊不會發生，列為低風險。
+- 尚待：user 目視確認畫布外觀與窄螢幕；步驟 03 輸出與匯入的瀏覽器實測（單元與整合測試已涵蓋位元組與校驗碼一致）。
