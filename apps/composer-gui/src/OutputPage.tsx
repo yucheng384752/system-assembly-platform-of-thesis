@@ -7,22 +7,23 @@ import { exportRecipe } from '../../../libs/ui-runtime/recipe';
 import { downloadBlob, downloadJson } from './fileTransfer';
 import { buildDeliveryPackage, deliveryManualStatus } from './deliveryPackage';
 import { loadFragments } from './manual';
-import { exportAov, sha256Hex, WORKFLOW_FILE, type AovDocument } from './workflow';
+import { sha256Hex, WORKFLOW_FILE } from './workflow';
+import { exportAovGraph, type AovGraphDocument } from './workflowGraph';
 import { Column } from './Column';
 import { Icon } from './Icons';
 import { SiteTransfer } from './SiteTransfer';
 import type { SiteSession } from './siteSession';
 
 const included = ['客戶代稱', '已選功能', '可調整的畫面設定', '流程規格的檔名與校驗碼'];
-const workflowIncluded = ['流程步驟、時機與負責職務', '各步驟的表單欄位定義', '已確認的表單關聯'];
+const workflowIncluded = ['流程節點、先後順序、子流程與位置', '時機、負責職務與動作設定', '各節點的標準表單、欄位及驗證規則', '已確認的表單關聯'];
 const excluded = ['原始資料列與樣本內容', '連線資訊與密碼', '未確認的推測關聯'];
-export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport, site, siteConflict = '', onSiteChange }: { recipe: Recipe; workflow: AovDocument; selectedFlows: string[]; onChange: (recipe: Recipe) => void; onImport: (recipe: Recipe) => void; site?: SiteSession; siteConflict?: string; onSiteChange?: (site?: SiteSession) => void }) {
+export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport, site, siteConflict = '', onSiteChange }: { recipe: Recipe; workflow: AovGraphDocument; selectedFlows: string[]; onChange: (recipe: Recipe) => void; onImport: (recipe: Recipe) => void; site?: SiteSession; siteConflict?: string; onSiteChange?: (site?: SiteSession) => void }) {
   const name = (id: string) => catalog.kits.find(k => k.id === id)?.displayName ?? id;
   const groups = flows.filter(f => selectedFlows.includes(f.id)).map(f => ({ id: f.id, title: f.name, kits: f.kits.filter(id => recipe.enabledKits.includes(id)) }));
   // Required features and dependencies that no selected flow names directly.
   const others = recipe.enabledKits.filter(id => !groups.some(g => g.kits.includes(id)));
   // The downloaded text is the checksum input, so both files always describe the same Workflow (A22).
-  const exported = useMemo(() => { try { return { text: exportAov(workflow), error: '' }; } catch (failure) { return { text: '', error: failure instanceof Error ? failure.message : '流程規格無法輸出。' }; } }, [workflow]);
+  const exported = useMemo(() => { try { return { text: exportAovGraph(workflow), error: '' }; } catch (failure) { return { text: '', error: failure instanceof Error ? failure.message : '流程規格無法輸出。' }; } }, [workflow]);
   const [digest, setDigest] = useState({ text: '', sha256: '' });
   const [notice, setNotice] = useState('');
   useEffect(() => {
@@ -60,7 +61,7 @@ export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport
     </Column>
     <Column id="recipe" title="流程規格與系統設定檔" lead="兩個檔案一起保存；設定檔以校驗碼對應流程規格。">
       <div className="file-card"><Icon name="file" /><div>
-        <strong>{WORKFLOW_FILE}</strong><p className="muted">流程步驟、表單定義與已確認的關聯。</p>
+        <strong>流程規格</strong><p className="muted">流程節點、子流程、標準表單與已確認的關聯。</p>
         <p id="workflow-error" role={exported.error ? 'alert' : undefined}>{exported.error}</p>
         <button className="primary" disabled={!exported.text} aria-describedby="workflow-error" onClick={() => { downloadJson(exported.text, WORKFLOW_FILE); setNotice('流程規格已下載；不含資料列或樣本內容。'); }}><Icon name="download" />下載流程規格</button>
         <p role="status">{notice}</p>
@@ -73,7 +74,7 @@ export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport
       <p id="site-conflict" role={siteConflict ? 'alert' : undefined}>{siteConflict ? `場域設定衝突：${siteConflict} 修正前無法下載設定。` : ''}</p>
       <RecipeTransfer recipe={linked} catalog={catalog} blocked={!sha256 || Boolean(siteConflict)} onImport={next => {
         onImport(next);
-        setNotice(next.workflowRef && next.workflowRef.sha256 !== sha256 ? '注意：載入的設定檔記錄的流程規格與目前流程不同。請在「流程步驟」匯入對應的流程規格，或重新下載兩個檔案。' : '');
+        setNotice(next.workflowRef && next.workflowRef.sha256 !== sha256 ? '注意：載入的設定檔記錄的流程規格與目前流程不同。請在「流程畫布」匯入對應的流程規格，或重新下載兩個檔案。' : '');
       }} />
     </Column>
     <Column id="contents" title="檔案內容" lead="兩個檔案包含與不包含的項目。">

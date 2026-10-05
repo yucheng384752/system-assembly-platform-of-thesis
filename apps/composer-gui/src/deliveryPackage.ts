@@ -61,7 +61,7 @@ function readme(manifest: Omit<PackageManifest, 'artifacts'>, hasSite = false): 
     '本壓縮檔是 Composer 產出的系統設定，不是可安裝的系統，也不含任何安裝或部署程式。', '',
     '## 包含', '',
     '- `config/system.recipe.json`：系統設定檔（已選功能與畫面設定）。',
-    '- `aov/workflow.aov.json`：流程規格（流程步驟、表單欄位定義與已確認的表單關聯）。',
+    '- `aov/workflow.aov.json`：流程規格（流程節點、子流程、表單欄位與驗證規則、已確認的表單關聯）。',
     ...(hasSite ? ['- `config/site/site.profile.json`：場域設定原文（已去除 BOM），含場域限制與資料來源引用，不含秘密值。'] : []),
     '- `validation/report.json`：靜態檢查結果；測試環境演練與現場驗證尚未執行。',
     ...(!manifest.notProvided.some(item => item.path === 'docs/') ? manualRoles.map(role => `- \`docs/manual-${role}.md\`：${roleNames[role]}操作手冊；審閱狀態見各手冊首頁。`) : []),
@@ -124,7 +124,7 @@ export async function buildDeliveryPackage(recipeText: string, workflowText: str
   const report: ValidationReport = {
     format: 'composer-validation-report', version: 1,
     staticChecks: [
-      { id: 'workflow-schema', description: '流程規格符合 composer-aov-list version 2 格式', status: 'passed' },
+      { id: 'workflow-schema', description: '流程規格符合支援的流程文件格式', status: 'passed' },
       { id: 'recipe-schema', description: '系統設定檔符合 Recipe 格式', status: 'passed' },
       { id: 'workflow-ref', description: '系統設定檔的 workflowRef 與流程規格的 SHA-256 相符', status: 'passed' },
       { id: 'sensitive-keys', description: '兩份檔案皆無連線、密碼或金鑰類欄位名稱（只檢查欄位名稱，不檢查使用者輸入的文字）', status: 'passed' },

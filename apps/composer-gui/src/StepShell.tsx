@@ -4,11 +4,9 @@ import { Icon } from './Icons';
 export interface StepInfo { number: string; title: string; lead: string; hint: string }
 // The Workflow is the configuration entry point and every step is required (D17, D30).
 export const steps: StepInfo[] = [
-  { number: '01', title: '流程步驟', lead: '建立工作步驟，填寫時機與負責職務。', hint: '請使用職務名稱，勿填個資。' },
-  { number: '02', title: '表單', lead: '在各步驟上傳樣本或建立表單，確認欄位。', hint: '原始資料列不保留。' },
-  { number: '03', title: '表單關聯', lead: '確認表單之間以哪個欄位相連。', hint: '推測的關聯須經確認才會輸出。' },
-  { number: '04', title: '功能選配', lead: '選擇流程，確認畫面，調整設定。', hint: '目前為設定與模擬預覽。' },
-  { number: '05', title: '輸出', lead: '下載流程規格與系統設定檔，或打包成設定交付包。', hint: '兩個檔案請一起保存，或下載設定交付包。' },
+  { number: '01', title: '流程畫布', lead: '建立節點、標準表單與關聯，設定先後順序及子流程。', hint: '請使用職務名稱，勿填個資。' },
+  { number: '02', title: '功能選配', lead: '確認流程所需功能，調整其他選配與畫面設定。', hint: '目前為設定與模擬預覽。' },
+  { number: '03', title: '輸出', lead: '下載流程規格與系統設定檔，或打包成設定交付包。', hint: '兩個檔案請一起保存，或下載設定交付包。' },
 ];
 // stepError: a non-empty message blocks confirming that step until the content is fixed.
 export function StepShell({ renderStep, stepError = () => '' }: { renderStep: (step: number) => ReactNode; stepError?: (step: number) => string }) {

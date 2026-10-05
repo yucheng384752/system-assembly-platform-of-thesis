@@ -1,62 +1,47 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 import { openFlow } from './testNav';
 import { afterEach, expect, test } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { App } from './App';
 afterEach(cleanup);
-
-test('the Workflow is the first, required step: no steps means step 01 cannot be confirmed (D17)', () => {
+const click = (name: string | RegExp) => fireEvent.click(screen.getByRole('button', { name }));
+const name = () => screen.getByLabelText('名稱') as HTMLInputElement;
+test('D17: the workflow is the first required step; an empty graph cannot be confirmed', () => {
   render(<App />); openFlow();
-  expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('流程步驟');
+  expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('流程畫布');
   expect((screen.getByRole('button', { name: '確認並繼續' }) as HTMLButtonElement).disabled).toBe(true);
-  expect(document.getElementById('step-status')!.textContent).toContain('請至少建立一個流程步驟');
-  fireEvent.click(screen.getByRole('button', { name: '新增步驟' }));
+  expect(document.getElementById('step-status')!.textContent).toContain('請至少建立一個節點');
+  click('加入到畫布：業務節點');
   expect((screen.getByRole('button', { name: '確認並繼續' }) as HTMLButtonElement).disabled).toBe(false);
 });
-test('native keyboard-activatable controls add, move and delete with focus; failed import retains state', () => {
-  render(<App />); openFlow();
-  const add = screen.getByRole('button', { name: '新增步驟' }); add.focus();
-  // Native button click is the browser's activation result for Enter/Space; no pointer-only handler.
-  fireEvent.click(add);
-  expect(document.activeElement).toBe(screen.getByLabelText('步驟 1 名稱'));
-  // New step selects its placeholder so typing replaces it rather than producing 「新步驟 1收料檢查」 (G03).
-  const added = document.activeElement as HTMLInputElement;
-  expect([added.selectionStart, added.selectionEnd]).toEqual([0, added.value.length]);
-  fireEvent.change(document.activeElement!, { target: { value: '第一個' } }); fireEvent.click(add);
-  fireEvent.change(screen.getByLabelText('步驟 2 名稱'), { target: { value: '第二個' } });
-  const move = screen.getByRole('button', { name: '上移步驟 2' }); move.focus(); fireEvent.click(move);
-  expect((screen.getByLabelText('步驟 1 名稱') as HTMLInputElement).value).toBe('第二個');
-  expect(document.activeElement).toBe(screen.getByLabelText('步驟 1 名稱'));
-  // Moving an existing step keeps its name unselected so a stray keystroke cannot wipe it.
-  const moved = document.activeElement as HTMLInputElement;
-  expect(moved.selectionEnd! - moved.selectionStart!).toBe(0);
-  fireEvent.click(screen.getByText('進階：貼上流程 JSON'));
-  fireEvent.change(screen.getByLabelText('流程 JSON'), { target: { value: '{"steps":[]}' } });
-  fireEvent.click(screen.getByRole('button', { name: '匯入流程 JSON' }));
-  expect(screen.getByRole('alert').textContent).toContain('原流程已保留');
-  expect((screen.getByLabelText('步驟 1 名稱') as HTMLInputElement).value).toBe('第二個');
-  fireEvent.click(screen.getByRole('button', { name: '刪除步驟 1' }));
-  expect(document.activeElement).toBe(screen.getByLabelText('步驟 1 名稱'));
-  expect((document.activeElement as HTMLInputElement).value).toBe('第一個');
+test('native controls add, move and delete; failed import retains the selected node and work', () => {
+  render(<App />); openFlow(); click('加入到畫布：業務節點');
+  expect(document.activeElement).toBe(name());
+  expect([name().selectionStart, name().selectionEnd]).toEqual([0, name().value.length]);
+  fireEvent.change(name(), { target: { value: '第一個' } }); click('加入到畫布：業務節點');
+  fireEvent.change(name(), { target: { value: '第二個' } });
+  fireEvent.change(screen.getByLabelText('橫向位置'), { target: { value: '250' } });
+  expect((screen.getByLabelText('橫向位置') as HTMLInputElement).value).toBe('250');
+  fireEvent.click(screen.getByText('匯入流程規格')); fireEvent.click(screen.getByText('進階：貼上流程 JSON'));
+  fireEvent.change(screen.getByLabelText('流程 JSON'), { target: { value: '{"steps":[]}' } }); click('匯入流程 JSON');
+  expect(screen.getByRole('alert').textContent).toContain('原流程已保留'); expect(name().value).toBe('第二個');
+  click('刪除節點'); expect(name().value).toBe('第二個'); click('確認刪除'); click('第一個');
+  expect(name().value).toBe('第一個'); expect(document.activeElement).toBe(name());
 });
-test('the step list selects which step the middle column edits, and moves focus there', () => {
-  render(<App />); openFlow();
-  const add = screen.getByRole('button', { name: '新增步驟' });
-  fireEvent.click(add); fireEvent.change(screen.getByLabelText('步驟 1 名稱'), { target: { value: '填寫紀錄' } });
-  fireEvent.click(add); fireEvent.change(screen.getByLabelText('步驟 2 名稱'), { target: { value: '核對資料' } });
-  // Only the selected step is editable, so edits cannot land on a step the user is not looking at.
-  expect(screen.queryByLabelText('步驟 1 名稱')).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: /^01 填寫紀錄/ }));
-  expect(document.activeElement).toBe(screen.getByLabelText('步驟 1 名稱'));
-  expect(screen.getByRole('button', { name: /^01 填寫紀錄/ }).getAttribute('aria-current')).toBe('true');
-  expect(screen.getByRole('heading', { name: '編輯步驟 01' })).toBeTruthy();
+test('selecting a node edits only that node and moves focus to its name', () => {
+  render(<App />); openFlow(); click('加入到畫布：業務節點'); fireEvent.change(name(), { target: { value: '填寫紀錄' } });
+  click('加入到畫布：業務節點'); fireEvent.change(name(), { target: { value: '核對資料' } }); click('填寫紀錄');
+  expect(screen.getAllByLabelText('名稱')).toHaveLength(1); expect(name().value).toBe('填寫紀錄');
+  expect(document.activeElement).toBe(name()); expect(screen.getByRole('button', { name: '填寫紀錄' }).getAttribute('aria-current')).toBe('true');
 });
-test('importing a version 1 file keeps its steps and says which form assignments were dropped', () => {
+test('legacy import keeps nodes and lists conversion and dropped form assignment notices', () => {
   render(<App />); openFlow();
-  const v1 = { format: 'composer-aov-list', version: 1, steps: [{ id: 'a', name: '檢查', when: '', owner: '品管', formId: 'form-1' }] };
-  fireEvent.click(screen.getByText('進階：貼上流程 JSON'));
-  fireEvent.change(screen.getByLabelText('流程 JSON'), { target: { value: JSON.stringify(v1) } });
-  fireEvent.click(screen.getByRole('button', { name: '匯入流程 JSON' }));
-  expect(screen.getByText(/已清除以下步驟的表單指派：「檢查」/)).toBeTruthy();
-  expect(screen.getByRole('button', { name: /^01 檢查/ })).toBeTruthy();
+  fireEvent.click(screen.getByText('匯入流程規格')); fireEvent.click(screen.getByText('進階：貼上流程 JSON'));
+  for (const version of [1, 2]) {
+    const value = version === 1 ? { format: 'composer-aov-list', version, steps: [{ id: 'a', name: '檢查', when: '', owner: '品管', formId: 'form-1' }] }
+      : { format: 'composer-aov-list', version, steps: [{ id: 'a', name: '檢查', when: '', owner: '品管', formIds: [] }], forms: [], relations: [] };
+    fireEvent.change(screen.getByLabelText('流程 JSON'), { target: { value: JSON.stringify(value) } }); click('匯入流程 JSON');
+    expect(screen.getByText(/舊版流程已轉換為畫布/)).toBeTruthy(); expect(screen.getByRole('button', { name: '檢查' })).toBeTruthy();
+    if (version === 1) expect(screen.getByText(/已清除以下步驟的表單指派：「檢查」/)).toBeTruthy();
+  }
 });

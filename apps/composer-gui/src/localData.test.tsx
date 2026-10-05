@@ -19,33 +19,28 @@ test('CSV/TSV inference handles BOM, quoted separators, newlines and escaped quo
 function csv(name: string, text: string) {
   const file = new File([text], name); Object.defineProperty(file, 'text', { value: async () => text }); return file;
 }
-test('multi-file upload builds one form per file in the chosen step, lists failures, and never keeps rows or sends them', async () => {
+test('single-node upload names failures, retains only fields, and never sends or saves rows', async () => {
   const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
   const xhr = vi.spyOn(XMLHttpRequest.prototype, 'open'); const storage = vi.spyOn(Storage.prototype, 'setItem');
   render(<App />); openFlow();
-  fireEvent.click(screen.getByRole('button', { name: '新增步驟' })); fireEvent.change(screen.getByLabelText('步驟 1 名稱'), { target: { value: '收料' } });
-  fireEvent.click(screen.getByRole('button', { name: '新增步驟' })); fireEvent.change(screen.getByLabelText('步驟 2 名稱'), { target: { value: '檢驗' } });
-  fireEvent.click(screen.getByRole('button', { name: /02 表單/ }));
-  fireEvent.change(screen.getByLabelText('上傳到步驟'), { target: { value: 'step-2' } });
-  fireEvent.change(screen.getByLabelText('選擇 CSV / TSV（可多選）'), { target: { files: [
-    csv('檢驗紀錄.csv', '批號,數量\nPRIVATE_SAMPLE_SENTINEL,3'), csv('broken.csv', 'a,a\n1,2'),
-  ] } });
+  fireEvent.click(screen.getByRole('button', { name: '加入到畫布：建立表單' }));
+  fireEvent.change(screen.getByLabelText('名稱'), { target: { value: '檢驗' } });
+  fireEvent.change(screen.getByLabelText('選擇標準 CSV 樣本'), { target: { files: [csv('broken.csv', 'a,a\n1,2')] } });
+  await screen.findByText(/broken\.csv：第一列須為不重複/);
+  fireEvent.change(screen.getByLabelText('選擇標準 CSV 樣本'), { target: { files: [csv('檢驗紀錄.csv', '批號,數量\nPRIVATE_SAMPLE_SENTINEL,3')] } });
   await waitFor(() => expect(screen.getByLabelText('欄位 1 名稱')).toBeTruthy());
-  // The failed file is named with its reason instead of being skipped silently (D25).
-  expect(screen.getByText(/broken\.csv：第一列須為不重複/)).toBeTruthy();
   expect(document.body.textContent).not.toContain('PRIVATE_SAMPLE_SENTINEL');
-  // The form takes the file name and the page asks for de-identification (D27); it lands in the chosen step (D23).
   expect((screen.getByLabelText('表單名稱') as HTMLInputElement).value).toBe('檢驗紀錄');
   expect(screen.getByText(/表單名稱取自檔名，請確認已去識別化/)).toBeTruthy();
-  expect((screen.getByLabelText('所屬步驟') as HTMLSelectElement).value).toBe('step-2');
+  expect((screen.getByLabelText('名稱') as HTMLInputElement).value).toBe('檢驗');
   expect((screen.getByLabelText('欄位 2 型別') as HTMLSelectElement).value).toBe('integer');
   fireEvent.click(screen.getByLabelText('欄位 1 識別欄位'));
   fireEvent.change(screen.getByLabelText('欄位 1 名稱'), { target: { value: '自訂名稱' } });
-  fireEvent.click(screen.getByRole('button', { name: /04 功能選配/ }));
-  fireEvent.click(screen.getByRole('button', { name: /02 表單/ }));
+  fireEvent.click(screen.getByRole('button', { name: /02 功能選配/ }));
+  fireEvent.click(screen.getByRole('button', { name: /01 流程畫布/ }));
+  fireEvent.click(screen.getByRole('button', { name: '檢驗' }));
   expect((screen.getByLabelText('欄位 1 名稱') as HTMLInputElement).value).toBe('自訂名稱');
   expect((screen.getByLabelText('欄位 1 識別欄位') as HTMLInputElement).checked).toBe(true);
-  // A new field selects its placeholder name so typing replaces it (G03).
   fireEvent.click(screen.getByRole('button', { name: '新增欄位' }));
   const added = screen.getByLabelText('欄位 3 名稱') as HTMLInputElement;
   expect(document.activeElement).toBe(added);
@@ -53,18 +48,18 @@ test('multi-file upload builds one form per file in the chosen step, lists failu
   expect(exportRecipe(initialRecipe, catalog)).not.toMatch(/PRIVATE_SAMPLE_SENTINEL|自訂名稱/);
   expect(fetch).not.toHaveBeenCalled(); expect(xhr).not.toHaveBeenCalled(); expect(storage).not.toHaveBeenCalled();
 });
-test('a form moved out of its step or left unassigned blocks the forms step and names the form (A20)', async () => {
+test('A20/D23: incomplete and unassigned forms block confirmation and name the form', () => {
   render(<App />); openFlow();
-  fireEvent.click(screen.getByRole('button', { name: '新增步驟' }));
-  fireEvent.click(screen.getByRole('button', { name: /02 表單/ }));
+  fireEvent.click(screen.getByRole('button', { name: '加入到畫布：業務節點' }));
   fireEvent.click(screen.getByRole('button', { name: '新增空白表單' }));
   expect(document.getElementById('step-status')!.textContent).toContain('表單「新表單 1」尚未完成：尚未建立欄位');
   fireEvent.click(screen.getByRole('button', { name: '新增欄位' }));
   expect((screen.getByRole('button', { name: '確認並繼續' }) as HTMLButtonElement).disabled).toBe(false);
-  fireEvent.click(screen.getByRole('button', { name: /01 流程步驟/ }));
-  fireEvent.click(screen.getByRole('button', { name: /^01 新步驟 1/ }));
-  fireEvent.click(screen.getByRole('button', { name: '刪除步驟 1' }));
-  expect(screen.getByText(/其 1 張表單需在「表單」重新指派步驟/)).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: /02 表單/ }));
-  expect(document.getElementById('step-status')!.textContent).toContain('表單「新表單 1」尚未指派步驟');
+  // Imported drafts can contain an unassigned form; it must remain visible as an error (no silent removal).
+  const value = { format: 'composer-aov-list', version: 4, rootGraphId: 'root', graphs: [{ id: 'root', name: '主流程', nodes: [{ id: 'n', name: '收料', when: '', owner: '', actionId: null, params: {}, formId: null, childGraphId: null }], edges: [] }], layout: {}, forms: [{ id: 'f', name: '待指派表單', fields: [{ id: 'field-1', name: '批號', type: 'text', required: true, isKey: false }] }], relations: [] };
+  fireEvent.click(screen.getByText('匯入流程規格')); fireEvent.click(screen.getByText('進階：貼上流程 JSON'));
+  fireEvent.change(screen.getByLabelText('流程 JSON'), { target: { value: JSON.stringify(value) } });
+  fireEvent.click(screen.getByRole('button', { name: '匯入流程 JSON' }));
+  expect(document.getElementById('step-status')!.textContent).toContain('表單「待指派表單」尚未指派給任何節點');
+  expect((screen.getByRole('button', { name: '確認並繼續' }) as HTMLButtonElement).disabled).toBe(true);
 });

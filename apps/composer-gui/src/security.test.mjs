@@ -9,7 +9,8 @@ import { exportRecipe } from '../../../libs/ui-runtime/recipe';
 import { initialRecipe } from './App';
 import { catalog } from './previewCatalog';
 import { buildDeliveryPackage } from './deliveryPackage';
-import { exportAov, sha256Hex } from './workflow';
+import { sha256Hex } from './workflow';
+import { exportAovGraph, listToGraph } from './workflowGraph';
 import { createZip } from './zip';
 import { readZip } from './testZip';
 import { inspectPackage, readStoreZip, REPO_ROOT, signPackage, verifyPackage } from '../../../scripts/security/lib.mjs';
@@ -23,7 +24,7 @@ async function deliveryPackage(stepName = '收料', withSite = false) {
   const workflow = { format: 'composer-aov-list', version: 3,
     steps: [{ id: 'step-1', name: stepName, when: '', owner: '倉管', formIds: ['form-1'], actions: [] }],
     forms: [{ id: 'form-1', name: '收料單', fields: [{ id: 'field-1', name: '批號', type: 'text', required: true, isKey: true }] }], relations: [] };
-  const workflowText = exportAov(workflow);
+  const workflowText = exportAovGraph(listToGraph(workflow).value);
   const siteText = withSite ? JSON.stringify(siteA) : undefined;
   const recipeText = exportRecipe({ ...initialRecipe, clientName: '示範客戶', workflowRef: { path: 'workflow.aov.json', sha256: await sha256Hex(workflowText) },
     ...(siteText ? { siteRef: { path: /** @type {const} */ ('site.profile.json'), sha256: await sha256Hex(siteText) } } : {}) }, catalog);

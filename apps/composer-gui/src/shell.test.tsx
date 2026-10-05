@@ -32,6 +32,6 @@ test('pages that are not built yet say so instead of showing made-up data (D16, 
 
 test('home shows only counts from the session and states that no execution history exists', () => {
   render(<App />);
-  expect(within(screen.getByRole('region', { name: '設定概況' })).getByText('流程步驟').nextElementSibling?.textContent).toBe('0');
+  expect(within(screen.getByRole('region', { name: '設定概況' })).getByText('流程節點').nextElementSibling?.textContent).toBe('0');
   expect(screen.getByText(/尚無執行紀錄/)).toBeTruthy();
 });

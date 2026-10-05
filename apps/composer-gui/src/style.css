@@ -6,6 +6,18 @@
   --space-sm: .5rem; --space: 1rem; --space-lg: 1.5rem; --space-xl: 2rem; --radius: .5rem; --radius-lg: .75rem;
   --page-max: 100rem; --bar: 5.5rem;
 }
+.workflow-canvas { height: 32rem; min-width: 0; margin-block: var(--space); border: 1px solid var(--border); }
+.business-node { width: 128px; height: 128px; border-radius: 50%; border: 2px solid var(--border); background: var(--surface); color: var(--ink); display: grid; place-items: center; padding: var(--space); }
+.business-node span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.react-flow__node.selected .business-node { background: var(--selected); border-color: var(--primary); }
+.workflow-canvas .react-flow__node { box-shadow: none; }
+.workflow-canvas .react-flow__handle { width: 44px; height: 44px; background: transparent; border: none; }
+.workflow-canvas .react-flow__handle::after { content: ''; position: absolute; inset: 18px; background: var(--primary); border-radius: 50%; }
+.workflow-canvas .react-flow__edge-path { stroke: var(--muted); }
+.workflow-canvas .react-flow__attribution { background: var(--surface); color: var(--ink); }
+.workflow-canvas .react-flow__attribution a { color: var(--ink); }
+.workflow-canvas *, .workflow-canvas *::before, .workflow-canvas *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+.canvas-suggestion { margin-left: auto; max-width: 28rem; }
 * { box-sizing: border-box; }
 body { margin: 0; }
 p { overflow-wrap: anywhere; }

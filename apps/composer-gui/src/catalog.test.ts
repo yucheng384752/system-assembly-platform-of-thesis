@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import raw from '../../../kits/form-analysis.kit-manifest.json?raw';
-import { flows, kits, loadKits, parseManifest, selectKits, suggestFlows } from './catalog';
+import { flows, kits, loadKits, parseManifest, selectKits } from './catalog';
+import { emptyGraph, suggestActions } from './workflowGraph';
 
 test('real manifest accepts BOM, validates schema and applies D03 without mutating baseline', () => {
   expect(parseManifest('\uFEFF' + raw.replace(/^\uFEFF/, '')).kits).toHaveLength(12);
@@ -36,7 +37,9 @@ test('missing references, duplicate IDs and cycles fail with paths', () => {
 });
 test('suggestions follow a fixed rule: only confirmed form relations suggest query-trace', () => {
   // Forms alone do not imply tracing; the suggestion is a program rule, not a model guess (spec 4.2 step 4).
-  expect(suggestFlows(0)).toEqual([]);
-  expect(suggestFlows(2).map(s => s.id)).toEqual(['query-trace']);
-  expect(suggestFlows(2)[0].reason).toContain('已確認 2 條表單關聯');
+  expect(suggestActions(emptyGraph)).toEqual([]);
+  const relation = { id: 'r', kind: 'shared-key' as const, from: { formId: 'f1', fieldId: 'lot' }, to: { formId: 'f2', fieldId: 'lot' }, origin: 'user' as const, confirmed: true as const };
+  const graph = { ...emptyGraph, relations: [relation, { ...relation, id: 'r2', to: { formId: 'f3', fieldId: 'lot' } }] };
+  expect(suggestActions(graph).map(s => s.actionId)).toEqual(['trace-records']);
+  expect(suggestActions(graph)[0].reason).toContain('已確認 2 條表單關聯');
 });

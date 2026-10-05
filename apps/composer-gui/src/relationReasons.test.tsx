@@ -2,15 +2,16 @@
 import { afterEach, expect, test } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { explainMissedCandidates, inferCandidates } from './relations';
-import { RelationsPage } from './RelationsPage';
-import { emptyAov, type AovDocument } from './workflow';
+import { NodeRelations } from './NodeRelations';
+import { listToGraph, type AovGraphDocument } from './workflowGraph';
+import type { AovDocument } from './workflow';
 import type { FieldType, FormDraft } from './localData';
 
 afterEach(cleanup);
 const field = (id: string, name: string, type: FieldType, isKey = false) => ({ id, name, type, required: true, isKey });
 const form = (id: string, name: string, ...fields: FormDraft['fields']): FormDraft => ({ id, name, fields });
-const doc = (forms: FormDraft[], relations: AovDocument['relations'] = []): AovDocument => ({ ...emptyAov,
-  steps: [{ id: 'step-1', name: '錫膏流程', when: '', owner: 'OP', formIds: forms.map(f => f.id), actions: [] }], forms, relations });
+const doc = (forms: FormDraft[], relations: AovDocument['relations'] = []): AovGraphDocument => listToGraph({ format: 'composer-aov-list', version: 3,
+  steps: [{ id: 'step-1', name: '錫膏流程', when: '', owner: 'OP', formIds: forms.map(f => f.id), actions: [] }], forms, relations }).value;
 
 // Reported case: only two of three forms share an identically named and typed key; production calls it something else.
 // Field names and types only; the shape comes from real sample headers, no row values are used (M01).
@@ -64,11 +65,11 @@ test('short or equal names are not treated as similar, so a one-character field 
   ]))).toEqual([]);
 });
 test('the relations page shows the explanation next to the candidates, and hides the section when there is nothing to explain', () => {
-  const { unmount } = render(<RelationsPage value={reported()} onChange={() => {}} />);
+  const { unmount } = render(<NodeRelations value={reported()} formId="form-1" onChange={() => true} />);
   const section = screen.getByRole('region', { name: '未成為候選的原因' });
   expect(section.textContent).toContain('「生產批號」名稱相近');
   expect(screen.getAllByRole('button', { name: /確認/ }).length).toBe(1);
   unmount();
-  render(<RelationsPage value={doc([form('form-1', 'a', field('f1', '批號', 'integer', true))])} onChange={() => {}} />);
+  render(<NodeRelations value={doc([form('form-1', 'a', field('f1', '批號', 'integer', true))])} formId="form-1" onChange={() => true} />);
   expect(screen.queryByRole('region', { name: '未成為候選的原因' })).toBeNull();
 });

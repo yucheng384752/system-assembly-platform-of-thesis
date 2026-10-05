@@ -4,19 +4,22 @@ import { schemas } from '../../../libs/ui-runtime/schema';
 import { initialRecipe } from './App';
 import { catalog } from './previewCatalog';
 import { buildDeliveryPackage, MANIFEST_FILE, sensitiveKeys } from './deliveryPackage';
-import { exportAov, sha256Hex, type AovDocument } from './workflow';
+import { sha256Hex, type AovDocument } from './workflow';
+import { exportAovGraph, listToGraph } from './workflowGraph';
 import { readZip } from './testZip';
 import { fragmentPath, loadFragments, manualRoles } from './manual';
 import siteA from '../../../config/site/examples/demo-site-a.site.json';
 
-const workflow: AovDocument = {
+// Built in the older list shape and converted, the same way an imported older document reaches the canvas (D75).
+const legacy = (name = '收料'): AovDocument => ({
   format: 'composer-aov-list', version: 3,
-  steps: [{ id: 'step-1', name: '收料', when: '', owner: '倉管', formIds: ['form-1'], actions: [] }],
+  steps: [{ id: 'step-1', name, when: '', owner: '倉管', formIds: ['form-1'], actions: [] }],
   forms: [{ id: 'form-1', name: '收料單', fields: [{ id: 'field-1', name: '批號', type: 'text', required: true, isKey: true }] }],
   relations: [],
-};
+});
+const exportWorkflow = (name?: string) => exportAovGraph(listToGraph(legacy(name)).value);
 async function inputs() {
-  const workflowText = exportAov(workflow);
+  const workflowText = exportWorkflow();
   const recipeText = exportRecipe({ ...initialRecipe, clientName: '示範客戶', workflowRef: { path: 'workflow.aov.json', sha256: await sha256Hex(workflowText) } }, catalog);
   return { workflowText, recipeText };
 }
@@ -139,13 +142,13 @@ test('identical settings give an identical package; changing the Workflow change
   const { workflowText, recipeText } = await inputs();
   const first = await buildDeliveryPackage(recipeText, workflowText, catalog);
   expect((await buildDeliveryPackage(recipeText, workflowText, catalog)).bytes).toEqual(first.bytes);
-  const renamed = exportAov({ ...workflow, steps: [{ ...workflow.steps[0], name: '進料' }] });
+  const renamed = exportWorkflow('進料');
   const relinked = exportRecipe({ ...JSON.parse(recipeText), workflowRef: { path: 'workflow.aov.json', sha256: await sha256Hex(renamed) } }, catalog);
   expect((await buildDeliveryPackage(relinked, renamed, catalog)).fileName).not.toBe(first.fileName);
 });
 test('a Recipe that points at a different Workflow is refused instead of packed (D35)', async () => {
   const { recipeText } = await inputs();
-  const other = exportAov({ ...workflow, steps: [{ ...workflow.steps[0], name: '進料' }] });
+  const other = exportWorkflow('進料');
   await expect(buildDeliveryPackage(recipeText, other, catalog)).rejects.toThrow('校驗碼與流程規格不符');
 });
 test('credential-like key names block the package and are named by path (A15)', async () => {
