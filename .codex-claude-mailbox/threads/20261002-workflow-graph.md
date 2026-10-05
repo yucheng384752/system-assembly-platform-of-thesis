@@ -269,3 +269,12 @@ Claude 的推論（待 user 確認，已寫入決議）：步驟由 5 個改為 
   - 未能驗證：視覺外觀（圓形大小、裁切、縮放、窄螢幕）。測試用的 Chrome 分頁 `document.hidden` 為 true，截圖是舊畫面且 React Flow 量到的畫布尺寸不可靠（縮放 0.5、位移為負），因此不能憑截圖判斷。第一個節點看起來被裁在左上角、自動置中是否有效，都無法在此環境證實，Claude 曾嘗試加入自動「適合畫面」的修正，因無法驗證而全部還原。需要 user 在可見的 Chrome 視窗目視確認一次（含 400px 寬度）。
   - 觀察（不修）：同一個事件迴圈內連續觸發三次「加入到畫布」只會保留最後一個，因為 `add` 以閉包內舊的 `value` 整份覆寫；真人逐次點擊不會發生，列為低風險。
 - 尚待：user 目視確認畫布外觀與窄螢幕；步驟 03 輸出與匯入的瀏覽器實測（單元與整合測試已涵蓋位元組與校驗碼一致）。
+
+### 2026-10-05 工廠層（D78 到 D83）
+
+- user 審閱畫布後提出八點：先命名工廠並提供「建立生產邏輯」按鈕、側欄移除專案與場域、工具箱移除說明、節點縮小一倍、自動產生開始與結束節點、匯入流程規格改為層級列旁的按鈕、側欄收合改為右緣中央圖示、工廠層其餘依 Claude 建議。前述畫面調整已先提交於 `feature/workflow-canvas`（a1d5a90）；工廠層與開始、結束節點改動資料模型，另開 `feature/factory-layer`（由該分支開出，尚未合併）。
+- 未由 user 明講、由 Claude 解讀的兩處：工廠不等於場域（Site Profile 不動）；開始與結束的範圍是每一張圖並要成為連續路徑。已寫進 D78、D80 並標示待確認。
+- 接手方式：Codex 額度到 2026-10-05 17:05 才恢復，且此功能與畫布程式緊密相連，由 Claude 直接完成，未派給 Codex。
+- 變更：`schemas/aov.schema.json`（version 5）；`workflowGraph.ts`（工廠、`kind`、開始結束規則、跨工廠限制、`upgradeV4`、`listToGraph` 輸出 version 5）；`canvasEditing.ts`（自動接線、刪除時橋接、工廠與生產邏輯的新增改名刪除）；新增 `FactoryPage.tsx`；`WorkflowCanvas.tsx`（工廠清單為起點、工具列提到整頁共用位置、開始結束節點的外觀與限制、路徑由 App 保存）；`relations.ts`、`NodeRelations.tsx`（只提供同工廠的表單）；`FlowPage.tsx`（原因帶工廠與生產邏輯名稱）；`AppShell.tsx`、`WorkflowTransfer.tsx`、`style.css`、`DESIGN.md`、`docs/project-spec.md` §4.5。
+- 測試：完整套件 27 個檔案以上全數通過；新增 `canvasEditing.test.ts`（16 項）、`FactoryPage.test.tsx`（8 項），`workflowGraph.test.ts` 改寫為 77 項。以暫時關掉同工廠限制驗證測試會失敗後已還原。
+- 瀏覽器（Chrome）實測：工廠首頁、命名後建立生產邏輯並開啟畫布、層級列、開始與結束節點（64px，相距 240px）、自動接線、畫布與工具箱與細項都收在固定操作列之上。視覺外觀仍需 user 在可見視窗目視確認（測試分頁為隱藏，截圖不可靠）。
