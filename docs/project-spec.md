@@ -401,7 +401,7 @@ Input Adapter → Data Profiler → Task + Site constraints → Eligibility Filt
 
 **需求（2026-09-30，D16–D21，見 §4.2）：**組裝步驟前加上「Workflow 步驟 → 表單 → 已確認的表單關聯」，且 System Package 須包含 Workflow 文件及其 checksum。可執行組裝（P2）完成前，Composer 產出的壓縮檔稱「設定交付包」，不得稱為可安裝系統（D21）。壓縮檔另於 `feature/install-package` 處理；目前 Workflow 文件與 Recipe 分別下載（D28）。
 
-**設定交付包（2026-09-30，D31–D36）：**在 05 輸出下載單一 zip，內容只含實際產物；Workflow 與 Recipe 仍可分別下載。
+**設定交付包（2026-09-30，D31–D36；2026-10-05 D86）：**在輸出步驟下載單一 zip，內容只含實際產物，是交付時的主要檔案；Workflow 與 Recipe 仍可分別下載，收在輸出頁的「進階：個別檔案與載入設定」，用來重新載入設定（zip 本期不支援匯入）。可執行組裝（P2）完成後，交付包與安裝包合併為單一下載。
 
 ```text
 <recipe-name>-delivery-<sha12>.zip
