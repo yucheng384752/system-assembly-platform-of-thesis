@@ -44,7 +44,7 @@ export function App() {
     conflict || (!recipe.clientName?.trim() ? '請填寫客戶代稱。' : workflowProblems.length ? `流程規格尚未完成：${workflowProblems[0]}` : ''),
   ][step] ?? '';
   // The step flow stays mounted (only hidden) so switching pages never loses the confirmed steps.
-  const steps = <StepShell stepError={stepError} renderStep={step => step === 0 ? <><WorkflowTransfer onChange={next => { setGraph(next); setGraphSession(s => s + 1); }} /><WorkflowCanvas key={graphSession} value={graph} onChange={setGraph} /></>
+  const steps = <StepShell stepError={stepError} renderStep={step => step === 0 ? <WorkflowCanvas resetKey={graphSession} value={graph} onChange={setGraph} toolbarExtra={<WorkflowTransfer onChange={next => { setGraph(next); setGraphSession(s => s + 1); }} />} />
     : step === 1 ? <FlowPage graph={graph} derived={derived} site={site?.site} recipe={recipe} onChange={setRecipe} requested={requested} manual={manual} session={session} onSelect={(nextFlows, nextKits) => {
       setRequested(nextFlows); setManual(nextKits);
     }} />
@@ -58,7 +58,7 @@ export function App() {
         if (selection.enabledKits.some(id => !next.enabledKits.includes(id))) throw new Error('設定檔缺少必要流程的功能。');
         setRecipe(next); setRequested(importedFlows); setManual(next.enabledKits.filter(id => !selection.enabledKits.includes(id))); setSession(s => s + 1);
       }} />} />;
-  return <AppShell page={page} onNavigate={setPage} project={recipe.name} siteName={site?.site.displayName}>
+  return <AppShell page={page} onNavigate={setPage}>
     {page === 'home' && <HomePage aov={graph} enabledKits={recipe.enabledKits.length} onNavigate={setPage} />}
     <div hidden={page !== 'flow'}>{steps}</div>
     {page === 'datasets' && <PlaceholderPage title="資料集" lead="集中管理設定用與執行用資料集。" items={['資料集列表與版本', 'CSV 匯入與欄位對應', '引用此資料集的系統清單']} />}

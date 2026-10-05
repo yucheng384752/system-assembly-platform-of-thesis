@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ReactFlow, ReactFlowProvider, Handle, Position, useReactFlow, type Node, type NodeProps } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { actionCatalog, describeEndpoint, nextId } from './workflow';
@@ -17,10 +17,11 @@ function CircleNode({ data }: NodeProps<BusinessNode>) {
 }
 const nodeTypes = { business: CircleNode };
 
-export function WorkflowCanvas(props: { value: AovGraphDocument; onChange: (value: AovGraphDocument) => void }) {
+interface CanvasProps { value: AovGraphDocument; onChange: (value: AovGraphDocument) => void; toolbarExtra?: ReactNode; resetKey?: number }
+export function WorkflowCanvas(props: CanvasProps) {
   return <ReactFlowProvider><Canvas {...props} /></ReactFlowProvider>;
 }
-function Canvas({ value, onChange }: { value: AovGraphDocument; onChange: (value: AovGraphDocument) => void }) {
+function Canvas({ value, onChange, toolbarExtra, resetKey = 0 }: CanvasProps) {
   const [path, setPath] = useState([value.rootGraphId]);
   const [selected, setSelected] = useState('');
   const [error, setError] = useState('');
@@ -31,6 +32,8 @@ function Canvas({ value, onChange }: { value: AovGraphDocument; onChange: (value
     if (focus.current) { const input = document.getElementById('node-name'); input?.focus(); if (selectName.current && input instanceof HTMLInputElement) input.select(); focus.current = false; selectName.current = false; }
   }, [selected, value]);
   const flow = useReactFlow<BusinessNode>();
+  // A new import replaces the document: go back to the main flow and clear the selection (the toolbar, with its import notices, stays mounted).
+  useEffect(() => { setPath([value.rootGraphId]); setSelected(''); setDeleting(false); setError(''); }, [resetKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const graph = value.graphs.find(g => g.id === path.at(-1)) ?? value.graphs.find(g => g.id === value.rootGraphId)!;
   const node = graph.nodes.find(n => n.id === selected);
   const depth = graphDepths(value).get(graph.id) ?? 1;
@@ -55,7 +58,7 @@ function Canvas({ value, onChange }: { value: AovGraphDocument; onChange: (value
     <Column id="canvas-tools" title="工具箱" lead="選擇動作加入畫布，也可拖放至所需位置。" className="workflow-tools" scroll>
       {[...actionCatalog.actions, { id: '', name: '業務節點', description: '描述工作內容，不加入系統功能。' }].map(action => <section className="flow-card" key={action.id}
         draggable onDragStart={e => { e.dataTransfer.setData('application/x-workflow-action', action.id || 'business'); e.dataTransfer.effectAllowed = 'copy'; }}>
-        <h3>{action.name}</h3><p>{action.description}</p>
+        <h3>{action.name}</h3>
         <button disabled={graph.nodes.length >= MAX_NODES} onClick={() => add(action.id || null)}>加入到畫布<span className="visually-hidden">：{action.name}</span></button>
       </section>)}
       <h3>選取節點</h3><ul className="step-list">{graph.nodes.map(n => <li key={n.id}><button aria-current={n.id === selected ? true : undefined} onClick={() => { focus.current = true; setSelected(n.id); setDeleting(false); }}>{n.name || '（未命名節點）'}</button></li>)}</ul>
@@ -63,12 +66,13 @@ function Canvas({ value, onChange }: { value: AovGraphDocument; onChange: (value
     <Column id="canvas" title="流程畫布" lead="連線表示先後順序，多條出線表示平行作業。" className="workflow-canvas-column">
       <div className="canvas-toolbar">
       <nav aria-label="流程層級" className="actions">{path.filter(id => value.graphs.some(g => g.id === id)).map((id, index) => <button key={id} aria-current={id === graph.id ? 'location' : undefined} onClick={() => { setPath(path.slice(0, index + 1)); setSelected(''); setDeleting(false); }}>{value.graphs.find(g => g.id === id)!.name}</button>)}</nav>
-      <div className="actions"><button onClick={() => void flow.zoomIn({ duration: 0 })}>放大</button><button onClick={() => void flow.zoomOut({ duration: 0 })}>縮小</button><button onClick={() => void flow.fitView({ duration: 0 })}>適合畫面</button></div></div>
+      {toolbarExtra}
+      <div className="actions canvas-zoom"><button onClick={() => void flow.zoomIn({ duration: 0 })}>放大</button><button onClick={() => void flow.zoomOut({ duration: 0 })}>縮小</button><button onClick={() => void flow.fitView({ duration: 0 })}>適合畫面</button></div></div>
       <div className="workflow-canvas" onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }} onDrop={e => {
         e.preventDefault(); const action = e.dataTransfer.getData('application/x-workflow-action');
         if (action) add(action === 'business' ? null : action, flow.screenToFlowPosition({ x: e.clientX, y: e.clientY }));
       }}>
-        <ReactFlow<BusinessNode> nodes={graph.nodes.map((n, i) => ({ id: n.id, type: 'business', data: { label: n.name || '（未命名節點）' },
+        <ReactFlow<BusinessNode> key={resetKey} nodes={graph.nodes.map((n, i) => ({ id: n.id, type: 'business', data: { label: n.name || '（未命名節點）' },
           position: value.layout[graph.id]?.[n.id] ?? { x: i * 180, y: 0 }, selected: n.id === selected, ariaLabel: n.name || '（未命名節點）' }))}
           edges={graph.edges.map(e => ({ id: e.id, source: e.from, target: e.to, animated: false, focusable: false }))} nodeTypes={nodeTypes}
           deleteKeyCode={null} nodesFocusable edgesFocusable={false} autoPanOnNodeFocus={false}

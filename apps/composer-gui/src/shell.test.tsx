@@ -2,6 +2,7 @@
 import { afterEach, expect, test } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { App } from './App';
+import { actionCatalog } from './workflow';
 afterEach(cleanup);
 
 const nav = () => screen.getByRole('navigation', { name: '主要導覽' });
@@ -54,4 +55,26 @@ test('the sidebar collapses and expands without losing any navigation entry', ()
   fireEvent.click(toggle());
   expect(container.querySelector('.app-shell')?.classList.contains('sidebar-collapsed')).toBe(false);
   expect(toggle().textContent).toBe('收合導覽');
+});
+
+test('the sidebar shows navigation only: no project or site text', () => {
+  render(<App />);
+  expect(screen.queryByText(/專案：/)).toBeNull();
+  expect(screen.queryByText(/場域：/)).toBeNull();
+});
+
+test('the toolbox lists tools by name only, and importing a workflow is a button beside the main-flow breadcrumb', () => {
+  const { container } = render(<App />); go('流程');
+  const tools = screen.getByRole('region', { name: '工具箱' });
+  for (const action of actionCatalog.actions) {
+    expect(within(tools).getByRole('heading', { name: action.name })).toBeTruthy();
+    expect(within(tools).queryByText(action.description)).toBeNull();
+  }
+  const toolbar = container.querySelector('.canvas-toolbar')!;
+  const importButton = within(toolbar as HTMLElement).getByRole('button', { name: '匯入流程規格' });
+  expect(within(toolbar as HTMLElement).getByRole('button', { name: '主流程' })).toBeTruthy();
+  expect(importButton.getAttribute('aria-expanded')).toBe('false');
+  fireEvent.click(importButton);
+  expect(importButton.getAttribute('aria-expanded')).toBe('true');
+  expect(within(toolbar as HTMLElement).getByText('選擇流程規格檔')).toBeTruthy();
 });

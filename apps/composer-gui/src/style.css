@@ -7,8 +7,8 @@
   --page-max: 100rem; --bar: 5.5rem;
 }
 .workflow-canvas { height: 32rem; min-width: 0; margin-block: var(--space); border: 1px solid var(--border); }
-.business-node { width: 128px; height: 128px; border-radius: 50%; border: 2px solid var(--border); background: var(--surface); color: var(--ink); display: grid; place-items: center; padding: var(--space); }
-.business-node span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.business-node { width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(--border); background: var(--surface); color: var(--ink); display: grid; place-items: center; padding: 4px; font-size: .75rem; line-height: 1.2; text-align: center; }
+.business-node span { max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: anywhere; }
 .react-flow__node.selected .business-node { background: var(--selected); border-color: var(--primary); }
 .workflow-canvas .react-flow__node { box-shadow: none; }
 .workflow-canvas .react-flow__handle { width: 44px; height: 44px; background: transparent; border: none; }
@@ -173,7 +173,6 @@ dd { margin: 0 0 0 var(--space); }
 .sidebar ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-sm); }
 .sidebar nav button { width: 100%; justify-content: flex-start; border-color: transparent; background: none; }
 .sidebar nav button[aria-current=page] { background: var(--selected); border-color: var(--primary); color: var(--primary); }
-.sidebar-foot { margin: 0; font-size: .875rem; overflow-wrap: anywhere; }
 .shell-content { min-width: 0; }
 .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--space); margin: var(--space) 0; }
 .summary-grid > div { padding: var(--space); border: 1px solid var(--card-border); border-radius: var(--radius); background: var(--preview); }
@@ -188,18 +187,20 @@ dd { margin: 0 0 0 var(--space); }
 
 .main-wide { max-width: none; }
 /* Sidebar collapse (wide viewports) and the workflow page: the canvas takes the width, details open only for a selected node. */
-.sidebar-toggle { display: none; }
+.sidebar-toggle { display: none; position: absolute; top: 50%; right: -1.375rem; transform: translateY(-50%); z-index: 6; width: 2.75rem; height: 2.75rem; padding: 0; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); }
 .toggle-icon { transform: rotate(180deg); }
 .sidebar-collapsed .toggle-icon { transform: none; }
+.transfer-panel { flex: 1 0 100%; order: 10; }
+.canvas-zoom { margin-left: auto; }
 .workflow-tools, .workflow-details { max-height: 24rem; overflow-y: auto; }
 .workflow-canvas-column > .column-head, .workflow-canvas-column > .lead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .canvas-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); }
 .workflow-canvas { height: 70vh; min-height: 28rem; margin-block: var(--space-sm) var(--space); }
 @media (min-width: 64rem) {
-  .sidebar-toggle { display: inline-flex; align-items: center; justify-content: flex-start; gap: var(--space-sm); width: 100%; border-color: transparent; background: none; }
+  .sidebar-toggle { display: inline-flex; align-items: center; justify-content: center; }
   .app-shell.sidebar-collapsed { grid-template-columns: 4.5rem minmax(0, 1fr); }
   .sidebar-collapsed .sidebar { padding-inline: var(--space-sm); }
-  .sidebar-collapsed .sidebar-toggle, .sidebar-collapsed .sidebar nav button { justify-content: center; }
+  .sidebar-collapsed .sidebar nav button { justify-content: center; }
   .workflow-columns { grid-template-columns: minmax(14rem, 17rem) minmax(0, 1fr); }
   .workflow-columns.has-details { grid-template-columns: minmax(14rem, 17rem) minmax(0, 1fr) minmax(20rem, 26rem); }
   .workflow-tools, .workflow-details { max-height: none; }
