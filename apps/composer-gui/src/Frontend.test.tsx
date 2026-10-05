@@ -41,3 +41,15 @@ test('A-C11/C14: tracing derives four functions, locks required ones, and uses b
   // The reason names where the node sits: factory, production logic, then the node (D81).
   expect(screen.getAllByText(/因為「A 廠」的「生產邏輯 1」中，「查詢追溯」要做「查詢追溯」/).length).toBeGreaterThan(0);
 });
+
+// The feature step no longer lists a separate block of "dependent features": the reasons live with each derived feature.
+test('the feature step has no dependent-features block, and each derived feature keeps its own reasons', () => {
+  render(<App />); openFlow(); startLogic(); addTool('查詢追溯');
+  fireEvent.click(screen.getByRole('button', { name: /02 功能選配/ }));
+  expect(screen.queryByRole('heading', { name: '相依功能' })).toBeNull();
+  expect(screen.queryByText(/目前選了 \d+ 個流程/)).toBeNull();
+  const derived = screen.getByRole('region', { name: '流程所需功能' });
+  expect(within(derived).getAllByText(/因為/).length).toBeGreaterThan(0);
+  // The manual feature catalogue stays under advanced.
+  expect(screen.getByText('進階：功能目錄與搜尋')).toBeTruthy();
+});

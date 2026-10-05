@@ -10,6 +10,7 @@ const paths = {
   lock: 'M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z',
   link: 'M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1m2 4a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1',
   chevron: 'm9 6 6 6-6 6',
+  expand: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
   up: 'm6 15 6-6 6 6',
   down: 'm6 9 6 6 6-6',
   folder: 'M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6Z',

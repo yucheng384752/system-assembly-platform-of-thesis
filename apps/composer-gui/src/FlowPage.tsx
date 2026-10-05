@@ -51,10 +51,6 @@ export function FlowPage({ recipe, onChange, requested, manual, onSelect, sessio
         {note && <span id={`${flow.id}-note`} className="badge badge-selected">{note}</span>}</div>
         <p className="muted">{descriptions[flow.id]}</p>{flow.subflows.map(sub => <p key={sub.id} className="muted"><small>{sub.name}：{sub.description}</small></p>)}</div>;
     })}</div></fieldset>
-    <section aria-labelledby="auto-title"><h3 id="auto-title" className="actions"><Icon name="link" />相依功能</h3>
-      <p role="status" className="muted">目前選了 {selection.selectedFlows.length} 個流程、{recipe.enabledKits.length} 項功能。</p>
-      <div className="note"><ul>{selection.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul></div>
-    </section>
     <details><summary>進階：功能目錄與搜尋</summary>
       <label htmlFor="kit-search">搜尋功能名稱</label><input id="kit-search" type="search" value={search} onChange={e => setSearch(e.target.value)} />
       {catalog.kits.filter(k => k.displayName.toLowerCase().includes(search.toLowerCase())).map(kit => <label key={kit.id}>

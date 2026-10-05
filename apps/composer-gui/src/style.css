@@ -245,3 +245,12 @@ dd { margin: 0 0 0 var(--space); }
 .field-table input:not([type=checkbox]), .field-table select, .field-table textarea { width: 100%; }
 .field-table .check-cell { text-align: center; }
 .field-no { display: block; font-size: .875rem; color: var(--muted); font-weight: 400; }
+
+/* Full-screen dialog (D88): centred both ways on a dimmed backdrop; the table scrolls inside when it is wider or taller than the screen. */
+.modal-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: var(--space); background: rgba(0, 0, 0, .45); }
+.modal { display: flex; flex-direction: column; width: fit-content; min-width: min(24rem, 100%); max-width: min(96vw, 100rem); max-height: 92vh; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.modal:focus { outline: 3px solid var(--focus); outline-offset: -3px; }
+.modal-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space); padding: var(--space-sm) var(--space); border-bottom: 1px solid var(--card-border); }
+.modal-head h3 { margin: 0; }
+.modal-body { overflow: auto; padding: var(--space); }
+.modal-body .field-table-wrap { margin-block: 0 var(--space-sm); }
