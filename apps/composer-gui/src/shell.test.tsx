@@ -35,3 +35,23 @@ test('home shows only counts from the session and states that no execution histo
   expect(within(screen.getByRole('region', { name: '設定概況' })).getByText('流程節點').nextElementSibling?.textContent).toBe('0');
   expect(screen.getByText(/尚無執行紀錄/)).toBeTruthy();
 });
+
+// Collapsing only hides text: every entry stays reachable by name, and the control says what it will do next.
+test('the sidebar collapses and expands without losing any navigation entry', () => {
+  const { container } = render(<App />);
+  const toggle = () => screen.getByRole('button', { name: /導覽$/ });
+  expect(toggle().textContent).toBe('收合導覽');
+  expect(toggle().getAttribute('aria-expanded')).toBe('true');
+  fireEvent.click(toggle());
+  expect(toggle().getAttribute('aria-expanded')).toBe('false');
+  expect(toggle().textContent).toBe('展開導覽');
+  expect(container.querySelector('.app-shell')?.classList.contains('sidebar-collapsed')).toBe(true);
+  for (const title of ['首頁', '流程', '資料集', '執行記錄', '系統設定']) {
+    const entry = screen.getByRole('button', { name: title });
+    expect(entry.getAttribute('title')).toBe(title);
+    expect(entry.querySelector('.visually-hidden')?.textContent).toBe(title);
+  }
+  fireEvent.click(toggle());
+  expect(container.querySelector('.app-shell')?.classList.contains('sidebar-collapsed')).toBe(false);
+  expect(toggle().textContent).toBe('收合導覽');
+});

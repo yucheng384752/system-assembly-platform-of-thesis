@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Icon, type IconName } from './Icons';
 import type { AovGraphDocument } from './workflowGraph';
 
@@ -15,13 +15,17 @@ export const pages: { id: PageId; title: string; icon: IconName }[] = [
 export function AppShell({ page, onNavigate, project, siteName, children }: {
   page: PageId; onNavigate: (page: PageId) => void; project: string; siteName?: string; children: ReactNode;
 }) {
-  return <div className="app-shell">
+  // Collapsing keeps every label for assistive technology and only hides the text (wide viewports; narrow ones use the top bar).
+  const [collapsed, setCollapsed] = useState(false);
+  const hidden = collapsed ? 'visually-hidden' : undefined;
+  return <div className={collapsed ? 'app-shell sidebar-collapsed' : 'app-shell'}>
     <aside className="sidebar">
-      <p className="brand"><Icon name="logo" className="brand-logo" /><strong>Composer</strong></p>
-      <nav aria-label="主要導覽"><ul>{pages.map(item => <li key={item.id}>
-        <button aria-current={item.id === page ? 'page' : undefined} onClick={() => onNavigate(item.id)}><Icon name={item.icon} />{item.title}</button>
+      <p className="brand"><Icon name="logo" className="brand-logo" /><strong className={hidden}>Composer</strong></p>
+      <button className="sidebar-toggle" aria-expanded={!collapsed} aria-controls="app-nav" title={collapsed ? '展開導覽' : '收合導覽'} onClick={() => setCollapsed(!collapsed)}><Icon name="chevron" className="toggle-icon" /><span className={hidden}>{collapsed ? '展開導覽' : '收合導覽'}</span></button>
+      <nav id="app-nav" aria-label="主要導覽"><ul>{pages.map(item => <li key={item.id}>
+        <button aria-current={item.id === page ? 'page' : undefined} title={collapsed ? item.title : undefined} onClick={() => onNavigate(item.id)}><Icon name={item.icon} /><span className={hidden}>{item.title}</span></button>
       </li>)}</ul></nav>
-      <p className="sidebar-foot muted">專案：{project}<br />場域：{siteName ?? '尚未匯入'}</p>
+      <p className={collapsed ? 'sidebar-foot muted visually-hidden' : 'sidebar-foot muted'}>專案：{project}<br />場域：{siteName ?? '尚未匯入'}</p>
     </aside>
     <div className="shell-content">{children}</div>
   </div>;

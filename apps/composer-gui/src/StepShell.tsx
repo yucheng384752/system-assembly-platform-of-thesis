@@ -30,7 +30,7 @@ export function StepShell({ renderStep, stepError = () => '' }: { renderStep: (s
         </button></li>;
       })}</ol></nav>
     </header>
-    <main id="main-content" tabIndex={-1}>
+    <main id="main-content" tabIndex={-1} className={step === 0 ? 'main-wide' : undefined}>
       <div className="page-head">
         <h1 ref={heading} tabIndex={-1}>{current.title}</h1>
       </div>

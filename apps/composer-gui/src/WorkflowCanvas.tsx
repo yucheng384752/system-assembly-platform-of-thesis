@@ -46,8 +46,13 @@ function Canvas({ value, onChange }: { value: AovGraphDocument; onChange: (value
     if (commit(next)) { focus.current = true; selectName.current = true; setSelected(next.graphs.find(g => g.id === graph.id)!.nodes.at(-1)!.id); setDeleting(false); }
   }
   const removal = node && deleting ? deleteCanvasNode(value, node.id) : undefined;
-  return <div className="columns workflow-columns">
-    <Column id="canvas-tools" title="工具箱" lead="選擇動作加入畫布，也可拖放至所需位置。">
+  // Details exist only while a node is selected, so the canvas keeps the whole width otherwise.
+  function closeDetails() {
+    setSelected(''); setDeleting(false);
+    const heading = document.getElementById('canvas-title'); heading?.setAttribute('tabindex', '-1'); heading?.focus();
+  }
+  return <div className={node ? 'columns workflow-columns has-details' : 'columns workflow-columns'}>
+    <Column id="canvas-tools" title="工具箱" lead="選擇動作加入畫布，也可拖放至所需位置。" className="workflow-tools" scroll>
       {[...actionCatalog.actions, { id: '', name: '業務節點', description: '描述工作內容，不加入系統功能。' }].map(action => <section className="flow-card" key={action.id}
         draggable onDragStart={e => { e.dataTransfer.setData('application/x-workflow-action', action.id || 'business'); e.dataTransfer.effectAllowed = 'copy'; }}>
         <h3>{action.name}</h3><p>{action.description}</p>
@@ -55,9 +60,10 @@ function Canvas({ value, onChange }: { value: AovGraphDocument; onChange: (value
       </section>)}
       <h3>選取節點</h3><ul className="step-list">{graph.nodes.map(n => <li key={n.id}><button aria-current={n.id === selected ? true : undefined} onClick={() => { focus.current = true; setSelected(n.id); setDeleting(false); }}>{n.name || '（未命名節點）'}</button></li>)}</ul>
     </Column>
-    <Column id="canvas" title="流程畫布" lead="連線表示先後順序，多條出線表示平行作業。">
+    <Column id="canvas" title="流程畫布" lead="連線表示先後順序，多條出線表示平行作業。" className="workflow-canvas-column">
+      <div className="canvas-toolbar">
       <nav aria-label="流程層級" className="actions">{path.filter(id => value.graphs.some(g => g.id === id)).map((id, index) => <button key={id} aria-current={id === graph.id ? 'location' : undefined} onClick={() => { setPath(path.slice(0, index + 1)); setSelected(''); setDeleting(false); }}>{value.graphs.find(g => g.id === id)!.name}</button>)}</nav>
-      <div className="actions"><button onClick={() => void flow.zoomIn({ duration: 0 })}>放大</button><button onClick={() => void flow.zoomOut({ duration: 0 })}>縮小</button><button onClick={() => void flow.fitView({ duration: 0 })}>適合畫面</button></div>
+      <div className="actions"><button onClick={() => void flow.zoomIn({ duration: 0 })}>放大</button><button onClick={() => void flow.zoomOut({ duration: 0 })}>縮小</button><button onClick={() => void flow.fitView({ duration: 0 })}>適合畫面</button></div></div>
       <div className="workflow-canvas" onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }} onDrop={e => {
         e.preventDefault(); const action = e.dataTransfer.getData('application/x-workflow-action');
         if (action) add(action === 'business' ? null : action, flow.screenToFlowPosition({ x: e.clientX, y: e.clientY }));
@@ -75,13 +81,14 @@ function Canvas({ value, onChange }: { value: AovGraphDocument; onChange: (value
             if (picked?.type === 'select') { setSelected(picked.id); setDeleting(false); }
           }}
           onConnect={c => commit(connectCanvasNodes(value, graph.id, c.source, c.target, true))}
+          onPaneClick={() => { setSelected(''); setDeleting(false); }}
           fitView fitViewOptions={{ duration: 0 }} />
       </div>
       <p role={error ? 'alert' : undefined}>{error}</p>
       {suggestActions(value).map(s => <div key={s.actionId} className="canvas-suggestion note" role="status"><div><p>{s.reason}</p><button disabled={graph.nodes.length >= MAX_NODES} onClick={() => add(s.actionId)}>加入「{actionCatalog.actions.find(a => a.id === s.actionId)!.name}」節點</button></div></div>)}
     </Column>
-    <Column id="node-details" title="節點細項" lead="選取節點後設定內容、先後順序與子流程。">
-      {!node ? <p>請先加入或選取節點。</p> : <>
+    {node && <Column id="node-details" title="節點細項" lead="設定內容、先後順序與子流程。" className="workflow-details" scroll aside={<button onClick={closeDetails}>關閉細項</button>}>
+      <>
         <NodeDetails key={node.id} value={value} node={node} onChange={commit} />
         <fieldset><legend>節點位置</legend>{(['x', 'y'] as const).map(axis => <label key={axis}>{axis === 'x' ? '橫向位置' : '縱向位置'}<input type="number" value={value.layout[graph.id]?.[node.id]?.[axis] ?? 0} onChange={e => {
           if (e.target.value && Number.isFinite(e.target.valueAsNumber)) commit({ ...value, layout: { ...value.layout, [graph.id]: { ...value.layout[graph.id], [node.id]: { ...(value.layout[graph.id]?.[node.id] ?? { x: 0, y: 0 }), [axis]: e.target.valueAsNumber } } } });
@@ -97,7 +104,7 @@ function Canvas({ value, onChange }: { value: AovGraphDocument; onChange: (value
           {removal.nodes.map(n => <li key={n.id}>節點：{n.name}</li>)}{removal.graphs.map(g => <li key={g.id}>子流程：{g.name}</li>)}{removal.forms.map(f => <li key={f.id}>表單：{f.name}</li>)}
           {removal.relations.map(r => <li key={r.id}>關聯：{describeEndpoint(value, r.from)}至{describeEndpoint(value, r.to)}</li>)}
         </ul><p>相關的流程連線也會移除。</p><button className="danger" onClick={() => { if (commit(removal.value)) { setSelected(''); setDeleting(false); } }}>確認刪除</button><button onClick={() => setDeleting(false)}>取消</button></section>}
-      </>}
-    </Column>
+      </>
+    </Column>}
   </div>;
 }

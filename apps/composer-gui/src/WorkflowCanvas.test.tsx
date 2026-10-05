@@ -94,3 +94,30 @@ test('deletion needs in-page confirmation and cascades through descendants, form
   expect(integrityErrors(current)).toEqual([]);
   expect(deleteCanvasNode(doc, 'node-1').value.graphs).toHaveLength(1);
 });
+
+// The canvas keeps the whole width until a node is chosen; details are never a permanent empty column.
+test('node details exist only while a node is selected and close from the button or an empty canvas click', () => {
+  const { container } = render(<Editor />);
+  const details = () => screen.queryByRole('region', { name: '節點細項' });
+  expect(details()).toBeNull();
+  expect(container.querySelector('.workflow-columns')?.classList.contains('has-details')).toBe(false);
+  click('加入到畫布：業務節點');
+  expect(details()).not.toBeNull();
+  expect(container.querySelector('.workflow-columns')?.classList.contains('has-details')).toBe(true);
+  click('關閉細項');
+  expect(details()).toBeNull();
+  fireEvent.click(container.querySelector('ul.step-list button')!);
+  expect(details()).not.toBeNull();
+  fireEvent.click(container.querySelector('.react-flow__pane')!);
+  expect(details()).toBeNull();
+  // Closing never removes the node itself.
+  expect(current.graphs[0].nodes).toHaveLength(1);
+});
+
+// Both side regions scroll on their own, so a keyboard user must be able to focus them.
+test('the toolbox and the details scroll on their own and can be focused from the keyboard', () => {
+  render(<Editor />);
+  expect(screen.getByRole('region', { name: '工具箱' }).getAttribute('tabindex')).toBe('0');
+  click('加入到畫布：業務節點');
+  expect(screen.getByRole('region', { name: '節點細項' }).getAttribute('tabindex')).toBe('0');
+});

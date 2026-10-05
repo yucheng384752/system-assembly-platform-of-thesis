@@ -185,3 +185,28 @@ dd { margin: 0 0 0 var(--space); }
   .sidebar { position: sticky; top: 0; height: 100vh; border-bottom: 0; border-right: 1px solid var(--card-border); }
   .sidebar ul { flex-direction: column; }
 }
+
+.main-wide { max-width: none; }
+/* Sidebar collapse (wide viewports) and the workflow page: the canvas takes the width, details open only for a selected node. */
+.sidebar-toggle { display: none; }
+.toggle-icon { transform: rotate(180deg); }
+.sidebar-collapsed .toggle-icon { transform: none; }
+.workflow-tools, .workflow-details { max-height: 24rem; overflow-y: auto; }
+.workflow-canvas-column > .column-head, .workflow-canvas-column > .lead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.canvas-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+.workflow-canvas { height: 70vh; min-height: 28rem; margin-block: var(--space-sm) var(--space); }
+@media (min-width: 64rem) {
+  .sidebar-toggle { display: inline-flex; align-items: center; justify-content: flex-start; gap: var(--space-sm); width: 100%; border-color: transparent; background: none; }
+  .app-shell.sidebar-collapsed { grid-template-columns: 4.5rem minmax(0, 1fr); }
+  .sidebar-collapsed .sidebar { padding-inline: var(--space-sm); }
+  .sidebar-collapsed .sidebar-toggle, .sidebar-collapsed .sidebar nav button { justify-content: center; }
+  .workflow-columns { grid-template-columns: minmax(14rem, 17rem) minmax(0, 1fr); }
+  .workflow-columns.has-details { grid-template-columns: minmax(14rem, 17rem) minmax(0, 1fr) minmax(20rem, 26rem); }
+  .workflow-tools, .workflow-details { max-height: none; }
+}
+/* Canvas, toolbox and details share one height so the scroll bars stay inside the first screen above the pinned action bar. */
+@media (min-width: 64rem) and (min-height: 40rem) {
+  .workflow-columns { --canvas-h: calc(100vh - 26.5rem); }
+  .workflow-canvas { height: max(var(--canvas-h), 28rem); }
+  .workflow-tools, .workflow-details { position: sticky; top: var(--space); max-height: calc(max(var(--canvas-h), 28rem) + 5rem); }
+}
