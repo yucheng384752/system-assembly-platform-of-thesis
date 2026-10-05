@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { openFlow, startLogic } from './testNav';
+import { openFlow, startLogic, addTool } from './testNav';
 import { afterEach, expect, test } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { App } from './App';
@@ -31,7 +31,7 @@ test('A-C11/C14: tracing derives four functions, locks required ones, and uses b
   const result = deriveKits(['trace-records'], actionCatalog, registry);
   expect(result.kits.map(k => k.kitId)).toHaveLength(4);
   render(<App />); openFlow(); startLogic();
-  fireEvent.click(screen.getByRole('button', { name: '加入到畫布：查詢追溯' }));
+  addTool('查詢追溯');
   fireEvent.click(screen.getByRole('button', { name: /02 功能選配/ }));
   for (const name of ['通用表單', '站點資料串聯']) {
     const input = screen.getByRole('checkbox', { name: `${name}（流程需要）` }) as HTMLInputElement;

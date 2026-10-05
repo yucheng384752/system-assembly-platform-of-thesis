@@ -3,7 +3,7 @@ import { afterEach, expect, test } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { App } from './App';
 import { actionCatalog } from './workflow';
-import { startLogic } from './testNav';
+import { openToolGroups, startLogic } from './testNav';
 afterEach(cleanup);
 
 const nav = () => screen.getByRole('navigation', { name: '主要導覽' });
@@ -70,6 +70,7 @@ test('the toolbox lists tools by name only, and importing a workflow is a button
   // The factory list already offers the import (a document can be loaded before any factory exists).
   expect(toolbar().getByRole('button', { name: '匯入流程規格' })).toBeTruthy();
   startLogic();
+  openToolGroups();
   const tools = screen.getByRole('region', { name: '工具箱' });
   for (const action of actionCatalog.actions) {
     expect(within(tools).getByRole('heading', { name: action.name })).toBeTruthy();

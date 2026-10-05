@@ -219,3 +219,18 @@ dd { margin: 0 0 0 var(--space); }
   .workflow-canvas { height: max(var(--canvas-h), 28rem); }
   .workflow-tools, .workflow-details { position: sticky; top: var(--space); max-height: calc(max(var(--canvas-h), 28rem) + 2.25rem); }
 }
+
+/* Toolbox: category first, then its tools (D85). */
+.tool-group { margin-block: var(--space-sm); }
+.tool-group > h3 { margin: 0; }
+.tool-group > h3 > button { width: 100%; justify-content: flex-start; gap: var(--space-sm); border-color: transparent; background: none; font: inherit; font-weight: 600; }
+.group-icon { transition: none; }
+.tool-group > h3 > button[aria-expanded=true] .group-icon { transform: rotate(90deg); }
+.tool-group > div { display: grid; gap: var(--space-sm); margin: var(--space-sm) 0 0 var(--space); }
+/* A rule that sets display must not undo the hidden attribute (a closed category must hide its tools). */
+[hidden] { display: none !important; }
+.tool-card h4 { margin: 0; font-size: 1rem; }
+
+/* Controls stacked in a card, a form, a field group or an advanced block keep a gap, so an input never touches the button under it (D85).
+   Tool cards lay their name and button side by side, so they are left out. */
+:is(.column, .canvas-toolbar) :is(fieldset, details, form.flow-card, .flow-card:not(.tool-card)) > * + * { margin-top: var(--space-sm); }

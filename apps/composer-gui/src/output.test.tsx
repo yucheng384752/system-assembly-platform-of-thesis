@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { openFlow, startLogic, wireChain } from './testNav';
+import { openFlow, startLogic, wireChain, addTool } from './testNav';
 import { afterEach, expect, test, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App, initialRecipe } from './App';
@@ -33,7 +33,7 @@ function csv(name: string, text: string) {
 async function buildWorkflow() {
   render(<App />); openFlow(); startLogic();
   for (const [i, name, owner] of [[1, '收料', '倉管'], [2, '檢驗', '品管']] as const) {
-    fireEvent.click(screen.getByRole('button', { name: '加入到畫布：業務節點' }));
+    addTool('業務節點');
     fireEvent.change(screen.getByLabelText('名稱'), { target: { value: name } });
     fireEvent.change(screen.getByLabelText('負責職務'), { target: { value: owner } });
   }

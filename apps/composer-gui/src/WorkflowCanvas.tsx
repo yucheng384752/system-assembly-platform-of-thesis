@@ -24,10 +24,19 @@ interface CanvasProps { value: AovGraphDocument; onChange: (value: AovGraphDocum
 export function WorkflowCanvas(props: CanvasProps) {
   return <ReactFlowProvider><Canvas {...props} /></ReactFlowProvider>;
 }
+// Tools grouped by the category each action declares (catalog order); the business node, which adds no function, is its own group.
+const toolGroups: [string, { id: string; name: string }[]][] = (() => {
+  const groups = new Map<string, { id: string; name: string }[]>();
+  for (const action of actionCatalog.actions) groups.set(action.category, [...(groups.get(action.category) ?? []), action]);
+  groups.set('一般', [...(groups.get('一般') ?? []), { id: '', name: '業務節點' }]);
+  return [...groups];
+})();
 function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, resetKey = 0 }: CanvasProps) {
   const [selected, setSelected] = useState('');
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
+  // The toolbox opens in two steps, category then tool (D85); all categories start closed.
+  const [openGroups, setOpenGroups] = useState<string[]>([]);
   const focus = useRef(false);
   const selectName = useRef(false);
   useLayoutEffect(() => {
@@ -67,11 +76,19 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
       <div className="actions canvas-zoom"><button onClick={() => void flow.zoomIn({ duration: 0 })}>放大</button><button onClick={() => void flow.zoomOut({ duration: 0 })}>縮小</button><button onClick={() => void flow.fitView({ duration: 0 })}>適合畫面</button></div></div>
     <div className={node ? 'columns workflow-columns has-details' : 'columns workflow-columns'}>
     <Column id="canvas-tools" title="工具箱" lead="選擇動作加入畫布，也可拖放至所需位置。" className="workflow-tools" scroll>
-      {[...actionCatalog.actions, { id: '', name: '業務節點', description: '描述工作內容，不加入系統功能。' }].map(action => <section className="flow-card tool-card" key={action.id}
-        draggable onDragStart={e => { e.dataTransfer.setData('application/x-workflow-action', action.id || 'business'); e.dataTransfer.effectAllowed = 'copy'; }}>
-        <h3>{action.name}</h3>
-        <button className="icon-button" title={`加入到畫布：${action.name}`} disabled={graph.nodes.length >= MAX_NODES} onClick={() => add(action.id || null)}><Icon name="plus" /><span className="visually-hidden">加入到畫布：{action.name}</span></button>
-      </section>)}
+      {toolGroups.map(([group, tools], index) => {
+        const open = openGroups.includes(group);
+        return <section className="tool-group" key={group}>
+          <h3><button aria-expanded={open} aria-controls={`tool-group-${index}`} onClick={() => setOpenGroups(open ? openGroups.filter(g => g !== group) : [...openGroups, group])}><Icon name="chevron" className="group-icon" />{group}</button></h3>
+          <div id={`tool-group-${index}`} hidden={!open}>
+            {tools.map(action => <section className="flow-card tool-card" key={action.id}
+              draggable onDragStart={e => { e.dataTransfer.setData('application/x-workflow-action', action.id || 'business'); e.dataTransfer.effectAllowed = 'copy'; }}>
+              <h4>{action.name}</h4>
+              <button className="icon-button" title={`加入到畫布：${action.name}`} disabled={graph.nodes.length >= MAX_NODES} onClick={() => add(action.id || null)}><Icon name="plus" /><span className="visually-hidden">加入到畫布：{action.name}</span></button>
+            </section>)}
+          </div>
+        </section>;
+      })}
       <h3>選取節點</h3><ul className="step-list">{graph.nodes.map(n => <li key={n.id}><button aria-current={n.id === selected ? true : undefined} onClick={() => { focus.current = true; setSelected(n.id); setDeleting(false); }}>{n.name || '（未命名節點）'}</button></li>)}</ul>
     </Column>
     <Column id="canvas" title="流程畫布" lead="連線表示先後順序，多條出線表示平行作業。" className="workflow-canvas-column">

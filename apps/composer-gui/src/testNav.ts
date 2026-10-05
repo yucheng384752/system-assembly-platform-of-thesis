@@ -21,3 +21,12 @@ export function wireChain(names: string[]) {
   fireEvent.click(screen.getByRole('button', { name: '結束' }));
   fireEvent.click(screen.getByRole('checkbox', { name: previous }));
 }
+
+// The toolbox opens category by category (D85): open every closed group, then press the tool's add button.
+export function openToolGroups() {
+  for (const toggle of screen.queryAllByRole('button', { expanded: false }).filter(b => b.closest('.tool-group'))) fireEvent.click(toggle);
+}
+export function addTool(name: string) {
+  openToolGroups();
+  fireEvent.click(screen.getByRole('button', { name: `加入到畫布：${name}` }));
+}

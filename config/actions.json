@@ -5,6 +5,7 @@
     {
       "id": "define-form",
       "name": "建立表單",
+      "category": "表單",
       "description": "建立一張表單並設定它的欄位",
       "requires": [
         "forms.create",
@@ -28,6 +29,7 @@
     {
       "id": "import-records",
       "name": "匯入紀錄",
+      "category": "表單",
       "description": "上傳 CSV，先預覽驗證結果，再匯入表單",
       "requires": [
         "forms.import.preview",
@@ -59,6 +61,7 @@
     {
       "id": "link-forms",
       "name": "串聯表單",
+      "category": "表單",
       "description": "以共用的識別欄位把兩張表單的紀錄串起來",
       "requires": [
         "dataflows.links.upsert"
@@ -90,6 +93,7 @@
     {
       "id": "trace-records",
       "name": "查詢追溯",
+      "category": "查詢與追溯",
       "description": "以批號跨表單查詢紀錄，並沿串聯追溯前後步驟",
       "requires": [
         "query.lot.search",

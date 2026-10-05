@@ -6,7 +6,7 @@ import { actionCatalog } from './workflow';
 import { WorkflowCanvas } from './WorkflowCanvas';
 import { emptyGraph, integrityErrors, listToGraph, type AovGraphDocument } from './workflowGraph';
 import { addCanvasNode, addChildGraph, addFactory, addLogic, connectCanvasNodes, deleteCanvasNode, patchCanvasNode } from './canvasEditing';
-import { startLogic } from './testNav';
+import { addTool, openToolGroups, startLogic } from './testNav';
 afterEach(cleanup);
 let current = emptyGraph;
 function Editor({ initial = emptyGraph }: { initial?: AovGraphDocument }) {
@@ -31,9 +31,9 @@ test('A-C10: confirming a relation in one node updates both endpoints', () => {
 });
 test('A-C1/C2: keyboard alternatives add unconnected nodes, connect them by choice and reject a cycle without changing the document', () => {
   fresh();
-  click('加入到畫布：業務節點');
+  addTool('業務節點');
   fireEvent.change(screen.getByLabelText('名稱'), { target: { value: '收料' } });
-  click('加入到畫布：業務節點');
+  addTool('業務節點');
   fireEvent.change(screen.getByLabelText('名稱'), { target: { value: '檢驗' } });
   // D84: a new node starts with no lines at all; the user chooses what it follows.
   expect(edges()).toEqual([]);
@@ -50,7 +50,7 @@ test('A-C5/C7: parameter controls follow the catalog, show missing and range err
   const original = action.parameters;
   action.parameters = [{ id: 'count', name: '筆數', type: 'number', required: true, minimum: 1, maximum: 10 }];
   try {
-    fresh(); click('加入到畫布：匯入紀錄');
+    fresh(); addTool('匯入紀錄');
     expect(screen.getByText(/「筆數」尚未填寫/)).toBeTruthy();
     fireEvent.change(screen.getByLabelText('筆數（必填）'), { target: { value: '11' } });
     expect(screen.getByText(/須介於 1 與 10/)).toBeTruthy();
@@ -61,14 +61,14 @@ test('A-C5/C7: parameter controls follow the catalog, show missing and range err
   } finally { action.parameters = original; }
 });
 test('A-C6: impossible calendar date remains a visible completeness error', () => {
-  fresh(); click('加入到畫布：建立表單'); click('新增空白表單'); click('新增欄位');
+  fresh(); addTool('建立表單'); click('新增空白表單'); click('新增欄位');
   fireEvent.change(screen.getByLabelText('欄位 1 型別'), { target: { value: 'date' } });
   fireEvent.change(screen.getByLabelText('最早日期'), { target: { value: '2026-02-30' } });
   expect(screen.getByText(/日期必須是有效的 ISO 日期/)).toBeTruthy();
   expect(current.forms[0].fields[0].validation?.minimumDate).toBe('2026-02-30');
 });
 test('A-C8: upload stores only inferred fields in the selected node, never sample rows', async () => {
-  fresh(); click('加入到畫布：建立表單');
+  fresh(); addTool('建立表單');
   const file = new File(['批號,數量\nPRIVATE_SAMPLE_SENTINEL,3'], '標準.csv');
   Object.defineProperty(file, 'text', { value: async () => '批號,數量\nPRIVATE_SAMPLE_SENTINEL,3' });
   fireEvent.change(screen.getByLabelText('選擇標準 CSV 樣本'), { target: { files: [file] } });
@@ -79,8 +79,8 @@ test('A-C8: upload stores only inferred fields in the selected node, never sampl
 });
 test('A-C3/C4: third level disables child creation and circles contain names only', () => {
   const { container } = fresh();
-  for (let i = 0; i < 2; i++) { click('加入到畫布：業務節點'); click('建立子流程'); click('進入子流程'); }
-  click('加入到畫布：業務節點');
+  for (let i = 0; i < 2; i++) { addTool('業務節點'); click('建立子流程'); click('進入子流程'); }
+  addTool('業務節點');
   expect((screen.getByRole('button', { name: '建立子流程' }) as HTMLButtonElement).disabled).toBe(true);
   expect(current.graphs).toHaveLength(3);
   // Every circle shows its name only; the start and end of the opened sub-flow are there too (D80).
@@ -117,7 +117,7 @@ test('node details exist only while a node is selected and close from the button
   const details = () => screen.queryByRole('region', { name: '節點細項' });
   expect(details()).toBeNull();
   expect(container.querySelector('.workflow-columns')?.classList.contains('has-details')).toBe(false);
-  click('加入到畫布：業務節點');
+  addTool('業務節點');
   expect(details()).not.toBeNull();
   expect(container.querySelector('.workflow-columns')?.classList.contains('has-details')).toBe(true);
   click('關閉細項');
@@ -134,7 +134,7 @@ test('node details exist only while a node is selected and close from the button
 test('the toolbox and the details scroll on their own and can be focused from the keyboard', () => {
   fresh();
   expect(screen.getByRole('region', { name: '工具箱' }).getAttribute('tabindex')).toBe('0');
-  click('加入到畫布：業務節點');
+  addTool('業務節點');
   expect(screen.getByRole('region', { name: '節點細項' }).getAttribute('tabindex')).toBe('0');
 });
 
@@ -145,7 +145,7 @@ test('the start and end cannot be edited, deleted or given a predecessor they sh
   expect(screen.getByText(/由系統建立，每個流程各有一個，不能修改或刪除/)).toBeTruthy();
   expect(screen.queryByRole('button', { name: '刪除節點' })).toBeNull();
   expect(screen.queryByLabelText('名稱')).toBeNull();
-  click('加入到畫布：業務節點'); click('結束');
+  addTool('業務節點'); click('結束');
   // The end lists what leads into it (the end itself and nothing after it are offered).
   expect(screen.getByRole('checkbox', { name: '業務節點' })).toBeTruthy();
   expect(screen.queryByRole('checkbox', { name: '結束' })).toBeNull();
@@ -158,15 +158,15 @@ test('the start and end cannot be edited, deleted or given a predecessor they sh
 
 // D84: the add button is an icon to the right of the tool name; its accessible name still says what it does.
 test('each tool has an icon button to the right of its name, named for assistive technology', () => {
-  fresh();
+  fresh(); openToolGroups();
   const tools = screen.getByRole('region', { name: '工具箱' });
   const cards = [...tools.querySelectorAll('section.tool-card')];
   expect(cards).toHaveLength(actionCatalog.actions.length + 1);
   for (const card of cards) {
-    const name = card.querySelector('h3')!.textContent!;
+    const name = card.querySelector('h4')!.textContent!;
     const button = card.querySelector('button')!;
     expect(button.nextElementSibling).toBeNull();
-    expect(card.querySelector('h3')!.nextElementSibling).toBe(button);
+    expect(card.querySelector('h4')!.nextElementSibling).toBe(button);
     expect(button.querySelector('svg')).toBeTruthy();
     expect(button.getAttribute('title')).toBe(`加入到畫布：${name}`);
     expect(screen.getByRole('button', { name: `加入到畫布：${name}` })).toBe(button);
@@ -177,7 +177,7 @@ test('each tool has an icon button to the right of its name, named for assistive
 // D84: lines are directed. The arrow marker is declared once a line is drawn (jsdom has no node sizes, so how the path meets it is checked in the browser).
 test('a drawn line is directed and ends in an arrow', () => {
   const { container } = fresh();
-  click('加入到畫布：業務節點');
+  addTool('業務節點');
   expect(container.querySelector('marker')).toBeNull();
   fireEvent.click(screen.getByRole('checkbox', { name: '開始' }));
   expect(edges()).toEqual(['graph-1-start>node-1']);
@@ -185,4 +185,25 @@ test('a drawn line is directed and ends in an arrow', () => {
   expect(marker).toBeTruthy();
   expect(marker!.querySelector('polyline')).toBeTruthy();
   expect(marker!.id).toContain('arrowclosed');
+});
+
+// D85: the toolbox opens in two steps. Categories come from the actions' own category (catalog order); a closed category hides its tools.
+test('the toolbox shows categories first and opens one category at a time to reach its tools', () => {
+  fresh();
+  const tools = screen.getByRole('region', { name: '工具箱' });
+  const toggles = [...tools.querySelectorAll('.tool-group > h3 > button')] as HTMLButtonElement[];
+  const categories = [...new Set(actionCatalog.actions.map(a => a.category))];
+  expect(toggles.map(b => b.textContent)).toEqual([...categories, '一般']);
+  expect(toggles.every(b => b.getAttribute('aria-expanded') === 'false')).toBe(true);
+  expect(screen.queryByRole('button', { name: /^加入到畫布/ })).toBeNull();
+  fireEvent.click(toggles[0]);
+  expect(toggles[0].getAttribute('aria-expanded')).toBe('true');
+  const inFirst = actionCatalog.actions.filter(a => a.category === categories[0]).map(a => `加入到畫布：${a.name}`);
+  expect(screen.getAllByRole('button', { name: /^加入到畫布/ }).map(b => b.getAttribute('title'))).toEqual(inFirst);
+  expect(screen.queryByRole('button', { name: '加入到畫布：業務節點' })).toBeNull();
+  fireEvent.click(toggles.at(-1)!);
+  expect(screen.getByRole('button', { name: '加入到畫布：業務節點' })).toBeTruthy();
+  fireEvent.click(toggles[0]);
+  expect(screen.queryByRole('button', { name: `加入到畫布：${actionCatalog.actions[0].name}` })).toBeNull();
+  expect(screen.getByRole('button', { name: '加入到畫布：業務節點' })).toBeTruthy();
 });
