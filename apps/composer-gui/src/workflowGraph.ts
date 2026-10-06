@@ -40,6 +40,40 @@ export function graphDepths(doc: AovGraphDocument): Map<string, number> {
   return depths;
 }
 
+// The node that owns a form (D72); a form belongs to exactly one node.
+export function nodeOfForm(doc: AovGraphDocument, formId: string): GraphNode | undefined {
+  return allNodes(doc).find(({ node }) => node.formId === formId)?.node;
+}
+// Workflow reading order: inside a graph, edges decide (an earlier node comes first, ties keep the stored order);
+// a node's sub-graph follows right after the node. Used to say which form is upstream of which.
+export function orderedNodes(doc: AovGraphDocument): { graph: Graph; node: GraphNode; depth: number }[] {
+  const result: { graph: Graph; node: GraphNode; depth: number }[] = [];
+  const seen = new Set<string>();
+  const visit = (graphId: string, depth: number) => {
+    const graph = doc.graphs.find(g => g.id === graphId);
+    if (!graph || seen.has(graphId)) return;
+    seen.add(graphId);
+    const waiting = new Map(graph.nodes.map(n => [n.id, graph.edges.filter(e => e.to === n.id).length]));
+    const pending = [...graph.nodes];
+    while (pending.length) {
+      // A graph with a loop is rejected elsewhere; here the stored order is the fallback so this never stalls.
+      const next = pending.find(n => waiting.get(n.id) === 0) ?? pending[0];
+      pending.splice(pending.indexOf(next), 1);
+      for (const edge of graph.edges) if (edge.from === next.id) waiting.set(edge.to, (waiting.get(edge.to) ?? 1) - 1);
+      result.push({ graph, node: next, depth });
+      if (next.childGraphId) visit(next.childGraphId, depth + 1);
+    }
+  };
+  visit(doc.rootGraphId, 1);
+  return result;
+}
+// Fixed, program-decided hint (spec 4.2 step 4): never applied without the user, and never from a language model (Rule 5).
+export function suggestActions(doc: AovGraphDocument): { actionId: string; reason: string }[] {
+  const trace = actionOf('trace-records');
+  if (!trace || !doc.relations.length || graphActionIds(doc).includes(trace.id)) return [];
+  return [{ actionId: trace.id, reason: `已確認 ${doc.relations.length} 條表單關聯，可加入「${trace.name}」節點，以關聯欄位查詢前後步驟的紀錄。` }];
+}
+
 function duplicate(ids: string[]): string | undefined { return ids.find((id, i) => ids.indexOf(id) !== i); }
 function paramTypeOk(parameter: ActionParameter, value: ParamValue): boolean {
   return typeof value === (parameter.type === 'text' ? 'string' : parameter.type);

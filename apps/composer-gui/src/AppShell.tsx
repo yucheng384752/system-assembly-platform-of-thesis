@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Icon, type IconName } from './Icons';
-import type { AovDocument } from './workflow';
+import type { AovGraphDocument } from './workflowGraph';
 
 // Application shell (D63): five navigation entries; the five required steps (D30) live inside the "流程" page.
 export type PageId = 'home' | 'flow' | 'datasets' | 'runs' | 'settings';
@@ -12,16 +12,19 @@ export const pages: { id: PageId; title: string; icon: IconName }[] = [
   { id: 'settings', title: '系統設定', icon: 'lock' },
 ];
 
-export function AppShell({ page, onNavigate, project, siteName, children }: {
-  page: PageId; onNavigate: (page: PageId) => void; project: string; siteName?: string; children: ReactNode;
+export function AppShell({ page, onNavigate, children }: {
+  page: PageId; onNavigate: (page: PageId) => void; children: ReactNode;
 }) {
-  return <div className="app-shell">
+  // Collapsing keeps every label for assistive technology and only hides the text (wide viewports; narrow ones use the top bar).
+  const [collapsed, setCollapsed] = useState(false);
+  const hidden = collapsed ? 'visually-hidden' : undefined;
+  return <div className={collapsed ? 'app-shell sidebar-collapsed' : 'app-shell'}>
     <aside className="sidebar">
-      <p className="brand"><Icon name="logo" className="brand-logo" /><strong>Composer</strong></p>
-      <nav aria-label="主要導覽"><ul>{pages.map(item => <li key={item.id}>
-        <button aria-current={item.id === page ? 'page' : undefined} onClick={() => onNavigate(item.id)}><Icon name={item.icon} />{item.title}</button>
+      <p className="brand"><Icon name="logo" className="brand-logo" /><strong className={hidden}>Composer</strong></p>
+            <nav id="app-nav" aria-label="主要導覽"><ul>{pages.map(item => <li key={item.id}>
+        <button aria-current={item.id === page ? 'page' : undefined} title={collapsed ? item.title : undefined} onClick={() => onNavigate(item.id)}><Icon name={item.icon} /><span className={hidden}>{item.title}</span></button>
       </li>)}</ul></nav>
-      <p className="sidebar-foot muted">專案：{project}<br />場域：{siteName ?? '尚未匯入'}</p>
+      <button className="sidebar-toggle" aria-expanded={!collapsed} aria-controls="app-nav" title={collapsed ? '展開導覽' : '收合導覽'} onClick={() => setCollapsed(!collapsed)}><Icon name="chevron" className="toggle-icon" /><span className="visually-hidden">{collapsed ? '展開導覽' : '收合導覽'}</span></button>
     </aside>
     <div className="shell-content">{children}</div>
   </div>;
@@ -40,8 +43,8 @@ export function PlaceholderPage({ title, lead, items }: { title: string; lead: s
 }
 
 // Home shows only counts derived from the current session; there is no execution history (D16).
-export function HomePage({ aov, enabledKits, onNavigate }: { aov: AovDocument; enabledKits: number; onNavigate: (page: PageId) => void }) {
-  const counts: [string, number][] = [['流程步驟', aov.steps.length], ['表單', aov.forms.length], ['已確認關聯', aov.relations.length], ['已啟用功能', enabledKits]];
+export function HomePage({ aov, enabledKits, onNavigate }: { aov: AovGraphDocument; enabledKits: number; onNavigate: (page: PageId) => void }) {
+  const counts: [string, number][] = [['流程節點', aov.graphs.reduce((count, graph) => count + graph.nodes.length, 0)], ['表單', aov.forms.length], ['已確認關聯', aov.relations.length], ['已啟用功能', enabledKits]];
   return <main id="main-content" tabIndex={-1}>
     <div className="page-head"><h1>首頁</h1></div>
     <p className="lead">目前工作階段的設定概況。</p>
