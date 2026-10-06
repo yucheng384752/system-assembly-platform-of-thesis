@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Icon, type IconName } from './Icons';
-import type { AovGraphDocument } from './workflowGraph';
+import { workingNodes, type AovGraphDocument } from './workflowGraph';
 
 // Application shell (D63): five navigation entries; the five required steps (D30) live inside the "流程" page.
 export type PageId = 'home' | 'flow' | 'datasets' | 'runs' | 'settings';
@@ -44,7 +44,7 @@ export function PlaceholderPage({ title, lead, items }: { title: string; lead: s
 
 // Home shows only counts derived from the current session; there is no execution history (D16).
 export function HomePage({ aov, enabledKits, onNavigate }: { aov: AovGraphDocument; enabledKits: number; onNavigate: (page: PageId) => void }) {
-  const counts: [string, number][] = [['流程節點', aov.graphs.reduce((count, graph) => count + graph.nodes.length, 0)], ['表單', aov.forms.length], ['已確認關聯', aov.relations.length], ['已啟用功能', enabledKits]];
+  const counts: [string, number][] = [['工廠', aov.factories.length], ['流程節點', aov.graphs.reduce((count, graph) => count + workingNodes(graph).length, 0)], ['表單', aov.forms.length], ['已確認關聯', aov.relations.length], ['已啟用功能', enabledKits]];
   return <main id="main-content" tabIndex={-1}>
     <div className="page-head"><h1>首頁</h1></div>
     <p className="lead">目前工作階段的設定概況。</p>

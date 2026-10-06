@@ -17,7 +17,7 @@ export type ParamValue = string | number | boolean;
 export interface ActionParameter { id: string; name: string; type: 'number' | 'text' | 'boolean'; required: boolean; default?: ParamValue; minimum?: number; maximum?: number }
 // needs: what a node must have before it counts as complete (D73).
 export interface ActionType {
-  id: string; name: string; description: string; requires: string[];
+  id: string; name: string; category: string; description: string; requires: string[];
   parameters: ActionParameter[]; needs: ('form' | 'relation')[]; requiresKits?: { kitId: string; reason: string }[];
 }
 export interface ActionCatalog { format: 'composer-action-catalog'; version: 1; actions: ActionType[] }

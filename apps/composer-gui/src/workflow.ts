@@ -88,7 +88,7 @@ export function importAov(text: string): { value: AovDocument; notices: string[]
   let input: AovDocument | AovDocumentV2 | AovDocumentV1;
   try { input = JSON.parse(text.replace(/^﻿/, '')); validateSchema('aov', input); }
   catch { throw new Error('流程規格格式不正確。請使用本系統下載的流程規格檔。原流程已保留。'); }
-  if ((input as { version: number }).version === 4) throw new Error('此流程規格是畫布版本（version 4），目前的編輯畫面尚未支援。原流程已保留。');
+  if ((input as { version: number }).version >= 4) throw new Error('此流程規格是畫布版本（version 4 以上），列表匯入尚未支援。原流程已保留。');
   const notices: string[] = [];
   let value: AovDocument;
   if (input.version === 1) {

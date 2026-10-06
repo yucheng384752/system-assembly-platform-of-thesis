@@ -6,7 +6,7 @@ export interface StepInfo { number: string; title: string; lead: string; hint: s
 export const steps: StepInfo[] = [
   { number: '01', title: '流程畫布', lead: '建立節點、標準表單與關聯，設定先後順序及子流程。', hint: '請使用職務名稱，勿填個資。' },
   { number: '02', title: '功能選配', lead: '確認流程所需功能，調整其他選配與畫面設定。', hint: '目前為設定與模擬預覽。' },
-  { number: '03', title: '輸出', lead: '下載流程規格與系統設定檔，或打包成設定交付包。', hint: '兩個檔案請一起保存，或下載設定交付包。' },
+  { number: '03', title: '輸出', lead: '把設定打包成設定交付包，交付時只需要這一個檔案。', hint: '個別的流程規格與系統設定檔放在「進階」，用來重新載入設定。' },
 ];
 // stepError: a non-empty message blocks confirming that step until the content is fixed.
 export function StepShell({ renderStep, stepError = () => '' }: { renderStep: (step: number) => ReactNode; stepError?: (step: number) => string }) {

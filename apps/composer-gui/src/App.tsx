@@ -30,6 +30,7 @@ export function App() {
   const [manual, setManual] = useState<string[]>([]);
   const [graph, setGraph] = useState(emptyGraph);
   const [graphSession, setGraphSession] = useState(0);
+  const [canvasPath, setCanvasPath] = useState<string[]>([]);
   const [session, setSession] = useState(0);
   const [site, setSite] = useState<SiteSession>();
   const [page, setPage] = useState<PageId>('home');
@@ -44,7 +45,7 @@ export function App() {
     conflict || (!recipe.clientName?.trim() ? '請填寫客戶代稱。' : workflowProblems.length ? `流程規格尚未完成：${workflowProblems[0]}` : ''),
   ][step] ?? '';
   // The step flow stays mounted (only hidden) so switching pages never loses the confirmed steps.
-  const steps = <StepShell stepError={stepError} renderStep={step => step === 0 ? <WorkflowCanvas resetKey={graphSession} value={graph} onChange={setGraph} toolbarExtra={<WorkflowTransfer onChange={next => { setGraph(next); setGraphSession(s => s + 1); }} />} />
+  const steps = <StepShell stepError={stepError} renderStep={step => step === 0 ? <WorkflowCanvas resetKey={graphSession} value={graph} onChange={setGraph} path={canvasPath} onPathChange={setCanvasPath} toolbarExtra={<WorkflowTransfer onChange={next => { setGraph(next); setCanvasPath([]); setGraphSession(s => s + 1); }} />} />
     : step === 1 ? <FlowPage graph={graph} derived={derived} site={site?.site} recipe={recipe} onChange={setRecipe} requested={requested} manual={manual} session={session} onSelect={(nextFlows, nextKits) => {
       setRequested(nextFlows); setManual(nextKits);
     }} />

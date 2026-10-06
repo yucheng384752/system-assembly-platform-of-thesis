@@ -47,7 +47,7 @@ export function RecipeTransfer({ recipe, onImport, catalog, legacy = false, bloc
   return <fieldset disabled={busy}><legend className="visually-hidden">系統設定檔下載與載入</legend>
     <div className="file-card"><Icon name="file" /><div>
       <strong>system.recipe.json</strong><p className="muted">保存客戶代稱、功能選擇、畫面設定，以及流程規格的檔名與校驗碼。</p>
-      <button className="primary" onClick={() => transfer(false)} disabled={blocked || !recipe.enabledKits.length || !recipe.clientName?.trim()}><Icon name="download" />下載系統設定檔</button>
+      <button onClick={() => transfer(false)} disabled={blocked || !recipe.enabledKits.length || !recipe.clientName?.trim()}><Icon name="download" />下載系統設定檔</button>
     </div></div>
     <p role="status">{notice}</p>
     <h3>載入既有設定</h3><p className="muted">選擇已有的系統設定檔，匯入以套用相同設定。</p>

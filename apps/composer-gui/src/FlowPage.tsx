@@ -7,7 +7,7 @@ import { Column } from './Column';
 import { Icon } from './Icons';
 import type { SiteProfile } from '../../../libs/ui-runtime/site';
 import type { Derivation } from '../../../libs/ui-runtime/actions';
-import type { AovGraphDocument } from './workflowGraph';
+import { nodePlace, type AovGraphDocument } from './workflowGraph';
 import { actionCatalog } from './workflow';
 import { registry } from './registryData';
 
@@ -34,7 +34,7 @@ export function FlowPage({ recipe, onChange, requested, manual, onSelect, sessio
       aside={<small className="column-foot"><Icon name="info" />必要功能已自動加入</small>}>
     <section aria-labelledby="derived-title"><h3 id="derived-title">流程所需功能</h3>{derived.kits.length ? derived.kits.map(kit => <div className="flow-card" key={kit.kitId}>
       <label><input type="checkbox" checked disabled />{kitName(kit.kitId)}（流程需要）</label>
-      <ul>{[...new Set(kit.reasons.flatMap(reason => reason.kind === 'dependency' ? [`因為使用「${kitName(reason.fromKit)}」，系統會自動加入「${kitName(kit.kitId)}」。`] : graph.graphs.flatMap(g => g.nodes).filter(n => n.actionId === reason.actionId).map(n => `因為「${n.name}」要做「${actionCatalog.actions.find(a => a.id === reason.actionId)?.name}」，需要「${kitName(kit.kitId)}」。`)))].map(reason => <li key={reason}>{reason}</li>)}</ul>
+      <ul>{[...new Set(kit.reasons.flatMap(reason => reason.kind === 'dependency' ? [`因為使用「${kitName(reason.fromKit)}」，系統會自動加入「${kitName(kit.kitId)}」。`] : graph.graphs.flatMap(g => g.nodes).filter(n => n.actionId === reason.actionId).map(n => { const place = nodePlace(graph, n.id); return `因為${place ? `「${place.factory.name}」的「${place.logic.name}」中，` : ''}「${n.name}」要做「${actionCatalog.actions.find(a => a.id === reason.actionId)?.name}」，需要「${kitName(kit.kitId)}」。`; })))].map(reason => <li key={reason}>{reason}</li>)}</ul>
     </div>) : <p>目前沒有動作需要額外功能。</p>}</section>
     {derived.ambiguities.map((item, i) => <fieldset key={i}><legend>待選擇的功能 {i + 1}</legend><p>此需求有多個可用功能，請選擇其中一個。</p>
       <select aria-label={`待選擇的功能 ${i + 1}`} value={item.candidates.find(c => manual.includes(c.kitId))?.kitId ?? ''} onChange={e => onSelect(requested, [...manual.filter(id => !item.candidates.some(c => c.kitId === id)), ...(e.target.value ? [e.target.value] : [])])}><option value="">請選擇</option>{[...new Set(item.candidates.map(c => c.kitId))].map(id => <option key={id} value={id}>{kitName(id)}</option>)}</select>
@@ -51,10 +51,6 @@ export function FlowPage({ recipe, onChange, requested, manual, onSelect, sessio
         {note && <span id={`${flow.id}-note`} className="badge badge-selected">{note}</span>}</div>
         <p className="muted">{descriptions[flow.id]}</p>{flow.subflows.map(sub => <p key={sub.id} className="muted"><small>{sub.name}：{sub.description}</small></p>)}</div>;
     })}</div></fieldset>
-    <section aria-labelledby="auto-title"><h3 id="auto-title" className="actions"><Icon name="link" />相依功能</h3>
-      <p role="status" className="muted">目前選了 {selection.selectedFlows.length} 個流程、{recipe.enabledKits.length} 項功能。</p>
-      <div className="note"><ul>{selection.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul></div>
-    </section>
     <details><summary>進階：功能目錄與搜尋</summary>
       <label htmlFor="kit-search">搜尋功能名稱</label><input id="kit-search" type="search" value={search} onChange={e => setSearch(e.target.value)} />
       {catalog.kits.filter(k => k.displayName.toLowerCase().includes(search.toLowerCase())).map(kit => <label key={kit.id}>

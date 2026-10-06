@@ -2,3 +2,37 @@ import { fireEvent, screen } from '@testing-library/react';
 
 // The app opens on 首頁 (D63); flow tests start from the 流程 page like a user would.
 export function openFlow() { fireEvent.click(screen.getByRole('button', { name: '流程' })); }
+
+// The canvas starts on the factory list (D79): name a factory, then create its first production logic, which opens the canvas.
+export function startLogic(factory = 'A 廠') {
+  fireEvent.change(screen.getByLabelText('工廠名稱'), { target: { value: factory } });
+  fireEvent.click(screen.getByRole('button', { name: '建立生產邏輯：新工廠' }));
+}
+
+// Lines exist only where the user draws them (D84). This joins the start, the named nodes in order and the end the way a keyboard
+// user does: through each node's list of nodes it follows.
+export function wireChain(names: string[]) {
+  let previous = '開始';
+  for (const name of names) {
+    fireEvent.click(screen.getByRole('button', { name }));
+    fireEvent.click(screen.getByRole('checkbox', { name: previous }));
+    previous = name;
+  }
+  fireEvent.click(screen.getByRole('button', { name: '結束' }));
+  fireEvent.click(screen.getByRole('checkbox', { name: previous }));
+}
+
+// The toolbox opens category by category (D85): open every closed group, then press the tool's add button.
+export function openToolGroups() {
+  for (const toggle of screen.queryAllByRole('button', { expanded: false }).filter(b => b.closest('.tool-group'))) fireEvent.click(toggle);
+}
+export function addTool(name: string) {
+  openToolGroups();
+  fireEvent.click(screen.getByRole('button', { name: `加入到畫布：${name}` }));
+}
+
+// The loose downloads and the settings loader sit under an advanced disclosure on the output step (D86).
+export function openAdvancedFiles() {
+  const toggle = screen.getByRole('button', { name: '進階：個別檔案與載入設定' });
+  if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
+}

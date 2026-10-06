@@ -1,11 +1,13 @@
 import { endpoint, findCycle, nextId, type FormEndpoint, type FormRelation } from './workflow';
 import { fieldTypes, type FormDraft } from './localData';
-import { nodeOfForm, orderedNodes, type AovGraphDocument, type GraphNode } from './workflowGraph';
+import { formFactories, nodeOfForm, orderedNodes, type AovGraphDocument, type GraphNode } from './workflowGraph';
 
 type Workflow = AovGraphDocument;
 
 export interface Candidate { from: FormEndpoint; to: FormEndpoint }
 const key = (name: string) => name.replace(/\s/g, '');
+// D81: only forms of one factory can be related; a form no node owns belongs to no factory.
+const sameFactory = (doc: Workflow) => { const of = formFactories(doc); return (a: string, b: string) => of.has(a) && of.get(a) === of.get(b); };
 const linked = (doc: Workflow, a: string, b: string) => doc.relations.some(r =>
   (r.from.formId === a && r.to.formId === b) || (r.from.formId === b && r.to.formId === a));
 
@@ -19,8 +21,9 @@ export function inferCandidates(doc: Workflow): Candidate[] {
   };
   const sorted = [...doc.forms].sort((a, b) => order(a)[0] - order(b)[0] || order(a)[1] - order(b)[1]);
   const result: Candidate[] = [];
+  const together = sameFactory(doc);
   sorted.forEach((upstream, index) => sorted.slice(index + 1).forEach(downstream => {
-    if (linked(doc, upstream.id, downstream.id) || findCycle(doc, { from: upstream.id, to: downstream.id })) return;
+    if (!together(upstream.id, downstream.id) || linked(doc, upstream.id, downstream.id) || findCycle(doc, { from: upstream.id, to: downstream.id })) return;
     for (const a of upstream.fields) for (const b of downstream.fields) {
       if (key(a.name) && key(a.name) === key(b.name) && a.type === b.type && (a.isKey || b.isKey)) {
         result.push({ from: { formId: upstream.id, fieldId: a.id }, to: { formId: downstream.id, fieldId: b.id } });
@@ -40,8 +43,9 @@ export function explainMissedCandidates(doc: Workflow): string[] {
   };
   const seen = new Set<string>();
   const reasons: string[] = [];
+  const together = sameFactory(doc);
   doc.forms.forEach((a, index) => doc.forms.slice(index + 1).forEach(b => {
-    if (linked(doc, a.id, b.id) || candidatePairs.has(`${a.id}|${b.id}`)) return;
+    if (!together(a.id, b.id) || linked(doc, a.id, b.id) || candidatePairs.has(`${a.id}|${b.id}`)) return;
     for (const [own, other] of [[a, b], [b, a]] as const) for (const field of own.fields.filter(f => f.isKey)) {
       const same = other.fields.find(f => key(f.name) === key(field.name));
       const near = same ? undefined : other.fields.find(f => similar(f.name, field.name));

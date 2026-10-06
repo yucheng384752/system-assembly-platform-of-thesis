@@ -3,6 +3,7 @@ import { afterEach, expect, test } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { App } from './App';
 import { actionCatalog } from './workflow';
+import { openToolGroups, startLogic } from './testNav';
 afterEach(cleanup);
 
 const nav = () => screen.getByRole('navigation', { name: '主要導覽' });
@@ -63,18 +64,26 @@ test('the sidebar shows navigation only: no project or site text', () => {
   expect(screen.queryByText(/場域：/)).toBeNull();
 });
 
-test('the toolbox lists tools by name only, and importing a workflow is a button beside the main-flow breadcrumb', () => {
+test('the toolbox lists tools by name only, and importing a workflow is a button beside the flow breadcrumb in both views', () => {
   const { container } = render(<App />); go('流程');
+  const toolbar = () => within(container.querySelector('.canvas-toolbar') as HTMLElement);
+  // The factory list already offers the import (a document can be loaded before any factory exists).
+  expect(toolbar().getByRole('button', { name: '匯入流程規格' })).toBeTruthy();
+  startLogic();
+  openToolGroups();
   const tools = screen.getByRole('region', { name: '工具箱' });
   for (const action of actionCatalog.actions) {
     expect(within(tools).getByRole('heading', { name: action.name })).toBeTruthy();
     expect(within(tools).queryByText(action.description)).toBeNull();
   }
-  const toolbar = container.querySelector('.canvas-toolbar')!;
-  const importButton = within(toolbar as HTMLElement).getByRole('button', { name: '匯入流程規格' });
-  expect(within(toolbar as HTMLElement).getByRole('button', { name: '主流程' })).toBeTruthy();
+  const importButton = toolbar().getByRole('button', { name: '匯入流程規格' });
+  expect(toolbar().getByRole('button', { name: '工廠' })).toBeTruthy();
+  expect(toolbar().getByRole('button', { name: '生產邏輯 1' })).toBeTruthy();
   expect(importButton.getAttribute('aria-expanded')).toBe('false');
   fireEvent.click(importButton);
   expect(importButton.getAttribute('aria-expanded')).toBe('true');
-  expect(within(toolbar as HTMLElement).getByText('選擇流程規格檔')).toBeTruthy();
+  expect(toolbar().getByText('選擇流程規格檔')).toBeTruthy();
+  // Going back to the factory list keeps the opened import panel: the button sits in the same place in both views.
+  fireEvent.click(toolbar().getByRole('button', { name: '工廠' }));
+  expect(toolbar().getByRole('button', { name: '匯入流程規格' }).getAttribute('aria-expanded')).toBe('true');
 });

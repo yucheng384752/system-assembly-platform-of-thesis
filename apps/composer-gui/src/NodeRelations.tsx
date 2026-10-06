@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { describeEndpoint, relationErrors } from './workflow';
 import { addRelation, inferCandidates, explainMissedCandidates, traceForm, type Candidate } from './relations';
-import type { AovGraphDocument } from './workflowGraph';
+import { formFactories, type AovGraphDocument } from './workflowGraph';
 import { fieldTypes } from './localData';
 
 export function NodeRelations({ value, formId, onChange }: { value: AovGraphDocument; formId: string; onChange: (next: AovGraphDocument) => boolean }) {
@@ -12,6 +12,9 @@ export function NodeRelations({ value, formId, onChange }: { value: AovGraphDocu
   const missed = explainMissedCandidates(value);
   const errors = relationErrors(value);
   const trace = traceForm(value, formId);
+  // D81: a relation links forms of one factory only, so only those are offered by hand.
+  const factoryOf = formFactories(value);
+  const sameFactory = value.forms.filter(f => factoryOf.get(f.id) === factoryOf.get(formId));
   const label = (r: Candidate) => `${describeEndpoint(value, r.from)} → ${describeEndpoint(value, r.to)}`;
   function add(candidate: Candidate, origin: 'inferred' | 'user') {
     if (!involved(candidate)) { setError('請選擇此節點的表單作為關聯其中一端。'); return; }
@@ -29,7 +32,7 @@ export function NodeRelations({ value, formId, onChange }: { value: AovGraphDocu
       {removing === r.id && <div><p>確認移除關聯：{label(r)}？</p><button onClick={() => { if (onChange({ ...value, relations: value.relations.filter(x => x.id !== r.id) })) { setRemoving(''); setNotice('已移除關聯。'); } }}>確認移除關聯</button><button onClick={() => setRemoving('')}>取消移除關聯</button></div>}
     </li>)}</ul> : <p>尚未確認任何關聯。</p>}
     <fieldset><legend>手動新增關聯</legend>{(['from', 'to'] as const).map(side => <div key={side}>
-      <label htmlFor={`${side}-form`}>{side === 'from' ? '上游表單' : '下游表單'}</label><select id={`${side}-form`} value={draft[`${side}Form`]} onChange={e => setDraft({ ...draft, [`${side}Form`]: e.target.value, [`${side}Field`]: '' })}><option value="">請選擇</option>{value.forms.map(f => <option value={f.id} key={f.id}>{f.name}</option>)}</select>
+      <label htmlFor={`${side}-form`}>{side === 'from' ? '上游表單' : '下游表單'}</label><select id={`${side}-form`} value={draft[`${side}Form`]} onChange={e => setDraft({ ...draft, [`${side}Form`]: e.target.value, [`${side}Field`]: '' })}><option value="">請選擇</option>{sameFactory.map(f => <option value={f.id} key={f.id}>{f.name}</option>)}</select>
       <label htmlFor={`${side}-field`}>{side === 'from' ? '上游欄位' : '下游欄位'}</label><select id={`${side}-field`} value={draft[`${side}Field`]} onChange={e => setDraft({ ...draft, [`${side}Field`]: e.target.value })}><option value="">請選擇</option>{value.forms.find(f => f.id === draft[`${side}Form`])?.fields.map(f => <option value={f.id} key={f.id}>{f.name}（{fieldTypes[f.type]}）</option>)}</select>
     </div>)}<button disabled={!draft.fromField || !draft.toField} onClick={() => add({ from: { formId: draft.fromForm, fieldId: draft.fromField }, to: { formId: draft.toForm, fieldId: draft.toField } }, 'user')}>新增關聯</button></fieldset>
     <p role={error ? 'alert' : undefined}>{error}</p>{errors.length > 0 && <ul role="alert">{errors.map(e => <li key={e}>{e}</li>)}</ul>}<p role="status">{notice}</p>

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { openFlow } from './testNav';
+import { openFlow, startLogic, wireChain, addTool } from './testNav';
 import { afterEach, expect, test, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { inferFields } from './localData';
@@ -22,8 +22,8 @@ function csv(name: string, text: string) {
 test('single-node upload names failures, retains only fields, and never sends or saves rows', async () => {
   const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
   const xhr = vi.spyOn(XMLHttpRequest.prototype, 'open'); const storage = vi.spyOn(Storage.prototype, 'setItem');
-  render(<App />); openFlow();
-  fireEvent.click(screen.getByRole('button', { name: '加入到畫布：建立表單' }));
+  render(<App />); openFlow(); startLogic();
+  addTool('建立表單');
   fireEvent.change(screen.getByLabelText('名稱'), { target: { value: '檢驗' } });
   fireEvent.change(screen.getByLabelText('選擇標準 CSV 樣本'), { target: { files: [csv('broken.csv', 'a,a\n1,2')] } });
   await screen.findByText(/broken\.csv：第一列須為不重複/);
@@ -49,8 +49,10 @@ test('single-node upload names failures, retains only fields, and never sends or
   expect(fetch).not.toHaveBeenCalled(); expect(xhr).not.toHaveBeenCalled(); expect(storage).not.toHaveBeenCalled();
 });
 test('A20/D23: incomplete and unassigned forms block confirmation and name the form', () => {
-  render(<App />); openFlow();
-  fireEvent.click(screen.getByRole('button', { name: '加入到畫布：業務節點' }));
+  render(<App />); openFlow(); startLogic();
+  addTool('業務節點');
+  wireChain(['業務節點']);
+  fireEvent.click(screen.getByRole('button', { name: '業務節點' }));
   fireEvent.click(screen.getByRole('button', { name: '新增空白表單' }));
   expect(document.getElementById('step-status')!.textContent).toContain('表單「新表單 1」尚未完成：尚未建立欄位');
   fireEvent.click(screen.getByRole('button', { name: '新增欄位' }));
