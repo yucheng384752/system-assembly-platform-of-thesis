@@ -155,3 +155,58 @@ Codex 前兩次在核對來源時停工，所回報的差異都屬於 Claude 的
 3. **驗收**：新動作推導「不新增缺口」，只可帶出既有的 `db.tenants.read` 缺口；測試逐項斷言這個缺口集合，既有 `actions.test.ts` 的缺口斷言保留。
 4. **未讀完的來源**：匯入與上傳路由請分段讀（`sed -n`），不要一次讀整檔；逐項核對 `kits/<kit>/src/backend`。
 5. **新的預計完成時間：2026-10-06 16:15。** 到期未完成由 Claude 接手。
+
+## Codex Notes（2026-10-06 12:59，第三次派工實作完成）
+
+本次已實際完成 WP2／WP3 檔案寫入，未因來源差異停工；於 16:15 截止前交回 Claude 審閱。cwd 全程為 `C:\Users\gslab\Desktop\composer-refactor`，讀取 `.git/HEAD` 確認 `feature/more-node-tools`。未執行任何 git 命令、連網、安裝依賴或啟動伺服器；未修改 `kits/`、schema、package 檔或 `libs/ui-runtime` 推導規則。
+
+### WP2：已寫入的 registry
+
+- 新增 `config/registry/upload-validation-kit.json`、`import-pipeline-kit.json`、`analytics-kit.json`、`audit-edit-kit.json`、`mod-subscription-kit.json`、`logs-ops-kit.json`。
+- 增補 `config/registry/platform-core-kit.json` 的 scope、上傳工作清單、健康檢查宣告、功能契約與端點權限。以修改前記憶體副本比較，既有五項 capabilities、mServices、functions 全部保持原樣；`query-traceability-kit.json` 未修改。
+- 每項已驗證能力均可追到 mService、Function、來源檔案與函式。上傳與匯入大型路由依端點分段讀取；沒有修改基線原始碼。環境變數只記名稱，沒有複製值、範例資料或金鑰。
+
+### D94 與來源差異的處理
+
+1. `subscriptions.manage` 保留契約路徑、declared=true、verified=false、implementedBy=null 與說明；另登錄四個實際端點為 declared=false、verified=true。動作只引用 sync、get、entitlements.get，不包含外部 webhook。
+2. `platform.health` 保留未驗證宣告；不新增 `check-health`。`kit.capability.call` 依 D89 不登錄。
+3. `db.upload.jobs.list` 僅由 platform-core 提供，upload-validation 依派工改用 consumes 引用，並記明契約原列 provides。`db.edit-reasons.validate` 在 audit-edit 保留跨 Kit 提供者，指向 platform-core 既有服務，沒有複製或杜撰本地實作。
+4. logs 的 `/` 加 `/api/logs` 視為一致。note 保留 Claude 指定的 `backend_router_registry.py` 來源名稱；本 repo 找不到該檔，實際另以 `kits/form-analysis.kit-manifest.json` 的 routerRegistrations 核對前綴。上傳、匯入、修正及契約清單也以這份 manifest 的組裝前綴對照，不把字面路徑差異當阻礙。
+5. `db.import.jobs`、`db.audit.events`、`db.subscriptions` 是服務直接操作資料庫，沒有同名 broker 對應表；note 如實記錄。稽核寫入原始碼是 best-effort，失敗會返回，沒有誤標成保證保存。
+6. analytics 的 status 仍使用舊上傳狀態，但平台 `list_upload_jobs` 已讀取 ImportJob；此來源內部差異寫入兩項歷史能力 note，不改來源，也不新增易誤導的 status 動作參數。其他日期與分頁條件照來源登錄。
+7. 舊上傳端點在多租戶模式回報 410、PDF 轉檔未配置服務回報 503，均記在失敗條件；verified 表示來源可核對，不代表所有部署環境已可執行。
+8. audit-edit 直接使用通用表單模型與 `_coerce`，新增未宣告的 `forms.station-model` consumes 與來源證據。因此稽核與原因維護也會透過整個 Kit 的相依帶入 generic-forms；測試如實斷言衍生的租戶缺口，不修改推導規則。
+
+### WP3：動作與逐項輸入判斷
+
+已修改 `config/actions.json`：新增 13 個動作，共 17 個；`import-records.name` 改成「匯入資料列」。與修改前副本比較，原四個動作除該名稱外完全相同。新動作參數沒有 default，沒有新增 mock。
+
+| 動作 | needs | requiresKits 與原因 |
+| --- | --- | --- |
+| browse-forms | form | 瀏覽所選表單的紀錄，依 D69 必帶 generic-forms 與 station-data-link |
+| upload-file | form | 依派工以目標表單描述上傳資料，必帶上述兩 Kit |
+| convert-pdf | form | 依派工保留目標表單，另需 PDF 上傳工作編號，必帶上述兩 Kit |
+| import-job-track | form | 匯入目標與驗證欄位屬於表單，必帶上述兩 Kit |
+| view-upload-history | 空 | 來源只依日期、狀態、分頁查詢整體歷史，不接受表單輸入，無固定必帶 Kit；由能力推導 analytics 與 platform-core |
+| analyze-trend | form | 來源必填表單代碼，必帶上述兩表格 Kit |
+| view-audit-events | 空 | 稽核事件篩選不需要表單，無固定必帶 Kit；audit-edit 的來源相依仍照常推導 |
+| edit-record | form | 指定表單、紀錄與原因，必帶上述兩表格 Kit |
+| manage-edit-reasons | 空 | 維護租戶原因清單，不依特定表單；無固定必帶 Kit，保留來源相依推導 |
+| manage-subscription | 空 | 只需外部訂閱編號，不帶表格 Kit；名稱與描述為同步與查詢訂閱權益 |
+| view-logs | 空 | 依日誌篩選條件查詢，不帶表格 Kit |
+| view-kit-contracts | 空 | 契約查詢無表單輸入，不帶表格 Kit |
+| manage-endpoint-permissions | 空 | 部署端點角色設定，不帶表格 Kit |
+
+parameters 是流程節點設定，未把檔案、紀錄變更物件或完整權限 JSON 假裝成目前 schema 不支援的輸入型別；本次不新增執行器或改 schema。現有工具箱會依 catalog 自動載入工具，未修改 UI 排版。
+
+### 測試檔案與結果
+
+- 新增 `apps/composer-gui/src/moreNodeTools.test.ts`：13 個動作逐一驗證完整 Kit 集合、無歧義與精確的 `db.tenants.read` 缺口集合；另驗證所有 action requires 有已驗證服務／實際來源、所有 registry 可解析及 Function 來源存在、服務鏈一致、新參數無 default、業務文案與 D94 保留差異。共 17 項新增測試，全數通過。
+- 修改 `apps/composer-gui/src/registry.test.ts`：action 檢查改用與產品相同的完整 registry loader，既有四 Kit 範例差異斷言加入 platform.health；原本缺口斷言保留。
+- 修改 `apps/composer-gui/src/WorkflowCanvas.test.tsx` 與 `workflowGraph.test.ts`：只將舊工具名稱斷言改為「匯入資料列」，保留參數切換、表單不遺失等測試意圖。`actions.test.ts` 原有缺口斷言完全未改。
+- 最終 `npm.cmd run typecheck`：通過，exit 0。
+- 最終 `npm.cmd test`：exit 1；31 個測試檔中 30 通過、1 失敗；301 個測試中 **299 通過、1 失敗、1 略過**。
+- 唯一失敗仍為 `security.test.mjs:128` 的 CLI 簽署測試讀取暫存私鑰 EPERM，`:107` afterAll 清理亦 EPERM。最後一次暫存目錄為 `C:\Users\gslab\AppData\Local\Temp\composer-security-cMsxkt`；第一次本輪完整測試的目錄為 `C:\Users\gslab\AppData\Local\Temp\composer-security-jphvZM`。未讀取或輸出私鑰內容，未修改安全測試，這兩個目錄待具權限環境清理。
+- 首次完整測試另有兩個舊名稱斷言失敗；修正名稱後重跑已通過，沒有掩蓋或略過。
+- 唯一略過為 `App.test.tsx:14` 既有「以 User 身分修改 MIS 項目由授權邊界拒絕（尚無身分機制）」；本次沒有新增 skip。
+- 未執行 build、Python Kit 測試或真實瀏覽器驗證；本輪指定的兩項 npm 檢查均已執行。產品資料與測試寫入已完成，待 Claude 審閱、具權限環境驗證 security CLI 與後續 git 操作；狀態維持 ready_for_claude／owner claude。

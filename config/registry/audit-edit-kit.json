@@ -1,0 +1,506 @@
+{
+  "format": "composer-kit-registry",
+  "version": 1,
+  "kitId": "audit-edit-kit",
+  "scope": "登錄稽核查詢、資料修正與原因維護；原因驗證資料能力由 platform-core-kit 提供。",
+  "capabilities": [
+    {
+      "id": "audit.events.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/audit/events",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "audit-edit-kit",
+        "mService": "audit-events-list"
+      },
+      "verified": true
+    },
+    {
+      "id": "records.edit",
+      "kind": "api",
+      "method": "PATCH",
+      "path": "/api/edit/records/{table_code}/{record_id}",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "audit-edit-kit",
+        "mService": "records-edit"
+      },
+      "verified": true,
+      "note": "組裝前綴 /api/edit，依 kits/form-analysis.kit-manifest.json 的 routerRegistrations。"
+    },
+    {
+      "id": "edit-reasons.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/edit/reasons",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "audit-edit-kit",
+        "mService": "edit-reasons-list"
+      },
+      "verified": true,
+      "note": "組裝前綴 /api/edit，依 kits/form-analysis.kit-manifest.json 的 routerRegistrations。"
+    },
+    {
+      "id": "edit-reasons.create",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/edit/reasons",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "audit-edit-kit",
+        "mService": "edit-reasons-create"
+      },
+      "verified": true,
+      "note": "組裝前綴 /api/edit，依 kits/form-analysis.kit-manifest.json 的 routerRegistrations。"
+    },
+    {
+      "id": "edit-reasons.update",
+      "kind": "api",
+      "method": "PATCH",
+      "path": "/api/edit/reasons/{reason_id}",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "audit-edit-kit",
+        "mService": "edit-reasons-update"
+      },
+      "verified": true,
+      "note": "組裝前綴 /api/edit，依 kits/form-analysis.kit-manifest.json 的 routerRegistrations。"
+    },
+    {
+      "id": "db.audit.events",
+      "kind": "db",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "audit-edit-kit",
+        "mService": "db-audit-events"
+      },
+      "verified": true,
+      "note": "直接寫入 AuditEvent，沒有同名 broker 項目；失敗由來源吞下，不宣稱必定寫入成功。"
+    },
+    {
+      "id": "db.edit-reasons.validate",
+      "kind": "db",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "platform-core-kit",
+        "mService": "db-edit-reasons-validate"
+      },
+      "verified": true,
+      "note": "契約宣告於本 Kit，實作在 platform-core-kit 的 db_capabilities.py:validate_edit_reason。"
+    }
+  ],
+  "consumes": [
+    {
+      "capability": "db.records.search",
+      "kind": "db",
+      "declared": true
+    },
+    {
+      "capability": "forms.station-model",
+      "kind": "model",
+      "declared": false,
+      "evidence": "routes_edit.py 使用 Station、StationSchema、GenericRecord，並從 routes_generic_forms 匯入 _coerce。"
+    }
+  ],
+  "mServices": [
+    {
+      "id": "audit-events-list",
+      "name": "查詢稽核事件",
+      "responsibility": "查詢稽核事件",
+      "provides": [
+        "audit.events.list"
+      ],
+      "inputs": [
+        {
+          "name": "tenant_id",
+          "type": "uuid"
+        },
+        {
+          "name": "action",
+          "type": "string"
+        },
+        {
+          "name": "since",
+          "type": "string"
+        },
+        {
+          "name": "until",
+          "type": "string"
+        },
+        {
+          "name": "limit",
+          "type": "integer"
+        },
+        {
+          "name": "offset",
+          "type": "integer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "events",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "audit-events-list"
+      ],
+      "failure": "403 需要系統管理員；422 篩選或分頁參數無效"
+    },
+    {
+      "id": "records-edit",
+      "name": "修正紀錄並保留差異",
+      "responsibility": "修正紀錄並保留差異",
+      "provides": [
+        "records.edit"
+      ],
+      "inputs": [
+        {
+          "name": "table_code",
+          "type": "string"
+        },
+        {
+          "name": "record_id",
+          "type": "uuid"
+        },
+        {
+          "name": "changes",
+          "type": "json"
+        },
+        {
+          "name": "reason_id",
+          "type": "uuid"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "record",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "records-edit"
+      ],
+      "failure": "404 表單或紀錄不存在；422 欄位、定義或原因無效；501 通用表格支援未安裝"
+    },
+    {
+      "id": "edit-reasons-list",
+      "name": "查詢修正原因",
+      "responsibility": "查詢修正原因",
+      "provides": [
+        "edit-reasons.list"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "reasons",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "edit-reasons-list"
+      ],
+      "failure": "資料庫或來源服務異常時由呼叫端回報錯誤"
+    },
+    {
+      "id": "edit-reasons-create",
+      "name": "建立修正原因",
+      "responsibility": "建立修正原因",
+      "provides": [
+        "edit-reasons.create"
+      ],
+      "inputs": [
+        {
+          "name": "code",
+          "type": "string"
+        },
+        {
+          "name": "label",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "reason",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "edit-reasons-create"
+      ],
+      "failure": "403 需要租戶管理員；422 原因代碼或名稱無效；409 代碼重複"
+    },
+    {
+      "id": "edit-reasons-update",
+      "name": "更新修正原因",
+      "responsibility": "更新修正原因",
+      "provides": [
+        "edit-reasons.update"
+      ],
+      "inputs": [
+        {
+          "name": "reason_id",
+          "type": "uuid"
+        },
+        {
+          "name": "label",
+          "type": "string"
+        },
+        {
+          "name": "is_active",
+          "type": "boolean"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "reason",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "edit-reasons-update"
+      ],
+      "failure": "403 需要租戶管理員；404 原因不存在；422 更新欄位無效"
+    },
+    {
+      "id": "db-audit-events",
+      "name": "保存稽核事件",
+      "responsibility": "保存稽核事件",
+      "provides": [
+        "db.audit.events"
+      ],
+      "inputs": [
+        {
+          "name": "tenant_id",
+          "type": "uuid"
+        },
+        {
+          "name": "action",
+          "type": "string"
+        },
+        {
+          "name": "metadata",
+          "type": "json"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "type": "none"
+        }
+      ],
+      "functions": [
+        "db-audit-events"
+      ],
+      "failure": "來源採 best-effort：無資料庫連線或寫入失敗會直接返回，不保證事件已保存"
+    }
+  ],
+  "functions": [
+    {
+      "id": "audit-events-list",
+      "primitive": "audit-events-list",
+      "input": [
+        {
+          "name": "tenant_id",
+          "type": "uuid"
+        },
+        {
+          "name": "action",
+          "type": "string"
+        },
+        {
+          "name": "since",
+          "type": "string"
+        },
+        {
+          "name": "until",
+          "type": "string"
+        },
+        {
+          "name": "limit",
+          "type": "integer"
+        },
+        {
+          "name": "offset",
+          "type": "integer"
+        }
+      ],
+      "output": [
+        {
+          "name": "events",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "403 需要系統管理員",
+        "422 篩選或分頁參數無效"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/audit-edit-kit/src/backend/app/api/routes_audit_events.py",
+        "symbol": "list_audit_events"
+      }
+    },
+    {
+      "id": "records-edit",
+      "primitive": "records-edit",
+      "input": [
+        {
+          "name": "table_code",
+          "type": "string"
+        },
+        {
+          "name": "record_id",
+          "type": "uuid"
+        },
+        {
+          "name": "changes",
+          "type": "json"
+        },
+        {
+          "name": "reason_id",
+          "type": "uuid"
+        }
+      ],
+      "output": [
+        {
+          "name": "record",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "404 表單或紀錄不存在",
+        "422 欄位、定義或原因無效",
+        "501 通用表格支援未安裝"
+      ],
+      "sideEffects": [
+        "更新紀錄並新增修改前後差異"
+      ],
+      "source": {
+        "path": "kits/audit-edit-kit/src/backend/app/api/routes_edit.py",
+        "symbol": "edit_record"
+      }
+    },
+    {
+      "id": "edit-reasons-list",
+      "primitive": "edit-reasons-list",
+      "input": [],
+      "output": [
+        {
+          "name": "reasons",
+          "type": "json"
+        }
+      ],
+      "failures": [],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/audit-edit-kit/src/backend/app/api/routes_edit.py",
+        "symbol": "list_reasons"
+      }
+    },
+    {
+      "id": "edit-reasons-create",
+      "primitive": "edit-reasons-create",
+      "input": [
+        {
+          "name": "code",
+          "type": "string"
+        },
+        {
+          "name": "label",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "reason",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "403 需要租戶管理員",
+        "422 原因代碼或名稱無效",
+        "409 代碼重複"
+      ],
+      "sideEffects": [
+        "新增修正原因"
+      ],
+      "source": {
+        "path": "kits/audit-edit-kit/src/backend/app/api/routes_edit.py",
+        "symbol": "create_reason"
+      }
+    },
+    {
+      "id": "edit-reasons-update",
+      "primitive": "edit-reasons-update",
+      "input": [
+        {
+          "name": "reason_id",
+          "type": "uuid"
+        },
+        {
+          "name": "label",
+          "type": "string"
+        },
+        {
+          "name": "is_active",
+          "type": "boolean"
+        }
+      ],
+      "output": [
+        {
+          "name": "reason",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "403 需要租戶管理員",
+        "404 原因不存在",
+        "422 更新欄位無效"
+      ],
+      "sideEffects": [
+        "修改原因名稱或啟用狀態"
+      ],
+      "source": {
+        "path": "kits/audit-edit-kit/src/backend/app/api/routes_edit.py",
+        "symbol": "update_reason"
+      }
+    },
+    {
+      "id": "db-audit-events",
+      "primitive": "db-audit-events",
+      "input": [
+        {
+          "name": "tenant_id",
+          "type": "uuid"
+        },
+        {
+          "name": "action",
+          "type": "string"
+        },
+        {
+          "name": "metadata",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "result",
+          "type": "none"
+        }
+      ],
+      "failures": [
+        "來源採 best-effort：無資料庫連線或寫入失敗會直接返回，不保證事件已保存"
+      ],
+      "sideEffects": [
+        "嘗試新增稽核事件"
+      ],
+      "source": {
+        "path": "kits/audit-edit-kit/src/backend/app/services/audit_events.py",
+        "symbol": "write_audit_event_best_effort"
+      }
+    }
+  ]
+}

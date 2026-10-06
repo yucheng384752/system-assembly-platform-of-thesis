@@ -2,7 +2,7 @@
   "format": "composer-kit-registry",
   "version": 1,
   "kitId": "platform-core-kit",
-  "scope": "只登錄 db_capabilities.py 的五項 db.* 能力；platform.health、kit.* 與 admin.* 端點以及 db.upload.jobs.list 未登錄",
+  "scope": "登錄既有五項資料能力、新增上傳工作清單、契約清單與端點權限；健康檢查缺少來源，保留未驗證宣告；通用能力呼叫端點依 D89 不登錄。",
   "capabilities": [
     {
       "id": "db.forms.list",
@@ -55,6 +55,64 @@
       },
       "verified": true,
       "note": "本 Kit 契約未宣告；audit-edit-kit 的契約宣告此能力，實作在本 Kit"
+    },
+    {
+      "id": "db.upload.jobs.list",
+      "kind": "db",
+      "declared": false,
+      "implementedBy": {
+        "kitId": "platform-core-kit",
+        "mService": "db-upload-jobs-list"
+      },
+      "verified": true,
+      "note": "upload-validation-kit 契約宣告此能力，實作位於本 Kit；目前讀取 ImportJob 而非舊 UploadJob。"
+    },
+    {
+      "id": "platform.health",
+      "kind": "api",
+      "method": "GET",
+      "path": "/healthz",
+      "declared": true,
+      "implementedBy": null,
+      "verified": false,
+      "note": "契約及 manifest 宣告健康檢查，但本 Kit 的 src/backend 沒有對應路由；依重新派工保留差異且不上架 check-health。"
+    },
+    {
+      "id": "kit.contracts.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/kit/contracts",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "platform-core-kit",
+        "mService": "kit-contracts-list"
+      },
+      "verified": true,
+      "note": "/contracts 加上組裝前綴 /api/kit，見 kits/form-analysis.kit-manifest.json 的 routerRegistrations。"
+    },
+    {
+      "id": "admin.endpoint-permissions.get",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/admin/endpoint-permissions",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "platform-core-kit",
+        "mService": "admin-endpoint-permissions-get"
+      },
+      "verified": true
+    },
+    {
+      "id": "admin.endpoint-permissions.put",
+      "kind": "api",
+      "method": "PUT",
+      "path": "/api/admin/endpoint-permissions",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "platform-core-kit",
+        "mService": "admin-endpoint-permissions-put"
+      },
+      "verified": true
     }
   ],
   "consumes": [],
@@ -210,6 +268,112 @@
         "validate-edit-reason"
       ],
       "failure": "缺少參數或原因無效時回報 422"
+    },
+    {
+      "id": "db-upload-jobs-list",
+      "name": "查詢上傳工作清單",
+      "responsibility": "查詢上傳工作清單",
+      "provides": [
+        "db.upload.jobs.list"
+      ],
+      "inputs": [
+        {
+          "name": "tenant_id",
+          "type": "string"
+        },
+        {
+          "name": "date_from",
+          "type": "string"
+        },
+        {
+          "name": "date_to",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "page",
+          "type": "integer"
+        },
+        {
+          "name": "page_size",
+          "type": "integer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "jobs",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "db-upload-jobs-list"
+      ],
+      "failure": "501 匯入工作資料模型未安裝；日期解析失敗"
+    },
+    {
+      "id": "kit-contracts-list",
+      "name": "查詢功能契約",
+      "responsibility": "查詢功能契約",
+      "provides": [
+        "kit.contracts.list"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "contracts",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "kit-contracts-list"
+      ],
+      "failure": "資料庫或來源服務異常時由呼叫端回報錯誤"
+    },
+    {
+      "id": "admin-endpoint-permissions-get",
+      "name": "查詢端點權限",
+      "responsibility": "查詢端點權限",
+      "provides": [
+        "admin.endpoint-permissions.get"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "permissions",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "admin-endpoint-permissions-get"
+      ],
+      "failure": "403 需要系統管理員"
+    },
+    {
+      "id": "admin-endpoint-permissions-put",
+      "name": "設定端點權限",
+      "responsibility": "設定端點權限",
+      "provides": [
+        "admin.endpoint-permissions.put"
+      ],
+      "inputs": [
+        {
+          "name": "permissions",
+          "type": "json"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "permissions",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "admin-endpoint-permissions-put"
+      ],
+      "failure": "403 需要系統管理員；400 權限對照格式無效；設定檔寫入失敗"
     }
   ],
   "functions": [
@@ -368,6 +532,115 @@
       "source": {
         "path": "kits/platform-core-kit/src/backend/app/core/db_capabilities.py",
         "symbol": "validate_edit_reason"
+      }
+    },
+    {
+      "id": "db-upload-jobs-list",
+      "primitive": "db-upload-jobs-list",
+      "input": [
+        {
+          "name": "tenant_id",
+          "type": "string"
+        },
+        {
+          "name": "date_from",
+          "type": "string"
+        },
+        {
+          "name": "date_to",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "page",
+          "type": "integer"
+        },
+        {
+          "name": "page_size",
+          "type": "integer"
+        }
+      ],
+      "output": [
+        {
+          "name": "jobs",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "501 匯入工作資料模型未安裝",
+        "日期解析失敗"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/platform-core-kit/src/backend/app/core/db_capabilities.py",
+        "symbol": "list_upload_jobs"
+      }
+    },
+    {
+      "id": "kit-contracts-list",
+      "primitive": "kit-contracts-list",
+      "input": [],
+      "output": [
+        {
+          "name": "contracts",
+          "type": "json"
+        }
+      ],
+      "failures": [],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/platform-core-kit/src/backend/app/api/routes_kit_broker.py",
+        "symbol": "get_contracts"
+      }
+    },
+    {
+      "id": "admin-endpoint-permissions-get",
+      "primitive": "admin-endpoint-permissions-get",
+      "input": [],
+      "output": [
+        {
+          "name": "permissions",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "403 需要系統管理員"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/platform-core-kit/src/backend/app/api/routes_admin_permissions.py",
+        "symbol": "get_endpoint_permissions"
+      }
+    },
+    {
+      "id": "admin-endpoint-permissions-put",
+      "primitive": "admin-endpoint-permissions-put",
+      "input": [
+        {
+          "name": "permissions",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "permissions",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "403 需要系統管理員",
+        "400 權限對照格式無效",
+        "設定檔寫入失敗"
+      ],
+      "sideEffects": [
+        "覆寫部署環境的端點權限設定檔"
+      ],
+      "source": {
+        "path": "kits/platform-core-kit/src/backend/app/api/routes_admin_permissions.py",
+        "symbol": "put_endpoint_permissions"
       }
     }
   ]

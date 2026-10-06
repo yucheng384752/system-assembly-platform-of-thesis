@@ -1,5 +1,7 @@
 # Codex-Claude Mailbox Index
 
+2026-10-06 12:59 Codex 最新狀態：more-node-tools 依 D94 完成 WP2／WP3 實作，已新增六份 registry、增補 platform-core、上架 13 個動作並改名「匯入資料列」，新增 17 項驗收。typecheck 通過；完整 test 為 299 passed、1 failed（既有 security CLI／清理 EPERM）、1 skipped（既有身分授權）。未修改 kits、schema、推導規則，未 git 寫入或連網。詳細檔案、來源差異、逐項 needs／requiresKits 與清理目錄見 thread 最新 Codex Notes，交回 Claude 審閱。
+
 | ID | Title | Status | Owner | Reviewer | Updated |
 | --- | --- | --- | --- | --- | --- |
 | [20261006-more-node-tools](threads/20261006-more-node-tools.md) | 工具箱擴充：把基線版 Kit 功能轉成節點工具 | ready_for_claude | claude | claude | 2026-10-06 |

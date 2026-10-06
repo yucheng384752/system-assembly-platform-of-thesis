@@ -6,6 +6,7 @@ import genericForms from '../../../config/registry/generic-forms-kit.json';
 import platformCore from '../../../config/registry/platform-core-kit.json';
 import queryTrace from '../../../config/registry/query-traceability-kit.json';
 import stationLink from '../../../config/registry/station-data-link-kit.json';
+import { registry } from './registryData';
 
 const entries = [genericForms, stationLink, queryTrace, platformCore].map(parseRegistry);
 const clone = (): KitRegistry[] => structuredClone(entries);
@@ -67,12 +68,12 @@ describe('登錄資料檢查', () => {
   });
 
   test('動作需要的 capability 都存在於登錄資料', () => {
-    expect(checkActionCatalog(parseActionCatalog(actions), entries)).toEqual([]);
+    expect(checkActionCatalog(parseActionCatalog(actions), registry)).toEqual([]);
   });
 
   test('基線版的契約與原始碼差異被如實列出', () => {
     // Declared in the contract, but no route in the source.
-    expect(of('unverified').map(i => i.subject)).toEqual(['query.records.search']);
+    expect(of('unverified').map(i => i.subject)).toEqual(['query.records.search', 'platform.health']);
     // db.tenants.read was provided only by the abolished tenant-auth-kit (D03); consumers are left dangling.
     expect(of('unresolved-consume').map(i => `${i.kitId}:${i.subject}`).sort())
       .toEqual(['generic-forms-kit:db.tenants.read', 'station-data-link-kit:db.tenants.read']);

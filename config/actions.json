@@ -28,7 +28,7 @@
     },
     {
       "id": "import-records",
-      "name": "匯入紀錄",
+      "name": "匯入資料列",
       "category": "表單",
       "description": "上傳 CSV，先預覽驗證結果，再匯入表單",
       "requires": [
@@ -122,6 +122,473 @@
           "reason": "使用表格的動作一律需要站點資料串聯"
         }
       ]
+    },
+    {
+      "id": "browse-forms",
+      "name": "瀏覽表單與紀錄",
+      "category": "表單",
+      "description": "瀏覽表單清單與所選表單的紀錄",
+      "requires": [
+        "forms.list",
+        "forms.records.list"
+      ],
+      "parameters": [
+        {
+          "id": "page",
+          "name": "頁碼",
+          "type": "number",
+          "required": false,
+          "minimum": 1
+        },
+        {
+          "id": "pageSize",
+          "name": "每頁筆數",
+          "type": "number",
+          "required": false,
+          "minimum": 1
+        }
+      ],
+      "needs": [
+        "form"
+      ],
+      "requiresKits": [
+        {
+          "kitId": "generic-forms-kit",
+          "reason": "使用表格的動作一律需要通用表格管理"
+        },
+        {
+          "kitId": "station-data-link-kit",
+          "reason": "使用表格的動作一律需要站點資料串聯"
+        }
+      ]
+    },
+    {
+      "id": "upload-file",
+      "name": "上傳檔案並驗證",
+      "category": "資料上傳",
+      "description": "上傳檔案並查詢驗證狀態",
+      "requires": [
+        "upload.file.create",
+        "upload.status.get"
+      ],
+      "parameters": [],
+      "needs": [
+        "form"
+      ],
+      "requiresKits": [
+        {
+          "kitId": "generic-forms-kit",
+          "reason": "使用表格的動作一律需要通用表格管理"
+        },
+        {
+          "kitId": "station-data-link-kit",
+          "reason": "使用表格的動作一律需要站點資料串聯"
+        }
+      ]
+    },
+    {
+      "id": "convert-pdf",
+      "name": "PDF 轉檔",
+      "category": "資料上傳",
+      "description": "將已上傳的 PDF 轉成資料檔，查詢進度並取得結果",
+      "requires": [
+        "upload.pdf.convert",
+        "upload.pdf.status",
+        "upload.pdf.outputs"
+      ],
+      "parameters": [
+        {
+          "id": "processId",
+          "name": "PDF 上傳工作編號",
+          "type": "text",
+          "required": true
+        },
+        {
+          "id": "winderNumber",
+          "name": "捲取機編號",
+          "type": "text",
+          "required": false
+        },
+        {
+          "id": "includeCsvText",
+          "name": "包含轉檔內容",
+          "type": "boolean",
+          "required": false
+        }
+      ],
+      "needs": [
+        "form"
+      ],
+      "requiresKits": [
+        {
+          "kitId": "generic-forms-kit",
+          "reason": "使用表格的動作一律需要通用表格管理"
+        },
+        {
+          "kitId": "station-data-link-kit",
+          "reason": "使用表格的動作一律需要站點資料串聯"
+        }
+      ]
+    },
+    {
+      "id": "import-job-track",
+      "name": "匯入工作追蹤",
+      "category": "資料匯入",
+      "description": "建立匯入工作，查詢進度與錯誤並提交資料",
+      "requires": [
+        "import.job.create",
+        "import.job.get",
+        "import.job.errors",
+        "import.job.commit"
+      ],
+      "parameters": [
+        {
+          "id": "allowDuplicate",
+          "name": "允許重複檔案",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "id": "page",
+          "name": "頁碼",
+          "type": "number",
+          "required": false,
+          "minimum": 1
+        },
+        {
+          "id": "pageSize",
+          "name": "每頁筆數",
+          "type": "number",
+          "required": false,
+          "minimum": 1
+        }
+      ],
+      "needs": [
+        "form"
+      ],
+      "requiresKits": [
+        {
+          "kitId": "generic-forms-kit",
+          "reason": "使用表格的動作一律需要通用表格管理"
+        },
+        {
+          "kitId": "station-data-link-kit",
+          "reason": "使用表格的動作一律需要站點資料串聯"
+        }
+      ]
+    },
+    {
+      "id": "view-upload-history",
+      "name": "上傳歷史查詢",
+      "category": "分析",
+      "description": "依日期查詢與匯出上傳歷史",
+      "requires": [
+        "analytics.upload-history.list",
+        "analytics.upload-history.export"
+      ],
+      "parameters": [
+        {
+          "id": "dateFrom",
+          "name": "起始日期",
+          "type": "text",
+          "required": false
+        },
+        {
+          "id": "dateTo",
+          "name": "結束日期",
+          "type": "text",
+          "required": false
+        },
+        {
+          "id": "page",
+          "name": "頁碼",
+          "type": "number",
+          "required": false,
+          "minimum": 1
+        },
+        {
+          "id": "pageSize",
+          "name": "每頁筆數",
+          "type": "number",
+          "required": false,
+          "minimum": 1
+        }
+      ],
+      "needs": []
+    },
+    {
+      "id": "analyze-trend",
+      "name": "趨勢分析",
+      "category": "分析",
+      "description": "依日期與統計期間分析表單紀錄及數值欄位的變化",
+      "requires": [
+        "analytics.trend"
+      ],
+      "parameters": [
+        {
+          "id": "dateFrom",
+          "name": "起始日期",
+          "type": "text",
+          "required": false
+        },
+        {
+          "id": "dateTo",
+          "name": "結束日期",
+          "type": "text",
+          "required": false
+        },
+        {
+          "id": "field",
+          "name": "數值欄位",
+          "type": "text",
+          "required": false
+        },
+        {
+          "id": "granularity",
+          "name": "統計期間（日、週、月）",
+          "type": "text",
+          "required": false
+        }
+      ],
+      "needs": [
+        "form"
+      ],
+      "requiresKits": [
+        {
+          "kitId": "generic-forms-kit",
+          "reason": "使用表格的動作一律需要通用表格管理"
+        },
+        {
+          "kitId": "station-data-link-kit",
+          "reason": "使用表格的動作一律需要站點資料串聯"
+        }
+      ]
+    },
+    {
+      "id": "view-audit-events",
+      "name": "稽核事件檢視",
+      "category": "稽核與修正",
+      "description": "依操作與時間範圍檢視稽核事件",
+      "requires": [
+        "audit.events.list"
+      ],
+      "parameters": [
+        {
+          "id": "tenantId",
+          "name": "租戶編號",
+          "type": "text",
+          "required": false
+        },
+        {
+          "id": "action",
+          "name": "操作關鍵字",
+          "type": "text",
+          "required": false
+        },
+        {
+          "id": "since",
+          "name": "起始時間",
+          "type": "text",
+          "required": false
+        },
+        {
+          "id": "until",
+          "name": "結束時間",
+          "type": "text",
+          "required": false
+        },
+        {
+          "id": "limit",
+          "name": "查詢筆數",
+          "type": "number",
+          "required": false,
+          "minimum": 1,
+          "maximum": 500
+        },
+        {
+          "id": "offset",
+          "name": "略過筆數",
+          "type": "number",
+          "required": false,
+          "minimum": 0
+        }
+      ],
+      "needs": []
+    },
+    {
+      "id": "edit-record",
+      "name": "修正紀錄",
+      "category": "稽核與修正",
+      "description": "選擇修正原因並修改紀錄，保留修改前後差異",
+      "requires": [
+        "records.edit",
+        "edit-reasons.list"
+      ],
+      "parameters": [
+        {
+          "id": "recordId",
+          "name": "紀錄編號",
+          "type": "text",
+          "required": true
+        },
+        {
+          "id": "reasonId",
+          "name": "修正原因編號",
+          "type": "text",
+          "required": true
+        }
+      ],
+      "needs": [
+        "form"
+      ],
+      "requiresKits": [
+        {
+          "kitId": "generic-forms-kit",
+          "reason": "使用表格的動作一律需要通用表格管理"
+        },
+        {
+          "kitId": "station-data-link-kit",
+          "reason": "使用表格的動作一律需要站點資料串聯"
+        }
+      ]
+    },
+    {
+      "id": "manage-edit-reasons",
+      "name": "修正原因管理",
+      "category": "稽核與修正",
+      "description": "查詢、新增修正原因，並更新名稱或啟用狀態",
+      "requires": [
+        "edit-reasons.list",
+        "edit-reasons.create",
+        "edit-reasons.update"
+      ],
+      "parameters": [
+        {
+          "id": "code",
+          "name": "原因代碼",
+          "type": "text",
+          "required": false
+        },
+        {
+          "id": "label",
+          "name": "原因名稱",
+          "type": "text",
+          "required": false
+        },
+        {
+          "id": "reasonId",
+          "name": "原因編號",
+          "type": "text",
+          "required": false
+        },
+        {
+          "id": "isActive",
+          "name": "啟用原因",
+          "type": "boolean",
+          "required": false
+        }
+      ],
+      "needs": []
+    },
+    {
+      "id": "manage-subscription",
+      "name": "同步與查詢訂閱權益",
+      "category": "訂閱",
+      "description": "同步與查詢訂閱權益，檢視方案與目前狀態",
+      "requires": [
+        "subscriptions.sync",
+        "subscriptions.get",
+        "subscriptions.entitlements.get"
+      ],
+      "parameters": [
+        {
+          "id": "externalSubscriptionId",
+          "name": "外部訂閱編號",
+          "type": "text",
+          "required": true
+        }
+      ],
+      "needs": []
+    },
+    {
+      "id": "view-logs",
+      "name": "檢視系統日誌",
+      "category": "平台與維運",
+      "description": "依類別、等級與時間查詢目前租戶的系統日誌",
+      "requires": [
+        "logs.list"
+      ],
+      "parameters": [
+        {
+          "id": "logType",
+          "name": "日誌類別",
+          "type": "text",
+          "required": false
+        },
+        {
+          "id": "level",
+          "name": "日誌等級",
+          "type": "text",
+          "required": false
+        },
+        {
+          "id": "action",
+          "name": "操作關鍵字",
+          "type": "text",
+          "required": false
+        },
+        {
+          "id": "since",
+          "name": "起始時間",
+          "type": "text",
+          "required": false
+        },
+        {
+          "id": "until",
+          "name": "結束時間",
+          "type": "text",
+          "required": false
+        },
+        {
+          "id": "limit",
+          "name": "查詢筆數",
+          "type": "number",
+          "required": false,
+          "minimum": 1,
+          "maximum": 500
+        },
+        {
+          "id": "offset",
+          "name": "略過筆數",
+          "type": "number",
+          "required": false,
+          "minimum": 0
+        }
+      ],
+      "needs": []
+    },
+    {
+      "id": "view-kit-contracts",
+      "name": "功能契約清單",
+      "category": "平台與維運",
+      "description": "檢視系統提供與使用的功能契約",
+      "requires": [
+        "kit.contracts.list"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "manage-endpoint-permissions",
+      "name": "端點權限設定",
+      "category": "平台與維運",
+      "description": "檢視與設定各服務端點所需的操作角色",
+      "requires": [
+        "admin.endpoint-permissions.get",
+        "admin.endpoint-permissions.put"
+      ],
+      "parameters": [],
+      "needs": []
     }
   ]
 }

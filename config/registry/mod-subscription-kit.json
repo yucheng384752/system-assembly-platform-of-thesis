@@ -1,0 +1,388 @@
+{
+  "format": "composer-kit-registry",
+  "version": 1,
+  "kitId": "mod-subscription-kit",
+  "scope": "契約 subscriptions.manage 找不到對應端點；依 D94 保留未驗證宣告，另登錄同步、webhook、查詢與權益端點。環境變數只記名稱：MOD_API_BASE_URL、MOD_API_KEY、MOD_WEBHOOK_SECRET。",
+  "capabilities": [
+    {
+      "id": "subscriptions.manage",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/mod-subscription",
+      "declared": true,
+      "implementedBy": null,
+      "verified": false,
+      "note": "契約清單端點不存在；routes_mod_subscription.py 實作 /api/mod 下四個不同端點，依 D94 另登錄，不視為同一契約。"
+    },
+    {
+      "id": "subscriptions.sync",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/mod/subscriptions/sync",
+      "declared": false,
+      "implementedBy": {
+        "kitId": "mod-subscription-kit",
+        "mService": "subscriptions-sync"
+      },
+      "verified": true,
+      "note": "D94：契約只宣告 subscriptions.manage；本端點為原始碼實際提供，路由內建 /api/mod 前綴。"
+    },
+    {
+      "id": "subscriptions.webhook",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/mod/subscriptions/webhook",
+      "declared": false,
+      "implementedBy": {
+        "kitId": "mod-subscription-kit",
+        "mService": "subscriptions-webhook"
+      },
+      "verified": true,
+      "note": "D94：契約只宣告 subscriptions.manage；本端點為原始碼實際提供，路由內建 /api/mod 前綴。"
+    },
+    {
+      "id": "subscriptions.get",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/mod/subscriptions/{external_subscription_id}",
+      "declared": false,
+      "implementedBy": {
+        "kitId": "mod-subscription-kit",
+        "mService": "subscriptions-get"
+      },
+      "verified": true,
+      "note": "D94：契約只宣告 subscriptions.manage；本端點為原始碼實際提供，路由內建 /api/mod 前綴。"
+    },
+    {
+      "id": "subscriptions.entitlements.get",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/mod/subscriptions/{external_subscription_id}/entitlements",
+      "declared": false,
+      "implementedBy": {
+        "kitId": "mod-subscription-kit",
+        "mService": "subscriptions-entitlements-get"
+      },
+      "verified": true,
+      "note": "D94：契約只宣告 subscriptions.manage；本端點為原始碼實際提供，路由內建 /api/mod 前綴。"
+    },
+    {
+      "id": "db.subscriptions",
+      "kind": "db",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "mod-subscription-kit",
+        "mService": "db-subscriptions"
+      },
+      "verified": true,
+      "note": "直接由 sync_subscription 與 process_webhook 操作訂閱資料，沒有同名 broker 項目。"
+    }
+  ],
+  "consumes": [
+    {
+      "capability": "db.tenants.read",
+      "kind": "db",
+      "declared": true
+    }
+  ],
+  "mServices": [
+    {
+      "id": "subscriptions-sync",
+      "name": "同步訂閱",
+      "responsibility": "同步訂閱",
+      "provides": [
+        "subscriptions.sync"
+      ],
+      "inputs": [
+        {
+          "name": "external_subscription_id",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "subscription",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "subscriptions-sync"
+      ],
+      "failure": "503 未設定 MOD_API_BASE_URL；外部 API 或資料庫錯誤"
+    },
+    {
+      "id": "subscriptions-webhook",
+      "name": "接收訂閱事件",
+      "responsibility": "接收訂閱事件",
+      "provides": [
+        "subscriptions.webhook"
+      ],
+      "inputs": [
+        {
+          "name": "external_subscription_id",
+          "type": "string"
+        },
+        {
+          "name": "event",
+          "type": "string"
+        },
+        {
+          "name": "plan_code",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "subscriptions-webhook"
+      ],
+      "failure": "401 webhook 驗證失敗；404 訂閱不存在"
+    },
+    {
+      "id": "subscriptions-get",
+      "name": "查詢訂閱",
+      "responsibility": "查詢訂閱",
+      "provides": [
+        "subscriptions.get"
+      ],
+      "inputs": [
+        {
+          "name": "external_subscription_id",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "subscription",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "subscriptions-get"
+      ],
+      "failure": "404 訂閱不存在"
+    },
+    {
+      "id": "subscriptions-entitlements-get",
+      "name": "查詢訂閱權益",
+      "responsibility": "查詢訂閱權益",
+      "provides": [
+        "subscriptions.entitlements.get"
+      ],
+      "inputs": [
+        {
+          "name": "external_subscription_id",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "entitlements",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "subscriptions-entitlements-get"
+      ],
+      "failure": "404 訂閱不存在"
+    },
+    {
+      "id": "db-subscriptions",
+      "name": "同步訂閱資料",
+      "responsibility": "同步訂閱資料",
+      "provides": [
+        "db.subscriptions"
+      ],
+      "inputs": [
+        {
+          "name": "tenant_id",
+          "type": "string"
+        },
+        {
+          "name": "external_subscription_id",
+          "type": "string"
+        },
+        {
+          "name": "mod_api_base_url",
+          "type": "string"
+        },
+        {
+          "name": "api_key",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "subscription",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "db-subscriptions"
+      ],
+      "failure": "外部 HTTP、日期解析或資料庫錯誤"
+    }
+  ],
+  "functions": [
+    {
+      "id": "subscriptions-sync",
+      "primitive": "subscriptions-sync",
+      "input": [
+        {
+          "name": "external_subscription_id",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "subscription",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "503 未設定 MOD_API_BASE_URL",
+        "外部 API 或資料庫錯誤"
+      ],
+      "sideEffects": [
+        "呼叫外部訂閱服務並更新本地訂閱及事件"
+      ],
+      "source": {
+        "path": "kits/mod-subscription-kit/src/backend/app/api/routes_mod_subscription.py",
+        "symbol": "sync_mod_subscription"
+      }
+    },
+    {
+      "id": "subscriptions-webhook",
+      "primitive": "subscriptions-webhook",
+      "input": [
+        {
+          "name": "external_subscription_id",
+          "type": "string"
+        },
+        {
+          "name": "event",
+          "type": "string"
+        },
+        {
+          "name": "plan_code",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "result",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 webhook 驗證失敗",
+        "404 訂閱不存在"
+      ],
+      "sideEffects": [
+        "更新訂閱及保存事件"
+      ],
+      "source": {
+        "path": "kits/mod-subscription-kit/src/backend/app/api/routes_mod_subscription.py",
+        "symbol": "receive_mod_webhook"
+      }
+    },
+    {
+      "id": "subscriptions-get",
+      "primitive": "subscriptions-get",
+      "input": [
+        {
+          "name": "external_subscription_id",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "subscription",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "404 訂閱不存在"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/mod-subscription-kit/src/backend/app/api/routes_mod_subscription.py",
+        "symbol": "get_subscription"
+      }
+    },
+    {
+      "id": "subscriptions-entitlements-get",
+      "primitive": "subscriptions-entitlements-get",
+      "input": [
+        {
+          "name": "external_subscription_id",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "entitlements",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "404 訂閱不存在"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/mod-subscription-kit/src/backend/app/api/routes_mod_subscription.py",
+        "symbol": "get_subscription_entitlements"
+      }
+    },
+    {
+      "id": "db-subscriptions",
+      "primitive": "db-subscriptions",
+      "input": [
+        {
+          "name": "tenant_id",
+          "type": "string"
+        },
+        {
+          "name": "external_subscription_id",
+          "type": "string"
+        },
+        {
+          "name": "mod_api_base_url",
+          "type": "string"
+        },
+        {
+          "name": "api_key",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "subscription",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "外部 HTTP、日期解析或資料庫錯誤"
+      ],
+      "sideEffects": [
+        "呼叫外部 API、更新訂閱並新增同步事件"
+      ],
+      "source": {
+        "path": "kits/mod-subscription-kit/src/backend/app/services/mod_subscription.py",
+        "symbol": "sync_subscription"
+      }
+    }
+  ]
+}
