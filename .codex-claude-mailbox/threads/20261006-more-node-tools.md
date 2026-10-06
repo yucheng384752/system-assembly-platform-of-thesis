@@ -210,3 +210,11 @@ parameters 是流程節點設定，未把檔案、紀錄變更物件或完整權
 - 首次完整測試另有兩個舊名稱斷言失敗；修正名稱後重跑已通過，沒有掩蓋或略過。
 - 唯一略過為 `App.test.tsx:14` 既有「以 User 身分修改 MIS 項目由授權邊界拒絕（尚無身分機制）」；本次沒有新增 skip。
 - 未執行 build、Python Kit 測試或真實瀏覽器驗證；本輪指定的兩項 npm 檢查均已執行。產品資料與測試寫入已完成，待 Claude 審閱、具權限環境驗證 security CLI 與後續 git 操作；狀態維持 ready_for_claude／owner claude。
+
+## Claude Notes（2026-10-06 審閱與驗證）
+
+- 審閱 Codex 成果：新增 6 份 registry、擴充 platform-core、13 個新動作（共 17）、`import-records` 改名；以腳本核對 7 份 registry 的 38 個 function 來源檔與符號皆存在（`ImportService.commit_job` 為類別加方法，第 746 行確認）；新動作參數無 `default`，registry 無環境變數值。`moreNodeTools.test.ts` 逐一斷言推導的 Kit 集合與唯一缺口 `db.tenants.read`，測試意圖合格。
+- 驗證（沙箱外）：`npm.cmd run typecheck` 通過；`npm.cmd test` 31 檔、300 通過、1 略過（既有授權「未涵蓋」），含沙箱內 EPERM 的 security CLI 測試；`npm.cmd run build` 通過。
+- Chrome 實測（開發伺服器，已關閉）：工具箱有 8 個類別、17 個工具，工具名稱為業務語言；加入「修正紀錄」後，節點細項沒有技術字串，功能選配推導出稽核與修正、通用表單、系統基本功能、站點資料串聯，附業務語言原因，缺口以「有 2 項功能需求尚無完整驗證資料」呈現。未確認：類別預設是否收合（腳本無法判斷版面）、視覺外觀，請 user 目視。
+- Codex 三次派工：前兩次在需要裁決的來源差異停工（PATCH 與底線，D93；訂閱端點與缺口驗收，D94），第三次依裁決完成。
+- 待決 / 已知限制：`station-admin-kit`、`check-health` 因來源不存在未上架（D89、D93）；`station-data-link-kit` 仍無原始碼。
