@@ -116,9 +116,42 @@ user 要求「加入更多 node 功能」，範圍是工具箱的動作：把基
 
 請 Claude 先處理上述 schema 支援範圍及健康檢查來源，再重新交接；Codex 未更動 `kits/`、`schemas/`、`package*.json`，也未改寫既有測試意圖。
 
+### 2026-10-06 12:52（Asia/Taipei）：重新派工核對，發現新的來源阻礙
+
+- 已重讀完整 thread（含重新派工段落），確認分支 `feature/more-node-tools`、HEAD `5c21e2a`。D93 的 PATCH 與底線支援已存在；本次不再把它們當成阻礙。接受不新增 `check-health`、健康能力保留 null／false／note、上傳工作查詢由 platform-core 提供並由 upload-validation consumes 引用的修正。
+- **精確進度：WP2 未完成，WP3 未開始；尚未新增或修改任何 registry、actions 或測試。** 本次僅更新 thread 與 mailbox index。這次不是截止時間到期，而是在來源核對時觸發既定停止條件。
+- 已讀七個目標 Kit 的契約，以及上傳／驗證、分析、稽核／修正、訂閱、日誌、平台契約與權限路由；確認 `db_capabilities.py:286` 的 `list_upload_jobs` 與對應表。上傳大型路由讀取輸出曾截斷，匯入路由與服務尚未完成逐項核對，不能宣稱所有來源均已驗證。尚未作出各新動作的 needs／requiresKits 最終決定。
+
+新的阻礙與可重現證據：
+
+1. **`subscriptions.manage` 契約端點沒有對應實作。** `kits/mod-subscription-kit/kit.contract.json:5` 宣告 `GET /api/mod-subscription`；實際 `src/backend/app/api/routes_mod_subscription.py:16` 的 prefix 是 `/api/mod`，`:88–89` 是 `GET /subscriptions/{external_subscription_id}`／`get_subscription`，另外只有同步、webhook 與權益路由（`:48`、`:65`、`:107`）。`services/mod_subscription.py` 提供同步、webhook 與權益服務，沒有契約宣告的清單端點。不能把不同路徑與必要輸入的實作靜默當成相同契約。
+2. 依 WP2，契約與來源不一致須記 `verified: false`；但 `libs/ui-runtime/actions.ts:19` 明確排除未驗證實作，`:51` 會對指定的 `manage-subscription` 產生 `missing-provider`。因此如實記錄差異與 WP3「每個新動作不產生契約未完整缺口」無法同時完成。遵守本 thread「找不到實作且不是契約遺漏」即停止的要求；未自行改 Kit、schema、推導規則或刪除指定動作。需 Claude／user 決定補齊來源、明確授權重新對應實際訂閱端點，或將此動作排除後重新派工。
+3. **WP3 零缺口驗收另有既有規則衝突。** `apps/composer-gui/src/actions.test.ts:48–51` 明確要求保留 generic-forms 與 station-data-link 消費 `db.tenants.read` 的缺口；新表格動作依 D69 必帶這兩個 Kit，而 `deriveKits` 會遞迴檢查其 consumes（`actions.ts:65`）。若「不產生缺口」意指完全零缺口，便不能同時保留既有測試意圖。建議明確訂為「不新增缺口，既有 db.tenants.read 缺口逐項斷言」，但本次未擅自更改驗收標準。
+4. 另記來源差異供續作：`logs.list` 契約為 `/api/logs`，`routes_logs.py` 的清單 decorator 是 `/`（組裝前綴下有尾端斜線）；應保留說明，不能直接宣稱字面完全一致。這項不是本次停止的主要原因。
+
+本次驗證（產品資料未改的基線）：
+
+- `npm.cmd run typecheck`：**通過，exit 0**。
+- `npm.cmd test`：**exit 1**；30 個檔案中 **29 通過、1 失敗**；284 個測試中 **282 通過、1 失敗、1 略過**。
+- 失敗：`security.test.mjs:128` 的 CLI 簽署測試讀取暫存私鑰遭 EPERM；同檔 `:107` 的 afterAll 清理也遭 EPERM。暫存目錄為 `C:\Users\gslab\AppData\Local\Temp\composer-security-0OEgDH`，未能清除，需具權限環境處理。未讀取或輸出私鑰內容，未更改測試來隱藏失敗。
+- 略過：`App.test.tsx:14` 既有「未涵蓋：以 User 身分修改 MIS 項目由授權邊界拒絕（尚無身分機制）」；沒有新增 skip。
+- 未執行 build、Python Kit 測試或瀏覽器驗證；沒有新動作驗收結果。未修改 `kits/`、`schemas/`、`package*.json`，未新增依賴、連網、啟動伺服器或執行 git 寫入。
+
+交接狀態維持 `ready_for_claude`／owner `claude`；WP2／WP3 均未完成，待上述來源與驗收衝突解除後續作。
+
 ## Claude Notes（2026-10-06 重新派工）
 
 - user 同意放寬 schema（D93）：registry 的 `method` 加 `PATCH`、capability id 允許底線，action 的 `requires` 同步；已加測試（不放寬時失敗，放寬後仍拒絕 TRACE 與含空白大寫的 id）。Codex 回報的 PATCH 與底線阻礙解除，`records.edit`、`edit-reasons.update`、`import.job.from_upload` 照原樣登錄。
 - `check-health` 本輪不上架：`platform.health` 在 `platform-core-kit` 原始碼找不到。platform-core 的 registry 仍可記錄該 capability 為 `implementedBy: null`、`verified: false` 並附 note；actions 不要新增 `check-health`。上方動作表中這一列作廢。
 - `db.upload.jobs.list`：允許在 `platform-core-kit.json` 新增這一項（實作在 `db_capabilities.py` 的 `list_upload_jobs`），既有 db 項目不動。upload-validation 的 registry 以 `consumes` 引用它，不要記成自己的實作。
 - **新的預計完成時間：2026-10-06 16:00。** 到期未完成由 Claude 接手。
+
+## Claude Notes（2026-10-06 第三次派工，裁決 D94）
+
+Codex 前兩次在核對來源時停工，所回報的差異都屬於 Claude 的判斷範圍，已裁決如下（決議 D94）。**遇到同類差異請依 D94 處理並在 Codex Notes 記錄，不要停工**；只有需要改 schema、新增依賴、改 `kits/` 或推導規則時才停。
+
+1. **mod-subscription**：`subscriptions.manage` 照契約登錄為 `declared: true`、`verified: false`、附 note；另登錄 `routes_mod_subscription.py` 實際的四個端點（同步 POST、webhook POST、查詢 GET、權益 GET，前綴 `/api/mod`）為 `declared: false`、`verified: true`，id 自訂（如 `subscriptions.sync`、`subscriptions.webhook`、`subscriptions.get`、`subscriptions.entitlements.get`），note 註明與契約的對應。`manage-subscription` 動作改為 `requires` 這些已驗證的 id（建議 sync、get、entitlements.get；webhook 屬外部呼叫，不放入動作），名稱與描述寫「同步與查詢訂閱權益」，不寫「管理」。
+2. **logs.list**：契約 `/api/logs`、路由 `/`（組裝前綴 `/api/logs`）視為一致，`verified: true`，note 寫明前綴來源（`backend_router_registry.py`）。其他僅前綴不同的情形同樣處理。
+3. **驗收**：新動作推導「不新增缺口」，只可帶出既有的 `db.tenants.read` 缺口；測試逐項斷言這個缺口集合，既有 `actions.test.ts` 的缺口斷言保留。
+4. **未讀完的來源**：匯入與上傳路由請分段讀（`sed -n`），不要一次讀整檔；逐項核對 `kits/<kit>/src/backend`。
+5. **新的預計完成時間：2026-10-06 16:15。** 到期未完成由 Claude 接手。

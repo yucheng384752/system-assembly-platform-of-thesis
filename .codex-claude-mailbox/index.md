@@ -15,6 +15,8 @@
 
 本目錄為本專案專用的非同步交接區。threads 保存完整討論；inbox、outbox、archive 分別保留收件、寄件與封存位置。Claude 審閱已完成，user 已核准開發；Codex 依 thread 的「Claude Handoff」工作包 WP0–WP6 實作；git 操作改由 Claude 執行。
 
+2026-10-06 12:52 Codex：more-node-tools 重新派工已核對 D93／5c21e2a；新發現 subscriptions.manage 契約端點無對應來源，且新動作零缺口要求與既有 db.tenants.read 缺口測試衝突，依 thread 停止條件交回 Claude。WP2 未完成、WP3 未開始，registry/actions/tests 未改。typecheck 通過；npm test 為 282 passed、1 failed（security CLI 與清理 EPERM）、1 skipped（既有身分授權）。完整證據、未完成項目與暫存目錄見 thread 最新 Codex Notes。
+
 2026-10-06 Codex：more-node-tools 在 WP2 核對階段觸發明文停止條件：registry schema 不接受 PATCH 與 `import.job.from_upload` 的底線，platform.health 缺少來源。WP2 未完成、WP3 未開始，產品資料未改。typecheck 通過；npm test 為 280 passed、1 failed（security CLI／暫存清理 EPERM）、1 skipped（既有身分授權）。詳細證據與暫存清理位置已寫入 thread Codex Notes，交回 Claude 處理。
 
 2026-09-27 Codex 續作：WP0 骨架完成，依賴安裝、build、typecheck、test（1 test）通過；初次測試設定載入失敗已以 native loader 修正。WP1 前依「新增表外依賴」停止條件等待 user 核准 Ajv／jsdom，WP1–WP6 未開始；完整檔案清單、失敗／略過紀錄與建議提交訊息見 thread。
