@@ -2,6 +2,7 @@
 
 | ID | Title | Status | Owner | Reviewer | Updated |
 | --- | --- | --- | --- | --- | --- |
+| [20261006-more-node-tools](threads/20261006-more-node-tools.md) | 工具箱擴充：把基線版 Kit 功能轉成節點工具 | ready_for_claude | claude | claude | 2026-10-06 |
 | [20260927-kit-tab-ui-flow](threads/20260927-kit-tab-ui-flow.md) | Kit 分頁、動態預覽與可修改項目流程 | completed | user | claude | 2026-09-30 |
 | [20260930-frontend-pages](threads/20260930-frontend-pages.md) | 依基線四步驟重做 Composer 前端頁面（真實 Kit、無障礙） | completed | user | claude | 2026-09-30 |
 | [20260930-ui-design](threads/20260930-ui-design.md) | 汽車選配式介面改版與 G01–G08 處理 | waiting_for_user | user | claude | 2026-09-30 |
@@ -13,6 +14,8 @@
 | [20261002-workflow-graph](threads/20261002-workflow-graph.md) | 畫布式 AoV Workflow：圖形文件模型（功能 1）與畫布編輯器（功能 2） | waiting_for_user | user | claude | 2026-10-05 |
 
 本目錄為本專案專用的非同步交接區。threads 保存完整討論；inbox、outbox、archive 分別保留收件、寄件與封存位置。Claude 審閱已完成，user 已核准開發；Codex 依 thread 的「Claude Handoff」工作包 WP0–WP6 實作；git 操作改由 Claude 執行。
+
+2026-10-06 Codex：more-node-tools 在 WP2 核對階段觸發明文停止條件：registry schema 不接受 PATCH 與 `import.job.from_upload` 的底線，platform.health 缺少來源。WP2 未完成、WP3 未開始，產品資料未改。typecheck 通過；npm test 為 280 passed、1 failed（security CLI／暫存清理 EPERM）、1 skipped（既有身分授權）。詳細證據與暫存清理位置已寫入 thread Codex Notes，交回 Claude 處理。
 
 2026-09-27 Codex 續作：WP0 骨架完成，依賴安裝、build、typecheck、test（1 test）通過；初次測試設定載入失敗已以 native loader 修正。WP1 前依「新增表外依賴」停止條件等待 user 核准 Ajv／jsdom，WP1–WP6 未開始；完整檔案清單、失敗／略過紀錄與建議提交訊息見 thread。
 

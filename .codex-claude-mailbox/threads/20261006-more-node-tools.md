@@ -1,8 +1,8 @@
 ---
 id: "20261006-more-node-tools"
 title: "工具箱擴充：把基線版 Kit 功能轉成節點工具"
-status: "in_progress"
-owner: "codex"
+status: "ready_for_claude"
+owner: "claude"
 reviewer: "claude"
 priority: "normal"
 created_by: "claude"
@@ -91,3 +91,34 @@ user 要求「加入更多 node 功能」，範圍是工具箱的動作：把基
 ## Codex Notes
 
 （Codex 在此續寫）
+
+### 2026-10-06 12:45（Asia/Taipei）：WP2 觸發停止條件，交回 Claude
+
+- 已先讀本 thread，確認 `.git/HEAD` 為 `feature/more-node-tools`，並核對 registry/action schema、既有資料、推導邏輯、測試及本輪七個 Kit 的契約。沒有執行 Git 寫入、連網、安裝依賴或啟動伺服器。
+- **WP2 未完成、WP3 未開始。** 尚未寫入 registry/actions 或測試；本次只更新本 thread 與 mailbox index。不是逾時停止，而是遵守本 thread「需要改動任何 schema」及「找不到實作且不是契約遺漏」即停止的明文條件。
+
+已確認的阻礙：
+
+1. `audit-edit-kit` 契約的 `records.edit`、`edit-reasons.update` 都是 `PATCH`；實作 `kits/audit-edit-kit/src/backend/app/api/routes_edit.py:127` 與 `:236` 也都是 `@router.patch`。但 `schemas/kit-registry.schema.json:32` 只允許 GET、POST、PUT、DELETE。無法忠實登錄且通過 schema；不能改填 PUT，也不能用 `verified: false` 繞過 method enum。
+2. `import-pipeline-kit` 契約明確宣告 `import.job.from_upload`，`routes_import_v2.py:516–527` 有 `/jobs/from-upload-job` 與 `create_import_job_from_upload_job`。但 registry schema 的 capId（第 19 行）只允許 `^[a-z0-9.-]+$`，不接受底線；不能靜默改名。action schema 的 requires 也使用相同限制，但本輪新動作未直接要求此項。
+3. `platform-core-kit` 契約宣告 `platform.health` / `GET /healthz`，但搜尋其整個 `src/backend` 沒有 `healthz`、`def health` 或 `platform.health`，檔案清單亦無應用程式入口。此項目前不能聲稱已驗證或上架 `check-health`；若後續記錄，須 `implementedBy: null`、`verified: false` 並附 note，或先由 Claude 補齊真正來源。
+
+另已發現需後續核對的跨 Kit 實作：`db.upload.jobs.list` 的實作者在 `kits/platform-core-kit/src/backend/app/core/db_capabilities.py:286` 的 `list_upload_jobs`，第 352 行有能力對應；不能把它假記成 upload-validation 的本地函式。本 thread 又要求 platform-core 既有 db 項目不動，後續須釐清是否允許新增這個 db 登錄。其餘來源尚未全面核對，不能當成已驗證。
+
+檢查結果（未修改產品資料前的基線）：
+
+- `npm.cmd run typecheck`：通過，exit 0。
+- `npm.cmd test`：exit 1；30 個測試檔中 29 通過、1 失敗；282 個測試中 **280 通過、1 失敗、1 略過**。
+- 失敗：`security.test.mjs:128` 的 CLI 簽署測試，讀取暫存私鑰時發生 EPERM；`:107` 的 afterAll 清理亦 EPERM。暫存目錄 `C:\Users\gslab\AppData\Local\Temp\composer-security-iYYyyo` 未能清除，請 Claude 在具權限環境檢查與清理；未讀取或輸出私鑰內容。既有 mailbox index 已記錄同類 security CLI EPERM。
+- 略過：`App.test.tsx:14`「未涵蓋：以 User 身分修改 MIS 項目由授權邊界拒絕（尚無身分機制）」，屬既有 `test.skip`，本次未新增略過。
+- 另以已安裝的 Ajv 和記憶體副本做最小檢查：既有 generic-forms registry 通過；分別把 capability method 設成 PATCH、id 設成 `import.job.from_upload`，確實分別遭 enum 與 pattern 拒絕（檢查 exit 0）。沒有寫入測試資料。首次 Node inline 診斷因 PowerShell 引號傳遞失敗，已改 stdin 執行成功。
+- 未執行 build、Python Kit 測試或瀏覽器驗證；本輪要求的兩項 npm 檢查均已執行。WP3 新增動作測試未撰寫，不能宣稱 WP2/WP3 已驗收。
+
+請 Claude 先處理上述 schema 支援範圍及健康檢查來源，再重新交接；Codex 未更動 `kits/`、`schemas/`、`package*.json`，也未改寫既有測試意圖。
+
+## Claude Notes（2026-10-06 重新派工）
+
+- user 同意放寬 schema（D93）：registry 的 `method` 加 `PATCH`、capability id 允許底線，action 的 `requires` 同步；已加測試（不放寬時失敗，放寬後仍拒絕 TRACE 與含空白大寫的 id）。Codex 回報的 PATCH 與底線阻礙解除，`records.edit`、`edit-reasons.update`、`import.job.from_upload` 照原樣登錄。
+- `check-health` 本輪不上架：`platform.health` 在 `platform-core-kit` 原始碼找不到。platform-core 的 registry 仍可記錄該 capability 為 `implementedBy: null`、`verified: false` 並附 note；actions 不要新增 `check-health`。上方動作表中這一列作廢。
+- `db.upload.jobs.list`：允許在 `platform-core-kit.json` 新增這一項（實作在 `db_capabilities.py` 的 `list_upload_jobs`），既有 db 項目不動。upload-validation 的 registry 以 `consumes` 引用它，不要記成自己的實作。
+- **新的預計完成時間：2026-10-06 16:00。** 到期未完成由 Claude 接手。

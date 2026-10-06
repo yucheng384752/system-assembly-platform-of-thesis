@@ -34,6 +34,27 @@ describe('登錄資料契約', () => {
     expect(schemas.kitRegistry(copy)).toBe(false);
   });
 
+  // D93: the baseline contracts declare PATCH endpoints and underscored capability ids (import.job.from_upload);
+  // the schema must accept them as written instead of forcing a rename, while still rejecting malformed values.
+  test('登錄契約接受基線契約原樣的 PATCH 與底線，仍拒絕其他寫法', () => {
+    const base = structuredClone(genericForms) as KitRegistry;
+    const api = base.capabilities.find(x => x.kind === 'api')!;
+    api.method = 'PATCH';
+    api.id = 'import.job.from_upload';
+    expect(schemas.kitRegistry(base)).toBe(true);
+    api.method = 'TRACE' as Capability['method'];
+    expect(schemas.kitRegistry(base)).toBe(false);
+    api.method = 'PATCH';
+    api.id = 'Import Job';
+    expect(schemas.kitRegistry(base)).toBe(false);
+  });
+
+  test('動作的 capability 接受底線，仍拒絕空白與大寫', () => {
+    const withRequires = (requires: string[]) => ({ ...actions, actions: [{ ...actions.actions[0], requires }] });
+    expect(() => parseActionCatalog(withRequires(['import.job.from_upload']))).not.toThrow();
+    expect(() => parseActionCatalog(withRequires(['Import Job']))).toThrow();
+  });
+
   test('動作識別碼不可重複', () => {
     expect(() => parseActionCatalog({ ...actions, actions: [actions.actions[0], actions.actions[0]] })).toThrow(/重複/);
   });
