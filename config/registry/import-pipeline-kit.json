@@ -1,0 +1,511 @@
+{
+  "format": "composer-kit-registry",
+  "version": 1,
+  "kitId": "import-pipeline-kit",
+  "scope": "登錄匯入工作的建立、查詢、錯誤、提交與取消；/api/v2/import 前綴依基線 manifest 的 routerRegistrations。",
+  "capabilities": [
+    {
+      "id": "import.job.create",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/v2/import/jobs",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "import-pipeline-kit",
+        "mService": "import-job-create"
+      },
+      "verified": true,
+      "note": "路由相對於 /api/v2/import；組裝前綴見 kits/form-analysis.kit-manifest.json。"
+    },
+    {
+      "id": "import.job.from_upload",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/v2/import/jobs/from-upload-job",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "import-pipeline-kit",
+        "mService": "import-job-from-upload"
+      },
+      "verified": true,
+      "note": "路由相對於 /api/v2/import；組裝前綴見 kits/form-analysis.kit-manifest.json。"
+    },
+    {
+      "id": "import.job.get",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/v2/import/jobs/{job_id}",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "import-pipeline-kit",
+        "mService": "import-job-get"
+      },
+      "verified": true,
+      "note": "路由相對於 /api/v2/import；組裝前綴見 kits/form-analysis.kit-manifest.json。"
+    },
+    {
+      "id": "import.job.errors",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/v2/import/jobs/{job_id}/errors",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "import-pipeline-kit",
+        "mService": "import-job-errors"
+      },
+      "verified": true,
+      "note": "路由相對於 /api/v2/import；組裝前綴見 kits/form-analysis.kit-manifest.json。"
+    },
+    {
+      "id": "import.job.commit",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/v2/import/jobs/{job_id}/commit",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "import-pipeline-kit",
+        "mService": "import-job-commit"
+      },
+      "verified": true,
+      "note": "路由相對於 /api/v2/import；組裝前綴見 kits/form-analysis.kit-manifest.json。"
+    },
+    {
+      "id": "import.job.cancel",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/v2/import/jobs/{job_id}/cancel",
+      "declared": false,
+      "implementedBy": {
+        "kitId": "import-pipeline-kit",
+        "mService": "import-job-cancel"
+      },
+      "verified": true,
+      "note": "契約未宣告；原始碼實作取消端點。"
+    },
+    {
+      "id": "db.import.jobs",
+      "kind": "db",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "import-pipeline-kit",
+        "mService": "db-import-jobs"
+      },
+      "verified": true,
+      "note": "工作持久化由 ImportService 與 routes_import_v2.py 直接操作，沒有同名 DB_CAPABILITIES broker 項目。"
+    }
+  ],
+  "consumes": [
+    {
+      "capability": "db.tables.resolve",
+      "kind": "db",
+      "declared": true
+    },
+    {
+      "capability": "db.records.search",
+      "kind": "db",
+      "declared": true
+    }
+  ],
+  "mServices": [
+    {
+      "id": "import-job-create",
+      "name": "建立匯入工作",
+      "responsibility": "建立匯入工作",
+      "provides": [
+        "import.job.create"
+      ],
+      "inputs": [
+        {
+          "name": "files",
+          "type": "file[]"
+        },
+        {
+          "name": "table_code",
+          "type": "string"
+        },
+        {
+          "name": "allow_duplicate",
+          "type": "boolean"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "job",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "import-job-create"
+      ],
+      "failure": "400 缺少檔案、混合格式或重複內容；413 超過檔案數或大小限制"
+    },
+    {
+      "id": "import-job-from-upload",
+      "name": "從上傳工作建立匯入",
+      "responsibility": "從上傳工作建立匯入",
+      "provides": [
+        "import.job.from_upload"
+      ],
+      "inputs": [
+        {
+          "name": "upload_process_id",
+          "type": "uuid"
+        },
+        {
+          "name": "table_code",
+          "type": "string"
+        },
+        {
+          "name": "allow_duplicate",
+          "type": "boolean"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "job",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "import-job-from-upload"
+      ],
+      "failure": "404 上傳工作不存在；422 上傳內容為空；400 重複內容"
+    },
+    {
+      "id": "import-job-get",
+      "name": "查詢匯入工作",
+      "responsibility": "查詢匯入工作",
+      "provides": [
+        "import.job.get"
+      ],
+      "inputs": [
+        {
+          "name": "job_id",
+          "type": "uuid"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "job",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "import-job-get"
+      ],
+      "failure": "404 匯入工作不存在"
+    },
+    {
+      "id": "import-job-errors",
+      "name": "查詢匯入錯誤",
+      "responsibility": "查詢匯入錯誤",
+      "provides": [
+        "import.job.errors"
+      ],
+      "inputs": [
+        {
+          "name": "job_id",
+          "type": "uuid"
+        },
+        {
+          "name": "page",
+          "type": "integer"
+        },
+        {
+          "name": "page_size",
+          "type": "integer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "errors",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "import-job-errors"
+      ],
+      "failure": "404 匯入工作不存在"
+    },
+    {
+      "id": "import-job-commit",
+      "name": "提交匯入工作",
+      "responsibility": "提交匯入工作",
+      "provides": [
+        "import.job.commit"
+      ],
+      "inputs": [
+        {
+          "name": "job_id",
+          "type": "uuid"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "job",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "import-job-commit"
+      ],
+      "failure": "404 匯入工作不存在；400 工作尚未就緒"
+    },
+    {
+      "id": "import-job-cancel",
+      "name": "取消匯入工作",
+      "responsibility": "取消匯入工作",
+      "provides": [
+        "import.job.cancel"
+      ],
+      "inputs": [
+        {
+          "name": "job_id",
+          "type": "uuid"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "job",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "import-job-cancel"
+      ],
+      "failure": "404 匯入工作不存在"
+    },
+    {
+      "id": "db-import-jobs",
+      "name": "提交匯入工作資料",
+      "responsibility": "提交匯入工作資料",
+      "provides": [
+        "db.import.jobs"
+      ],
+      "inputs": [
+        {
+          "name": "job_id",
+          "type": "uuid"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "job",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "db-import-jobs"
+      ],
+      "failure": "工作或目標資料表不存在、工作未就緒時拋出 ValueError"
+    }
+  ],
+  "functions": [
+    {
+      "id": "import-job-create",
+      "primitive": "import-job-create",
+      "input": [
+        {
+          "name": "files",
+          "type": "file[]"
+        },
+        {
+          "name": "table_code",
+          "type": "string"
+        },
+        {
+          "name": "allow_duplicate",
+          "type": "boolean"
+        }
+      ],
+      "output": [
+        {
+          "name": "job",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "400 缺少檔案、混合格式或重複內容",
+        "413 超過檔案數或大小限制"
+      ],
+      "sideEffects": [
+        "寫入暫存檔、匯入工作並排程背景驗證"
+      ],
+      "source": {
+        "path": "kits/import-pipeline-kit/src/backend/app/api/routes_import_v2.py",
+        "symbol": "create_import_job"
+      }
+    },
+    {
+      "id": "import-job-from-upload",
+      "primitive": "import-job-from-upload",
+      "input": [
+        {
+          "name": "upload_process_id",
+          "type": "uuid"
+        },
+        {
+          "name": "table_code",
+          "type": "string"
+        },
+        {
+          "name": "allow_duplicate",
+          "type": "boolean"
+        }
+      ],
+      "output": [
+        {
+          "name": "job",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "404 上傳工作不存在",
+        "422 上傳內容為空",
+        "400 重複內容"
+      ],
+      "sideEffects": [
+        "寫入暫存檔、匯入工作並排程背景驗證"
+      ],
+      "source": {
+        "path": "kits/import-pipeline-kit/src/backend/app/api/routes_import_v2.py",
+        "symbol": "create_import_job_from_upload_job"
+      }
+    },
+    {
+      "id": "import-job-get",
+      "primitive": "import-job-get",
+      "input": [
+        {
+          "name": "job_id",
+          "type": "uuid"
+        }
+      ],
+      "output": [
+        {
+          "name": "job",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "404 匯入工作不存在"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/import-pipeline-kit/src/backend/app/api/routes_import_v2.py",
+        "symbol": "get_import_job"
+      }
+    },
+    {
+      "id": "import-job-errors",
+      "primitive": "import-job-errors",
+      "input": [
+        {
+          "name": "job_id",
+          "type": "uuid"
+        },
+        {
+          "name": "page",
+          "type": "integer"
+        },
+        {
+          "name": "page_size",
+          "type": "integer"
+        }
+      ],
+      "output": [
+        {
+          "name": "errors",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "404 匯入工作不存在"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/import-pipeline-kit/src/backend/app/api/routes_import_v2.py",
+        "symbol": "get_import_job_errors"
+      }
+    },
+    {
+      "id": "import-job-commit",
+      "primitive": "import-job-commit",
+      "input": [
+        {
+          "name": "job_id",
+          "type": "uuid"
+        }
+      ],
+      "output": [
+        {
+          "name": "job",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "404 匯入工作不存在",
+        "400 工作尚未就緒"
+      ],
+      "sideEffects": [
+        "更新工作狀態並提交正式資料；非測試模式排程背景提交"
+      ],
+      "source": {
+        "path": "kits/import-pipeline-kit/src/backend/app/api/routes_import_v2.py",
+        "symbol": "commit_import_job"
+      }
+    },
+    {
+      "id": "import-job-cancel",
+      "primitive": "import-job-cancel",
+      "input": [
+        {
+          "name": "job_id",
+          "type": "uuid"
+        }
+      ],
+      "output": [
+        {
+          "name": "job",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "404 匯入工作不存在"
+      ],
+      "sideEffects": [
+        "將工作標為取消並記錄稽核事件"
+      ],
+      "source": {
+        "path": "kits/import-pipeline-kit/src/backend/app/api/routes_import_v2.py",
+        "symbol": "cancel_import_job"
+      }
+    },
+    {
+      "id": "db-import-jobs",
+      "primitive": "db-import-jobs",
+      "input": [
+        {
+          "name": "job_id",
+          "type": "uuid"
+        }
+      ],
+      "output": [
+        {
+          "name": "job",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "工作或目標資料表不存在、工作未就緒時拋出 ValueError"
+      ],
+      "sideEffects": [
+        "更新匯入工作與正式資料、寫入稽核事件"
+      ],
+      "source": {
+        "path": "kits/import-pipeline-kit/src/backend/app/services/import_v2.py",
+        "symbol": "ImportService.commit_job"
+      }
+    }
+  ]
+}

@@ -1,0 +1,493 @@
+{
+  "format": "composer-kit-registry",
+  "version": 1,
+  "kitId": "upload-validation-kit",
+  "scope": "登錄上傳、驗證查詢與 PDF 轉檔；環境變數僅記名稱：VALID_MATERIALS_CSV、VALID_SLITTING_MACHINES_CSV、PDF_SERVER_URL。上傳工作清單實作屬於 platform-core-kit。",
+  "capabilities": [
+    {
+      "id": "upload.file.create",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/upload",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "upload-validation-kit",
+        "mService": "upload-file-create"
+      },
+      "verified": true,
+      "note": "組裝前綴 /api，依 kits/form-analysis.kit-manifest.json 的 routerRegistrations；路由本身以 /upload 開頭。"
+    },
+    {
+      "id": "upload.status.get",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/upload/{process_id}/status",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "upload-validation-kit",
+        "mService": "upload-status-get"
+      },
+      "verified": true,
+      "note": "組裝前綴 /api，依 kits/form-analysis.kit-manifest.json 的 routerRegistrations；路由本身以 /upload 開頭。"
+    },
+    {
+      "id": "upload.pdf.status",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/upload/pdf/{process_id}/convert/status",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "upload-validation-kit",
+        "mService": "upload-pdf-status"
+      },
+      "verified": true,
+      "note": "組裝前綴 /api，依 kits/form-analysis.kit-manifest.json 的 routerRegistrations；路由本身以 /upload 開頭。"
+    },
+    {
+      "id": "upload.pdf.convert",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/upload/pdf/{process_id}/convert",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "upload-validation-kit",
+        "mService": "upload-pdf-convert"
+      },
+      "verified": true,
+      "note": "組裝前綴 /api，依 kits/form-analysis.kit-manifest.json 的 routerRegistrations；路由本身以 /upload 開頭。"
+    },
+    {
+      "id": "upload.pdf.outputs",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/upload/pdf/{process_id}/convert/outputs",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "upload-validation-kit",
+        "mService": "upload-pdf-outputs"
+      },
+      "verified": true,
+      "note": "組裝前綴 /api，依 kits/form-analysis.kit-manifest.json 的 routerRegistrations；路由本身以 /upload 開頭。"
+    },
+    {
+      "id": "upload.validation.get",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/validate",
+      "declared": false,
+      "implementedBy": {
+        "kitId": "upload-validation-kit",
+        "mService": "upload-validation-get"
+      },
+      "verified": true,
+      "note": "契約未宣告；routes_validate.py 的 /validate 加上組裝前綴 /api。"
+    },
+    {
+      "id": "upload.pdf.service-status",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/upload/pdf/service-status",
+      "declared": false,
+      "implementedBy": {
+        "kitId": "upload-validation-kit",
+        "mService": "upload-pdf-service-status"
+      },
+      "verified": true,
+      "note": "契約未宣告；檢查 PDF_SERVER_URL 是否配置，不代表已向外部服務確認連線。"
+    }
+  ],
+  "consumes": [
+    {
+      "capability": "import.job.create",
+      "kind": "api",
+      "declared": true
+    },
+    {
+      "capability": "db.tenants.read",
+      "kind": "db",
+      "declared": true
+    },
+    {
+      "capability": "db.upload.jobs.list",
+      "kind": "db",
+      "declared": false,
+      "evidence": "本 Kit 契約列為 provides，但實作是 platform-core-kit 的 db_capabilities.py:list_upload_jobs；依重新派工改以 consumes 引用。"
+    }
+  ],
+  "mServices": [
+    {
+      "id": "upload-file-create",
+      "name": "上傳檔案並驗證",
+      "responsibility": "上傳檔案並驗證",
+      "provides": [
+        "upload.file.create"
+      ],
+      "inputs": [
+        {
+          "name": "file",
+          "type": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "upload",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "upload-file-create"
+      ],
+      "failure": "410 多租戶模式停用舊上傳端點；422 檔案內容無效；413 檔案超過 10MB；500 處理失敗"
+    },
+    {
+      "id": "upload-status-get",
+      "name": "查詢上傳狀態",
+      "responsibility": "查詢上傳狀態",
+      "provides": [
+        "upload.status.get"
+      ],
+      "inputs": [
+        {
+          "name": "process_id",
+          "type": "uuid"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "status",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "upload-status-get"
+      ],
+      "failure": "404 工作不存在或不屬於目前租戶；500 查詢失敗"
+    },
+    {
+      "id": "upload-pdf-status",
+      "name": "查詢 PDF 轉檔狀態",
+      "responsibility": "查詢 PDF 轉檔狀態",
+      "provides": [
+        "upload.pdf.status"
+      ],
+      "inputs": [
+        {
+          "name": "process_id",
+          "type": "uuid"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "status",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "upload-pdf-status"
+      ],
+      "failure": "404 PDF 上傳紀錄不存在；500 缺少租戶資訊"
+    },
+    {
+      "id": "upload-pdf-convert",
+      "name": "啟動 PDF 轉檔",
+      "responsibility": "啟動 PDF 轉檔",
+      "provides": [
+        "upload.pdf.convert"
+      ],
+      "inputs": [
+        {
+          "name": "process_id",
+          "type": "uuid"
+        },
+        {
+          "name": "winder_number",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "job",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "upload-pdf-convert"
+      ],
+      "failure": "404 PDF 上傳紀錄不存在；503 未設定 PDF_SERVER_URL；500 缺少租戶資訊"
+    },
+    {
+      "id": "upload-pdf-outputs",
+      "name": "取得 PDF 轉檔結果",
+      "responsibility": "取得 PDF 轉檔結果",
+      "provides": [
+        "upload.pdf.outputs"
+      ],
+      "inputs": [
+        {
+          "name": "process_id",
+          "type": "uuid"
+        },
+        {
+          "name": "include_csv_text",
+          "type": "boolean"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "outputs",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "upload-pdf-outputs"
+      ],
+      "failure": "404 工作不存在；409 轉檔未完成；413 CSV 過大；422 沒有可用 CSV；500 輸出路徑或檔案異常"
+    },
+    {
+      "id": "upload-validation-get",
+      "name": "查詢檔案驗證結果",
+      "responsibility": "查詢檔案驗證結果",
+      "provides": [
+        "upload.validation.get"
+      ],
+      "inputs": [
+        {
+          "name": "process_id",
+          "type": "uuid"
+        },
+        {
+          "name": "page",
+          "type": "integer"
+        },
+        {
+          "name": "page_size",
+          "type": "integer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "validation",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "upload-validation-get"
+      ],
+      "failure": "404 上傳工作不存在；422 分頁參數無效"
+    },
+    {
+      "id": "upload-pdf-service-status",
+      "name": "查詢 PDF 服務可用性",
+      "responsibility": "查詢 PDF 服務可用性",
+      "provides": [
+        "upload.pdf.service-status"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "availability",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "upload-pdf-service-status"
+      ],
+      "failure": "資料庫或來源服務異常時由呼叫端回報錯誤"
+    }
+  ],
+  "functions": [
+    {
+      "id": "upload-file-create",
+      "primitive": "upload-file-create",
+      "input": [
+        {
+          "name": "file",
+          "type": "file"
+        }
+      ],
+      "output": [
+        {
+          "name": "upload",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "410 多租戶模式停用舊上傳端點",
+        "422 檔案內容無效",
+        "413 檔案超過 10MB",
+        "500 處理失敗"
+      ],
+      "sideEffects": [
+        "建立上傳工作、保存檔案內容及驗證錯誤"
+      ],
+      "source": {
+        "path": "kits/upload-validation-kit/src/backend/app/api/routes_upload.py",
+        "symbol": "upload_file"
+      }
+    },
+    {
+      "id": "upload-status-get",
+      "primitive": "upload-status-get",
+      "input": [
+        {
+          "name": "process_id",
+          "type": "uuid"
+        }
+      ],
+      "output": [
+        {
+          "name": "status",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "404 工作不存在或不屬於目前租戶",
+        "500 查詢失敗"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/upload-validation-kit/src/backend/app/api/routes_upload.py",
+        "symbol": "get_upload_status"
+      }
+    },
+    {
+      "id": "upload-pdf-status",
+      "primitive": "upload-pdf-status",
+      "input": [
+        {
+          "name": "process_id",
+          "type": "uuid"
+        }
+      ],
+      "output": [
+        {
+          "name": "status",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "404 PDF 上傳紀錄不存在",
+        "500 缺少租戶資訊"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/upload-validation-kit/src/backend/app/api/routes_upload.py",
+        "symbol": "get_pdf_convert_status"
+      }
+    },
+    {
+      "id": "upload-pdf-convert",
+      "primitive": "upload-pdf-convert",
+      "input": [
+        {
+          "name": "process_id",
+          "type": "uuid"
+        },
+        {
+          "name": "winder_number",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "job",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "404 PDF 上傳紀錄不存在",
+        "503 未設定 PDF_SERVER_URL",
+        "500 缺少租戶資訊"
+      ],
+      "sideEffects": [
+        "建立轉檔工作並排程背景處理，背景處理會呼叫外部轉檔服務"
+      ],
+      "source": {
+        "path": "kits/upload-validation-kit/src/backend/app/api/routes_upload.py",
+        "symbol": "trigger_pdf_convert"
+      }
+    },
+    {
+      "id": "upload-pdf-outputs",
+      "primitive": "upload-pdf-outputs",
+      "input": [
+        {
+          "name": "process_id",
+          "type": "uuid"
+        },
+        {
+          "name": "include_csv_text",
+          "type": "boolean"
+        }
+      ],
+      "output": [
+        {
+          "name": "outputs",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "404 工作不存在",
+        "409 轉檔未完成",
+        "413 CSV 過大",
+        "422 沒有可用 CSV",
+        "500 輸出路徑或檔案異常"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/upload-validation-kit/src/backend/app/api/routes_upload.py",
+        "symbol": "get_pdf_convert_outputs"
+      }
+    },
+    {
+      "id": "upload-validation-get",
+      "primitive": "upload-validation-get",
+      "input": [
+        {
+          "name": "process_id",
+          "type": "uuid"
+        },
+        {
+          "name": "page",
+          "type": "integer"
+        },
+        {
+          "name": "page_size",
+          "type": "integer"
+        }
+      ],
+      "output": [
+        {
+          "name": "validation",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "404 上傳工作不存在",
+        "422 分頁參數無效"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/upload-validation-kit/src/backend/app/api/routes_validate.py",
+        "symbol": "get_validate_result"
+      }
+    },
+    {
+      "id": "upload-pdf-service-status",
+      "primitive": "upload-pdf-service-status",
+      "input": [],
+      "output": [
+        {
+          "name": "availability",
+          "type": "json"
+        }
+      ],
+      "failures": [],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/upload-validation-kit/src/backend/app/api/routes_upload.py",
+        "symbol": "get_pdf_service_status"
+      }
+    }
+  ]
+}

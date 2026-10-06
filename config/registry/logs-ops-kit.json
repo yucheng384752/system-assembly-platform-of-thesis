@@ -1,0 +1,122 @@
+{
+  "format": "composer-kit-registry",
+  "version": 1,
+  "kitId": "logs-ops-kit",
+  "scope": "登錄目前租戶的日誌清單；不包含無租戶的平台日誌，也不宣稱有清理或下載端點。",
+  "capabilities": [
+    {
+      "id": "logs.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/logs",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "logs-ops-kit",
+        "mService": "logs-list"
+      },
+      "verified": true,
+      "note": "D94：路由 / 加組裝前綴 /api/logs，尾端斜線視為一致；Claude 指定來源 backend_router_registry.py，本副本可核對 kits/form-analysis.kit-manifest.json 的 routerRegistrations。"
+    }
+  ],
+  "consumes": [],
+  "mServices": [
+    {
+      "id": "logs-list",
+      "name": "查詢系統日誌",
+      "responsibility": "查詢系統日誌",
+      "provides": [
+        "logs.list"
+      ],
+      "inputs": [
+        {
+          "name": "log_type",
+          "type": "string"
+        },
+        {
+          "name": "level",
+          "type": "string"
+        },
+        {
+          "name": "action",
+          "type": "string"
+        },
+        {
+          "name": "since",
+          "type": "string"
+        },
+        {
+          "name": "until",
+          "type": "string"
+        },
+        {
+          "name": "limit",
+          "type": "integer"
+        },
+        {
+          "name": "offset",
+          "type": "integer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "logs",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "logs-list"
+      ],
+      "failure": "422 分頁參數無效"
+    }
+  ],
+  "functions": [
+    {
+      "id": "logs-list",
+      "primitive": "logs-list",
+      "input": [
+        {
+          "name": "log_type",
+          "type": "string"
+        },
+        {
+          "name": "level",
+          "type": "string"
+        },
+        {
+          "name": "action",
+          "type": "string"
+        },
+        {
+          "name": "since",
+          "type": "string"
+        },
+        {
+          "name": "until",
+          "type": "string"
+        },
+        {
+          "name": "limit",
+          "type": "integer"
+        },
+        {
+          "name": "offset",
+          "type": "integer"
+        }
+      ],
+      "output": [
+        {
+          "name": "logs",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "422 分頁參數無效"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/logs-ops-kit/src/backend/app/api/routes_logs.py",
+        "symbol": "list_logs"
+      }
+    }
+  ]
+}

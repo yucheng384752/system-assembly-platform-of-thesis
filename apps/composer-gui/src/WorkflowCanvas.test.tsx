@@ -50,7 +50,7 @@ test('A-C5/C7: parameter controls follow the catalog, show missing and range err
   const original = action.parameters;
   action.parameters = [{ id: 'count', name: '筆數', type: 'number', required: true, minimum: 1, maximum: 10 }];
   try {
-    fresh(); addTool('匯入紀錄');
+    fresh(); addTool('匯入資料列');
     expect(screen.getByText(/「筆數」尚未填寫/)).toBeTruthy();
     fireEvent.change(screen.getByLabelText('筆數（必填）'), { target: { value: '11' } });
     expect(screen.getByText(/須介於 1 與 10/)).toBeTruthy();

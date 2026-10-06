@@ -16,7 +16,7 @@
   },
   "$defs": {
     "kitId": { "type": "string", "pattern": "^[a-z0-9-]+$", "maxLength": 100 },
-    "capId": { "type": "string", "pattern": "^[a-z0-9.-]+$", "maxLength": 100 },
+    "capId": { "type": "string", "pattern": "^[a-z0-9._-]+$", "maxLength": 100 },
     "id": { "type": "string", "pattern": "^[a-z0-9-]+$", "maxLength": 100 },
     "text": { "type": "string", "minLength": 1, "maxLength": 300 },
     "port": {
@@ -29,7 +29,7 @@
       "properties": {
         "id": { "$ref": "#/$defs/capId" },
         "kind": { "enum": ["api", "db", "model"] },
-        "method": { "enum": ["GET", "POST", "PUT", "DELETE"] },
+        "method": { "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"] },
         "path": { "type": "string", "pattern": "^/", "maxLength": 200 },
         "declared": { "type": "boolean" },
         "implementedBy": { "oneOf": [

@@ -385,8 +385,8 @@ describe('D75/D82: 舊格式轉為 version 5', () => {
   // One node holds one form, so an action over several forms cannot convert losslessly; the user must be told.
   test('動作作用於多張表單時列出提示，其餘表單各成一個沒有動作的節點，沒有表單遺失', () => {
     const { value, notices } = listToGraph(v3([step('step-1', '收料', ['form-1', 'form-2'], [{ actionId: 'import-records', formIds: ['form-1', 'form-2'] }])], forms));
-    expect(notices).toEqual(['步驟「收料」的動作「匯入紀錄」原本作用於 2 張表單，節點只能有一張表單；第一張歸此節點，其餘各成一個沒有動作的節點。']);
-    expect(nodesOf(value).map(n => [n.name, n.actionId, n.formId])).toEqual([['收料：匯入紀錄', 'import-records', 'form-1'], ['收料：檢驗單', null, 'form-2']]);
+    expect(notices).toEqual(['步驟「收料」的動作「匯入資料列」原本作用於 2 張表單，節點只能有一張表單；第一張歸此節點，其餘各成一個沒有動作的節點。']);
+    expect(nodesOf(value).map(n => [n.name, n.actionId, n.formId])).toEqual([['收料：匯入資料列', 'import-records', 'form-1'], ['收料：檢驗單', null, 'form-2']]);
     expect(integrityErrors(value)).toEqual([]);
     expect(value.forms.map(f => f.id)).toEqual(['form-1', 'form-2']);
   });

@@ -1,0 +1,297 @@
+{
+  "format": "composer-kit-registry",
+  "version": 1,
+  "kitId": "analytics-kit",
+  "scope": "登錄上傳歷史查詢、匯出及表單趨勢分析；統計與紀錄查詢由平台資料能力提供。",
+  "capabilities": [
+    {
+      "id": "analytics.upload-history.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytics/upload-history",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytics-kit",
+        "mService": "analytics-upload-history-list"
+      },
+      "verified": true,
+      "note": "路由內建 /api/analytics 前綴。status 仍限制舊狀態，但資料來源已讀 ImportJob；舊狀態篩選可能無結果，保留來源差異。"
+    },
+    {
+      "id": "analytics.upload-history.export",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytics/upload-history/export",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytics-kit",
+        "mService": "analytics-upload-history-export"
+      },
+      "verified": true,
+      "note": "來源 status 限制仍為舊上傳狀態，資料查詢已改讀 ImportJob；不修改來源。"
+    },
+    {
+      "id": "analytics.trend",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytics/trend",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytics-kit",
+        "mService": "analytics-trend"
+      },
+      "verified": true
+    }
+  ],
+  "consumes": [
+    {
+      "capability": "db.records.search",
+      "kind": "db",
+      "declared": true
+    },
+    {
+      "capability": "db.forms.list",
+      "kind": "db",
+      "declared": true
+    },
+    {
+      "capability": "db.upload.jobs.list",
+      "kind": "db",
+      "declared": true
+    },
+    {
+      "capability": "db.records.trend",
+      "kind": "db",
+      "declared": true
+    }
+  ],
+  "mServices": [
+    {
+      "id": "analytics-upload-history-list",
+      "name": "查詢上傳歷史",
+      "responsibility": "查詢上傳歷史",
+      "provides": [
+        "analytics.upload-history.list"
+      ],
+      "inputs": [
+        {
+          "name": "date_from",
+          "type": "string"
+        },
+        {
+          "name": "date_to",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "page",
+          "type": "integer"
+        },
+        {
+          "name": "page_size",
+          "type": "integer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "history",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytics-upload-history-list"
+      ],
+      "failure": "422 日期或狀態無效"
+    },
+    {
+      "id": "analytics-upload-history-export",
+      "name": "匯出上傳歷史",
+      "responsibility": "匯出上傳歷史",
+      "provides": [
+        "analytics.upload-history.export"
+      ],
+      "inputs": [
+        {
+          "name": "date_from",
+          "type": "string"
+        },
+        {
+          "name": "date_to",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "csv",
+          "type": "file"
+        }
+      ],
+      "functions": [
+        "analytics-upload-history-export"
+      ],
+      "failure": "422 日期無效或結果超過匯出上限"
+    },
+    {
+      "id": "analytics-trend",
+      "name": "分析表單趨勢",
+      "responsibility": "分析表單趨勢",
+      "provides": [
+        "analytics.trend"
+      ],
+      "inputs": [
+        {
+          "name": "code",
+          "type": "string"
+        },
+        {
+          "name": "field",
+          "type": "string"
+        },
+        {
+          "name": "date_from",
+          "type": "string"
+        },
+        {
+          "name": "date_to",
+          "type": "string"
+        },
+        {
+          "name": "granularity",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "trend",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytics-trend"
+      ],
+      "failure": "404 表單不存在；422 日期或數值欄位無效"
+    }
+  ],
+  "functions": [
+    {
+      "id": "analytics-upload-history-list",
+      "primitive": "analytics-upload-history-list",
+      "input": [
+        {
+          "name": "date_from",
+          "type": "string"
+        },
+        {
+          "name": "date_to",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "page",
+          "type": "integer"
+        },
+        {
+          "name": "page_size",
+          "type": "integer"
+        }
+      ],
+      "output": [
+        {
+          "name": "history",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "422 日期或狀態無效"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytics-kit/src/backend/app/api/routes_analytics.py",
+        "symbol": "upload_history"
+      }
+    },
+    {
+      "id": "analytics-upload-history-export",
+      "primitive": "analytics-upload-history-export",
+      "input": [
+        {
+          "name": "date_from",
+          "type": "string"
+        },
+        {
+          "name": "date_to",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "csv",
+          "type": "file"
+        }
+      ],
+      "failures": [
+        "422 日期無效或結果超過匯出上限"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytics-kit/src/backend/app/api/routes_analytics.py",
+        "symbol": "export_upload_history"
+      }
+    },
+    {
+      "id": "analytics-trend",
+      "primitive": "analytics-trend",
+      "input": [
+        {
+          "name": "code",
+          "type": "string"
+        },
+        {
+          "name": "field",
+          "type": "string"
+        },
+        {
+          "name": "date_from",
+          "type": "string"
+        },
+        {
+          "name": "date_to",
+          "type": "string"
+        },
+        {
+          "name": "granularity",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "trend",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "404 表單不存在",
+        "422 日期或數值欄位無效"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytics-kit/src/backend/app/api/routes_analytics.py",
+        "symbol": "trend"
+      }
+    }
+  ]
+}
