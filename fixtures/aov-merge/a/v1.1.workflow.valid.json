@@ -1,0 +1,123 @@
+{
+  "format": "aov",
+  "schemaVersion": "1.1",
+  "documentType": "workflow",
+  "project": {
+    "id": "example-project-11",
+    "name": "工單與入庫",
+    "description": "面向業務人員的作業流程"
+  },
+  "rootGraphId": "7c3b1a98-ec02-42e7-95aa-2efb315b3aea",
+  "graphs": [
+    {
+      "id": "7c3b1a98-ec02-42e7-95aa-2efb315b3aea",
+      "name": "主流程",
+      "nodes": [
+        {
+          "id": "step-0",
+          "kind": "node",
+          "name": "開工單",
+          "style": {
+            "color": "#4364d9"
+          },
+          "business": {
+            "description": "開工單的作業說明",
+            "role": "現場人員",
+            "start": "前一步完成",
+            "completion": "作業記錄完成",
+            "exceptions": "通知負責人確認"
+          }
+        },
+        {
+          "id": "step-1",
+          "kind": "node",
+          "name": "入庫",
+          "style": {
+            "color": "#147d64"
+          },
+          "business": {
+            "description": "入庫的作業說明",
+            "role": "現場人員",
+            "start": "前一步完成",
+            "completion": "作業記錄完成",
+            "exceptions": "通知負責人確認"
+          }
+        },
+        {
+          "id": "step-2",
+          "kind": "node",
+          "name": "等待檢驗",
+          "style": {
+            "color": "#b66b22"
+          },
+          "business": {
+            "description": "等待檢驗的作業說明",
+            "role": "現場人員",
+            "start": "前一步完成",
+            "completion": "作業記錄完成",
+            "exceptions": "通知負責人確認"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "7158ee82-0e75-47ea-bb77-e305d44ea48a",
+          "kind": "forward",
+          "source": "step-0",
+          "target": "step-1",
+          "name": "",
+          "condition": "前一步完成",
+          "reason": "",
+          "loop": {
+            "mode": "once",
+            "maxIterations": null,
+            "stopCondition": "",
+            "onLimit": ""
+          }
+        },
+        {
+          "id": "76112549-8d79-4c16-85ef-5a89782f8e2d",
+          "kind": "forward",
+          "source": "step-1",
+          "target": "step-2",
+          "name": "",
+          "condition": "前一步完成",
+          "reason": "",
+          "loop": {
+            "mode": "once",
+            "maxIterations": null,
+            "stopCondition": "",
+            "onLimit": ""
+          }
+        }
+      ]
+    }
+  ],
+  "layout": {
+    "7c3b1a98-ec02-42e7-95aa-2efb315b3aea": {
+      "positions": {
+        "step-0": {
+          "x": 80,
+          "y": 160
+        },
+        "step-1": {
+          "x": 440,
+          "y": 160
+        },
+        "step-2": {
+          "x": 800,
+          "y": 160
+        }
+      },
+      "viewport": {
+        "x": 0,
+        "y": 0,
+        "zoom": 1
+      }
+    }
+  },
+  "definition": {
+    "status": "complete",
+    "issues": []
+  }
+}

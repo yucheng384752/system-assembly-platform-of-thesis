@@ -1,0 +1,102 @@
+{
+  "format": "composer-aov-list",
+  "version": 4,
+  "rootGraphId": "graph-root",
+  "graphs": [
+    {
+      "id": "graph-root",
+      "name": "主流程",
+      "nodes": [
+        {
+          "id": "node-1",
+          "name": "收料",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": "form-1",
+          "childGraphId": null
+        },
+        {
+          "id": "node-2",
+          "name": "檢驗",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": "form-2",
+          "childGraphId": null
+        }
+      ],
+      "edges": [
+        {
+          "id": "edge-1",
+          "from": "node-1",
+          "to": "node-2"
+        }
+      ]
+    }
+  ],
+  "layout": {
+    "graph-root": {
+      "node-1": {
+        "x": 0,
+        "y": 40
+      },
+      "node-2": {
+        "x": 200,
+        "y": 40
+      }
+    }
+  },
+  "forms": [
+    {
+      "id": "form-1",
+      "name": "收料單",
+      "fields": [
+        {
+          "id": "field-1",
+          "name": "批號",
+          "type": "text",
+          "required": true,
+          "isKey": true
+        },
+        {
+          "id": "field-2",
+          "name": "數量",
+          "type": "integer",
+          "required": true,
+          "isKey": false
+        },
+        {
+          "id": "field-3",
+          "name": "收料日",
+          "type": "date",
+          "required": true,
+          "isKey": false
+        }
+      ]
+    },
+    {
+      "id": "form-2",
+      "name": "檢驗單",
+      "fields": [
+        {
+          "id": "field-1",
+          "name": "批號",
+          "type": "text",
+          "required": true,
+          "isKey": true
+        },
+        {
+          "id": "field-2",
+          "name": "重量",
+          "type": "decimal",
+          "required": true,
+          "isKey": false
+        }
+      ]
+    }
+  ],
+  "relations": []
+}

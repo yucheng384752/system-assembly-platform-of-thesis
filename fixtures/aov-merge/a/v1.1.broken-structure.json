@@ -1,0 +1,39 @@
+{
+  "format": "aov",
+  "schemaVersion": "1.1",
+  "documentType": "workflow",
+  "project": {
+    "id": "example-project-11",
+    "name": "工單與入庫",
+    "description": "面向業務人員的作業流程"
+  },
+  "rootGraphId": "7c3b1a98-ec02-42e7-95aa-2efb315b3aea",
+  "graphs": {},
+  "layout": {
+    "7c3b1a98-ec02-42e7-95aa-2efb315b3aea": {
+      "positions": {
+        "step-0": {
+          "x": 80,
+          "y": 160
+        },
+        "step-1": {
+          "x": 440,
+          "y": 160
+        },
+        "step-2": {
+          "x": 800,
+          "y": 160
+        }
+      },
+      "viewport": {
+        "x": 0,
+        "y": 0,
+        "zoom": 1
+      }
+    }
+  },
+  "definition": {
+    "status": "complete",
+    "issues": []
+  }
+}

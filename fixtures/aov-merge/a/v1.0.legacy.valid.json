@@ -1,0 +1,381 @@
+{
+  "format": "aov",
+  "schemaVersion": "1.0",
+  "project": {
+    "id": "9a57c55f-313d-4e0d-9eeb-4304a45dd49d",
+    "name": "訂單處理示例",
+    "description": "描述訂單檢查與需補正時的返回流程；不執行業務功能。"
+  },
+  "rootGraphId": "eab9d74f-46c2-4a56-aadc-9bca7d4017d2",
+  "graphs": [
+    {
+      "id": "eab9d74f-46c2-4a56-aadc-9bca7d4017d2",
+      "name": "主流程",
+      "nodes": [
+        {
+          "id": "c33fefef-0db8-4552-b5de-b1ad22c6e00f",
+          "kind": "node",
+          "name": "接收訂單",
+          "function": {
+            "purpose": "接收訂單",
+            "preconditions": "收到訂單資料",
+            "steps": "讀取訂單\n檢查必要欄位\n輸出結果",
+            "rules": "商品數量必須大於零",
+            "postconditions": "輸出訂單與檢查結果",
+            "errors": "資料不完整時返回接收步驟"
+          },
+          "inputs": [
+            {
+              "id": "44c2da2b-bb4c-4611-be4c-4dbf2098b920",
+              "name": "輸入",
+              "description": "訂單資料",
+              "condition": "收到資料後",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "orderId": {
+                    "type": "string",
+                    "description": "訂單識別碼",
+                    "minLength": 1
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "orderId",
+                  "quantity"
+                ]
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "c4da9708-8651-46a8-b1f3-7d7b89703b68",
+              "name": "輸出",
+              "description": "訂單資料",
+              "condition": "收到資料後",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "orderId": {
+                    "type": "string",
+                    "description": "訂單識別碼",
+                    "minLength": 1
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "orderId",
+                  "quantity"
+                ]
+              }
+            }
+          ],
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "variables": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "buffer": {
+            "mode": "all",
+            "rules": ""
+          },
+          "childGraphId": null,
+          "boundaryPortId": null
+        },
+        {
+          "id": "defd5b9a-a821-4950-97b6-725dc9c5efae",
+          "kind": "node",
+          "name": "驗證訂單",
+          "function": {
+            "purpose": "驗證訂單",
+            "preconditions": "收到訂單資料",
+            "steps": "讀取訂單\n檢查必要欄位\n輸出結果",
+            "rules": "商品數量必須大於零",
+            "postconditions": "輸出訂單與檢查結果",
+            "errors": "資料不完整時返回接收步驟"
+          },
+          "inputs": [
+            {
+              "id": "22977987-78f6-4e44-bfcc-76ed111401cb",
+              "name": "輸入",
+              "description": "訂單資料",
+              "condition": "收到資料後",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "orderId": {
+                    "type": "string",
+                    "description": "訂單識別碼",
+                    "minLength": 1
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "orderId",
+                  "quantity"
+                ]
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "9c36a269-a67d-4118-817f-07c0ad016cd3",
+              "name": "輸出",
+              "description": "訂單資料",
+              "condition": "收到資料後",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "orderId": {
+                    "type": "string",
+                    "description": "訂單識別碼",
+                    "minLength": 1
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "orderId",
+                  "quantity"
+                ]
+              }
+            }
+          ],
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "variables": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "buffer": {
+            "mode": "all",
+            "rules": ""
+          },
+          "childGraphId": "e1038312-de48-4ed2-b22d-1b4006b58bfc",
+          "boundaryPortId": null
+        }
+      ],
+      "edges": [
+        {
+          "id": "00eb0a91-675c-4d31-9610-e8284b63c385",
+          "kind": "forward",
+          "source": "c33fefef-0db8-4552-b5de-b1ad22c6e00f",
+          "sourcePort": "c4da9708-8651-46a8-b1f3-7d7b89703b68",
+          "target": "defd5b9a-a821-4950-97b6-725dc9c5efae",
+          "targetPort": "22977987-78f6-4e44-bfcc-76ed111401cb",
+          "name": "提交檢查",
+          "condition": "訂單已接收",
+          "mapping": "完整訂單物件原樣傳遞",
+          "reason": "",
+          "loop": {
+            "mode": "once",
+            "maxIterations": null,
+            "stopCondition": "",
+            "onLimit": ""
+          }
+        },
+        {
+          "id": "c2719a94-0795-492a-9d82-193a7ac568ed",
+          "kind": "return",
+          "source": "defd5b9a-a821-4950-97b6-725dc9c5efae",
+          "sourcePort": "9c36a269-a67d-4118-817f-07c0ad016cd3",
+          "target": "c33fefef-0db8-4552-b5de-b1ad22c6e00f",
+          "targetPort": "44c2da2b-bb4c-4611-be4c-4dbf2098b920",
+          "name": "補正資料",
+          "condition": "必要欄位不存在",
+          "mapping": "傳回原訂單與缺漏欄位說明",
+          "reason": "訂單資料缺漏",
+          "loop": {
+            "mode": "until",
+            "maxIterations": 3,
+            "stopCondition": "必要欄位完整",
+            "onLimit": "交由人工處理"
+          }
+        }
+      ]
+    },
+    {
+      "id": "e1038312-de48-4ed2-b22d-1b4006b58bfc",
+      "name": "驗證訂單",
+      "nodes": [
+        {
+          "id": "5d3d330a-550f-4d01-a9d6-d9510af956f8",
+          "kind": "entry",
+          "name": "入口 · 輸入",
+          "function": {
+            "purpose": "",
+            "preconditions": "",
+            "steps": "",
+            "rules": "",
+            "postconditions": "",
+            "errors": ""
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "22977987-78f6-4e44-bfcc-76ed111401cb",
+              "name": "輸入",
+              "description": "訂單資料",
+              "condition": "收到資料後",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "orderId": {
+                    "type": "string",
+                    "description": "訂單識別碼",
+                    "minLength": 1
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "orderId",
+                  "quantity"
+                ]
+              }
+            }
+          ],
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "variables": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "buffer": {
+            "mode": "all",
+            "rules": ""
+          },
+          "childGraphId": null,
+          "boundaryPortId": "22977987-78f6-4e44-bfcc-76ed111401cb"
+        },
+        {
+          "id": "99660f0f-fff3-4d5d-8e7c-af5c45e27be7",
+          "kind": "exit",
+          "name": "出口 · 輸出",
+          "function": {
+            "purpose": "",
+            "preconditions": "",
+            "steps": "",
+            "rules": "",
+            "postconditions": "",
+            "errors": ""
+          },
+          "inputs": [
+            {
+              "id": "9c36a269-a67d-4118-817f-07c0ad016cd3",
+              "name": "輸出",
+              "description": "訂單資料",
+              "condition": "收到資料後",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "orderId": {
+                    "type": "string",
+                    "description": "訂單識別碼",
+                    "minLength": 1
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "orderId",
+                  "quantity"
+                ]
+              }
+            }
+          ],
+          "outputs": [],
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "variables": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "buffer": {
+            "mode": "all",
+            "rules": ""
+          },
+          "childGraphId": null,
+          "boundaryPortId": "9c36a269-a67d-4118-817f-07c0ad016cd3"
+        }
+      ],
+      "edges": []
+    }
+  ],
+  "layout": {
+    "eab9d74f-46c2-4a56-aadc-9bca7d4017d2": {
+      "positions": {
+        "c33fefef-0db8-4552-b5de-b1ad22c6e00f": {
+          "x": 160,
+          "y": 200
+        },
+        "defd5b9a-a821-4950-97b6-725dc9c5efae": {
+          "x": 580,
+          "y": 200
+        }
+      },
+      "viewport": {
+        "x": 0,
+        "y": 0,
+        "zoom": 1
+      }
+    },
+    "e1038312-de48-4ed2-b22d-1b4006b58bfc": {
+      "positions": {
+        "5d3d330a-550f-4d01-a9d6-d9510af956f8": {
+          "x": 60,
+          "y": 100
+        },
+        "99660f0f-fff3-4d5d-8e7c-af5c45e27be7": {
+          "x": 740,
+          "y": 260
+        }
+      },
+      "viewport": {
+        "x": 0,
+        "y": 0,
+        "zoom": 1
+      }
+    }
+  },
+  "definition": {
+    "status": "draft",
+    "issues": [
+      "畫布尚未定義功能節點",
+      "入口 · 輸入：邊界尚未連接內部流程",
+      "出口 · 輸出：邊界尚未連接內部流程"
+    ]
+  }
+}

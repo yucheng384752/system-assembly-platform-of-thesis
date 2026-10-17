@@ -1,0 +1,13 @@
+{
+  "format": "composer-aov-list",
+  "version": 1,
+  "steps": [
+    {
+      "id": "step-1",
+      "name": "收料",
+      "when": "到貨時",
+      "owner": "倉管",
+      "formId": "form-1"
+    }
+  ]
+}

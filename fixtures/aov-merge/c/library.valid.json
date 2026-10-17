@@ -1,0 +1,79 @@
+{
+  "formatVersion": 1,
+  "kind": "action-library",
+  "meta": {
+    "id": "demo-lib",
+    "name": "示範動作庫",
+    "version": 1,
+    "status": "published"
+  },
+  "artifactTypes": [
+    {
+      "id": "lot.flour",
+      "name": "麵粉批",
+      "extends": "material",
+      "identity": "lot",
+      "quantity": {
+        "dimension": "mass",
+        "baseUnit": "kg",
+        "conservation": "yield"
+      },
+      "attributes": {
+        "supplier": {
+          "type": "string",
+          "source": "generated",
+          "description": "供應商（進料時寫入）"
+        },
+        "grade": {
+          "type": "enum",
+          "values": [
+            "C",
+            "B",
+            "A"
+          ],
+          "source": "generated"
+        },
+        "expiry": {
+          "type": "datetime",
+          "source": "inherited",
+          "merge": "min"
+        },
+        "allergen": {
+          "type": "string[]",
+          "source": "inherited",
+          "merge": "union"
+        }
+      }
+    }
+  ],
+  "forms": [
+    {
+      "id": "form.check",
+      "name": "檢驗表",
+      "subject": [
+        "lot.flour"
+      ],
+      "fields": {
+        "lot_no": {
+          "label": "批號",
+          "type": "string",
+          "required": true
+        },
+        "weight": {
+          "label": "重量",
+          "type": "number",
+          "unit": "kg"
+        }
+      }
+    }
+  ],
+  "rules": [],
+  "actions": [
+    {
+      "id": "inspect",
+      "name": "檢驗",
+      "behavior": "measure",
+      "usesForm": true
+    }
+  ]
+}
