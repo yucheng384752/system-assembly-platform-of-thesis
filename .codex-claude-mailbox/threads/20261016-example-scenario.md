@@ -1,8 +1,8 @@
 ---
 id: "20261016-example-scenario"
 title: "去識別化系統使用範例：輸入提示、載入範例按鈕與整合樣本"
-status: "waiting_for_user"
-owner: "user"
+status: "in_progress"
+owner: "codex"
 reviewer: "claude"
 priority: "normal"
 created_by: "claude"
@@ -55,6 +55,11 @@ artifacts:
 3. 載入或清除後，焦點與狀態播報須符合 DESIGN.md。
 4. 測試：載入後工廠、六個節點、五張表單、關聯數量正確；已有使用者資料時完全保留；清除後只剩使用者資料；重複載入與重複清除不出錯。
 
+### 2026-10-18 規格釐清（Claude 回覆 Codex 的停止問題，D99 同步更正）
+
+1. **詞彙禁令的範圍：** 禁止的是來源案例的真實公司、產品、原料、設備名稱與全部數值。`docs/example-scenario.md` 第 3、4 節明列的通用代稱（例如「原料 A 實際重量」「原料 B 實際重量」「混合槽」類通用詞）**允許且必須照寫**，兩者不衝突。凡該文件未列出的名詞，一律不得自行新增。
+2. **匯出範圍：** 提示文字與提示開關不進文件、不進匯出；載入後的範例資料已是使用者工作區的一般資料，正常參與匯出與匯入，且須匯出再匯入內容相等。D99 的原句寫得含糊，已更正。
+
 ### 停止條件
 
 需要新增依賴、修改 `schemas/`、修改 `config/` 或 `libs/ui-runtime/`、範例需要任何來源案例的資訊才能完成、既有測試意圖無法保留時，停止並在 Codex Notes 寫下問題，不自行變通。每個工作包完成後記錄：做了什麼、變更檔案、測試結果（含略過與失敗）、未解決的事。
@@ -74,3 +79,14 @@ artifacts:
 ## Codex Notes
 
 （Codex 在此續寫）
+
+### 2026-10-18：規格核對後依停止條件交回
+
+- 已完整閱讀 CLAUDE.md、DESIGN.md、docs/example-scenario.md、本 thread，並閱讀 decision-log.md 的 D99。唯讀 git status 確認分支為 feature/example-scenario，開工前工作樹乾淨；未執行任何 git 寫入、連網或啟動伺服器。
+- 阻擋：本次 user 要求範例內容逐字遵守第 3、4 節，同時禁止任何原料名稱；該兩節卻明定「原料 A 實際重量」與「原料 B 實際重量」。需確認禁令是否只針對來源案例的真實名稱，允許文件明列的通用代稱。未擅自刪除、改名或放寬禁令。
+- 另需釐清：D99 記載「提示與範例不進匯出文件」，但文件第 5、6 節及 WP1 要求範例文件可匯出再匯入且內容相等。請明定載入後的範例資料是否正常參與匯出，只有提示及開關不匯出。
+- WP1：尚未實作；資料字串限制待釐清，沒有新增 exampleHints.ts 或測試。
+- WP2：尚未實作；欄位提示涉及同一字串衝突，未修改元件或儲存狀態。
+- WP3：尚未實作；依賴 WP1，未修改載入或清除操作。
+- 驗證：npm.cmd run typecheck、npm.cmd test、npm.cmd run build 全部略過（在實作前觸發停止條件，沒有程式變更）；沒有已執行的測試失敗或通過結果。瀏覽器驗證與來源詞彙清單檢查未執行，仍屬 Claude 的 WP4。
+- 本次僅變更本 thread 與 mailbox index；依 user 指示維持 status=in_progress、owner=claude。WP1 至 WP3 均未完成，等待釐清後續作。

@@ -82,6 +82,6 @@
 
 1. 範例資料集中放在單一模組（暫名 `exampleHints.ts`），畫面元件只引用，不在元件內硬寫文字。
 2. 修改位置：`FactoryPage.tsx`、`NodeDetails.tsx`、`NodeForm.tsx` 的輸入框；如採載入範例，另加一個動作與其測試。
-3. 測試：每個提示位置有提示文字；提示不被當成使用者輸入、不進入匯出文件；範例資料通過現有 schema；若載入範例，載入後的文件通過 `integrityErrors` 且可匯出再匯入。
+3. 測試：每個提示位置有提示文字；提示文字與開關不被當成使用者輸入、不進入匯出文件（載入的範例資料則正常匯出）；範例資料通過現有 schema；若載入範例，載入後的文件通過 `integrityErrors` 且可匯出再匯入。
 4. 驗證：`npm.cmd run typecheck`、`npm.cmd test`、`npm.cmd run build`，並在瀏覽器確認提示可見與對比度。
 5. 另開功能分支與 mailbox thread，派給 Codex 實作，Claude 審閱與瀏覽器驗證。
