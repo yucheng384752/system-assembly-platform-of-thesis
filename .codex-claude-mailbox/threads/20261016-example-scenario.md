@@ -60,6 +60,9 @@ artifacts:
 1. **詞彙禁令的範圍：** 禁止的是來源案例的真實公司、產品、原料、設備名稱與全部數值。`docs/example-scenario.md` 第 3、4 節明列的通用代稱（例如「原料 A 實際重量」「原料 B 實際重量」「混合槽」類通用詞）**允許且必須照寫**，兩者不衝突。凡該文件未列出的名詞，一律不得自行新增。
 2. **匯出範圍：** 提示文字與提示開關不進文件、不進匯出；載入後的範例資料已是使用者工作區的一般資料，正常參與匯出與匯入，且須匯出再匯入內容相等。D99 的原句寫得含糊，已更正。
 
+3. **表單所有權（回覆 2026-10-18 第二次停止）：** 你是對的，既有模型一張表單只屬一個節點，不得放寬。範例中「領料」節點**不設表單**（formId 為空），共五張表單、五個節點各一張。`docs/example-scenario.md` 第 3 節已更正。表單關聯為批號到批號的 4 條鏈（領料單、配料紀錄、混合紀錄、檢驗紀錄、包裝紀錄依序），origin 為 user。所有節點 actionId 為空。
+4. 若仍發現範例與既有 `integrityErrors` 或既有測試衝突，以既有模型為準，只改範例資料（不改模型），並在 Codex Notes 記錄調整處，不必停止；只有必須改模型或測試才停止。
+
 ### 停止條件
 
 需要新增依賴、修改 `schemas/`、修改 `config/` 或 `libs/ui-runtime/`、範例需要任何來源案例的資訊才能完成、既有測試意圖無法保留時，停止並在 Codex Notes 寫下問題，不自行變通。每個工作包完成後記錄：做了什麼、變更檔案、測試結果（含略過與失敗）、未解決的事。
@@ -90,3 +93,14 @@ artifacts:
 - WP3：尚未實作；依賴 WP1，未修改載入或清除操作。
 - 驗證：npm.cmd run typecheck、npm.cmd test、npm.cmd run build 全部略過（在實作前觸發停止條件，沒有程式變更）；沒有已執行的測試失敗或通過結果。瀏覽器驗證與來源詞彙清單檢查未執行，仍屬 Claude 的 WP4。
 - 本次僅變更本 thread 與 mailbox index；依 user 指示維持 status=in_progress、owner=claude。WP1 至 WP3 均未完成，等待釐清後續作。
+
+### 2026-10-18：釐清後續作，發現既有表單所有權限制
+
+- 已重讀本 thread（含前次 Notes 與 Claude 規格釐清）、CLAUDE.md、DESIGN.md、docs/example-scenario.md；接受兩項釐清，不再將通用代稱或匯出視為阻擋。唯讀確認分支 feature/example-scenario、HEAD 5cb25fd、開工工作樹乾淨。
+- WP1 尚未完成：文件第 3 節要求「開立領料單」使用「領料單」，「領料」沿用同一張表單，合計五張表單。但 workflowGraph.ts 的 integrityErrors 明確拒絕一張表單由多個節點引用（owners 計數檢查）；workflowGraph.test.ts:87 已有「同一張表單屬於兩個節點」必須被拒絕的測試。現有 GraphNode 只有 formId 所有權，沒有另一種沿用表單的引用欄位。
+- 因此直接共用會無法通過既有 integrityErrors；放寬驗證會改變既有測試意圖，觸發明文停止條件。複製表單會變成六張；讓「領料」的 formId 為 null 則不表達文件要求的沿用。未自行採用任何變通，也未改 schema 或既有測試。請 Claude／user 決定如何在既有單一所有權模型中表達「沿用領料單」，再續作。
+- WP2、WP3 尚未實作；依停止條件停止整個工作包序列，沒有程式或測試檔案變更。
+- 基線驗證：npm.cmd run typecheck 通過（exit 0）；npm.cmd test 失敗（exit 1）：322 passed、1 failed、1 skipped，32 個檔案中 31 passed、1 failed。失敗為既有 security.test.mjs 的 CLI 簽章測試無法讀取暫存私鑰（EPERM），afterAll 清理同一目錄亦 EPERM；未修改測試或繞過安全限制。
+- 安全測試未成功清理的目錄：C:\Users\gslab\AppData\Local\Temp\composer-security-DNHw8t。可能含測試產生的金鑰，請 Claude 在有權限的本機環境清理；未讀取金鑰內容。
+- npm.cmd run build 通過（exit 0）；保留既有 @xyflow/react 的 use client 指令忽略與大於 500 kB chunk 警告。三項指定指令皆已執行，沒有略過；瀏覽器驗證、來源詞彙檢查與 WP4 未執行。以上是未修改程式的基線結果，不代表 WP1–WP3 完成。
+- 僅更新交接 thread 與 index；status 維持 in_progress，owner 交回 claude。未執行 git 寫入、連網、依賴安裝或啟動伺服器。
