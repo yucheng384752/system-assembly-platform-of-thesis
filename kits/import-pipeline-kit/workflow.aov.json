@@ -1,0 +1,20 @@
+{
+  "format": "composer-kit-workflow",
+  "version": 1,
+  "kitId": "import-pipeline-kit",
+  "kitVersion": "c4b2b7b-ui.1",
+  "status": "draft",
+  "scope": "描述兩種建立匯入工作入口、狀態與錯誤查詢、提交及取消。兩種建立入口互為替代；連線只表示各自回傳的工作識別碼可用於狀態查詢，不要求同時執行。狀態查詢為共用能力，不綁定建立方式。提交節點包含 ImportService.commit_job 的持久化能力，只接受 READY／COMMITTING；不表示建立後可立即提交，也不強制先查詢錯誤或狀態。未涵蓋無獨立登錄能力的暫存列驗證、背景處理各分支及跨 Kit 上傳流程。尚未完成執行驗證。",
+  "nodes": [
+    { "id": "create-job", "name": "建立匯入工作", "subfeatureId": "create-import-job", "capabilityIds": ["import.job.create"] },
+    { "id": "create-from-upload", "name": "從上傳工作建立匯入", "subfeatureId": "create-import-job-from-upload-job", "capabilityIds": ["import.job.from_upload"] },
+    { "id": "get-job", "name": "查詢匯入狀態", "capabilityIds": ["import.job.get"] },
+    { "id": "get-errors", "name": "查詢錯誤列", "subfeatureId": "import-error-query", "capabilityIds": ["import.job.errors"] },
+    { "id": "commit-job", "name": "提交匯入並保存結果", "subfeatureId": "commit-production-records", "capabilityIds": ["import.job.commit", "db.import.jobs"] },
+    { "id": "cancel-job", "name": "取消匯入", "subfeatureId": "cancel-import", "capabilityIds": ["import.job.cancel"] }
+  ],
+  "edges": [
+    { "from": "create-job", "to": "get-job" },
+    { "from": "create-from-upload", "to": "get-job" }
+  ]
+}

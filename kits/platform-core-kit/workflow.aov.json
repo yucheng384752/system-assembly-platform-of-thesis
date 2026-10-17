@@ -1,0 +1,20 @@
+{
+  "format": "composer-kit-workflow",
+  "version": 1,
+  "kitId": "platform-core-kit",
+  "kitVersion": "c4b2b7b-ui.1",
+  "status": "draft",
+  "scope": "描述已驗證的共用資料查詢、原因驗證、功能契約與端點權限設定。共用資料能力不綁定單一子功能；各函式與端點獨立，未要求先讀後寫或彼此呼叫，故無連線。未涵蓋 verified:false 且找不到路由的 platform.health、無已驗證獨立能力的應用程式外殼與資料庫連線建立，以及未登錄的通用能力呼叫端點。上傳工作清單讀取 ImportJob，保留 registry 所載舊狀態篩選限制。尚未完成執行與授權驗證。",
+  "nodes": [
+    { "id": "list-forms", "name": "查詢表單清單", "capabilityIds": ["db.forms.list"] },
+    { "id": "resolve-table", "name": "解析資料表", "capabilityIds": ["db.tables.resolve"] },
+    { "id": "search-records", "name": "搜尋資料紀錄", "capabilityIds": ["db.records.search"] },
+    { "id": "records-trend", "name": "統計紀錄趨勢", "capabilityIds": ["db.records.trend"] },
+    { "id": "validate-reason", "name": "驗證修改原因", "capabilityIds": ["db.edit-reasons.validate"] },
+    { "id": "list-upload-jobs", "name": "查詢上傳工作", "capabilityIds": ["db.upload.jobs.list"] },
+    { "id": "list-contracts", "name": "查詢功能契約", "subfeatureId": "api-client-foundation", "capabilityIds": ["kit.contracts.list"] },
+    { "id": "get-permissions", "name": "查詢端點權限", "subfeatureId": "configuration-management", "capabilityIds": ["admin.endpoint-permissions.get"] },
+    { "id": "set-permissions", "name": "設定端點權限", "subfeatureId": "configuration-management", "capabilityIds": ["admin.endpoint-permissions.put"] }
+  ],
+  "edges": []
+}

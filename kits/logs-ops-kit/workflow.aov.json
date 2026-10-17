@@ -1,0 +1,12 @@
+{
+  "format": "composer-kit-workflow",
+  "version": 1,
+  "kitId": "logs-ops-kit",
+  "kitVersion": "c4b2b7b-ui.1",
+  "status": "draft",
+  "scope": "僅描述 registry 唯一已驗證的 logs.list，包含來源支援的篩選與分頁；只有一個節點，無先後連線。未涵蓋未登錄的日誌統計、清理下載與遠端心跳監控；搜尋為清單參數，不另建子功能節點。清單只顯示符合租戶的日誌，不表示可讀取無租戶的系統或心跳事件。尚未完成執行驗證。",
+  "nodes": [
+    { "id": "list-logs", "name": "查詢與篩選日誌", "subfeatureId": "log-list", "capabilityIds": ["logs.list"] }
+  ],
+  "edges": []
+}

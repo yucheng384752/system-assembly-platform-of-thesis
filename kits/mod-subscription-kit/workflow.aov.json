@@ -1,0 +1,15 @@
+{
+  "format": "composer-kit-workflow",
+  "version": 1,
+  "kitId": "mod-subscription-kit",
+  "kitVersion": "c4b2b7b-ui.1",
+  "status": "draft",
+  "scope": "描述訂閱同步、Webhook 接收、訂閱查詢及方案權益。同步與 Webhook 節點均包含服務中的訂閱持久化能力；Webhook 要求訂閱已存在，並非每次同步都會觸發。查詢共用既有訂閱，來源未強制端點呼叫順序，故不連線。未涵蓋 verified:false 且無對應來源的 subscriptions.manage，以及無獨立登錄能力的訂閱稽核紀錄查詢。未連接外部訂閱服務，尚未完成執行與 Webhook 授權驗證。",
+  "nodes": [
+    { "id": "sync-subscription", "name": "同步並保存訂閱", "subfeatureId": "subscription-status-sync", "capabilityIds": ["subscriptions.sync", "db.subscriptions"] },
+    { "id": "receive-webhook", "name": "接收通知並更新訂閱", "subfeatureId": "subscription-webhook-receiver", "capabilityIds": ["subscriptions.webhook", "db.subscriptions"] },
+    { "id": "get-subscription", "name": "查詢訂閱狀態", "subfeatureId": "subscription-status-sync", "capabilityIds": ["subscriptions.get"] },
+    { "id": "get-entitlements", "name": "查詢方案權益", "subfeatureId": "plan-entitlement-mapping", "capabilityIds": ["subscriptions.entitlements.get"] }
+  ],
+  "edges": []
+}
