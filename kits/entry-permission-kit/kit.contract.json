@@ -1,0 +1,345 @@
+{
+  "kit": "entry-permission-kit",
+  "provides": {
+    "api": [
+      {
+        "capability": "auth.login",
+        "method": "POST",
+        "path": "/auth/login",
+        "auth": {
+          "required": false
+        },
+        "input": {
+          "kind": "json",
+          "schema": "LoginRequest"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "TokenResponse"
+        },
+        "errors": [
+          401,
+          403,
+          429
+        ],
+        "sideEffects": [
+          "寫入記憶體中的登入失敗計數"
+        ]
+      },
+      {
+        "capability": "auth.me.read",
+        "method": "GET",
+        "path": "/auth/me",
+        "auth": {
+          "required": true,
+          "scheme": "bearer"
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "UserRead"
+        },
+        "errors": [
+          401
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "auth.me.update",
+        "method": "PATCH",
+        "path": "/auth/me",
+        "auth": {
+          "required": true,
+          "scheme": "bearer"
+        },
+        "input": {
+          "kind": "json",
+          "schema": "UpdateMeRequest"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "UserRead"
+        },
+        "errors": [
+          401,
+          422
+        ],
+        "sideEffects": [
+          "db.users.write"
+        ]
+      },
+      {
+        "capability": "auth.password.change",
+        "method": "POST",
+        "path": "/auth/change-password",
+        "auth": {
+          "required": true,
+          "scheme": "bearer"
+        },
+        "input": {
+          "kind": "json",
+          "schema": "ChangePasswordRequest"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "UserRead"
+        },
+        "errors": [
+          400,
+          401
+        ],
+        "sideEffects": [
+          "db.users.write"
+        ]
+      },
+      {
+        "capability": "users.list",
+        "method": "GET",
+        "path": "/users",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "UserRead[]"
+        },
+        "errors": [
+          401,
+          403
+        ],
+        "sideEffects": [],
+        "entryPoint": "user_manage | tag:user-directory"
+      },
+      {
+        "capability": "users.create",
+        "method": "POST",
+        "path": "/users",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "UserCreate"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "UserRead"
+        },
+        "errors": [
+          400,
+          401,
+          403,
+          409
+        ],
+        "sideEffects": [
+          "db.users.write"
+        ],
+        "entryPoint": "user_manage"
+      },
+      {
+        "capability": "users.update",
+        "method": "PATCH",
+        "path": "/users/{user_id}",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "UserUpdate"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "UserRead"
+        },
+        "errors": [
+          400,
+          401,
+          403,
+          404
+        ],
+        "sideEffects": [
+          "db.users.write"
+        ],
+        "entryPoint": "user_manage"
+      },
+      {
+        "capability": "users.password.reset",
+        "method": "POST",
+        "path": "/users/{user_id}/reset-password",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "ResetPasswordRequest"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "UserRead"
+        },
+        "errors": [
+          400,
+          401,
+          403,
+          404
+        ],
+        "sideEffects": [
+          "db.users.write"
+        ],
+        "entryPoint": "user_manage"
+      },
+      {
+        "capability": "users.scopes.set",
+        "method": "PUT",
+        "path": "/users/{user_id}/scopes/{scope_type}",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true,
+          "role": "admin"
+        },
+        "input": {
+          "kind": "json",
+          "schema": "UserScopesUpdate"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "UserRead"
+        },
+        "errors": [
+          401,
+          403,
+          404,
+          422
+        ],
+        "sideEffects": [
+          "db.user_scopes.write"
+        ]
+      },
+      {
+        "capability": "users.entry-overrides.set",
+        "method": "PUT",
+        "path": "/users/{user_id}/entry-point-overrides",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true,
+          "role": "admin"
+        },
+        "input": {
+          "kind": "json",
+          "schema": "EntryPointOverridesUpdate"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "UserRead"
+        },
+        "errors": [
+          401,
+          403,
+          404,
+          422
+        ],
+        "sideEffects": [
+          "db.user_entry_point_overrides.write"
+        ]
+      },
+      {
+        "capability": "users.entry-points.list",
+        "method": "GET",
+        "path": "/users/entry-points",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true,
+          "role": "admin"
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "EntryPointSummary[]"
+        },
+        "errors": [
+          401,
+          403
+        ],
+        "sideEffects": []
+      }
+    ],
+    "python": [
+      {
+        "capability": "permission.entry-point.register",
+        "module": "app.core.entry_points",
+        "symbol": "registry.register",
+        "note": "其他 Kit 在載入時註冊自己的入口；key 重複或含唯讀角色即報錯"
+      },
+      {
+        "capability": "permission.entry-point.require",
+        "module": "app.api.deps",
+        "symbol": "require_entry_point",
+        "note": "FastAPI 相依，保護其他 Kit 的端點"
+      },
+      {
+        "capability": "permission.write.require",
+        "module": "app.api.deps",
+        "symbol": "require_write_access",
+        "note": "多角色共用寫入端點排除唯讀角色"
+      },
+      {
+        "capability": "permission.scope-type.register",
+        "module": "app.core.user_scopes",
+        "symbol": "scope_types.register",
+        "note": "擁有資源的 Kit 註冊範圍類型與鍵值檢查"
+      },
+      {
+        "capability": "permission.scope.read",
+        "module": "app.core.user_scopes",
+        "symbol": "scoped_keys",
+        "note": "回傳 None 代表不限制"
+      }
+    ],
+    "db": [
+      "db.users.read"
+    ]
+  },
+  "consumes": {
+    "api": [],
+    "python": [
+      {
+        "capability": "platform.settings",
+        "module": "app.core.config",
+        "symbol": "settings",
+        "fields": [
+          "jwt_secret",
+          "jwt_algorithm",
+          "access_token_expire_minutes",
+          "password_min_length",
+          "login_max_attempts",
+          "login_lockout_minutes"
+        ]
+      },
+      {
+        "capability": "platform.db.session",
+        "module": "app.core.database",
+        "symbol": "get_db, Base",
+        "note": "同步 SQLAlchemy Session；與基線 platform-core 的非同步連線不相容，待決（見 docs/s2-kit-split.md）"
+      }
+    ],
+    "db": []
+  }
+}

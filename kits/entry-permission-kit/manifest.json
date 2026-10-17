@@ -1,0 +1,18 @@
+{
+    "kit": "entry-permission-kit",
+    "displayName": "帳號與入口權限",
+    "installOrder": 20,
+    "requires": ["python"],
+    "runtimeEnv": [
+        { "name": "JWT_SECRET", "secretRef": true, "required": true },
+        { "name": "JWT_ALGORITHM", "required": false, "default": "HS256" },
+        { "name": "ACCESS_TOKEN_EXPIRE_MINUTES", "required": false, "default": "480" },
+        { "name": "PASSWORD_MIN_LENGTH", "required": false, "default": "8" },
+        { "name": "LOGIN_MAX_ATTEMPTS", "required": false, "default": "5" },
+        { "name": "LOGIN_LOCKOUT_MINUTES", "required": false, "default": "15" }
+    ],
+    "scripts": {
+        "windows": "install.ps1",
+        "linux": "install.sh"
+    }
+}

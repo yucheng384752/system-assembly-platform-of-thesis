@@ -1,0 +1,149 @@
+{
+  "id": "entry-permission-kit",
+  "displayName": "帳號與入口權限",
+  "category": "security",
+  "required": true,
+  "businessCapability": "管理帳號登入、角色預設權限，並可針對個別帳號開關功能入口與限定資源範圍。",
+  "dependencies": [
+    "platform-core-kit"
+  ],
+  "optionalDependencies": [],
+  "backend": {
+    "routers": [
+      "src/backend/app/api/routes_auth.py",
+      "src/backend/app/api/routes_users.py"
+    ],
+    "core": [
+      "src/backend/app/core/roles.py",
+      "src/backend/app/core/entry_points.py",
+      "src/backend/app/core/entry_point_overrides.py",
+      "src/backend/app/core/user_scopes.py",
+      "src/backend/app/core/user_read.py",
+      "src/backend/app/core/login_guard.py",
+      "src/backend/app/core/security.py",
+      "src/backend/app/core/passwords.py",
+      "src/backend/app/api/deps.py"
+    ],
+    "services": [],
+    "models": [
+      "src/backend/app/models/user.py",
+      "src/backend/app/models/user_entry_point_override.py",
+      "src/backend/app/models/user_scope.py"
+    ],
+    "routerRegistrations": [
+      {
+        "module": "app.api.routes_auth",
+        "symbol": "router",
+        "prefix": "",
+        "tags": [
+          "auth"
+        ],
+        "tenantScoped": false
+      },
+      {
+        "module": "app.api.routes_users",
+        "symbol": "router",
+        "prefix": "",
+        "tags": [
+          "users"
+        ],
+        "tenantScoped": false
+      }
+    ]
+  },
+  "frontend": {
+    "pages": [],
+    "components": [],
+    "services": [],
+    "note": "前端（登入、改密碼、帳號管理、入口覆寫畫面）於下一個工作包抽出"
+  },
+  "api": [
+    "POST /auth/login",
+    "GET /auth/me",
+    "PATCH /auth/me",
+    "POST /auth/change-password",
+    "GET /users",
+    "POST /users",
+    "PATCH /users/{user_id}",
+    "POST /users/{user_id}/reset-password",
+    "PUT /users/{user_id}/scopes/{scope_type}",
+    "PUT /users/{user_id}/entry-point-overrides",
+    "GET /users/entry-points"
+  ],
+  "database": {
+    "models": [
+      "User",
+      "UserEntryPointOverride",
+      "UserScope"
+    ]
+  },
+  "permissions": [
+    "admin",
+    "manager",
+    "operator",
+    "qc",
+    "audit（唯讀）"
+  ],
+  "runtimeDependencies": {
+    "python": [
+      "fastapi",
+      "sqlalchemy>=2",
+      "pydantic>=2",
+      "python-jose[cryptography]",
+      "bcrypt"
+    ]
+  },
+  "subfeatures": [
+    {
+      "id": "account-login",
+      "displayName": "帳號登入",
+      "businessCapability": "帳號密碼登入並取得存取權杖。",
+      "required": true,
+      "defaultSelected": true
+    },
+    {
+      "id": "forced-password-change",
+      "displayName": "首次登入強制改密碼",
+      "businessCapability": "新帳號或被重設密碼的帳號，下次登入須先自行變更密碼。",
+      "defaultSelected": true
+    },
+    {
+      "id": "login-lockout",
+      "displayName": "登入失敗鎖定",
+      "businessCapability": "同一帳號連續登入失敗達上限後暫時鎖定。",
+      "defaultSelected": true,
+      "options": [
+        {
+          "id": "max-attempts",
+          "displayName": "失敗次數上限",
+          "type": "number",
+          "defaultValue": 5
+        },
+        {
+          "id": "lockout-minutes",
+          "displayName": "鎖定分鐘數",
+          "type": "number",
+          "defaultValue": 15
+        }
+      ]
+    },
+    {
+      "id": "account-management",
+      "displayName": "帳號管理",
+      "businessCapability": "新增帳號、修改資料、停用與重設密碼；管理者只能管理現場操作員與品管人員。",
+      "defaultSelected": true
+    },
+    {
+      "id": "entry-overrides",
+      "displayName": "入口權限覆寫",
+      "businessCapability": "admin 可針對個別帳號開啟或關閉特定功能入口，不受角色預設限制。",
+      "defaultSelected": true
+    },
+    {
+      "id": "resource-scopes",
+      "displayName": "資源範圍綁定",
+      "businessCapability": "限定帳號只能看到或操作被指派的資源，例如特定產品線；資源類型由擁有該資源的功能提供。",
+      "defaultSelected": false
+    }
+  ]
+}
