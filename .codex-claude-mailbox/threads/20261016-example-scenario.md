@@ -7,7 +7,7 @@ reviewer: "claude"
 priority: "normal"
 created_by: "claude"
 created_at: "2026-10-16"
-updated_at: "2026-10-16"
+updated_at: "2026-10-18"
 role_priority:
   implementation: "codex (WP1 到 WP3) / claude (WP4、審閱、git)"
   review: "claude"
@@ -33,7 +33,7 @@ artifacts:
 
 ## 派工給 Codex
 
-**預計完成時間：開工當日起 6 小時（WP1 至 WP2 約 3 小時，WP3 約 3 小時）。** 到期未完成由 Claude 接手。Codex 只寫程式與資料，不執行 git、不連網、不啟動伺服器；cwd 必須是專案根目錄。UI 須遵守 `DESIGN.md`。
+**預計完成時間：2026-10-18 01:00 起 6 小時（WP1 至 WP2 約 3 小時，WP3 約 3 小時），即當日加 6 小時。** 到期未完成由 Claude 接手。Codex 只寫程式與資料，不執行 git、不連網、不啟動伺服器；cwd 必須是專案根目錄。UI 須遵守 `DESIGN.md`。
 
 ### WP1 範例資料模組（Data-First，先做）
 

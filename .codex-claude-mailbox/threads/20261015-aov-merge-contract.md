@@ -28,7 +28,7 @@ artifacts:
 
 1. 計畫書第 12 節第 1、2、4、5、6 項已決議（D95–D97），本條件已滿足。
 2. 已滿足（2026-10-15）：盤點報告 `docs/aov-merge-inventory.md` 與去識別化 fixtures `fixtures/aov-merge/` 已完成。
-3. 計畫書第 10 節契約草案經 user 核定。
+3. 已滿足（2026-10-18，D101）：第 10 節契約經 user 核定。
 
 # Claude Notes
 
@@ -36,7 +36,8 @@ artifacts:
 
 - 成果：`docs/aov-merge-inventory.md`（格式與版本對照、8 項發現、去識別化處理）、`fixtures/aov-merge/`（a／b／c 共 18 份）。B 與 C 的樣本已用真實驗證器驗過；A 的 1.0 樣本與 C 的動作庫樣本未經機器驗證，報告中已標明。
 - M03 已完成（D98）：C 新增 `checkProjectShape`／`checkLibraryShape`，`validateProject` 不再因結構錯誤丟例外；`npm.cmd run check` 通過。Codex 的 M02 驗證可參考其錯誤形式（診斷含 code `S0-shape`、位置前綴）。
-- 開工條件 3（第 10 節契約定稿）：待 user 核定，見計畫書第 10 節。
+- 開工條件 3 已滿足（2026-10-18，D101）：第 10 節契約核定，修正為單一 JSON 加 10 MB、`sourceVersion` 用內容 sha256、雜湊非簽章。WP2 的 schema 與驗證須照此實作。
+- 排程：Codex 一次只做一個工作；本 thread 排在 `20261016-example-scenario` 之後，該 thread 交回並審閱後才派。
 - 原計畫：
 
 - 盤點 A、C、D 的格式、版本與樣本；C 的 id 規則；A 舊格式辨識特徵。
@@ -49,7 +50,7 @@ artifacts:
 
 ### WP2 整合包 schema 與驗證（先做）
 
-1. 新增 `schemas/aov-bundle.schema.json`，依計畫書 10.1，draft 2020-12，沿用既有 schema 的風格（`additionalProperties: false`、id 與長度限制）。
+1. 新增 `schemas/aov-bundle.schema.json`，依計畫書 10.1 與 10.1.1（單一 JSON、10 MB 上限、`sourceVersion` 為內容 sha256、雜湊非簽章，D101），draft 2020-12，沿用既有 schema 的風格（`additionalProperties: false`、id 與長度限制）。
 2. 新增驗證入口於 `libs/aov-integration/`（新目錄；沿用 `libs/ui-runtime/schema.ts` 的 Ajv 用法，不新增依賴）：輸入為未信任文字，輸出為通過的候選物件或逐項錯誤；通過前不得改動任何工作階段狀態（沿用 Recipe 先驗證候選再替換的模式）。
 3. 測試（意圖要寫進測試名稱）：
    - 正常包往返相等。

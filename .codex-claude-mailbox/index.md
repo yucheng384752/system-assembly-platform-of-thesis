@@ -5,7 +5,7 @@
 | ID | Title | Status | Owner | Reviewer | Updated |
 | --- | --- | --- | --- | --- | --- |
 | [20261016-kit-workflows-live-preview](threads/20261016-kit-workflows-live-preview.md) | Kit AoV 彙整與真實選配預覽（WP2 九份模板完成待審） | in_progress | claude | claude | 2026-10-18 |
-| [20261016-example-scenario](threads/20261016-example-scenario.md) | 去識別化系統使用範例：輸入提示、載入範例按鈕與整合樣本（D99） | waiting_for_user | user | claude | 2026-10-16 |
+| [20261016-example-scenario](threads/20261016-example-scenario.md) | 去識別化系統使用範例：輸入提示、載入範例按鈕與整合樣本（D99） | in_progress | codex | claude | 2026-10-18 |
 | [20261015-aov-merge-contract](threads/20261015-aov-merge-contract.md) | 三代 AOV 合併：整合包契約與格式轉接（M02、M04） | waiting_for_user | user | claude | 2026-10-15 |
 | [20261006-more-node-tools](threads/20261006-more-node-tools.md) | 工具箱擴充：把基線版 Kit 功能轉成節點工具 | ready_for_claude | claude | claude | 2026-10-06 |
 | [20260927-kit-tab-ui-flow](threads/20260927-kit-tab-ui-flow.md) | Kit 分頁、動態預覽與可修改項目流程 | completed | user | claude | 2026-09-30 |

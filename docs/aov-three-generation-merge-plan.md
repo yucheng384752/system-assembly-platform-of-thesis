@@ -180,6 +180,12 @@ A 只有在修改其格式或程式碼時才需執行該專案 npm.cmd test、np
 | 流程邊 | 順序邊（無 artifact） | `Flow`（port 到 port，必帶 artifact 型別） | 順序邊預設不轉為 Flow，須人工補 port 與型別；未補者標為「僅業務順序」 |
 | 開始／結束 | start／end 節點 | 不對應 source／sink | 邊界由使用者另行指定倉儲或外部邊界，未指定不可編譯 |
 
+### 10.1.1 核定修正（2026-10-18，D101）
+
+1. 整合包為**單一 JSON 檔**，大小上限 10 MB；不使用 zip。
+2. B 表單沒有版本欄位，bindings 的 `sourceVersion` 一律為「表單內容的 sha256」（以鍵排序的正規化 JSON 計算）；表單內容一變，對應即標為失效。
+3. manifest 的 sha256 只用於發現損壞或被改動，不是簽章，不證明來源；簽章留待之後以既有安全工具處理。文件與 schema 說明須明寫此限制。
+
 ### 10.3 表單欄位型別映射（草案）
 
 | B 欄位型別 | C `AttrValueType` | 補充要求 |
@@ -231,4 +237,4 @@ C 的 `FormDef.subject` 在 B 無對應，必須由使用者在整合設定中�
 | S4 | 審閱、瀏覽器驗證、git 提交 | Claude | S3 後 1 日 | S3 | commit、mailbox 更新 |
 | S5 | M05 引用方案核准後，再排 M06–M10 | user／Claude | 另訂 | 第 12 節第 3 項 | 下一輪 thread |
 
-S2、S3 的 Codex 工作包、停止條件與驗收項目見 mailbox thread `20261015-aov-merge-contract`。第一個里程碑（M01–M10）預估需 3 至 4 輪派工，不在本批次一次交付。
+S2、S3 的 Codex 工作包、停止條件與驗收項目（第 10 節已核定，D101）見 mailbox thread `20261015-aov-merge-contract`。第一個里程碑（M01–M10）預估需 3 至 4 輪派工，不在本批次一次交付。
