@@ -1,0 +1,13 @@
+{
+  "format": "composer-kit-workflow",
+  "version": 1,
+  "kitId": "upload-validation-kit",
+  "kitVersion": "c4b2b7b-ui.1",
+  "status": "draft",
+  "scope": "首份流程草稿：上傳檔案後，以回傳的 process_id 查詢狀態。依 config/registry/upload-validation-kit.json 與 routes_upload.py 描述；不涵蓋 PDF 轉檔、所有驗證分支或後續匯入。尚未完成執行驗證。",
+  "nodes": [
+    { "id": "upload", "name": "上傳檔案", "subfeatureId": "csv-excel-upload-validation", "capabilityIds": ["upload.file.create"] },
+    { "id": "status", "name": "查詢上傳狀態", "subfeatureId": "csv-excel-upload-validation", "capabilityIds": ["upload.status.get"] }
+  ],
+  "edges": [{ "from": "upload", "to": "status" }]
+}

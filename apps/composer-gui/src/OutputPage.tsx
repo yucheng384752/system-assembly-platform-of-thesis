@@ -13,10 +13,11 @@ import { Column } from './Column';
 import { Icon } from './Icons';
 import { SiteTransfer } from './SiteTransfer';
 import type { SiteSession } from './siteSession';
+import { KitWorkflowSummary } from './KitWorkflowSummary';
 
 const included = ['客戶代稱', '已選功能', '可調整的畫面設定', '流程規格的檔名與校驗碼'];
 const workflowIncluded = ['流程節點、先後順序、子流程與位置', '時機、負責職務與動作設定', '各節點的標準表單、欄位及驗證規則', '已確認的表單關聯'];
-const packageIncluded = ['流程規格與系統設定檔', '檔案清單：各檔案的校驗碼與所選功能的版本', '檢查報告：靜態檢查結果，測試環境演練與現場驗證標為未執行', '所選功能的使用手冊：齊全時才附上'];
+const packageIncluded = ['流程規格與系統設定檔', '所選功能流程總表：步驟、連線與缺漏狀態', '檔案清單：各檔案的校驗碼與所選功能的版本', '檢查報告：靜態檢查結果，測試環境演練與現場驗證標為未執行', '所選功能的使用手冊：齊全時才附上'];
 const excluded = ['原始資料列與樣本內容', '連線資訊與密碼', '未確認的推測關聯', '程式碼、資料庫變更與安裝腳本：設定交付包不是安裝包'];
 export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport, site, siteConflict = '', onSiteChange }: { recipe: Recipe; workflow: AovGraphDocument; selectedFlows: string[]; onChange: (recipe: Recipe) => void; onImport: (recipe: Recipe) => void; site?: SiteSession; siteConflict?: string; onSiteChange?: (site?: SiteSession) => void }) {
   const name = (id: string) => catalog.kits.find(k => k.id === id)?.displayName ?? id;
@@ -61,6 +62,7 @@ export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport
         <p className="muted">包含的功能</p><ul>{group.kits.map(id => <li key={id}>{name(id)}</li>)}</ul>
       </section>)}
       <p className="column-foot"><Icon name="info" />必要功能一併保留，已包含於系統設定檔中。</p>
+      <KitWorkflowSummary recipe={recipe} kits={catalog.kits} />
     </Column>
     <Column id="package" title="設定交付包" lead="交付時只需要這一個壓縮檔：它把流程規格、系統設定檔、檔案清單與檢查報告放在一起。內容是設定，不能直接安裝或部署。">
       <label htmlFor="client-name" className="field-label">客戶代稱</label>

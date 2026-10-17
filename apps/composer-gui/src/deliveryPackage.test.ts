@@ -35,7 +35,7 @@ test('場域原文、Recipe 引用與 manifest 位元組一致，報告列出待
   const files = Object.fromEntries(readZip(built.bytes).map(e => [e.path, e.data]));
   const path = 'config/site/site.profile.json';
   expect(files[path]).toEqual(new TextEncoder().encode(siteText));
-  expect(built.manifest.artifacts).toHaveLength(8);
+  expect(built.manifest.artifacts).toHaveLength(10);
   expect(schemas.packageManifest(built.manifest)).toBe(true);
   expect(built.manifest.artifacts.find(a => a.role === 'site-profile')).toEqual({ path, role: 'site-profile', sha256: siteRef.sha256, bytes: files[path].length });
   expect(JSON.parse(decode(files['config/system.recipe.json'])).siteRef).toEqual(siteRef);
@@ -67,7 +67,7 @@ test('the package holds only real artifacts, each listed with a matching checksu
   const built = await buildDeliveryPackage(recipeText, workflowText, catalog, { selectedFlows: ['data-import'] });
   const files = Object.fromEntries(readZip(built.bytes).map(e => [e.path, e.data]));
   // D52: complete draft coverage now adds real manuals; they receive the same checksum checks as every artifact.
-  expect(Object.keys(files)).toEqual([MANIFEST_FILE, 'README.md', 'config/system.recipe.json', 'aov/workflow.aov.json', 'validation/report.json',
+  expect(Object.keys(files)).toEqual([MANIFEST_FILE, 'README.md', 'config/system.recipe.json', 'aov/workflow.aov.json', 'aov/kit-workflows.json', 'aov/kit-workflows.md', 'validation/report.json',
     ...manualRoles.map(role => `docs/manual-${role}.md`)]);
   const manifest = JSON.parse(decode(files[MANIFEST_FILE]));
   expect(schemas.packageManifest(manifest)).toBe(true);
@@ -93,6 +93,9 @@ test('the package holds only real artifacts, each listed with a matching checksu
   }
   const report = JSON.parse(decode(files['validation/report.json']));
   expect(report.rehearsal.status).toBe('not-run');
+  expect(JSON.parse(decode(files['aov/kit-workflows.json'])).kits.map((row: { kitId: string }) => row.kitId)).toEqual(initialRecipe.enabledKits);
+  expect(decode(files['aov/kit-workflows.md'])).toContain('所選功能流程總表');
+  expect(report.staticChecks).toContainEqual({ id: 'kit-workflows', status: 'not-provided', description: expect.any(String) });
   expect(report.siteVerification.status).toBe('not-run');
   expect(report.staticChecks).toContainEqual({ id: 'manuals', status: 'passed', description: expect.stringContaining('含草稿內容') });
   expect(decode(files['README.md'])).toContain('不是可安裝的系統');
@@ -109,7 +112,7 @@ test('missing and malformed manuals are named in notProvided and the report with
     if (malformed) fragments[path] = { error: '缺少章節：操作步驟' };
     const built = await buildDeliveryPackage(recipeText, workflowText, catalog, { fragments });
     expect(schemas.packageManifest(built.manifest)).toBe(true);
-    expect(built.manifest.artifacts).toHaveLength(4);
+    expect(built.manifest.artifacts).toHaveLength(6);
     const missing = built.manifest.notProvided.find(item => item.path === 'docs/')!;
     expect(missing.reason).toContain(kit.id); expect(missing.reason).toContain('mis'); expect(missing.reason).toContain(path);
     const files = Object.fromEntries(readZip(built.bytes).map(e => [e.path, decode(e.data)]));
