@@ -126,9 +126,6 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
       <>
         {node.kind !== 'node' ? <><p>「{node.name}」由系統建立，每個流程各有一個，不能修改或刪除。</p>{node.kind === 'end' && predecessors(node)}</> : <>
         <NodeDetails key={node.id} value={value} node={node} onChange={commit} />
-        <fieldset><legend>節點位置</legend>{(['x', 'y'] as const).map(axis => <label key={axis}>{axis === 'x' ? '橫向位置' : '縱向位置'}<input type="number" value={value.layout[graph.id]?.[node.id]?.[axis] ?? 0} onChange={e => {
-          if (e.target.value && Number.isFinite(e.target.valueAsNumber)) commit({ ...value, layout: { ...value.layout, [graph.id]: { ...value.layout[graph.id], [node.id]: { ...(value.layout[graph.id]?.[node.id] ?? { x: 0, y: 0 }), [axis]: e.target.valueAsNumber } } } });
-        }} /></label>)}</fieldset>
         {predecessors(node)}
         {node.childGraphId ? <button onClick={() => { setPath([...path, node.childGraphId!]); setSelected(''); setDeleting(false); }}>進入子流程</button>
           : <><button disabled={depth >= MAX_DEPTH || value.graphs.length >= MAX_GRAPHS} aria-describedby="depth-note" onClick={() => commit(addChildGraph(value, node.id))}>建立子流程</button><p id="depth-note">{depth >= MAX_DEPTH ? '已達第 3 層，不可再建立子流程。' : value.graphs.length >= MAX_GRAPHS ? `整份流程最多 ${MAX_GRAPHS} 張圖。` : '流程最多 3 層。'}</p></>}
@@ -136,7 +133,7 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
         {removal && <section role="region" aria-label="確認刪除節點"><h3>確認刪除以下內容</h3><ul>
           {removal.nodes.map(n => <li key={n.id}>節點：{n.name}</li>)}{removal.graphs.map(g => <li key={g.id}>子流程：{g.name}</li>)}{removal.forms.map(f => <li key={f.id}>表單：{f.name}</li>)}
           {removal.relations.map(r => <li key={r.id}>關聯：{describeEndpoint(value, r.from)}至{describeEndpoint(value, r.to)}</li>)}
-        </ul><p>相關的流程連線也會移除。</p><button className="danger" onClick={() => { if (commit(removal.value)) { setSelected(''); setDeleting(false); } }}>確認刪除</button><button onClick={() => setDeleting(false)}>取消</button></section>}
+        </ul><p>相關的流程連線也會移除。</p><div className="actions"><button className="danger" onClick={() => { if (commit(removal.value)) { setSelected(''); setDeleting(false); } }}>確認刪除</button><button onClick={() => setDeleting(false)}>取消</button></div></section>}
         </>}
       </>
     </Column>}

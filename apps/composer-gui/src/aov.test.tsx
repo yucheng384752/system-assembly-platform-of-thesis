@@ -27,8 +27,6 @@ test('native controls add, move and delete; failed import retains the selected n
   expect([name().selectionStart, name().selectionEnd]).toEqual([0, name().value.length]);
   fireEvent.change(name(), { target: { value: '第一個' } }); addTool('業務節點');
   fireEvent.change(name(), { target: { value: '第二個' } });
-  fireEvent.change(screen.getByLabelText('橫向位置'), { target: { value: '250' } });
-  expect((screen.getByLabelText('橫向位置') as HTMLInputElement).value).toBe('250');
   fireEvent.click(screen.getByText('匯入流程規格')); fireEvent.click(screen.getByText('進階：貼上流程 JSON'));
   fireEvent.change(screen.getByLabelText('流程 JSON'), { target: { value: '{"steps":[]}' } }); click('匯入流程 JSON');
   expect(screen.getByRole('alert').textContent).toContain('原流程已保留'); expect(name().value).toBe('第二個');
