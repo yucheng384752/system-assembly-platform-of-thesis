@@ -1,0 +1,24 @@
+{
+  "format": "composer-kit-workflow",
+  "version": 1,
+  "kitId": "generic-forms-kit",
+  "kitVersion": "c4b2b7b-ui.1",
+  "status": "draft",
+  "scope": "描述已登錄的表單、欄位設定、紀錄瀏覽、CSV 預覽與提交、串聯及資料模型。連線描述新建表單的設定前置條件；既有表單可直接使用。預覽與提交各自讀取檔案，來源未要求先預覽，故不互相連線。串聯與模型為共用能力，不綁定單一子功能，模型節點不代表執行步驟。未涵蓋未登錄的直接上傳、刪除表單／紀錄／串聯、非同步匯入狀態查詢及身分驗證。尚未完成執行驗證。",
+  "nodes": [
+    { "id": "list-forms", "name": "瀏覽表單", "subfeatureId": "form-type-management", "capabilityIds": ["forms.list"] },
+    { "id": "create-form", "name": "建立表單", "subfeatureId": "form-type-management", "capabilityIds": ["forms.create"] },
+    { "id": "set-schema", "name": "設定表單欄位", "subfeatureId": "form-schema-editor", "capabilityIds": ["forms.schema.set"] },
+    { "id": "preview-import", "name": "預覽匯入資料", "subfeatureId": "form-record-upload", "capabilityIds": ["forms.import.preview"] },
+    { "id": "commit-import", "name": "提交匯入資料", "subfeatureId": "form-record-upload", "capabilityIds": ["forms.import.commit"] },
+    { "id": "list-records", "name": "瀏覽表單紀錄", "subfeatureId": "form-record-browser", "capabilityIds": ["forms.records.list"] },
+    { "id": "list-links", "name": "查詢站點串聯", "capabilityIds": ["dataflows.links.list"] },
+    { "id": "upsert-link", "name": "設定站點串聯", "capabilityIds": ["dataflows.links.upsert"] },
+    { "id": "station-model", "name": "站點與欄位串聯模型", "capabilityIds": ["forms.station-model"] }
+  ],
+  "edges": [
+    { "from": "create-form", "to": "set-schema" },
+    { "from": "set-schema", "to": "preview-import" },
+    { "from": "set-schema", "to": "commit-import" }
+  ]
+}

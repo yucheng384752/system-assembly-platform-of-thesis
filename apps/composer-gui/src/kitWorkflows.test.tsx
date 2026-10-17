@@ -5,12 +5,49 @@ import { catalog } from './previewCatalog';
 import { initialRecipe } from './App';
 import { parseKitWorkflow, summarizeKitWorkflows, workflowFiles, workflowTable, type KitWorkflow } from './kitWorkflows';
 import { KitWorkflowSummary } from './KitWorkflowSummary';
+import { registry } from './registryData';
 
 afterEach(cleanup);
 const kit = catalog.kits.find(k => k.id === 'upload-validation-kit')!;
 const path = `kits/${kit.id}/workflow.aov.json`;
 const template = () => JSON.parse(workflowFiles[path]) as KitWorkflow;
 const recipe = { ...initialRecipe, enabledKits: [kit.id], selectedSubfeatures: { [kit.id]: ['csv-excel-upload-validation'] } };
+
+const wp2KitIds = [
+  'generic-forms-kit', 'station-data-link-kit', 'import-pipeline-kit',
+  'analytics-kit', 'audit-edit-kit', 'mod-subscription-kit',
+  'logs-ops-kit', 'platform-core-kit', 'query-traceability-kit',
+];
+
+test.each(wp2KitIds)('%s template parses and only references verified capabilities', kitId => {
+  const currentKit = catalog.kits.find(item => item.id === kitId)!;
+  const parsed = parseKitWorkflow(workflowFiles[`kits/${kitId}/workflow.aov.json`], currentKit);
+  expect(parsed.status).toBe('draft');
+  const capabilities = registry.find(entry => entry.kitId === kitId)!.capabilities;
+  for (const node of parsed.nodes) {
+    expect(node.capabilityIds.length).toBeGreaterThan(0);
+    for (const id of node.capabilityIds) {
+      expect(capabilities.find(capability => capability.id === id)?.verified).toBe(true);
+    }
+  }
+  for (const capability of capabilities.filter(item => !item.verified)) {
+    expect(parsed.scope).toContain(capability.id);
+  }
+});
+
+test('catalog summary lists only kits without workflow files as missing', () => {
+  const rows = summarizeKitWorkflows({
+    enabledKits: catalog.kits.map(item => item.id),
+    selectedSubfeatures: {},
+  }, catalog.kits);
+  expect(rows.filter(row => row.status === 'missing').map(row => row.kitId)).toEqual(
+    catalog.kits.filter(item => !Object.hasOwn(workflowFiles, `kits/${item.id}/workflow.aov.json`)).map(item => item.id),
+  );
+  expect(rows.filter(row => row.status === 'invalid')).toEqual([]);
+  for (const kitId of wp2KitIds) {
+    expect(rows.find(row => row.kitId === kitId)?.status).toBe('draft');
+  }
+});
 
 test('kit-local template resolves its version, subfeatures and registered capabilities', () => {
   const parsed = parseKitWorkflow(workflowFiles[path], kit);
