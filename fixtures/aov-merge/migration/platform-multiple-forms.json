@@ -1,0 +1,9 @@
+{
+  "format": "composer-aov-list", "version": 3,
+  "steps": [{ "id": "step", "name": "資料登錄", "when": "收到資料後", "owner": "操作人員", "formIds": ["form-a", "form-b"], "actions": [{ "actionId": "import-records", "formIds": ["form-a", "form-b"] }] }],
+  "forms": [
+    { "id": "form-a", "name": "表單甲", "fields": [{ "id": "field-a", "name": "文字欄位", "type": "text", "required": false, "isKey": false }] },
+    { "id": "form-b", "name": "表單乙", "fields": [{ "id": "field-b", "name": "數值欄位", "type": "decimal", "required": false, "isKey": false }] }
+  ],
+  "relations": []
+}
