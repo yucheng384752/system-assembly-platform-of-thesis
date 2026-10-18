@@ -1,8 +1,12 @@
 import type { ValidateFunction } from 'ajv';
 import { schemas } from '../ui-runtime/schema';
-import { actionCatalog, sha256Hex } from '../../apps/composer-gui/src/workflow';
+import { parseActionCatalog } from '../ui-runtime/registry';
+import actionData from '../../config/actions.json';
+import { sha256Hex } from './hash';
 import type { AovGraphDocument } from '../../apps/composer-gui/src/workflowGraph';
 
+// Dependency rule (D102): primitives (hash, action catalog) come from libs; B app types are imported as types only.
+const actionCatalog = parseActionCatalog(actionData);
 export const MAX_BUNDLE_BYTES = 10_000_000;
 export const HASH_LIMITATION = '雜湊不是簽章，不證明來源，只偵測損壞或改動。';
 interface Meta { id: string; name: string; version: number; status: string }

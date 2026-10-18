@@ -5,7 +5,9 @@ import platformFixture from '../../fixtures/aov-merge/b/v5.valid.json';
 import brokenProject from '../../fixtures/aov-merge/c/project.broken-nodes.json';
 import unknownProject from '../../fixtures/aov-merge/c/project.unknown-formatVersion.json';
 import brokenLibrary from '../../fixtures/aov-merge/c/library.broken-actions.json';
-import { actionCatalog } from '../../apps/composer-gui/src/workflow';
+import { parseActionCatalog } from '../ui-runtime/registry';
+import actionData from '../../config/actions.json';
+const actionCatalog = parseActionCatalog(actionData);
 import { canonicalJson, contentSha256, HASH_LIMITATION, MAX_BUNDLE_BYTES, validateAovBundle, type AovBundle } from './index';
 
 const fresh = () => structuredClone(fixture) as AovBundle;
