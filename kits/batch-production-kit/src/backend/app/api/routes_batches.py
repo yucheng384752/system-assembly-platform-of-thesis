@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_entry_point, require_password_changed, require_write_access
 from app.core import extension_points
+from app.core.batch_read import PRODUCT_LINE_SCOPE, get_visible_batch
 from app.core.assignment import AssignmentError, validate_assignment
 from app.core.batch_settings import get_settings
 from app.core.completion import missing_before_completion
@@ -43,7 +44,6 @@ from app.schemas.batch import (
 )
 
 router = APIRouter(prefix="/batches", tags=["batches"])
-PRODUCT_LINE_SCOPE = "product-line"  # 由 product-process-kit 註冊的範圍類型
 
 
 def _now() -> datetime:
@@ -63,16 +63,7 @@ def _ctx(db: Session, batch: Batch) -> BatchContext:
 
 
 def _get_active_batch(batch_id: int, db: Session, actor: User) -> Batch:
-    """軟刪除、唯讀角色看未完成批次、產線範圍外，一律視為不存在（404），不洩漏存在與否。"""
-    batch = db.get(Batch, batch_id)
-    if batch is None or batch.deleted_at is not None:
-        raise HTTPException(status_code=404, detail="批號不存在")
-    if actor.role in READ_ONLY_ROLES and batch.status != "completed":
-        raise HTTPException(status_code=404, detail="批號不存在")
-    allowed = scoped_keys(actor, PRODUCT_LINE_SCOPE, db)
-    if allowed is not None and batch.product_line_code not in allowed:
-        raise HTTPException(status_code=404, detail="批號不存在")
-    return batch
+    return get_visible_batch(db, batch_id, actor)
 
 
 def _require_dispatched(batch: Batch) -> None:
@@ -251,6 +242,9 @@ def submit_measurement(batch_id: int, body: MeasurementSubmit, actor: User = Dep
     if station is None or metric is None:
         raise HTTPException(status_code=404, detail="欄位不存在")
     reason = gates.write_blocker(_ctx(db, batch), station.code)
+    if reason:
+        raise HTTPException(status_code=409, detail=reason)
+    reason = gates.validate_value(_ctx(db, batch), station.code, metric.key, body.value_num, metric.spec_low, metric.spec_high)
     if reason:
         raise HTTPException(status_code=409, detail=reason)
     try:

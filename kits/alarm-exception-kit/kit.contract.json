@@ -1,0 +1,214 @@
+{
+  "kit": "alarm-exception-kit",
+  "provides": {
+    "api": [
+      {
+        "capability": "alarm.list",
+        "method": "GET",
+        "path": "/alarms",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "query",
+          "schema": "status_filter?(unresolved|active|acknowledged|resolved),batch_id?,limit?"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "AlarmRead[]"
+        },
+        "errors": [
+          404
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "alarm.acknowledge",
+        "method": "POST",
+        "path": "/alarms/{alarm_id}/acknowledge",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "AlarmRead"
+        },
+        "errors": [
+          403,
+          404,
+          409
+        ],
+        "sideEffects": [
+          "發出 BatchChanged"
+        ],
+        "entryPoint": "alarm_manage"
+      },
+      {
+        "capability": "exception.list",
+        "method": "GET",
+        "path": "/batches/{batch_id}/exception-requests",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "ExceptionRead[]"
+        },
+        "errors": [
+          404
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "exception.request",
+        "method": "POST",
+        "path": "/batches/{batch_id}/exception-requests",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "ExceptionCreate"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "ExceptionRead"
+        },
+        "errors": [
+          404,
+          409,
+          422
+        ],
+        "sideEffects": [
+          "寫入異常簽核申請；發出 BatchChanged"
+        ]
+      },
+      {
+        "capability": "exception.decide",
+        "method": "POST",
+        "path": "/exception-requests/{request_id}/decision",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "ExceptionDecision"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "ExceptionRead"
+        },
+        "errors": [
+          403,
+          404,
+          409,
+          422
+        ],
+        "sideEffects": [
+          "寫入簽核結果；發出 BatchChanged"
+        ],
+        "entryPoint": "exception_decide"
+      }
+    ],
+    "events": [
+      {
+        "capability": "alarm.event.changed",
+        "note": "本 Kit 目前只發出 BatchChanged（reason 為 alarm_acknowledged／exception_requested／exception_decided）；獨立的 AlarmChanged 事件留待儀表板 Kit 需要時再加"
+      }
+    ],
+    "python": [
+      {
+        "capability": "alarm.enable",
+        "module": "app.core.startup",
+        "symbol": "enable_alarm_kit",
+        "note": "啟動時呼叫一次；不呼叫等於沒選這個 Kit"
+      },
+      {
+        "capability": "alarm.unresolved-count",
+        "module": "app.core.alarm_service",
+        "symbol": "unresolved_count"
+      }
+    ],
+    "db": [
+      {
+        "table": "alarms",
+        "note": "以批次編號、量測編號關聯，無外鍵"
+      },
+      {
+        "table": "exception_requests",
+        "note": "以批次編號關聯，無外鍵"
+      }
+    ]
+  },
+  "consumes": {
+    "api": [],
+    "python": [
+      {
+        "capability": "permission.entry-point.register",
+        "module": "app.core.entry_points",
+        "symbol": "registry.register"
+      },
+      {
+        "capability": "permission.entry-point.require",
+        "module": "app.api.deps",
+        "symbol": "require_entry_point"
+      },
+      {
+        "capability": "permission.write.require",
+        "module": "app.api.deps",
+        "symbol": "require_write_access"
+      },
+      {
+        "capability": "auth.user.model",
+        "module": "app.models.user",
+        "symbol": "User",
+        "fields": [
+          "id",
+          "role"
+        ]
+      },
+      {
+        "capability": "batch.event.subscribe",
+        "module": "app.core.events",
+        "symbol": "bus.subscribe"
+      },
+      {
+        "capability": "batch.gate.register",
+        "module": "app.core.gates",
+        "symbol": "gates.register"
+      },
+      {
+        "capability": "batch.read",
+        "module": "app.core.batch_read",
+        "symbol": "get_visible_batch, batch_labels, latest_values, current_measurement"
+      },
+      {
+        "capability": "product.structure.load",
+        "module": "app.core.model_lookup",
+        "symbol": "load_stations, find_model_id"
+      },
+      {
+        "capability": "platform.db.session",
+        "module": "app.core.database",
+        "symbol": "get_db, Base",
+        "note": "同步 SQLAlchemy Session，同批次生產 Kit 的待決事項"
+      }
+    ]
+  }
+}

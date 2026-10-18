@@ -3,6 +3,7 @@
 其他 Kit 可以在批次流程的三個位置插入條件，批次生產 Kit 不認識它們：
 
 1. `write_blocker`：寫入某站點量測前，回傳拒絕原因（例如設備點檢未完成）。
+   `validate_value`：同一時機，但已知要寫的項目與數值（例如關鍵量測必須是有效數字）。
 2. `station_blocked`：判斷某站點是否因外部條件視為「未完成」（例如初始量測異常尚未放行）。
 3. `completion_blockers`：完成工單前額外的阻擋原因（例如尚有未結案報警）。
 
@@ -30,6 +31,8 @@ class BatchGate(Protocol):
     order: int
 
     def write_blocker(self, ctx: BatchContext, station_code: str) -> str | None: ...
+    def validate_value(self, ctx: BatchContext, station_code: str, metric_key: str, value_num: Any,
+                       spec_low: Any, spec_high: Any) -> str | None: ...
     def station_blocked(self, ctx: BatchContext, station_code: str) -> bool: ...
     def completion_blockers(self, ctx: BatchContext) -> list[str]: ...
 
@@ -41,6 +44,10 @@ class GateBase:
     order = 100
 
     def write_blocker(self, ctx: BatchContext, station_code: str) -> str | None:
+        return None
+
+    def validate_value(self, ctx: BatchContext, station_code: str, metric_key: str, value_num: Any,
+                       spec_low: Any, spec_high: Any) -> str | None:
         return None
 
     def station_blocked(self, ctx: BatchContext, station_code: str) -> bool:
@@ -68,6 +75,14 @@ class GateRegistry:
     def write_blocker(self, ctx: BatchContext, station_code: str) -> str | None:
         for gate in self._ordered():
             reason = gate.write_blocker(ctx, station_code)
+            if reason:
+                return reason
+        return None
+
+    def validate_value(self, ctx: BatchContext, station_code: str, metric_key: str, value_num: Any,
+                       spec_low: Any, spec_high: Any) -> str | None:
+        for gate in self._ordered():
+            reason = gate.validate_value(ctx, station_code, metric_key, value_num, spec_low, spec_high)
             if reason:
                 return reason
         return None

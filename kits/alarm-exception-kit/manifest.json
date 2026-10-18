@@ -1,0 +1,13 @@
+{
+  "kit": "alarm-exception-kit",
+  "displayName": "報警與異常簽核",
+  "installOrder": 50,
+  "requires": [
+    "python"
+  ],
+  "runtimeEnv": [],
+  "scripts": {
+    "windows": "install.ps1",
+    "linux": "install.sh"
+  }
+}

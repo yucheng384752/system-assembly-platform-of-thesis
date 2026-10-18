@@ -30,7 +30,8 @@
       "src/backend/app/core/measurement_rules.py",
       "src/backend/app/core/batch_settings.py",
       "src/backend/app/core/extension_points.py",
-      "src/backend/app/core/entry_points_registration.py"
+      "src/backend/app/core/entry_points_registration.py",
+      "src/backend/app/core/batch_read.py"
     ],
     "services": [],
     "models": [

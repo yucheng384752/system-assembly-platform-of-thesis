@@ -338,6 +338,12 @@
         "module": "app.core.extension_points",
         "symbol": "uploaded_attachment_keys, has_warehouse_entry, require_warehouse_entry",
         "note": "入庫單與附件子功能覆寫，掛入完成條件"
+      },
+      {
+        "capability": "batch.read",
+        "module": "app.core.batch_read",
+        "symbol": "get_visible_batch, get_snapshot, batch_labels, latest_values, current_measurement",
+        "note": "其他 Kit 讀取批次資料的唯讀介面；可見性規則集中於 get_visible_batch"
       }
     ],
     "db": [

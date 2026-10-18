@@ -1,0 +1,166 @@
+{
+  "id": "alarm-exception-kit",
+  "displayName": "報警與異常簽核",
+  "category": "quality",
+  "required": false,
+  "businessCapability": "量測超出規格或彼此矛盾時自動報警，報警未解除不能結案；關鍵量測超規時必須經管理者簽核（重工、特採、駁回）才能往下做。",
+  "dependencies": [
+    "platform-core-kit",
+    "entry-permission-kit",
+    "batch-production-kit",
+    "product-process-kit"
+  ],
+  "optionalDependencies": [
+    "production-dashboard-kit"
+  ],
+  "backend": {
+    "routers": [
+      "src/backend/app/api/routes_alarms.py"
+    ],
+    "core": [
+      "src/backend/app/core/rules.py",
+      "src/backend/app/core/reconcile.py",
+      "src/backend/app/core/exception_gate.py",
+      "src/backend/app/core/alarm_settings.py",
+      "src/backend/app/core/alarm_service.py",
+      "src/backend/app/core/exception_service.py",
+      "src/backend/app/core/entry_points_registration.py",
+      "src/backend/app/core/startup.py"
+    ],
+    "services": [],
+    "models": [
+      "src/backend/app/models/alarm.py",
+      "src/backend/app/models/exception_request.py"
+    ],
+    "schemas": [
+      "src/backend/app/schemas/alarm.py"
+    ]
+  },
+  "frontend": {
+    "pages": [],
+    "components": [],
+    "note": "尚無前端；報警清單與簽核畫面待做"
+  },
+  "api": [
+    "GET /alarms",
+    "POST /alarms/{alarm_id}/acknowledge",
+    "GET|POST /batches/{batch_id}/exception-requests",
+    "POST /exception-requests/{request_id}/decision"
+  ],
+  "database": [
+    "alarms",
+    "exception_requests"
+  ],
+  "permissions": [
+    "alarm_manage（manager、admin）",
+    "exception_decide（admin）"
+  ],
+  "runtimeDependencies": [],
+  "subfeatures": [
+    {
+      "id": "spec-range-alarm",
+      "displayName": "規格範圍報警",
+      "businessCapability": "量測值低於下限或高於上限自動報警，回到範圍內自動解除。",
+      "required": true,
+      "defaultSelected": true,
+      "options": [
+        {
+          "id": "specRangeEnabled",
+          "displayName": "啟用規格範圍報警",
+          "type": "boolean",
+          "defaultValue": true
+        },
+        {
+          "id": "severity",
+          "displayName": "嚴重度",
+          "type": "string",
+          "defaultValue": "warning",
+          "choices": [
+            "warning",
+            "critical"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "threshold-rules",
+      "displayName": "門檻規則",
+      "businessCapability": "指定項目必須小於、不大於、大於或不小於某個值（嚴格比較，與含邊界的規格範圍不同）。",
+      "required": false,
+      "defaultSelected": false,
+      "options": [
+        {
+          "id": "thresholdRules",
+          "displayName": "門檻規則清單",
+          "type": "json",
+          "defaultValue": [],
+          "itemShape": {
+            "key": "string",
+            "metricKey": "string",
+            "op": "lt|le|gt|ge",
+            "limit": "number",
+            "stationCode": "string?"
+          }
+        }
+      ]
+    },
+    {
+      "id": "consistency-rules",
+      "displayName": "一致性規則",
+      "businessCapability": "一組項目的數值必須彼此相等，且等於另一個項目加固定偏移；資料未填齊時不判斷。",
+      "required": false,
+      "defaultSelected": false,
+      "options": [
+        {
+          "id": "consistencyRules",
+          "displayName": "一致性規則清單",
+          "type": "json",
+          "defaultValue": [],
+          "itemShape": {
+            "key": "string",
+            "keys": "string[]",
+            "expectKey": "string",
+            "offset": "number?",
+            "stationCode": "string?",
+            "labels": "object?"
+          }
+        }
+      ]
+    },
+    {
+      "id": "alarm-acknowledge",
+      "displayName": "報警確認與完成阻擋",
+      "businessCapability": "主管確認報警；尚有未解除報警時不能完成工單。",
+      "required": false,
+      "defaultSelected": true,
+      "options": [
+        {
+          "id": "blockCompletion",
+          "displayName": "未解除報警時擋結案",
+          "type": "boolean",
+          "defaultValue": true
+        }
+      ]
+    },
+    {
+      "id": "exception-signoff",
+      "displayName": "關鍵量測異常簽核",
+      "businessCapability": "指定的關鍵量測超規時，由管理者簽核核准重工、特採放行（須先確認加驗通過）或駁回；未通過前擋住後續站點。",
+      "required": false,
+      "defaultSelected": false,
+      "options": [
+        {
+          "id": "gating",
+          "displayName": "關鍵量測",
+          "type": "json",
+          "defaultValue": null,
+          "itemShape": {
+            "stationCode": "string",
+            "metricKey": "string",
+            "verificationLabel": "string?"
+          }
+        }
+      ]
+    }
+  ]
+}

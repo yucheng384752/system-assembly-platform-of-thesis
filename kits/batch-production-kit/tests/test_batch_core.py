@@ -55,6 +55,7 @@ class _Gate(GateBase):
     def __init__(self, key, order, reason=None, blocked=(), completion=()):
         self.key, self.order, self._r, self._b, self._c = key, order, reason, set(blocked), list(completion)
     def write_blocker(self, ctx, station_code): return self._r
+    def validate_value(self, ctx, station_code, metric_key, value_num, lo, hi): return self._v if hasattr(self, "_v") else None
     def station_blocked(self, ctx, station_code): return station_code in self._b
     def completion_blockers(self, ctx): return self._c
 
@@ -82,6 +83,15 @@ class GateTest(unittest.TestCase):
         self.assertTrue(g.station_blocked(CTX, "s2"))
         self.assertFalse(g.station_blocked(CTX, "s1"))
         self.assertEqual(g.completion_blockers(CTX), ["尚有未結案報警", "另一原因"])
+
+    def test_value_validation_runs_through_the_same_ordered_gates(self):
+        g = GateRegistry()
+        late, early = _Gate("late", 50), _Gate("early", 5)
+        late._v, early._v = "較晚的原因", "數值必須是有效數字"
+        g.register(late)
+        g.register(early)
+        self.assertEqual(g.validate_value(CTX, "s", "k", None, None, None), "數值必須是有效數字")
+        self.assertIsNone(GateRegistry().validate_value(CTX, "s", "k", None, None, None))
 
     def test_duplicate_or_blank_key_is_rejected(self):
         g = GateRegistry()

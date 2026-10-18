@@ -1,0 +1,5 @@
+$ErrorActionPreference = "Stop"
+Write-Host "alarm-exception-kit: spec-range / threshold / consistency alarms and exception sign-off enabled."
+Write-Host "  Backend: /alarms, /batches/{id}/exception-requests, /exception-requests/{id}/decision"
+Write-Host "  Requires entry-permission-kit and batch-production-kit."
+Write-Host "  Call app.core.startup.enable_alarm_kit(raw_settings) once at startup."
