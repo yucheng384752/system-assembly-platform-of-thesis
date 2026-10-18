@@ -5,8 +5,11 @@ import { validationError, type AovGraphDocument, type GraphNode } from './workfl
 import { patchCanvasNode } from './canvasEditing';
 import { Icon } from './Icons';
 import { Modal } from './Modal';
+import { exampleHints } from './exampleHints';
+import { useExampleHints } from './ExampleHintSettings';
 
 export function NodeForm({ value, node, onChange }: { value: AovGraphDocument; node: GraphNode; onChange: (next: AovGraphDocument) => boolean }) {
+  const hints = useExampleHints();
   const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -34,8 +37,8 @@ export function NodeForm({ value, node, onChange }: { value: AovGraphDocument; n
   <table className="field-table">
     <caption className="visually-hidden">每一欄是一個欄位，每一列是欄位的一項設定</caption>
     <thead><tr><th scope="col"><span className="visually-hidden">設定項目</span></th>{form.fields.map((f, index) => <th scope="col" key={f.id}>
-      <span className="field-no">欄位 {index + 1}</span>
-      <input id={`${f.id}-name`} aria-label={`欄位 ${index + 1} 名稱`} maxLength={100} value={f.name} onChange={e => field(f.id, { name: e.target.value })} />
+      <label className="field-no" htmlFor={`${f.id}-name`}>欄位 {index + 1}</label>
+      <input id={`${f.id}-name`} placeholder={hints ? exampleHints.field : undefined} aria-label={`欄位 ${index + 1} 名稱`} maxLength={100} value={f.name} onChange={e => field(f.id, { name: e.target.value })} />
     </th>)}</tr></thead>
     <tbody>
       <tr><th scope="row">型別</th>{form.fields.map((f, index) => <td key={f.id}>
@@ -77,7 +80,7 @@ export function NodeForm({ value, node, onChange }: { value: AovGraphDocument; n
       <p id="node-sample-limits">單檔 2 MB 以下、最多 100 欄、10000 筆；整份流程最多 50 張表單。</p>
       <button onClick={() => create({ name: `新表單 ${value.forms.length + 1}`, fields: [] })}>新增空白表單</button>
     </fieldset> : <>
-      <label htmlFor="node-form-name">表單名稱</label><input id="node-form-name" maxLength={100} value={form.name} onChange={e => changeForm({ ...form, name: e.target.value })} />
+      <label htmlFor="node-form-name">表單名稱</label><input id="node-form-name" placeholder={hints ? exampleHints.form : undefined} maxLength={100} value={form.name} onChange={e => changeForm({ ...form, name: e.target.value })} />
       <p role="status">{!form.fields.length ? '尚未建立欄位。' : formError(form)}</p>
       {form.fields.length > 0 && <div className="actions"><button ref={openButton} aria-haspopup="dialog" aria-expanded={expanded} onClick={() => setExpanded(true)}><Icon name="expand" />展開全螢幕</button></div>}
       {!expanded && <>{renderTable(form)}{renderActions(form)}{deleting && renderConfirm(form)}</>}

@@ -2,7 +2,7 @@
 id: "20261016-example-scenario"
 title: "去識別化系統使用範例：輸入提示、載入範例按鈕與整合樣本"
 status: "in_progress"
-owner: "codex"
+owner: "claude"
 reviewer: "claude"
 priority: "normal"
 created_by: "claude"
@@ -73,6 +73,15 @@ artifacts:
 - `npm.cmd test`
 - `npm.cmd run build`
 
+## 2026-10-18 Claude 審閱 WP1 至 WP3
+
+- 重跑：typecheck 通過；`npm.cmd test` 35 個檔案、334 通過、0 失敗、1 略過（既有身分授權）；build 通過。
+- 專有詞彙搜尋（本機清單）：新增與改動的檔案命中為零；無任何數值。
+- 對照 `docs/example-scenario.md`：6 節點、5 表單、4 條批號關聯、欄位名稱與型別逐項相符；領料節點無表單。載入只新增、清除用頁內確認、開關狀態僅存 localStorage（try/catch），皆符合。
+- 發現：F1（低）NodeForm 欄位序號由 span 改 label，屬為提示輸入框補可見標籤的範圍外調整，接受；F2（低）以 `example-` 前綴辨識範例，使用者自訂 id 同前綴會誤判，機率低，暫不處理；F3 對比度、鍵盤與畫面位置需瀏覽器確認。
+- **瀏覽器實測未完成：** Chrome 對本機 dev server（5199、5200）三次皆 ERR_CONNECTION_REFUSED，已停止嘗試。待 user 於本機執行 `npm.cmd run dev` 後補驗：提示可見與關閉、載入、清除、匯出再匯入。
+- 結論：自動化檢查通過，先提交；瀏覽器驗證列為待補，不宣稱已完成。
+
 ## WP4（Claude）
 
 - 以專有詞彙清單在 repo 內搜尋，結果須為零（清單只留本機）。已知既有測試資料使用過產業用語，不屬本功能，另行處理。
@@ -82,6 +91,23 @@ artifacts:
 ## Codex Notes
 
 （Codex 在此續寫）
+
+### 2026-10-18：WP2 完成
+
+- 新增 ExampleHintSettings.tsx、ExampleHintSettings.test.tsx；修改 FactoryPage.tsx、NodeDetails.tsx、NodeForm.tsx、WorkflowCanvas.tsx。可見且原生鍵盤可操作的「顯示填寫提示」開關放在共用工具列，狀態獨立於文件，localStorage 讀寫皆 try/catch，讀取失敗預設顯示，寫入失敗仍適用本次工作階段。
+- 所有指定輸入位置從 exampleHints.ts 取提示；關閉時移除 placeholder；數值動作參數只顯示「依貴廠規格填寫」。保留可見標籤，欄位名稱的既有可見文字改為對應 input 的 label。工廠／畫布兩種畫面的匯入工具維持相同掛載位置。
+- 三項新增測試通過：各提示開關、輸入值與 exportAovGraph 不變、重新掛載讀取偏好、數值參數提示與 localStorage 讀寫拋錯。既有測試未修改。
+- npm.cmd run typecheck：exit 0。npm.cmd test：exit 1，328 passed、1 failed、1 skipped；33 檔通過、1 檔失敗。既有 security.test.mjs 簽章／清理 EPERM，待本機清理 C:\Users\gslab\AppData\Local\Temp\composer-security-p7OvSH，未讀取金鑰。
+- npm.cmd run build：exit 1，仍為 esbuild 讀取上層目錄 Access is denied；額外 npm.cmd run build -- --configLoader native：exit 0，保留既有 use client／chunk 大小警告。未修改設定或依賴；真實瀏覽器可見性與鍵盤驗證留 WP4。
+
+### 2026-10-18：WP1 完成（HEAD 2cb936a 續作）
+
+- 已重讀指定四份文件、前兩輪 Notes 與規格釐清 1–4；唯讀確認 feature/example-scenario、HEAD 2cb936a，開工工作樹乾淨。
+- 新增 apps/composer-gui/src/exampleHints.ts 與 exampleHints.test.ts：集中提示與範例生成，六個業務節點、五張表單、四條 user/shared-key 批號關聯，領料不設表單、所有 actionId 為 null。依現有模型另帶開始／結束節點與連線、版面座標（系統結構，非製程數值）；未改模型或既有測試。
+- 載入只追加，所有新 id 為 example- 前綴，跨既有識別碼空間避碰；已有範例工廠時不重複載入。先檢查工廠、圖、表單、關聯容量，並檢查新增節點與生產邏輯上限及合併後 integrityErrors。
+- 三項新增測試通過：空文件／既有完整文件皆通過 schema、integrityErrors 與匯出再匯入內容相等；既有資料保持不變、識別碼避碰、重複載入、上限失敗不改原文件。
+- npm.cmd run typecheck：通過（exit 0）。npm.cmd test：exit 1，325 passed、1 failed、1 skipped；32 檔通過、1 檔失敗。失敗為既有 security.test.mjs 簽章私鑰讀取 EPERM，afterAll 清理亦 EPERM；未遮蔽或修改測試。待本機清理 C:\Users\gslab\AppData\Local\Temp\composer-security-9dzCEB，未讀取金鑰內容。
+- npm.cmd run build：exit 1，esbuild 讀取 ../.. Access is denied，無法載入 vite.config.ts。額外 npm.cmd run build -- --configLoader native：通過（exit 0），保留既有 use client／chunk 大小警告；未更動設定或依賴。瀏覽器與來源詞彙清單驗證留 WP4。
 
 ### 2026-10-18：規格核對後依停止條件交回
 
@@ -104,3 +130,15 @@ artifacts:
 - 安全測試未成功清理的目錄：C:\Users\gslab\AppData\Local\Temp\composer-security-DNHw8t。可能含測試產生的金鑰，請 Claude 在有權限的本機環境清理；未讀取金鑰內容。
 - npm.cmd run build 通過（exit 0）；保留既有 @xyflow/react 的 use client 指令忽略與大於 500 kB chunk 警告。三項指定指令皆已執行，沒有略過；瀏覽器驗證、來源詞彙檢查與 WP4 未執行。以上是未修改程式的基線結果，不代表 WP1–WP3 完成。
 - 僅更新交接 thread 與 index；status 維持 in_progress，owner 交回 claude。未執行 git 寫入、連網、依賴安裝或啟動伺服器。
+
+### 2026-10-18：WP3 完成，WP1–WP3 交回 Claude
+
+- 修改 exampleHints.ts 與 FactoryPage.tsx，新增 ExampleScenario.test.tsx（5 項測試）。載入只追加範例工廠，已存在時停用並說明；成功後焦點到範例工廠名稱、role=status 播報。清除依 example- 工廠所有權重用 deleteFactory，包含其後新增／修改的生產邏輯、子流程、節點、表單、關聯與版面；不以其他資料的前綴掃除，其他工廠完整保留。
+- 清除沿用頁內確認，列出工廠、流程、節點數、表單與關聯，明示使用者在範例中的新增／修改也會清除；確認區可聚焦，取消回到清除按鈕、完成回到載入按鈕並播報。沒有使用 window.confirm。
+- 新增驗證涵蓋追加後數量與匯出匯入相等、重複載入／清除、取消、修改後清除、後續新增子流程與表單、保留非範例工廠、容量失敗原資料不變，以及提示開關跨畫面與匯入工具不重掛載。
+- WP3 首輪 npm.cmd run typecheck 與 npm.cmd run build 皆 exit 2：新增測試的 getByRole 誤用不支援的 exact 選項；已移除該選項，未改既有測試。當輪 npm.cmd test 為 333 passed、1 failed、1 skipped，失敗仍為既有 security EPERM；暫存目錄 C:\Users\gslab\AppData\Local\Temp\composer-security-MGiJb0 未能清除。
+- WP3 修正後重新執行三項：npm.cmd run typecheck 通過（exit 0）；npm.cmd test 為 exit 1，333 passed、1 failed、1 skipped，34 檔通過、1 檔失敗。唯一失敗仍是 security.test.mjs CLI 私鑰讀取 EPERM，afterAll 清理亦 EPERM；目錄 C:\Users\gslab\AppData\Local\Temp\composer-security-VOU6L7 待本機清理，未讀取金鑰。既有身分授權測試仍 skipped，沒有新增 skip。
+- npm.cmd run build 修正後為 exit 1：esbuild 讀取 ../.. Access is denied、無法載入 vite.config.ts。額外 npm.cmd run build -- --configLoader native 通過（exit 0），保留既有 @xyflow/react use client 與超過 500 kB chunk 警告。原指令失敗未以額外成功結果取代或遮蔽。
+- 最終檔案：新增 exampleHints.ts、exampleHints.test.ts、ExampleHintSettings.tsx、ExampleHintSettings.test.tsx、ExampleScenario.test.tsx；修改 FactoryPage.tsx、NodeDetails.tsx、NodeForm.tsx、WorkflowCanvas.tsx；更新本 thread 與 index。程式／測試皆在 apps/composer-gui/src/。新增 11 項測試全部通過；git diff --check 通過（僅換行提示）。
+- 未改 schemas/、config/、libs/ui-runtime/、kits/、package*.json、既有模型或既有測試；未執行 git 寫入、連網、啟動伺服器或新增依賴。UI 沿用既有控制項、樣式與 44px 標籤；未新增製程名詞、製程數值、樣本資料列或數值驗證規則。
+- 尚待 Claude WP4：真實瀏覽器可見性／對比度／鍵盤操作、來源專有詞彙本機清單掃描、整合 fixtures 與沙箱外標準 build／security 驗證；上列四個本次 security 暫存目錄可能含測試金鑰，須在有權限環境清理。WP1–WP3 實作完成，status 維持 in_progress、owner=claude，不宣稱 WP4 或整體功能驗收完成。
