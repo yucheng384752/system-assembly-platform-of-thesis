@@ -1,0 +1,37 @@
+{
+  "note": "範例產線定義。實際場域的產線、站點與項目由場域設定檔提供；status=reserved 表示預留，尚未提供定義。",
+  "productLines": [
+    {
+      "code": "line_a",
+      "name": "產線 A",
+      "status": "defined",
+      "stations": [
+        {
+          "code": "prepare", "name": "備料", "sequence": 1,
+          "metrics": [
+            { "key": "prep_weight", "label": "備料重量", "unit": "kg", "dataType": "number", "section": "備料", "scope": "station", "required": true, "fillerRole": "operator" }
+          ]
+        },
+        {
+          "code": "process", "name": "加工", "sequence": 2,
+          "steps": [
+            { "seq": 1, "instruction": "投料", "expected": { "time_min": 5 } },
+            { "seq": 2, "instruction": "攪拌", "expected": { "time_min": 20, "speed_rpm": 800 } },
+            { "seq": 2, "variant": "alt", "instruction": "攪拌", "expected": { "time_min": 25, "speed_rpm": 600 } }
+          ],
+          "metrics": [
+            { "key": "quality_value", "label": "品質量測值", "unit": "單位", "dataType": "number", "section": "加工", "scope": "station", "specSource": "model", "required": true, "fillerRole": "operator" }
+          ]
+        },
+        {
+          "code": "inspect", "name": "檢驗", "sequence": 3,
+          "metrics": [
+            { "key": "appearance", "label": "外觀", "dataType": "enum", "section": "檢驗", "scope": "station", "specText": "無異物", "fillerRole": "manager" }
+          ]
+        }
+      ]
+    },
+    { "code": "line_b", "name": "產線 B", "status": "reserved" },
+    { "code": "line_c", "name": "產線 C", "status": "reserved" }
+  ]
+}

@@ -23,7 +23,7 @@ S2 是一套已上線的製程紙本電子化系統（React + FastAPI + PostgreS
 |---|---|---|---|
 | `platform-core-kit` | 系統基本功能 | 沿用；需補同步 DB session 契約（見 §5 待決 1）與事件匯流排 | 待決 |
 | `entry-permission-kit` | 帳號與入口權限 | 登入、帳號管理、入口註冊與覆寫、資源範圍 | WP1 後端完成 |
-| `product-process-kit` | 產品與製程定義 | 產品線、型號、站點、量測項目、型號規格、配方對照 | 待做 |
+| `product-process-kit` | 產品與製程定義 | 產品線（可預留）、型號、配方明細、站點、製程步驟、量測項目、型號規格、異動紀錄 | WP4 後端完成 |
 | `batch-production-kit` | 批次生產紀錄 | 開單派工、領料秤重、量測記錄、重工確認、入庫單、子表格備註、照片佐證、批號流水號、簽核 | 待做 |
 | `equipment-maintenance-kit` | 設備點檢與維修 | 日常點檢、複核、故障維修、月度匯出、生產閘門 | 待做 |
 | `alarm-exception-kit` | 報警與異常簽核 | 量測超規判定、報警總覽與確認、檢驗異常簽核 | 待做 |
@@ -68,4 +68,5 @@ S2 是一套已上線的製程紙本電子化系統（React + FastAPI + PostgreS
 | WP1 | entry-permission-kit 後端、契約、definition、單元測試 | 完成（14 項通過） |
 | WP2 | entry-permission-kit 前端（登入、改密碼、帳號管理、入口覆寫） | 待做 |
 | WP3 | 決議待決 1、2，登錄 GUI | 待決 |
-| WP4 起 | product-process → batch-production → equipment → alarm → dashboard → runtime-settings | 待做 |
+| WP4 | product-process-kit 後端、契約、定義、產線定義範例、單元測試（16 項通過） | 完成 |
+| WP5 起 | batch-production → equipment → alarm → dashboard → runtime-settings | 待做 |

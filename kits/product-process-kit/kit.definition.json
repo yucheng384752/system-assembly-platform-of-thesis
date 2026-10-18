@@ -1,0 +1,155 @@
+{
+  "id": "product-process-kit",
+  "displayName": "產品與製程定義",
+  "category": "core",
+  "required": false,
+  "businessCapability": "定義產線、型號、配方與規格，以及每個站點要填寫的製程步驟與量測項目；產線可預留，尚未提供定義時不會被當成可用。",
+  "dependencies": [
+    "platform-core-kit",
+    "entry-permission-kit"
+  ],
+  "optionalDependencies": [],
+  "backend": {
+    "routers": [
+      "src/backend/app/api/routes_products.py",
+      "src/backend/app/api/routes_forms.py"
+    ],
+    "core": [
+      "src/backend/app/core/recipe.py",
+      "src/backend/app/core/form_resolver.py",
+      "src/backend/app/core/definition_changes.py",
+      "src/backend/app/core/seed_check.py",
+      "src/backend/app/core/seed_loader.py",
+      "src/backend/app/core/entry_points_registration.py"
+    ],
+    "services": [],
+    "models": [
+      "src/backend/app/models/product_line.py",
+      "src/backend/app/models/product_model.py",
+      "src/backend/app/models/recipe_line.py",
+      "src/backend/app/models/station.py",
+      "src/backend/app/models/station_step.py",
+      "src/backend/app/models/metric.py",
+      "src/backend/app/models/model_spec.py",
+      "src/backend/app/models/definition_change_log.py"
+    ],
+    "routerRegistrations": [
+      {
+        "module": "app.api.routes_products",
+        "symbol": "router",
+        "prefix": "",
+        "tags": [
+          "products"
+        ],
+        "tenantScoped": false
+      },
+      {
+        "module": "app.api.routes_forms",
+        "symbol": "router",
+        "prefix": "",
+        "tags": [
+          "forms"
+        ],
+        "tenantScoped": false
+      }
+    ]
+  },
+  "frontend": {
+    "pages": [],
+    "components": [],
+    "services": [],
+    "note": "前端（型號與配方管理、異動紀錄）於後續工作包抽出"
+  },
+  "api": [
+    "GET /product-lines",
+    "GET /product-models",
+    "POST /product-models",
+    "PATCH /product-models/{model_id}",
+    "GET /product-models/{model_id}/change-logs",
+    "GET /product-models/{model_id}/theoretical",
+    "GET /forms/{product_line_code}"
+  ],
+  "database": {
+    "models": [
+      "ProductLine",
+      "ProductModel",
+      "RecipeLine",
+      "Station",
+      "StationStep",
+      "Metric",
+      "ModelSpec",
+      "DefinitionChangeLog"
+    ]
+  },
+  "permissions": [
+    "manager（型號與配方管理）",
+    "admin（型號與配方管理）",
+    "所有已登入帳號（讀取，受產線範圍限制）"
+  ],
+  "runtimeDependencies": {
+    "python": [
+      "fastapi",
+      "sqlalchemy>=2",
+      "pydantic>=2"
+    ]
+  },
+  "dataFiles": [
+    {
+      "path": "seed/product-lines.sample.json",
+      "purpose": "產線定義範例；實際場域由場域設定檔提供。status=reserved 為預留產線"
+    }
+  ],
+  "subfeatures": [
+    {
+      "id": "product-definitions",
+      "displayName": "產線與型號",
+      "businessCapability": "維護產線與型號清單，預留的產線標示尚未提供定義。",
+      "required": true,
+      "defaultSelected": true
+    },
+    {
+      "id": "recipe-lines",
+      "displayName": "配方明細與理論用量",
+      "businessCapability": "依型號配方，開單時由總重算出各原料的理論用量與預設料號。",
+      "defaultSelected": true,
+      "options": [
+        {
+          "id": "recipe-prefill",
+          "displayName": "開單時自動帶入理論用量",
+          "type": "boolean",
+          "defaultValue": true
+        }
+      ]
+    },
+    {
+      "id": "process-variants",
+      "displayName": "製程變體",
+      "businessCapability": "同一站點依型號的製程變體使用不同的步驟與預期值。",
+      "defaultSelected": false
+    },
+    {
+      "id": "model-specs",
+      "displayName": "依型號的規格",
+      "businessCapability": "量測項目的規格上下限依型號查表，顯示在表單上。",
+      "defaultSelected": true
+    },
+    {
+      "id": "model-specific-forms",
+      "displayName": "型號專屬量測項目",
+      "businessCapability": "個別型號使用與站點共用項目不同的整組量測項目。",
+      "defaultSelected": false
+    },
+    {
+      "id": "definition-change-log",
+      "displayName": "異動紀錄",
+      "businessCapability": "修改型號或配方必須填寫原因並留下紀錄。",
+      "defaultSelected": true
+    },
+    {
+      "id": "product-line-scopes",
+      "displayName": "產線範圍綁定",
+      "businessCapability": "限定主管只能看到被指派的產線；需同時選用「帳號與入口權限」的資源範圍。",
+      "defaultSelected": false
+    }
+  ]
+}

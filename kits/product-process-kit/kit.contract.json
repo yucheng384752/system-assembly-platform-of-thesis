@@ -1,0 +1,263 @@
+{
+  "kit": "product-process-kit",
+  "provides": {
+    "api": [
+      {
+        "capability": "product.line.list",
+        "method": "GET",
+        "path": "/product-lines",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "ProductLineRead[]"
+        },
+        "errors": [
+          401
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "product.model.list",
+        "method": "GET",
+        "path": "/product-models",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "query",
+          "schema": "product_line_code"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "ProductModelRead[]"
+        },
+        "errors": [
+          401,
+          404
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "product.model.create",
+        "method": "POST",
+        "path": "/product-models",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "ProductModelCreate"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "ProductModelRead"
+        },
+        "errors": [
+          400,
+          403,
+          404,
+          409,
+          422
+        ],
+        "sideEffects": [
+          "寫入型號、配方明細與異動紀錄"
+        ],
+        "entryPoint": "product_model_manage"
+      },
+      {
+        "capability": "product.model.update",
+        "method": "PATCH",
+        "path": "/product-models/{model_id}",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "ProductModelUpdate"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "ProductModelRead"
+        },
+        "errors": [
+          400,
+          403,
+          404,
+          422
+        ],
+        "sideEffects": [
+          "內容有變動時寫入異動紀錄；無變動不寫"
+        ],
+        "entryPoint": "product_model_manage"
+      },
+      {
+        "capability": "product.model.change-log.list",
+        "method": "GET",
+        "path": "/product-models/{model_id}/change-logs",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "ChangeLogRead[]"
+        },
+        "errors": [
+          403,
+          404
+        ],
+        "sideEffects": [],
+        "entryPoint": "product_model_manage"
+      },
+      {
+        "capability": "product.recipe.compute",
+        "method": "GET",
+        "path": "/product-models/{model_id}/theoretical",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "query",
+          "schema": "total"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "TheoreticalLineRead[]"
+        },
+        "errors": [
+          401,
+          404,
+          422
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "product.form.read",
+        "method": "GET",
+        "path": "/forms/{product_line_code}",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "query",
+          "schema": "model_id?"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "FormRead"
+        },
+        "errors": [
+          401,
+          404,
+          409
+        ],
+        "sideEffects": []
+      }
+    ],
+    "python": [
+      {
+        "capability": "product.recipe.compute.local",
+        "module": "app.core.recipe",
+        "symbol": "compute_theoretical",
+        "note": "純函式；批次生產 Kit 可直接呼叫，不必走 HTTP"
+      },
+      {
+        "capability": "product.form.resolve",
+        "module": "app.core.form_resolver",
+        "symbol": "effective_metrics, steps_for, with_model_specs",
+        "note": "純函式；檢查表單完整性時使用，確保與表單讀取採同一套規則"
+      },
+      {
+        "capability": "product.line.scope-type",
+        "module": "app.core.entry_points_registration",
+        "symbol": "PRODUCT_LINE_SCOPE",
+        "note": "範圍類型鍵 'product-line'，鍵值為產線代碼"
+      },
+      {
+        "capability": "product.definition.seed",
+        "module": "app.core.seed_loader",
+        "symbol": "apply_seed",
+        "note": "寫入產線定義檔；只新增不覆蓋"
+      }
+    ],
+    "db": [
+      {
+        "capability": "product.tables",
+        "tables": [
+          "product_lines",
+          "product_models",
+          "recipe_lines",
+          "stations",
+          "station_steps",
+          "metrics",
+          "model_specs",
+          "definition_change_logs"
+        ],
+        "note": "其他 Kit 不得對這些表建外鍵；以產線代碼、型號代碼、站點代碼、項目 key 等業務鍵參照"
+      }
+    ]
+  },
+  "consumes": {
+    "api": [],
+    "python": [
+      {
+        "capability": "permission.entry-point.register",
+        "module": "app.core.entry_points",
+        "symbol": "registry.register"
+      },
+      {
+        "capability": "permission.entry-point.require",
+        "module": "app.api.deps",
+        "symbol": "require_entry_point"
+      },
+      {
+        "capability": "permission.scope-type.register",
+        "module": "app.core.user_scopes",
+        "symbol": "scope_types.register"
+      },
+      {
+        "capability": "permission.scope.read",
+        "module": "app.core.user_scopes",
+        "symbol": "scoped_keys"
+      },
+      {
+        "capability": "auth.user.model",
+        "module": "app.models.user",
+        "symbol": "User",
+        "fields": [
+          "id",
+          "role",
+          "display_name"
+        ]
+      },
+      {
+        "capability": "platform.db.session",
+        "module": "app.core.database",
+        "symbol": "get_db, Base",
+        "note": "同步 SQLAlchemy Session；與基線 platform-core 的非同步連線不相容，待決（見 docs/s2-kit-split.md）"
+      }
+    ],
+    "db": []
+  }
+}

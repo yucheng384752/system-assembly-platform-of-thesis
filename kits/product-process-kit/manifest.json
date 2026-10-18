@@ -1,0 +1,13 @@
+{
+  "kit": "product-process-kit",
+  "displayName": "產品與製程定義",
+  "installOrder": 30,
+  "requires": [
+    "python"
+  ],
+  "runtimeEnv": [],
+  "scripts": {
+    "windows": "install.ps1",
+    "linux": "install.sh"
+  }
+}
