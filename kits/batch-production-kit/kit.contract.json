@@ -1,0 +1,415 @@
+{
+  "kit": "batch-production-kit",
+  "provides": {
+    "api": [
+      {
+        "capability": "batch.open",
+        "method": "POST",
+        "path": "/batches",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "BatchCreate"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "BatchRead"
+        },
+        "errors": [
+          403,
+          404,
+          409,
+          422
+        ],
+        "sideEffects": [
+          "寫入批次、流水號計數器、理論用料；發出 BatchChanged"
+        ],
+        "entryPoint": "batch_manage"
+      },
+      {
+        "capability": "batch.dispatch",
+        "method": "POST",
+        "path": "/batches/{batch_id}/dispatch",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "BatchRead"
+        },
+        "errors": [
+          403,
+          404,
+          409
+        ],
+        "sideEffects": [
+          "發出 BatchChanged"
+        ],
+        "entryPoint": "batch_dispatch"
+      },
+      {
+        "capability": "batch.list",
+        "method": "GET",
+        "path": "/batches",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "query",
+          "schema": "status_filter?,limit?"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "BatchRead[]"
+        },
+        "errors": [
+          401
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "batch.read",
+        "method": "GET",
+        "path": "/batches/{batch_id}",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "BatchDetail"
+        },
+        "errors": [
+          401,
+          404
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "batch.header.update",
+        "method": "PATCH",
+        "path": "/batches/{batch_id}",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "BatchHeaderUpdate"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "BatchRead"
+        },
+        "errors": [
+          403,
+          404,
+          409
+        ],
+        "sideEffects": [
+          "發出 BatchChanged"
+        ]
+      },
+      {
+        "capability": "batch.delete",
+        "method": "DELETE",
+        "path": "/batches/{batch_id}",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "BatchDeleteRequest"
+        },
+        "output": {
+          "kind": "none"
+        },
+        "errors": [
+          403,
+          404
+        ],
+        "sideEffects": [
+          "軟刪除；發出 BatchChanged（原因放在 reason 欄）"
+        ],
+        "entryPoint": "batch_manage"
+      },
+      {
+        "capability": "batch.measurement.submit",
+        "method": "POST",
+        "path": "/batches/{batch_id}/measurements",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "MeasurementSubmit"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "MeasurementRead"
+        },
+        "errors": [
+          400,
+          403,
+          404,
+          409
+        ],
+        "sideEffects": [
+          "寫入量測；發出 MeasurementRecorded 與 BatchChanged；訂閱者的寫入與量測同一個交易"
+        ]
+      },
+      {
+        "capability": "batch.measurement.list",
+        "method": "GET",
+        "path": "/batches/{batch_id}/measurements",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "MeasurementRead[]"
+        },
+        "errors": [
+          401,
+          404
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "batch.material.list",
+        "method": "GET",
+        "path": "/batches/{batch_id}/materials",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "MaterialRead[]"
+        },
+        "errors": [
+          401,
+          404
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "batch.material.replace",
+        "method": "PUT",
+        "path": "/batches/{batch_id}/materials",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "MaterialWrite[]"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "MaterialRead[]"
+        },
+        "errors": [
+          403,
+          404,
+          409
+        ],
+        "sideEffects": [
+          "整組取代；發出 BatchChanged"
+        ]
+      },
+      {
+        "capability": "batch.sign",
+        "method": "POST",
+        "path": "/batches/{batch_id}/sign",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "SignRequest"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "SignResult"
+        },
+        "errors": [
+          403,
+          404,
+          409
+        ],
+        "sideEffects": [
+          "一次性簽核；發出 BatchChanged"
+        ]
+      },
+      {
+        "capability": "batch.complete",
+        "method": "POST",
+        "path": "/batches/{batch_id}/complete",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "BatchRead"
+        },
+        "errors": [
+          403,
+          404,
+          409
+        ],
+        "sideEffects": [
+          "狀態改為完成；發出 BatchChanged"
+        ],
+        "entryPoint": "batch_manage"
+      }
+    ],
+    "events": [
+      {
+        "capability": "batch.event.measurement-recorded",
+        "module": "app.core.events",
+        "symbol": "MeasurementRecorded",
+        "note": "量測寫入後發出；帶有已解析的規格上下限。訂閱者與量測同交易，失敗則整筆回復"
+      },
+      {
+        "capability": "batch.event.changed",
+        "module": "app.core.events",
+        "symbol": "BatchChanged",
+        "note": "批次任何異動後發出；不帶內容，訂閱者自行重讀"
+      }
+    ],
+    "python": [
+      {
+        "capability": "batch.event.subscribe",
+        "module": "app.core.events",
+        "symbol": "bus.subscribe"
+      },
+      {
+        "capability": "batch.gate.register",
+        "module": "app.core.gates",
+        "symbol": "gates.register",
+        "note": "插入寫入前條件、站點完成判斷、完成前阻擋原因；依 order 由小到大執行"
+      },
+      {
+        "capability": "batch.settings",
+        "module": "app.core.batch_settings",
+        "symbol": "configure, get_settings, load_batch_settings",
+        "note": "批號樣板、必附附件、用料站點、簽核排除站點、表頭預填、是否強制指派"
+      },
+      {
+        "capability": "batch.extension.completion",
+        "module": "app.core.extension_points",
+        "symbol": "uploaded_attachment_keys, has_warehouse_entry, require_warehouse_entry",
+        "note": "入庫單與附件子功能覆寫，掛入完成條件"
+      }
+    ],
+    "db": [
+      {
+        "capability": "batch.tables",
+        "tables": [
+          "batches",
+          "measurements",
+          "batch_materials",
+          "lot_serial_counters",
+          "lot_serial_counter_logs"
+        ],
+        "note": "其他 Kit 不得對這些表建外鍵；以批次編號、批號與業務鍵參照。批次對產品定義、帳號一律不建外鍵"
+      }
+    ]
+  },
+  "consumes": {
+    "api": [],
+    "python": [
+      {
+        "capability": "permission.entry-point.register",
+        "module": "app.core.entry_points",
+        "symbol": "registry.register"
+      },
+      {
+        "capability": "permission.entry-point.require",
+        "module": "app.api.deps",
+        "symbol": "require_entry_point"
+      },
+      {
+        "capability": "permission.write.require",
+        "module": "app.api.deps",
+        "symbol": "require_write_access"
+      },
+      {
+        "capability": "permission.scope.read",
+        "module": "app.core.user_scopes",
+        "symbol": "scoped_keys",
+        "note": "範圍類型 'product-line' 由 product-process-kit 註冊"
+      },
+      {
+        "capability": "auth.user.model",
+        "module": "app.models.user",
+        "symbol": "User",
+        "fields": [
+          "id",
+          "role",
+          "display_name"
+        ]
+      },
+      {
+        "capability": "product.model.snapshot",
+        "module": "app.core.model_lookup",
+        "symbol": "get_model_snapshot"
+      },
+      {
+        "capability": "product.structure.load",
+        "module": "app.core.model_lookup",
+        "symbol": "load_stations, find_model_id"
+      },
+      {
+        "capability": "product.recipe.compute.local",
+        "module": "app.core.recipe",
+        "symbol": "compute_theoretical"
+      },
+      {
+        "capability": "platform.db.session",
+        "module": "app.core.database",
+        "symbol": "get_db, Base",
+        "note": "同步 SQLAlchemy Session；與基線 platform-core 的非同步連線不相容，待決（見 docs/s2-kit-split.md）"
+      }
+    ],
+    "db": []
+  }
+}

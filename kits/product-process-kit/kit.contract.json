@@ -199,6 +199,18 @@
         "module": "app.core.seed_loader",
         "symbol": "apply_seed",
         "note": "寫入產線定義檔；只新增不覆蓋"
+      },
+      {
+        "capability": "product.model.snapshot",
+        "module": "app.core.model_lookup",
+        "symbol": "get_model_snapshot",
+        "note": "回傳不含 ORM 物件的型號快照（產線代碼、製程變體、屬性、配方明細）"
+      },
+      {
+        "capability": "product.structure.load",
+        "module": "app.core.model_lookup",
+        "symbol": "load_stations",
+        "note": "依型號解析後的站點、步驟、項目與規格上下限；供批次進度與量測規格判斷使用"
       }
     ],
     "db": [

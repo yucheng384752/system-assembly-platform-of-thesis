@@ -20,7 +20,8 @@
       "src/backend/app/core/definition_changes.py",
       "src/backend/app/core/seed_check.py",
       "src/backend/app/core/seed_loader.py",
-      "src/backend/app/core/entry_points_registration.py"
+      "src/backend/app/core/entry_points_registration.py",
+      "src/backend/app/core/model_lookup.py"
     ],
     "services": [],
     "models": [

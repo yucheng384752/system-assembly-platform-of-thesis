@@ -1,0 +1,181 @@
+{
+  "id": "batch-production-kit",
+  "displayName": "批次生產紀錄",
+  "category": "core",
+  "required": false,
+  "businessCapability": "開立批次工單、派工，讓現場依產品定義的站點逐項填寫量測、秤重用料並簽核，全部完成後結案。",
+  "dependencies": [
+    "platform-core-kit",
+    "entry-permission-kit",
+    "product-process-kit"
+  ],
+  "optionalDependencies": [
+    "alarm-exception-kit",
+    "equipment-maintenance-kit",
+    "production-dashboard-kit",
+    "runtime-settings-kit"
+  ],
+  "backend": {
+    "routers": [
+      "src/backend/app/api/routes_batches.py"
+    ],
+    "core": [
+      "src/backend/app/core/events.py",
+      "src/backend/app/core/gates.py",
+      "src/backend/app/core/lot_number.py",
+      "src/backend/app/core/progress.py",
+      "src/backend/app/core/completion.py",
+      "src/backend/app/core/material_rules.py",
+      "src/backend/app/core/assignment.py",
+      "src/backend/app/core/measurement_rules.py",
+      "src/backend/app/core/batch_settings.py",
+      "src/backend/app/core/extension_points.py",
+      "src/backend/app/core/entry_points_registration.py"
+    ],
+    "services": [],
+    "models": [
+      "src/backend/app/models/batch.py",
+      "src/backend/app/models/measurement.py",
+      "src/backend/app/models/batch_material.py",
+      "src/backend/app/models/lot_serial_counter.py"
+    ],
+    "routerRegistrations": [
+      {
+        "module": "app.api.routes_batches",
+        "symbol": "router",
+        "prefix": "",
+        "tags": [
+          "batches"
+        ],
+        "tenantScoped": false
+      }
+    ]
+  },
+  "frontend": {
+    "pages": [],
+    "components": [],
+    "services": [],
+    "note": "前端（開單、派工、表單填寫、簽核）於後續工作包抽出"
+  },
+  "api": [
+    "POST /batches",
+    "POST /batches/{batch_id}/dispatch",
+    "GET /batches",
+    "GET /batches/{batch_id}",
+    "PATCH /batches/{batch_id}",
+    "DELETE /batches/{batch_id}",
+    "POST /batches/{batch_id}/measurements",
+    "GET /batches/{batch_id}/measurements",
+    "GET /batches/{batch_id}/materials",
+    "PUT /batches/{batch_id}/materials",
+    "POST /batches/{batch_id}/sign",
+    "POST /batches/{batch_id}/complete"
+  ],
+  "database": {
+    "models": [
+      "Batch",
+      "Measurement",
+      "BatchMaterial",
+      "LotSerialCounter",
+      "LotSerialCounterLog"
+    ]
+  },
+  "permissions": [
+    "manager（開單、派工、完成、刪除）",
+    "admin（開單、完成、刪除；不可派工）",
+    "operator／qc（填寫、簽核）",
+    "audit（只讀已完成批次）"
+  ],
+  "runtimeDependencies": {
+    "python": [
+      "fastapi",
+      "sqlalchemy>=2",
+      "pydantic>=2"
+    ]
+  },
+  "subfeatures": [
+    {
+      "id": "batch-open-dispatch",
+      "displayName": "開單與派工",
+      "businessCapability": "管理者開立批次並指派負責人，派工後現場才能填寫。",
+      "required": true,
+      "defaultSelected": true,
+      "options": [
+        {
+          "id": "require-assignment",
+          "displayName": "開單必須指派負責人",
+          "type": "boolean",
+          "defaultValue": true
+        },
+        {
+          "id": "lot-pattern",
+          "displayName": "批號樣板",
+          "type": "string",
+          "defaultValue": "L{variant}{region}{yy}{mm}{serial:03d}"
+        },
+        {
+          "id": "lot-region-code",
+          "displayName": "廠區碼",
+          "type": "string",
+          "defaultValue": ""
+        },
+        {
+          "id": "lot-serial-reset",
+          "displayName": "流水號歸零週期",
+          "type": "string",
+          "defaultValue": "never"
+        }
+      ]
+    },
+    {
+      "id": "measurement-entry",
+      "displayName": "站點量測填寫",
+      "businessCapability": "依產品定義逐站逐項填寫量測值，重填會覆寫原值並留下操作人。",
+      "required": true,
+      "defaultSelected": true
+    },
+    {
+      "id": "material-weighing",
+      "displayName": "用料秤重",
+      "businessCapability": "記錄各原料的料號、批號、供應商、理論與實際用量；現場操作員只能填實際用量。",
+      "defaultSelected": true
+    },
+    {
+      "id": "batch-signoff",
+      "displayName": "操作員與檢驗員簽核",
+      "businessCapability": "填完必要站點後，操作員與檢驗員各簽核一次，簽後不可取消。",
+      "defaultSelected": true
+    },
+    {
+      "id": "batch-completion",
+      "displayName": "完成工單",
+      "businessCapability": "簽核、必填項目、外部條件（例如報警結案）都齊全才可結案。",
+      "required": true,
+      "defaultSelected": true
+    },
+    {
+      "id": "warehouse-entry",
+      "displayName": "入庫單",
+      "businessCapability": "結案前送出入庫單。第二階段提供。",
+      "defaultSelected": false
+    },
+    {
+      "id": "rework-record",
+      "displayName": "回鍋確認單",
+      "businessCapability": "記錄重工來源批次與重量並併入總重。第二階段提供。",
+      "defaultSelected": false
+    },
+    {
+      "id": "batch-notes",
+      "displayName": "子表格備註",
+      "businessCapability": "各站點可加備註。第二階段提供。",
+      "defaultSelected": false
+    },
+    {
+      "id": "attachments",
+      "displayName": "照片佐證",
+      "businessCapability": "上傳照片作為完成條件的一部分。第二階段提供。",
+      "defaultSelected": false
+    }
+  ]
+}
