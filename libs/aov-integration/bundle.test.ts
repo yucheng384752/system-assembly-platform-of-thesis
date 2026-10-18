@@ -7,8 +7,9 @@ import unknownProject from '../../fixtures/aov-merge/c/project.unknown-formatVer
 import brokenLibrary from '../../fixtures/aov-merge/c/library.broken-actions.json';
 import { parseActionCatalog } from '../ui-runtime/registry';
 import actionData from '../../config/actions.json';
-const actionCatalog = parseActionCatalog(actionData);
 import { canonicalJson, contentSha256, HASH_LIMITATION, MAX_BUNDLE_BYTES, validateAovBundle, type AovBundle } from './index';
+
+const actionCatalog = parseActionCatalog(actionData);
 
 const fresh = () => structuredClone(fixture) as AovBundle;
 async function seal(bundle: AovBundle) {
