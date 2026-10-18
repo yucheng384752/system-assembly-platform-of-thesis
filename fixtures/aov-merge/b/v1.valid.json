@@ -4,10 +4,45 @@
   "steps": [
     {
       "id": "step-1",
-      "name": "收料",
-      "when": "到貨時",
-      "owner": "倉管",
-      "formId": "form-1"
+      "name": "開立領料單",
+      "when": "接到生產工單後",
+      "owner": "生管人員",
+      "formId": "example-form"
+    },
+    {
+      "id": "step-2",
+      "name": "領料",
+      "when": "領料單核准後",
+      "owner": "倉管人員",
+      "formId": ""
+    },
+    {
+      "id": "step-3",
+      "name": "配料",
+      "when": "領料完成後",
+      "owner": "現場操作員",
+      "formId": "example-form-2"
+    },
+    {
+      "id": "step-4",
+      "name": "混合",
+      "when": "配料完成後",
+      "owner": "現場操作員",
+      "formId": "example-form-3"
+    },
+    {
+      "id": "step-5",
+      "name": "品質檢驗",
+      "when": "混合完成後",
+      "owner": "品管人員",
+      "formId": "example-form-4"
+    },
+    {
+      "id": "step-6",
+      "name": "包裝入庫",
+      "when": "檢驗合格後",
+      "owner": "現場操作員",
+      "formId": "example-form-5"
     }
   ]
 }

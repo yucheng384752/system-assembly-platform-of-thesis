@@ -36,7 +36,7 @@
 
 | 檔案 | 用途 | 驗證結果 |
 |---|---|---|
-| b/v1 至 v5 `.valid.json` | 各版本合法樣本 | 以 `importWorkflow` 驗證：全部接受並升為 v5；v1、v4 各有 1 項升級通知 |
+| b/v1 至 v5 `.valid.json` | 各版本合法樣本；2026-10-18 起改以去識別化範例情境（D99）表達：v5 由 `loadExample` 產生，v1 至 v4 為同一情境的舊格式寫法 | 以 `importWorkflow` 驗證：全部接受並升為 v5（8 節點含開始與結束）；v1、v4 各有 1 項升級通知；v1 沒有表單定義，v2 至 v5 各 5 張表單 |
 | b/v6.unknown-version.json | 未知版本 | `importWorkflow` 拒絕 |
 | b/v5.broken-structure.json | graphs 非陣列 | `importWorkflow` 拒絕 |
 | a/v1.1.workflow.valid.json、a/v1.1.dataflow.valid.json | A 範例原檔 | 對 A 的 `public` schema 通過 |
