@@ -1,8 +1,8 @@
 ---
 id: "20261015-aov-merge-contract"
 title: "三代 AOV 合併：整合包契約與格式轉接（M02、M04）"
-status: "waiting_for_user"
-owner: "user"
+status: "in_progress"
+owner: "claude"
 reviewer: "claude"
 priority: "normal"
 created_by: "claude"
@@ -90,8 +90,64 @@ artifacts:
 
 ## Codex Notes
 
-（Codex 在此續寫）
+### 2026-10-18 WP2 第一段：規格與範圍核對
+
+- 已核對 cwd、分支 feature/aov-merge-contract、HEAD a1b163f；起始工作區無變更。已讀指定文件與 D95–D98、D101。
+- 本段變更：本 thread。typecheck／test／build 略過（規格核對階段，待實作完成執行）。Python 執行器因登入工作階段錯誤不可用，改用現有 Node；PowerShell pipe 初次編碼造成新 schema 說明亂碼，已改 UTF-8 並修復。
+
+### 2026-10-18 WP2 第二段：契約與驗證入口
+
+- 新增 schemas/aov-bundle.schema.json、libs/aov-integration/index.ts、fixtures/aov-merge/bundle/v1.valid.json；libs/ui-runtime/schema.ts 僅新增 schema 登錄。
+- bindings 必填 nodes／forms／actions 陣列。nodes：{platformNodeId,aovNodeId,sourceVersion}，sourceVersion 為來源節點內容 sha256；forms：{sourceFormId,sourceVersion,aovFormId,fields:[{sourceFieldId,aovFieldId,aovType,unit?}]}，sourceVersion 為來源完整表單內容 sha256；actions：{platformActionId,aovActionId,sourceVersion,libraryId,libraryVersion}，sourceVersion 為既有 actionCatalog 動作內容 sha256。空陣列表示尚未建立映射，不代表可執行。
+- libraries 採 {id,version,dependencies:[{id,version}],content}；所有依賴須在包內且版本一致，content 僅驗外殼，不引用 C 程式。C 內容的細部型別／流程語意留給 C。
+- platform 原樣內嵌，入口另以 schemas.aov 驗證且要求 v5，不做 WP3 升級。manifest 為 {path,sha256,sourceProject,sourceVersion} 陣列；path 限 platform.json、aov.json、bindings.json、migration-report.json、libraries/<陣列索引>.json，sha256 對應各區塊（library 包含引用與依賴）。所有區塊必須恰有一筆；manifest 不雜湊自身，避免循環。sourceProject／sourceVersion 為來源聲明，不代表已認證。
+- migrationReport 為 {sourcePath,summary,suggestedAction} 陣列，無損仍必填 []。JSON 以遞迴鍵字典排序正規化，陣列順序保留；10 MB 定義為 10,000,000 UTF-8 bytes（含空白）。額外限制巢狀深度 100，防止惡意遞迴耗盡堆疊。
+- fixture 由既有 B v5、C project／library 組成；C project 僅留衍生外殼與通用 ID，移除示範製程數值及產品專有內容，library 去除 artifactTypes 與 subject 內容。這是外殼驗證樣本，未宣稱可通過 C 語意驗證。
+- 本段 typecheck／test／build：未執行，待補齊測試後執行。新增測試入口將放 apps/composer-gui/src/aovBundle.test.ts（Vitest root 限制），實際測試在 libs/aov-integration/。
+
+
+### 2026-10-18 WP2 第三段：測試、檢查與交接
+
+- 完成 libs/aov-integration/bundle.test.ts，apps/composer-gui/src/aovBundle.test.ts 僅作既有 Vitest root 的入口；未改任何既有測試意圖。
+- 新增 69 項測試：正常包原樣往返與候選隔離、所有頂層必填、未知格式／版本、C 外殼損壞、重複 ID、checksum 與 sourceVersion 失效、缺少與版本衝突的依賴、引用與內容 meta 不一致、映射來源／目標不存在、manifest 完整性／路徑安全、疑似秘密值與 secret_ref、禁止資料列、10 MB 精確邊界與多位元字元、非 JSON／過深／非有限數值。各拒絕案例的共用斷言會驗證傳入草稿與呼叫前深度相等。
+- 引用檢查補齊 nodes、forms／fields、actions 的存在性與目標唯一性；只檢查實際 bindings 的端點，不遍歷驗證 C 的 port、規則或型別語意。C 未映射的不透明內容仍保留。
+- 公開入口 validateAovBundle(text, currentDraft?) 回傳 {ok:true,value} 或 {ok:false,errors:[{code,path,message}]}；currentDraft 不被讀寫。canonicalJson／contentSha256 導出供後續工作使用；不提供自動安裝到工作階段或 WP3 轉換。
+
+驗證結果：
+
+| 指令 | 結果 |
+|---|---|
+| npm.cmd run typecheck | 通過（實作初次與最終版皆通過） |
+| npm.cmd test -- src/aovBundle.test.ts | 初次 62 passed；補引用檢查後 69 passed，0 failed／skipped |
+| npm.cmd test | exit 1；35 files passed、1 failed；402 tests passed、1 failed、1 skipped（共 404） |
+| npm.cmd run build | exit 0；包含 typecheck 與 Vite production build，477 modules；有 React Flow use client 忽略及 >500 kB chunk 警告 |
+| git diff --check（唯讀） | 通過；僅 LF／CRLF 提示 |
+
+- 全套唯一失敗為既有 security.test.mjs 的 CLI 簽章測試：讀取 C:/Users/gslab/AppData/Local/Temp/composer-security-fUHvl8/keys/signing-private-key.pem 回報 EPERM；afterAll 清理同一 composer-security-fUHvl8 目錄亦 EPERM，故同時顯示 failed suite。未改測試、未遮蔽失敗、未嘗試越權刪除；請 Claude 在沙箱外重跑並處理該暫存目錄。
+- 唯一略過為既有 App.test.tsx 身分授權邊界測試（尚無身分機制）。未執行 test:kits、瀏覽器與伺服器驗證：不在本次 WP2 範圍。
+- 最終變更共 8 檔：schemas/aov-bundle.schema.json、libs/aov-integration/index.ts、libs/aov-integration/bundle.test.ts、fixtures/aov-merge/bundle/v1.valid.json、apps/composer-gui/src/aovBundle.test.ts、libs/ui-runtime/schema.ts、本 thread、mailbox index。
+- 已核對未改既有 schema、libs/ui-runtime 其他檔、package*.json、kits/、config/；未新增依賴、未連網、未啟動伺服器、未執行 Git 寫入。讀取 Git status 有使用者全域 ignore 權限警告，不影響 diff 核對。
+- 限制：C 仍只做外殼與映射引用檢查；雜湊不是簽章、不證明來源；疑似秘密值採欄名與常見字串模式拒絕，不宣稱能辨識任意偽裝秘密。發布內容不會被此入口改寫，成功只回傳候選；發布後的編輯鎖定不屬於 WP2。
+- 本輪只完成 WP2，WP3 未開始。驗證工具顯示全套測試開始 19:25:17，已晚於原預計 12:00，不宣稱如期完成。交由 Claude 審閱 bindings／dependencies 形狀及外殼邊界，處理沙箱外 security 驗證；status 維持 in_progress、owner 改 claude。
 
 # Open Questions
 
 - 第 1、2、4、5、6 項已決定（D95–D97）；第 3 項（M05 引用 C core 的方式）不影響本 thread，但需決議後才能排 M06 以後。
+
+## 2026-10-18 Claude 審閱 WP2（M02）
+
+- 狀態確認：Codex 任務 task-mvdqg2gt-sffwth 為 completed（7 分 52 秒）；以下為我獨立驗證。
+- 重跑：typecheck 通過；`npm.cmd test` 36 個檔案、403 通過、0 失敗、1 略過（既有身分授權）；build 通過。
+- 範圍：新增 `schemas/aov-bundle.schema.json`、`libs/aov-integration/`（index.ts、bundle.test.ts）、`apps/composer-gui/src/aovBundle.test.ts`、`fixtures/aov-merge/bundle/v1.valid.json`；唯一動到的既有檔為 `libs/ui-runtime/schema.ts`（只加 aovBundle 登錄，已授權）。未改 package*.json、其他 schema、kits、config；未引用 C 或 A 的程式碼。專有詞彙搜尋命中為零。
+- 對照 D101：單一 JSON 與 10,000,000 UTF-8 bytes 上限（以位元組計，含恰好上限接受、多一 byte 拒絕）、sourceVersion 與 manifest 皆為遞迴鍵排序正規化 JSON 的 sha256、雜湊不是簽章的限制已寫入 schema 描述與 checksum 錯誤訊息，均符合。另涵蓋：缺依賴與同 ID 不同版本、manifest 重複／遺漏／不存在路徑、秘密值欄位與字串、資料列夾帶、深層 JSON 與無限大數值、C 外殼只驗外殼。
+
+### Review Findings（WP2）
+
+| 編號 | 嚴重度 | 內容 | 處理 |
+|---|---|---|---|
+| R01 | 低 | `libs/aov-integration/index.ts` 從 `apps/composer-gui/src/workflow` 匯入 `sha256Hex` 與 `actionCatalog`，libs 反向依賴 apps，與 `libs/ui-runtime` 目前的單向依賴不一致 | 接受於本輪；WP3 或 M05 時把這兩項移到 libs，記為待辦 |
+| R02 | 低 | `validateAovBundle(text, _currentDraft)` 的第二參數沒有使用（函式本身純粹，不改任何狀態），參數名稱易讓人誤以為函式會保護草稿 | 保留簽名以對齊計畫書「失敗不覆蓋草稿」的呼叫方式；呼叫端（WP3 匯入流程）才負責替換狀態，須在 WP3 測試中驗證 |
+| R03 | 低 | 秘密值字串規則（含 `password=`、`token=`、`Bearer` 的字串一律拒絕）可能誤擋含這些字樣的正常說明文字 | 偏向安全，可接受；若實務誤擋再放寬並補測試 |
+| R04 | 資訊 | 測試放在 libs，另由 `apps/composer-gui/src/aovBundle.test.ts` 以 import 轉進，因 vitest 的根目錄是 apps/composer-gui | 屬環境限制，已有註解說明 |
+
+結論：WP2 通過，無阻擋項目。WP3（B 側格式轉接與遷移報告）尚未派工，等 user 指示。

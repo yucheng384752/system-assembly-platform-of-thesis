@@ -6,7 +6,7 @@
 | --- | --- | --- | --- | --- | --- |
 | [20261016-kit-workflows-live-preview](threads/20261016-kit-workflows-live-preview.md) | Kit AoV 彙整與真實選配預覽（WP2 九份模板完成待審） | in_progress | codex | claude | 2026-10-18 |
 | [20261016-example-scenario](threads/20261016-example-scenario.md) | 去識別化系統使用範例：WP1–WP3 完成，待 WP4 與審閱；標準 build／security 受沙箱權限限制 | in_progress | claude | claude | 2026-10-18 |
-| [20261015-aov-merge-contract](threads/20261015-aov-merge-contract.md) | 三代 AOV 合併：整合包契約與格式轉接（M02、M04） | in_progress | codex | claude | 2026-10-18 |
+| [20261015-aov-merge-contract](threads/20261015-aov-merge-contract.md) | 三代 AOV 合併：WP2 完成待審；WP3 未開始；security EPERM 待沙箱外驗證 | in_progress | claude | claude | 2026-10-18 |
 | [20261006-more-node-tools](threads/20261006-more-node-tools.md) | 工具箱擴充：把基線版 Kit 功能轉成節點工具 | ready_for_claude | claude | claude | 2026-10-06 |
 | [20260927-kit-tab-ui-flow](threads/20260927-kit-tab-ui-flow.md) | Kit 分頁、動態預覽與可修改項目流程 | completed | user | claude | 2026-09-30 |
 | [20260930-frontend-pages](threads/20260930-frontend-pages.md) | 依基線四步驟重做 Composer 前端頁面（真實 Kit、無障礙） | completed | user | claude | 2026-09-30 |

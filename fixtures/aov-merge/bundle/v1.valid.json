@@ -1,0 +1,497 @@
+{
+  "format": "composer-aov-bundle",
+  "version": 1,
+  "platform": {
+    "format": "composer-aov-list",
+    "version": 5,
+    "factories": [
+      {
+        "id": "example-factory",
+        "name": "第一廠（範例）",
+        "logicGraphIds": [
+          "example-graph"
+        ]
+      }
+    ],
+    "graphs": [
+      {
+        "id": "example-graph",
+        "name": "配料混合產線（範例）",
+        "nodes": [
+          {
+            "when": "",
+            "owner": "",
+            "actionId": null,
+            "params": {},
+            "formId": null,
+            "childGraphId": null,
+            "id": "example-start",
+            "kind": "start",
+            "name": "開始"
+          },
+          {
+            "id": "example-node",
+            "kind": "node",
+            "name": "開立領料單",
+            "when": "接到生產工單後",
+            "owner": "生管人員",
+            "formId": "example-form",
+            "actionId": null,
+            "params": {},
+            "childGraphId": null
+          },
+          {
+            "id": "example-node-2",
+            "kind": "node",
+            "name": "領料",
+            "when": "領料單核准後",
+            "owner": "倉管人員",
+            "formId": null,
+            "actionId": null,
+            "params": {},
+            "childGraphId": null
+          },
+          {
+            "id": "example-node-3",
+            "kind": "node",
+            "name": "配料",
+            "when": "領料完成後",
+            "owner": "現場操作員",
+            "formId": "example-form-2",
+            "actionId": null,
+            "params": {},
+            "childGraphId": null
+          },
+          {
+            "id": "example-node-4",
+            "kind": "node",
+            "name": "混合",
+            "when": "配料完成後",
+            "owner": "現場操作員",
+            "formId": "example-form-3",
+            "actionId": null,
+            "params": {},
+            "childGraphId": null
+          },
+          {
+            "id": "example-node-5",
+            "kind": "node",
+            "name": "品質檢驗",
+            "when": "混合完成後",
+            "owner": "品管人員",
+            "formId": "example-form-4",
+            "actionId": null,
+            "params": {},
+            "childGraphId": null
+          },
+          {
+            "id": "example-node-6",
+            "kind": "node",
+            "name": "包裝入庫",
+            "when": "檢驗合格後",
+            "owner": "現場操作員",
+            "formId": "example-form-5",
+            "actionId": null,
+            "params": {},
+            "childGraphId": null
+          },
+          {
+            "when": "",
+            "owner": "",
+            "actionId": null,
+            "params": {},
+            "formId": null,
+            "childGraphId": null,
+            "id": "example-end",
+            "kind": "end",
+            "name": "結束"
+          }
+        ],
+        "edges": [
+          {
+            "id": "example-edge",
+            "from": "example-start",
+            "to": "example-node"
+          },
+          {
+            "id": "example-edge-2",
+            "from": "example-node",
+            "to": "example-node-2"
+          },
+          {
+            "id": "example-edge-3",
+            "from": "example-node-2",
+            "to": "example-node-3"
+          },
+          {
+            "id": "example-edge-4",
+            "from": "example-node-3",
+            "to": "example-node-4"
+          },
+          {
+            "id": "example-edge-5",
+            "from": "example-node-4",
+            "to": "example-node-5"
+          },
+          {
+            "id": "example-edge-6",
+            "from": "example-node-5",
+            "to": "example-node-6"
+          },
+          {
+            "id": "example-edge-7",
+            "from": "example-node-6",
+            "to": "example-end"
+          }
+        ]
+      }
+    ],
+    "layout": {
+      "example-graph": {
+        "example-start": {
+          "x": 0,
+          "y": 0
+        },
+        "example-node": {
+          "x": 160,
+          "y": 0
+        },
+        "example-node-2": {
+          "x": 320,
+          "y": 0
+        },
+        "example-node-3": {
+          "x": 480,
+          "y": 0
+        },
+        "example-node-4": {
+          "x": 640,
+          "y": 0
+        },
+        "example-node-5": {
+          "x": 800,
+          "y": 0
+        },
+        "example-node-6": {
+          "x": 960,
+          "y": 0
+        },
+        "example-end": {
+          "x": 1120,
+          "y": 0
+        }
+      }
+    },
+    "forms": [
+      {
+        "id": "example-form",
+        "name": "領料單",
+        "fields": [
+          {
+            "id": "example-field",
+            "name": "批號",
+            "type": "text",
+            "required": true,
+            "isKey": true
+          },
+          {
+            "id": "example-field-2",
+            "name": "工單號",
+            "type": "text",
+            "required": false,
+            "isKey": false
+          },
+          {
+            "id": "example-field-3",
+            "name": "領料數量",
+            "type": "decimal",
+            "required": false,
+            "isKey": false
+          },
+          {
+            "id": "example-field-4",
+            "name": "領料日期",
+            "type": "date",
+            "required": false,
+            "isKey": false
+          }
+        ]
+      },
+      {
+        "id": "example-form-2",
+        "name": "配料紀錄",
+        "fields": [
+          {
+            "id": "example-field-5",
+            "name": "批號",
+            "type": "text",
+            "required": true,
+            "isKey": true
+          },
+          {
+            "id": "example-field-6",
+            "name": "原料 A 實際重量",
+            "type": "decimal",
+            "required": false,
+            "isKey": false
+          },
+          {
+            "id": "example-field-7",
+            "name": "原料 B 實際重量",
+            "type": "decimal",
+            "required": false,
+            "isKey": false
+          }
+        ]
+      },
+      {
+        "id": "example-form-3",
+        "name": "混合紀錄",
+        "fields": [
+          {
+            "id": "example-field-8",
+            "name": "批號",
+            "type": "text",
+            "required": true,
+            "isKey": true
+          },
+          {
+            "id": "example-field-9",
+            "name": "混合時間",
+            "type": "integer",
+            "required": false,
+            "isKey": false
+          },
+          {
+            "id": "example-field-10",
+            "name": "混合完成",
+            "type": "boolean",
+            "required": false,
+            "isKey": false
+          }
+        ]
+      },
+      {
+        "id": "example-form-4",
+        "name": "檢驗紀錄",
+        "fields": [
+          {
+            "id": "example-field-11",
+            "name": "批號",
+            "type": "text",
+            "required": true,
+            "isKey": true
+          },
+          {
+            "id": "example-field-12",
+            "name": "檢驗值",
+            "type": "decimal",
+            "required": false,
+            "isKey": false
+          },
+          {
+            "id": "example-field-13",
+            "name": "檢驗日期",
+            "type": "date",
+            "required": false,
+            "isKey": false
+          }
+        ]
+      },
+      {
+        "id": "example-form-5",
+        "name": "包裝紀錄",
+        "fields": [
+          {
+            "id": "example-field-14",
+            "name": "批號",
+            "type": "text",
+            "required": true,
+            "isKey": true
+          },
+          {
+            "id": "example-field-15",
+            "name": "包裝數量",
+            "type": "integer",
+            "required": false,
+            "isKey": false
+          }
+        ]
+      }
+    ],
+    "relations": [
+      {
+        "id": "example-relation",
+        "kind": "shared-key",
+        "origin": "user",
+        "confirmed": true,
+        "from": {
+          "formId": "example-form",
+          "fieldId": "example-field"
+        },
+        "to": {
+          "formId": "example-form-2",
+          "fieldId": "example-field-5"
+        }
+      },
+      {
+        "id": "example-relation-2",
+        "kind": "shared-key",
+        "origin": "user",
+        "confirmed": true,
+        "from": {
+          "formId": "example-form-2",
+          "fieldId": "example-field-5"
+        },
+        "to": {
+          "formId": "example-form-3",
+          "fieldId": "example-field-8"
+        }
+      },
+      {
+        "id": "example-relation-3",
+        "kind": "shared-key",
+        "origin": "user",
+        "confirmed": true,
+        "from": {
+          "formId": "example-form-3",
+          "fieldId": "example-field-8"
+        },
+        "to": {
+          "formId": "example-form-4",
+          "fieldId": "example-field-11"
+        }
+      },
+      {
+        "id": "example-relation-4",
+        "kind": "shared-key",
+        "origin": "user",
+        "confirmed": true,
+        "from": {
+          "formId": "example-form-4",
+          "fieldId": "example-field-11"
+        },
+        "to": {
+          "formId": "example-form-5",
+          "fieldId": "example-field-14"
+        }
+      }
+    ]
+  },
+  "aov": {
+    "formatVersion": 1,
+    "meta": {
+      "id": "example-project",
+      "name": "示範專案",
+      "version": 1,
+      "status": "draft"
+    },
+    "nodes": [
+      {
+        "id": "node-1"
+      }
+    ],
+    "flows": []
+  },
+  "libraries": [
+    {
+      "id": "demo-lib",
+      "version": 1,
+      "dependencies": [],
+      "content": {
+        "formatVersion": 1,
+        "kind": "action-library",
+        "meta": {
+          "id": "demo-lib",
+          "name": "示範動作庫",
+          "version": 1,
+          "status": "published"
+        },
+        "actions": [
+          {
+            "id": "inspect",
+            "name": "檢驗",
+            "behavior": "measure",
+            "usesForm": true
+          }
+        ],
+        "forms": [
+          {
+            "id": "form.check",
+            "name": "檢驗表",
+            "subject": [],
+            "fields": {
+              "lot_no": {
+                "label": "批號",
+                "type": "string",
+                "required": true
+              },
+              "weight": {
+                "label": "重量",
+                "type": "number",
+                "unit": "kg"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "bindings": {
+    "nodes": [
+      {
+        "platformNodeId": "example-node",
+        "aovNodeId": "node-1",
+        "sourceVersion": "f7cb7faabfc613f61b8a58218a556630b3b6fc986570d4414b0acdb7740b0dfa"
+      }
+    ],
+    "forms": [
+      {
+        "sourceFormId": "example-form",
+        "sourceVersion": "1e25c65c1bda1a3c2096fa4ccfe7f646b37cdf276f58186f606bc9d155ac2cb6",
+        "aovFormId": "form.check",
+        "fields": [
+          {
+            "sourceFieldId": "example-field",
+            "aovFieldId": "lot_no",
+            "aovType": "string"
+          }
+        ]
+      }
+    ],
+    "actions": []
+  },
+  "manifest": [
+    {
+      "path": "platform.json",
+      "sha256": "c8baf9efcb457e0b623a0ce969800bf980ebdd3ae6c7e94d7195349d4468a4e2",
+      "sourceProject": "example",
+      "sourceVersion": "1"
+    },
+    {
+      "path": "aov.json",
+      "sha256": "3f1ab9efc7abb27f95137c49dfc1b6305a24319fa958169b83f002889c6fb8e9",
+      "sourceProject": "example",
+      "sourceVersion": "1"
+    },
+    {
+      "path": "bindings.json",
+      "sha256": "268a179ec458e377c237568ee797f63b9a1e1b51ac9e56fcc607d3c33aade55a",
+      "sourceProject": "example",
+      "sourceVersion": "1"
+    },
+    {
+      "path": "migration-report.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "sourceProject": "example",
+      "sourceVersion": "1"
+    },
+    {
+      "path": "libraries/0.json",
+      "sha256": "a42d2a4ba6abecf662a2f70fa16b83676fe9d917cbdef3df2c3667bfaf649e0e",
+      "sourceProject": "example",
+      "sourceVersion": "1"
+    }
+  ],
+  "migrationReport": []
+}
