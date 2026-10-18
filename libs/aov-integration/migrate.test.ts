@@ -104,9 +104,57 @@ describe('WP3 格式辨識與原子候選', () => {
     if (!result.ok) throw new Error('預期通過');
     expect(result.originalText).toBe(text);
     const paths = result.migrationReport.map(item => item.sourcePath);
-    for (const path of ['/graphs/0/edges/0', '/graphs/0/nodes/0/attachments/0/path', '/graphs/0/nodes/0/external/document', '/graphs/0/nodes/0/business/description', '/graphs/0/nodes/0/forms/0/fields/0/id', '/graphs/0/nodes/0/forms/1/fields/0/id']) expect(paths).toContain(path);
-    expect(result.migrationReport.find(item => item.sourcePath === '/graphs/0/edges/0')?.summary).toContain('需人工補正，保留原始返回描述');
+    for (const path of ['/graphs/0', '/graphs/0/edges/0', '/graphs/0/nodes/0']) expect(paths).toContain(path);
+    const source = JSON.parse(text);
+    const nodeSummary = result.migrationReport.find(item => item.sourcePath === '/graphs/0/nodes/0')!.summary;
+    for (const field of ['attachments', 'external', 'business', 'forms']) {
+      expect(nodeSummary).toContain(`${field}（JSON 長度 ${JSON.stringify(source.graphs[0].nodes[0][field]).length}）`);
+    }
+    const edgeSummary = result.migrationReport.find(item => item.sourcePath === '/graphs/0/edges/0')!.summary;
+    expect(edgeSummary).toContain('return 邊');
+    expect(edgeSummary).toContain(`reason（JSON 長度 ${JSON.stringify(source.graphs[0].edges[0].reason).length}）`);
+    expect(edgeSummary).not.toContain(source.graphs[0].edges[0].reason);
+    expect(result.candidate.value).toEqual(source);
+    expect(paths.filter(path => path.startsWith('/graphs/0/edges/0'))).toEqual(['/graphs/0/edges/0']);
     expect(result.migrationReport.every(item => item.summary && item.suggestedAction)).toBe(true);
+  });
+  it('通用 A 文件的 200 個節點按單元報告，保留所有內容類別且不超過整合包上限', () => {
+    const nodes = Array.from({ length: 200 }, (_, i) => ({
+      id: `node-${i}`, business: { description: 'generic text '.repeat(200) },
+      attachments: [{ path: 'guide.txt' }], external: { document: 'reference.json', nodeId: 'remote' },
+      forms: ['a', 'b'].map(id => ({ id, fields: [{ id: 'field', type: 'text' }] })),
+    }));
+    const edges = nodes.map(node => ({ id: `edge-${node.id}`, kind: 'return', source: node.id, target: node.id, reason: 'generic return description' }));
+    const source = { format: 'aov', schemaVersion: '1.2', documentType: 'workflow', project: { id: 'project', name: 'Generic' }, rootGraphId: 'main', graphs: [{ id: 'main', nodes, edges, description: 'generic graph text' }, { id: 'empty', nodes: [], edges: [] }], layout: {}, extension: { note: 'generic extension' } };
+    const text = JSON.stringify(source);
+    const result = prepareImport(text, source);
+    if (!result.ok) throw new Error('預期通過');
+    expect(result).toEqual(prepareImport(text, source));
+    expect(source).toEqual(JSON.parse(text));
+    expect(result.originalText).toBe(text);
+    expect(result.candidate.value).toEqual(source);
+    const report = result.migrationReport;
+    expect(report.length).toBeLessThanOrEqual(1000);
+    expect(report).toHaveLength(1 + 4 + 2 + nodes.length + edges.length);
+    expect(report.find(item => item.sourcePath === '/graphs/0')?.summary).toContain('節點 200、邊 200');
+    expect(report.find(item => item.sourcePath === '/graphs/1')?.summary).toContain('節點 0、邊 0');
+    expect(report.some(item => item.sourcePath === '/extension')).toBe(true);
+    nodes.forEach((node, i) => {
+      const entries = report.filter(item => item.sourcePath === `/graphs/0/nodes/${i}`);
+      expect(entries).toHaveLength(1);
+      for (const field of ['business', 'attachments', 'external', 'forms'] as const) {
+        expect(entries[0].summary).toContain(`${field}（JSON 長度 ${JSON.stringify(node[field]).length}）`);
+      }
+      const returns = report.filter(item => item.sourcePath === `/graphs/0/edges/${i}`);
+      expect(returns).toHaveLength(1);
+      expect(returns[0].summary).toContain('return 邊');
+    });
+    expect(new Set(report.map(item => item.sourcePath)).size).toBe(report.length);
+    for (const item of report) {
+      expect(item.summary.length).toBeLessThanOrEqual(2000);
+      expect(item.summary).not.toContain('generic');
+      expect(item.suggestedAction).toBeTruthy();
+    }
   });
   it('B 多表單動作拆分有報告，表單原樣保留；缺 subject 與單位明確阻擋 FormDef', () => {
     const text = fixture('migration/platform-multiple-forms.json');
@@ -132,8 +180,11 @@ describe('WP3 明確欄位映射', () => {
   });
   it.each(['integer', 'decimal'])('%s 缺單位或空白單位必須阻擋，明確無單位才接受', type => {
     for (const unit of [undefined, '', '  ']) expect(mapFieldType(type, unit)).toMatchObject({ ok: false, reason: '缺單位' });
-    expect(mapFieldType(type, '無單位')).toEqual({ ok: true, aovType: 'number', unit: '無單位', migrationReport: [] });
-    expect(mapFieldType(type, 'kg')).toMatchObject({ ok: true, aovType: 'number' });
+    for (const unit of ['無單位', ' 無單位 ', 'none', { unit: '無單位', quantity: false }, { unit: 'none', quantity: false }]) {
+      expect(mapFieldType(type, unit)).toEqual({ ok: true, aovType: 'number', migrationReport: [] });
+      expect(mapFieldType(type, unit)).not.toHaveProperty('unit');
+    }
+    expect(mapFieldType(type, 'kg')).toMatchObject({ ok: true, aovType: 'number', unit: 'kg' });
   });
   it('decimal 僅在指定單位且明確用於數量時轉 quantity，不修改輸入且結果決定性', () => {
     const selection = { unit: 'kg', quantity: true }; const before = structuredClone(selection);
@@ -142,6 +193,7 @@ describe('WP3 明確欄位映射', () => {
     expect(selection).toEqual(before);
     expect(mapFieldType('integer', selection)).toMatchObject({ ok: true, aovType: 'number' });
     expect(mapFieldType('decimal', { unit: '無單位', quantity: true }).ok).toBe(false);
+    expect(mapFieldType('decimal', { unit: 'none', quantity: true }).ok).toBe(false);
     expect(mapFieldType('decimal', { unit: 'kg', quantity: false })).toMatchObject({ aovType: 'number' });
   });
   it.each(['enum', 'string[]', 'json', 'unknown'])('B 沒有 %s，不推測或降成文字', type => expect(mapFieldType(type).ok).toBe(false));

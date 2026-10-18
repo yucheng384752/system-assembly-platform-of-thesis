@@ -2,7 +2,7 @@
 id: "20261015-aov-merge-contract"
 title: "三代 AOV 合併：整合包契約與格式轉接（M02、M04）"
 status: "in_progress"
-owner: "codex"
+owner: "claude"
 reviewer: "claude"
 priority: "normal"
 created_by: "claude"
@@ -165,6 +165,26 @@ artifacts:
 - 限制：本輪是格式轉接候選 API，未接 UI 或狀態替換；A 報告可能較長，未自動包成有 1000 項報告上限的整合包。C 仍只驗外殼，不代表可執行。缺 subject／unit 的提示不阻擋保存 B 文件，但禁止將它當成已完成的 FormDef。
 - status 維持 in_progress，owner 改 claude，交由 Claude 審閱 WP3 與重跑沙箱外 security 驗證。
 
+### 2026-10-18 WP3b 完成：R01、R02（含 R04），交 Claude 審閱
+
+- 核對分支 `feature/aov-merge-contract`、HEAD `6e8ebec`；先讀 Claude 審閱 WP3 與 WP3b 派工、實作、測試及 migrationReport schema。本輪只處理指定項目。
+- R01／R04：報告按單元分組，每個 graph 一筆總覽含節點／邊數，每個節點／邊一筆；return 邊只列一次。摘要列直接欄位名與 JSON 序列化字串長度，不貼來源內容；附件、外部引用、自由文字、多表單和未知擴充保留在所屬單元摘要。完整原文與只讀候選仍原樣保留。
+- 報告筆數為 `1 + 文件其他頂層欄位數 + graph 數 + node 數 + edge 數`，不再隨巢狀葉節點數膨脹。新增程式生成的通用文件測試（200 節點、200 return 邊、另含空 graph），結果 407 筆，低於 1000；驗證類別涵蓋、欄位長度、return 無重複、摘要不含原文、決定性及輸入不變。資料僅含通用名稱與測試規模／索引，無來源案例詞彙或數值。
+- R02：明確「無單位」或 `none` 回傳 number 且完全省略 unit；真實單位照原值回傳。decimal 的 quantity 仍須指定真實單位與用途，無單位的 quantity 仍拒絕。保留全部既有測試，調整分組及不產生假單位的斷言，補上字串／物件選項覆蓋。
+- 修改檔案：`libs/aov-integration/migrate.ts`、`libs/aov-integration/migrate.test.ts`、本 thread、`.codex-claude-mailbox/index.md`。未改 schemas、package*.json、kits、config、fixtures 或 UI；未新增依賴、未 git 寫入、未連網或啟動 server。
+
+| 指令 | 最終結果 |
+|---|---|
+| npm.cmd run typecheck | exit 0，通過 |
+| npm.cmd test | exit 1；36 files passed、1 failed；451 tests passed、1 failed、1 skipped（453 total） |
+| npm.cmd run build | exit 0，通過；既有 React Flow use client 忽略與 >500 kB chunk 警告 |
+| git diff --check（唯讀） | 通過 |
+
+- 唯一失敗仍為 `security.test.mjs`：私鑰讀取及 afterAll 暫存清理 EPERM。兩次完整測試留下 `C:/Users/gslab/AppData/Local/Temp/composer-security-g8tVEj`、`C:/Users/gslab/AppData/Local/Temp/composer-security-4pyegb` 清理失敗紀錄；未修改或遮蔽測試，請 Claude 在沙箱外重跑並清理。
+- 唯一略過為 App.test.tsx 既有身分授權測試（尚無身分機制）；未執行 test:kits 或瀏覽器驗證，本輪無 Kit／UI 改動。
+- 限制：407 筆是此通用測試的結果，不代表任意大小文件均可裝入整合包；單元數或欄位名總長極大時仍受既有 1000 筆／2000 字摘要契約限制。本輪沒有截斷或靜默丟棄報告，也沒有調高 schema 上限。
+- status 維持 `in_progress`，owner 設為 `claude`，待審閱與沙箱外 security 驗證。
+
 # Open Questions
 
 - 第 1、2、4、5、6 項已決定（D95–D97）；第 3 項（M05 引用 C core 的方式）不影響本 thread，但需決議後才能排 M06 以後。
@@ -229,3 +249,19 @@ R01 已處理（D102，提交 bdd62d5）：`sha256Hex` 移到 `libs/aov-integrat
 1. A 文件報告改為按單元分組：每個 graph 一筆總覽（節點數、邊數）、每個有無法對應內容的節點或邊各一筆（同一單元的欄位合併成一筆，摘要列出欄位名與長度，不貼整份內容）、每條 `return` 邊一筆（保留原始描述的必要欄位）。整份報告筆數須有上界且遠小於 1000：另加測試，用程式產生 200 個節點的通用 A 文件，驗證報告筆數不超過 1000，且 `return` 邊、附件、外部引用、自由文字仍都有對應項目。
 2. `mapFieldType`：明確「無單位」時回傳 number，不含 `unit` 欄位；有單位仍回傳該單位；quantity 規則不變。修改對應測試斷言（意圖是「不產生假單位」），不得刪除測試。
 3. 既有測試意圖其餘不變；不新增依賴；仍不得修改 schema（若必須調高 1000 上限，停止並寫明，不自行改）。
+
+## 2026-10-18 Claude 審閱 WP3b（修正 R01、R02、R04）
+
+- Codex 任務 task-mvdur7qo-7bah0d 為 completed（3 分 6 秒）；以下為我獨立驗證。
+- 重跑：typecheck 通過；`npm.cmd test` 37 個檔案、452 通過、0 失敗、1 略過（既有身分授權）；build 通過。只改了 `migrate.ts` 與 `migrate.test.ts`，未動 schema、依賴、其他檔案；專有詞彙搜尋命中為零。
+- R01、R04 已修正：報告改為按單元分組（非葉節點）；200 節點、200 條 return 邊的通用文件產生 1 + 4 + 2 + 200 + 200 筆，遠低於 1000；測試逐一確認每個節點單筆報告列出 business、attachments、external、forms 四類欄位，每條 return 邊單筆，sourcePath 無重複，摘要不超過 2000 字。
+- R02 已修正：明確「無單位」時回傳 number 且不含 `unit`；quantity 搭配無單位仍阻擋；測試斷言由假單位改為不含 unit，沒有刪除測試。
+
+### 新的低度發現（不阻擋）
+
+| 編號 | 內容 | 處理 |
+|---|---|---|
+| R06 | 報告摘要只列欄位名與 JSON 長度，不含 return 邊的 `reason` 原文，測試甚至斷言摘要不含原文。我派工寫的是「保留原始描述的必要欄位」，Codex 解讀為原文留在原檔與 `originalText`。原文確實未遺失，但人工遷移時還要回原檔找 | 接受；若實務上不便，再在 return 項目加入截斷的 reason |
+| R07 | `none` 也被當成「無單位」標記，派工與 D97 只規定「無單位」，這是未被要求的別名；一個真的叫 `none` 的單位會被誤判 | 低風險，記錄；下次動到此函式時移除 |
+
+結論：WP3 通過，R01、R02、R04 關閉；R06、R07 為低度待辦。

@@ -69,16 +69,24 @@ export function detectSource(text: string): Detection {
 
 function legacyReport(value: Record<string, unknown>): MigrationReport {
   const report: MigrationReport = [{ sourcePath: '/', summary: '舊格式僅供只讀保存，未轉換為平台文件。', suggestedAction: '保留原檔，逐項人工遷移；自由文字不作為可執行規則。' }];
-  function visit(value: unknown, path: string) {
-    if (record(value) && value.kind === 'return') report.push({ sourcePath: path, summary: `return 邊：${JSON.stringify(value).slice(0, 1900)}`, suggestedAction: '原始描述保留於原檔；人工確認返回／重工邊界，不自動轉為順序邊。' });
-    if (value !== null && typeof value === 'object' && Object.keys(value).length) {
-      for (const [key, child] of Object.entries(value)) visit(child, `${path}/${pointer(key)}`);
-    } else if (value !== '' && value !== null) {
-      // Enumerate every payload leaf, including unknown extensions, so attachments and forms cannot disappear.
-      report.push({ sourcePath: path, summary: `未轉換的原始內容：${JSON.stringify(value).slice(0, 1900)}`, suggestedAction: '依來源位置檢視保留的原檔，人工遷移此項內容；不推測其語意。' });
-    }
+  function addUnit(value: unknown, path: string, prefix = '未轉換的原始內容') {
+    const fields = record(value) ? Object.entries(value) : [['內容', value]];
+    const summary = fields.map(([key, child]) => `${key}（JSON 長度 ${JSON.stringify(child).length}）`).join('、');
+    const isReturn = record(value) && value.kind === 'return';
+    report.push({ sourcePath: path, summary: `${isReturn ? 'return 邊' : prefix}：${summary}`, suggestedAction: isReturn
+      ? '原始描述保留於原檔；人工確認返回／重工邊界，不自動轉為順序邊。'
+      : '依來源位置檢視保留的原檔，人工遷移此項內容；不推測其語意。' });
   }
-  for (const [key, child] of Object.entries(value)) if (!['format', 'schemaVersion', 'documentType'].includes(key)) visit(child, `/${pointer(key)}`);
+  for (const [key, child] of Object.entries(value)) if (!['format', 'schemaVersion', 'documentType', 'graphs'].includes(key)) addUnit(child, `/${pointer(key)}`);
+  // Detection has checked graph, node and edge shapes; nested payloads stay in their owning unit.
+  for (const [i, graph] of (value.graphs as Record<string, unknown>[]).entries()) {
+    const { nodes, edges, ...metadata } = graph;
+    const nodeList = nodes as Record<string, unknown>[];
+    const edgeList = edges as Record<string, unknown>[];
+    addUnit(metadata, `/graphs/${i}`, `圖形總覽（節點 ${nodeList.length}、邊 ${edgeList.length}）`);
+    nodeList.forEach((node, j) => addUnit(node, `/graphs/${i}/nodes/${j}`));
+    edgeList.forEach((edge, j) => addUnit(edge, `/graphs/${i}/edges/${j}`));
+  }
   return report;
 }
 
@@ -116,6 +124,8 @@ export function mapFieldType(type: string, unit?: UnitSelection): FieldMapping {
   const name = typeof unit === 'string' ? unit : unit?.unit;
   if (!name?.trim()) return blocked('缺單位');
   const quantity = type === 'decimal' && typeof unit === 'object' && unit.quantity;
-  if (quantity && name.trim() === '無單位') return blocked('數量必須指定單位。');
+  const noUnit = name.trim() === '無單位' || name.trim() === 'none';
+  if (quantity && noUnit) return blocked('數量必須指定單位。');
+  if (noUnit) return { ok: true, aovType: 'number', migrationReport };
   return { ok: true, aovType: quantity ? 'quantity' : 'number', unit: name, migrationReport };
 }
