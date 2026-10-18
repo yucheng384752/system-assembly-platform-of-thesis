@@ -2,11 +2,12 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from './Icons';
 
 export interface StepInfo { number: string; title: string; lead: string; hint: string }
-// The Workflow is the configuration entry point and every step is required (D17, D30).
+// The Workflow is the configuration entry point and every step is required (D17, D30); 03 參數設定 was added in D-A2.
 export const steps: StepInfo[] = [
   { number: '01', title: '流程畫布', lead: '建立節點、標準表單與關聯，設定先後順序及子流程。', hint: '請使用職務名稱，勿填個資。' },
   { number: '02', title: '功能選配', lead: '確認流程所需功能，調整其他選配與畫面設定。', hint: '目前為設定與模擬預覽。' },
-  { number: '03', title: '輸出', lead: '把設定打包成設定交付包，交付時只需要這一個檔案。', hint: '個別的流程規格與系統設定檔放在「進階」，用來重新載入設定。' },
+  { number: '03', title: '參數設定', lead: '調整各功能的初始參數，例如表格欄位顯示、預填值與報警門檻。', hint: '參數有範圍限制；場域鎖定的項目不能修改。' },
+  { number: '04', title: '輸出', lead: '把設定打包成設定交付包，交付時只需要這一個檔案。', hint: '個別的流程規格與系統設定檔放在「進階」，用來重新載入設定。' },
 ];
 // stepError: a non-empty message blocks confirming that step until the content is fixed.
 export function StepShell({ renderStep, stepError = () => '' }: { renderStep: (step: number) => ReactNode; stepError?: (step: number) => string }) {

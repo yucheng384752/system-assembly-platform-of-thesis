@@ -4,6 +4,7 @@ import { flows, selectKits } from './catalog';
 import { catalog } from './previewCatalog';
 import { StepShell } from './StepShell';
 import { FlowPage } from './FlowPage';
+import { ParamsPage } from './ParamsPage';
 import { actionCatalog } from './workflow';
 import { OutputPage } from './OutputPage';
 import { siteError, type SiteSession } from './siteSession';
@@ -41,7 +42,7 @@ export function App() {
   const conflict = siteError(recipe, catalog, site);
   const workflowProblems = [...integrityErrors(graph), ...graphErrors(graph)];
   const stepError = (step: number) => [
-    workflowProblems[0], conflict,
+    workflowProblems[0], conflict, conflict,
     conflict || (!recipe.clientName?.trim() ? '請填寫客戶代稱。' : workflowProblems.length ? `流程規格尚未完成：${workflowProblems[0]}` : ''),
   ][step] ?? '';
   // The step flow stays mounted (only hidden) so switching pages never loses the confirmed steps.
@@ -49,6 +50,7 @@ export function App() {
     : step === 1 ? <FlowPage graph={graph} derived={derived} site={site?.site} recipe={recipe} onChange={setRecipe} requested={requested} manual={manual} session={session} onSelect={(nextFlows, nextKits) => {
       setRequested(nextFlows); setManual(nextKits);
     }} />
+      : step === 2 ? <ParamsPage site={site?.site} recipe={recipe} onChange={setRecipe} session={session} />
       : <OutputPage site={site} siteConflict={conflict} onSiteChange={next => {
         setSite(next);
         setRecipe(previous => { const { siteRef: _siteRef, ...rest } = previous; return next ? { ...rest, siteRef: { path: 'site.profile.json', sha256: next.sha256 } } : rest; });

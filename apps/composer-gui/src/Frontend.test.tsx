@@ -19,8 +19,10 @@ test('real flows select prerequisites and render both real Kit previews', () => 
   expect(document.getElementById(prerequisite.getAttribute('aria-describedby')!)?.textContent).toBe('其他流程需要');
   fireEvent.click(screen.getByRole('tab', { name: '查詢與追溯' }));
   expect(screen.getByRole('table', { name: '查詢結果範例' })).toBeTruthy();
-  // Configurator: a setting in the side column updates the live preview column.
-  fireEvent.change(within(screen.getByRole('region', { name: /調整/ })).getByLabelText('批號的名稱'), { target: { value: '自訂批次' } });
+  // Configurator (step 03, D-A2): a setting in the side column updates the live preview column.
+  fireEvent.click(screen.getByRole('button', { name: /03 參數設定/ }));
+  fireEvent.click(screen.getByRole('tab', { name: '查詢與追溯' }));
+  fireEvent.change(within(screen.getByRole('region', { name: /參數設定/ })).getByLabelText('批號的名稱'), { target: { value: '自訂批次' } });
   expect(within(screen.getByRole('region', { name: '即時預覽' })).getByRole('columnheader', { name: '自訂批次' })).toBeTruthy();
   fireEvent.click(screen.getByRole('tab', { name: '檔案上傳與驗證' }));
   expect(screen.getByRole('table', { name: '驗證錯誤範例' })).toBeTruthy();
