@@ -2,7 +2,7 @@
 id: "20261015-aov-merge-contract"
 title: "三代 AOV 合併：整合包契約與格式轉接（M02、M04）"
 status: "in_progress"
-owner: "claude"
+owner: "codex"
 reviewer: "claude"
 priority: "normal"
 created_by: "claude"
@@ -151,3 +151,21 @@ artifacts:
 | R04 | 資訊 | 測試放在 libs，另由 `apps/composer-gui/src/aovBundle.test.ts` 以 import 轉進，因 vitest 的根目錄是 apps/composer-gui | 屬環境限制，已有註解說明 |
 
 結論：WP2 通過，無阻擋項目。WP3（B 側格式轉接與遷移報告）尚未派工，等 user 指示。
+
+## 2026-10-18 派工 WP3（Claude）
+
+R01 已處理（D102，提交 bdd62d5）：`sha256Hex` 移到 `libs/aov-integration/hash.ts`、動作目錄自行解析；`workflow.ts` 重新匯出 `sha256Hex`。typecheck 通過、403 測試通過。
+
+**預計完成時間：2026-10-19 06:00（約 8 小時）。** 到期未完成由 Claude 接手。
+
+### WP3 範圍釐清（避免停止）
+
+1. **位置：** 新增 `libs/aov-integration/migrate.ts` 與測試；遵守 D102：值層級依賴不得指向 apps，唯一例外是呼叫 B 既有的 `importWorkflow`（升級 version 1 至 5 並產生通知），型別一律 `import type`。不修改 `workflowGraph.ts` 既有升級路徑。
+2. **格式辨識：** `detectSource(text)` 回傳來源種類（platform、aov-workflow、aov-dataflow、aov-project、aov-library）與版本，或拒絕。拒絕必須區分三種原因：`unknown-format`、`unknown-version`、`broken-structure`（盤點發現 7：目前 `importWorkflow` 對後兩者訊息相同，請在呼叫前先自行判別，不改 `importWorkflow`）。辨識看 format 與版本欄位組合，不只看數字。A 格式：`format` 為 `aov` 且 `schemaVersion` 為 `1.0`、`1.1`、`1.2`（1.1 有 `documentType`）；C 專案看 `formatVersion` 為 1；C 動作庫另看 `kind` 為 `action-library`。
+3. **A 格式只做辨識與報告，不轉成平台文件**（D97：無法轉換的第一代舊格式只讀保存原檔）。報告要逐項列出：return 邊（原始描述保留）、附件、外部引用、自由文字、多表單資料等無法對應的內容，每項含來源位置、內容摘要、建議處理，結構與整合包的 `migrationReport` 一致（`sourcePath`、`summary`、`suggestedAction`）。你讀不到 A 的程式碼，請以 `fixtures/aov-merge/a/` 的樣本為準；樣本中沒有的情形（例如附件）可自造通用最小樣本放 `fixtures/aov-merge/migration/`，不得含任何來源案例詞彙或數值。
+4. **B 舊版升級：** 呼叫 `importWorkflow`，把它的通知逐項轉成遷移報告項目；無損失時報告仍存在且為空陣列。
+5. **C 專案與動作庫：** 只辨識與外殼檢查（沿用 `libs/aov-integration/index.ts` 對外殼的規則），不引用 C 程式碼。
+6. **表單欄位型別映射（D97、計畫書 10.3）：** `mapFieldType(type, unit)`：text 轉 string、boolean 轉 bool、date 轉 datetime 並固定回報「僅日期，無時間」、integer 與 decimal 轉 number，單位須由使用者指定或明確標「無單位」，兩者皆無則該欄位被阻擋並說明「缺單位」；decimal 只在使用者指定單位且用於數量時才可轉 quantity。B 沒有的型別不推測。
+7. **匯入原子性（R02）：** 提供 `prepareImport(text, currentDraft)`，只回傳候選物件或錯誤，不修改傳入草稿；在每一條失敗路徑的測試中驗證草稿與呼叫前深度相等。
+8. **決定性：** 同一輸入重複轉換結果完全相同；輸入物件不被修改。
+9. 停止條件與驗證指令沿用上方；只有必須改既有 schema、既有測試意圖、新增依賴時才停止，其餘衝突以既有模型為準、調整自己的實作並記錄。
