@@ -7,7 +7,7 @@ reviewer: "claude"
 priority: "normal"
 created_by: "claude"
 created_at: "2026-10-15"
-updated_at: "2026-10-15"
+updated_at: "2026-10-18"
 role_priority:
   implementation: "codex (WP2、WP3) / claude (WP1、審閱、git)"
   review: "claude"
@@ -46,7 +46,7 @@ artifacts:
 
 ## 派工給 Codex
 
-**預計完成時間：WP2 為開工後次日 12:00（約 4 小時）；WP3 為 WP2 完成後次日 18:00（約 6 小時）。** 以計畫書第 13 節日期為準，起算點為開工條件全部滿足當日。到期未完成由 Claude 接手。Codex 只寫程式與資料，不執行 git、不連網、不啟動伺服器；cwd 必須是專案根目錄。
+**預計完成時間：WP2 為 2026-10-18 12:00（約 8 小時，含額度緩衝）；WP3 待 WP2 審閱後另訂。** 以計畫書第 13 節日期為準，起算點為開工條件全部滿足當日。到期未完成由 Claude 接手。Codex 只寫程式與資料，不執行 git、不連網、不啟動伺服器；cwd 必須是專案根目錄。
 
 ### WP2 整合包 schema 與驗證（先做）
 
@@ -58,6 +58,17 @@ artifacts:
    - manifest 含絕對路徑、`..` 或不安全檔名時拒絕。
    - 內容含 `secret_ref` 以外的疑似秘密值欄位（連線字串、密碼）時拒絕。
    - 失敗時傳入的目前草稿物件與呼叫前深度相等。
+
+### 2026-10-18 Claude 補充（派工前釐清，避免停止）
+
+本輪只派 **WP2**，WP3 待 WP2 審閱後再派。
+
+1. **不得引用 C（aov-project）程式碼。** C 在專案根目錄之外，且 M05 的引用方式尚未決議。整合包 schema 中，`aov` 欄位（C 的專案檔）與 `libraries` 內的動作庫只做外殼層驗證：`aov` 必須是物件且 `formatVersion` 為 1、有 `meta`（id、name、version、status）、`nodes` 與 `flows` 為陣列；動作庫必須 `formatVersion` 為 1、`kind` 為 `action-library`、有 `meta` 與陣列 `actions`。更細的結構檢查由 C 的 `checkProjectShape`／`checkLibraryShape` 在使用時負責（D98），本 schema 不重複。
+2. **bindings 欄位形狀**：依計畫書 10.2 的表格自行定義最小可用結構（例如 nodes 為 `{platformNodeId, aovNodeId}` 陣列、forms 為 `{sourceFormId, sourceVersion, aovFormId, fields:[{sourceFieldId, aovFieldId, aovType, unit?}]}`），並把最終形狀記在 Codex Notes。細節與本說明不同時以可通過 fixtures 與測試為準，不必停止。
+3. **平台文件 `platform`**：內嵌 B 的 v5 文件，可用 `$ref` 或在驗證入口先呼叫既有 `schemas.aov` 驗證；兩者擇一並記錄。
+4. **fixtures**：`fixtures/aov-merge/` 已備好（b 側已改為去識別化範例情境，a／c 各有合法、未知版本、損壞樣本）。測試請用這些檔案組成整合包，不要自編含專有名詞的資料；整合包測試資料請放在 `fixtures/aov-merge/bundle/`。
+5. **checksum**：沿用 `apps/composer-gui/src/workflow.ts` 的 `sha256Hex`；正規化 JSON 為遞迴鍵排序後序列化，由驗證入口導出，不新增依賴。
+6. 本 thread 的停止條件仍適用；只有必須改既有 schema、既有測試意圖、新增依賴時才停止。
 
 ### WP3 B 側格式轉接與遷移報告
 
