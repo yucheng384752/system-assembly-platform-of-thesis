@@ -1,8 +1,8 @@
 ---
 id: "20261016-example-scenario"
 title: "去識別化系統使用範例：輸入提示、載入範例按鈕與整合樣本"
-status: "in_progress"
-owner: "claude"
+status: "completed"
+owner: "user"
 reviewer: "claude"
 priority: "normal"
 created_by: "claude"
@@ -79,7 +79,7 @@ artifacts:
 - 專有詞彙搜尋（本機清單）：新增與改動的檔案命中為零；無任何數值。
 - 對照 `docs/example-scenario.md`：6 節點、5 表單、4 條批號關聯、欄位名稱與型別逐項相符；領料節點無表單。載入只新增、清除用頁內確認、開關狀態僅存 localStorage（try/catch），皆符合。
 - 發現：F1（低）NodeForm 欄位序號由 span 改 label，屬為提示輸入框補可見標籤的範圍外調整，接受；F2（低）以 `example-` 前綴辨識範例，使用者自訂 id 同前綴會誤判，機率低，暫不處理；F3 對比度、鍵盤與畫面位置需瀏覽器確認。
-- **瀏覽器實測未完成：** Chrome 對本機 dev server（5199、5200）三次皆 ERR_CONNECTION_REFUSED，已停止嘗試。待 user 於本機執行 `npm.cmd run dev` 後補驗：提示可見與關閉、載入、清除、匯出再匯入。
+- 瀏覽器實測：2026-10-19 補驗完成，見下方「瀏覽器實測（補驗）」；先前因 `127.0.0.1` 連線被拒而未完成。
 - 結論：自動化檢查通過，先提交；瀏覽器驗證列為待補，不宣稱已完成。
 
 ## WP4（Claude）
@@ -142,3 +142,21 @@ artifacts:
 - 最終檔案：新增 exampleHints.ts、exampleHints.test.ts、ExampleHintSettings.tsx、ExampleHintSettings.test.tsx、ExampleScenario.test.tsx；修改 FactoryPage.tsx、NodeDetails.tsx、NodeForm.tsx、WorkflowCanvas.tsx；更新本 thread 與 index。程式／測試皆在 apps/composer-gui/src/。新增 11 項測試全部通過；git diff --check 通過（僅換行提示）。
 - 未改 schemas/、config/、libs/ui-runtime/、kits/、package*.json、既有模型或既有測試；未執行 git 寫入、連網、啟動伺服器或新增依賴。UI 沿用既有控制項、樣式與 44px 標籤；未新增製程名詞、製程數值、樣本資料列或數值驗證規則。
 - 尚待 Claude WP4：真實瀏覽器可見性／對比度／鍵盤操作、來源專有詞彙本機清單掃描、整合 fixtures 與沙箱外標準 build／security 驗證；上列四個本次 security 暫存目錄可能含測試金鑰，須在有權限環境清理。WP1–WP3 實作完成，status 維持 in_progress、owner=claude，不宣稱 WP4 或整體功能驗收完成。
+
+## 2026-10-19 Claude 瀏覽器實測（補驗）
+
+環境：Vite dev server 綁定所有網卡（`--host 0.0.0.0 --port 5201`），Chrome 以 `localhost:5201` 連線；先前以 `127.0.0.1` 連線被拒，改用 `localhost` 後可用。分支 `feature/aov-merge-contract`（含本功能）。
+
+| 項目 | 結果 |
+|---|---|
+| 提示可見 | 流程頁有「顯示填寫提示」開關，工廠名稱輸入框顯示「例：第一廠」 |
+| 載入範例 | 建立「第一廠（範例）」與「配料混合產線（範例）」；載入鈕停用、清除鈕啟用；狀態播報「已載入範例。」；焦點移到範例工廠名稱 |
+| 範例內容 | 開啟後 8 個節點（開始、6 個業務節點、結束）、7 條邊；「配料」節點的表單為「配料紀錄」，含批號、原料 A、原料 B 三欄 |
+| 節點提示 | 名稱、時機、負責職務、表單名稱、欄位名稱皆有「例：…」提示 |
+| 提示開關 | 關閉後 placeholder 變空、localStorage 為 false；重新開啟後復原、為 true |
+| 對比度 | 提示文字 rgb(117,117,117) 對白色底，對比 4.61:1，達 4.5:1 |
+| 與使用者資料並存 | 載入範例後另建「我的工廠」，兩者並存 |
+| 清除範例 | 頁內確認區列出工廠、流程、6 個節點、5 張表單、4 條關聯，並說明使用者在範例內的修改也會清除；焦點在確認區；確認後只剩「我的工廠」，載入鈕恢復、清除鈕停用，播報「已清除範例。」，焦點回到載入鈕 |
+| 提示不外洩 | localStorage 僅有開關值，不含提示文字或範例資料 |
+
+未涵蓋：匯出再匯入的瀏覽器實測（單元測試已涵蓋）、鍵盤逐步操作順序、手機寬度版面。工作流程文件在記憶體中，不在 localStorage，因此無法由 localStorage 檢查匯出內容。
