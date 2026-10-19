@@ -3,17 +3,17 @@
   "version": 6,
   "factories": [
     {
-      "id": "factory-1",
-      "name": "A 廠",
+      "id": "example-factory",
+      "name": "第一廠（範例）",
       "logicGraphIds": [
-        "graph-root"
+        "example-graph"
       ]
     }
   ],
   "graphs": [
     {
-      "id": "graph-root",
-      "name": "主流程",
+      "id": "example-graph",
+      "name": "配料混合產線（範例）",
       "nodes": [
         {
           "when": "",
@@ -22,30 +22,74 @@
           "params": {},
           "formId": null,
           "childGraphId": null,
-          "id": "graph-root-start",
+          "id": "example-start",
           "kind": "start",
           "name": "開始"
         },
         {
-          "id": "node-1",
+          "id": "example-node",
           "kind": "node",
-          "name": "收料",
-          "when": "",
-          "owner": "",
+          "name": "開立領料單",
+          "when": "接到生產工單後",
+          "owner": "生管人員",
+          "formId": "example-form",
           "actionId": null,
           "params": {},
-          "formId": "form-1",
           "childGraphId": null
         },
         {
-          "id": "node-2",
+          "id": "example-node-2",
           "kind": "node",
-          "name": "檢驗",
-          "when": "",
-          "owner": "",
+          "name": "領料",
+          "when": "領料單核准後",
+          "owner": "倉管人員",
+          "formId": null,
           "actionId": null,
           "params": {},
-          "formId": "form-2",
+          "childGraphId": null
+        },
+        {
+          "id": "example-node-3",
+          "kind": "node",
+          "name": "配料",
+          "when": "領料完成後",
+          "owner": "現場操作員",
+          "formId": "example-form-2",
+          "actionId": null,
+          "params": {},
+          "childGraphId": null
+        },
+        {
+          "id": "example-node-4",
+          "kind": "node",
+          "name": "混合",
+          "when": "配料完成後",
+          "owner": "現場操作員",
+          "formId": "example-form-3",
+          "actionId": null,
+          "params": {},
+          "childGraphId": null
+        },
+        {
+          "id": "example-node-5",
+          "kind": "node",
+          "name": "品質檢驗",
+          "when": "混合完成後",
+          "owner": "品管人員",
+          "formId": "example-form-4",
+          "actionId": null,
+          "params": {},
+          "childGraphId": null
+        },
+        {
+          "id": "example-node-6",
+          "kind": "node",
+          "name": "包裝入庫",
+          "when": "檢驗合格後",
+          "owner": "現場操作員",
+          "formId": "example-form-5",
+          "actionId": null,
+          "params": {},
           "childGraphId": null
         },
         {
@@ -55,79 +99,279 @@
           "params": {},
           "formId": null,
           "childGraphId": null,
-          "id": "graph-root-end",
+          "id": "example-end",
           "kind": "end",
           "name": "結束"
         }
       ],
       "edges": [
         {
-          "id": "edge-1",
-          "from": "graph-root-start",
-          "to": "node-1"
+          "id": "example-edge",
+          "from": "example-start",
+          "to": "example-node"
         },
         {
-          "id": "edge-2",
-          "from": "node-1",
-          "to": "node-2"
+          "id": "example-edge-2",
+          "from": "example-node",
+          "to": "example-node-2"
         },
         {
-          "id": "edge-3",
-          "from": "node-2",
-          "to": "graph-root-end"
+          "id": "example-edge-3",
+          "from": "example-node-2",
+          "to": "example-node-3"
+        },
+        {
+          "id": "example-edge-4",
+          "from": "example-node-3",
+          "to": "example-node-4"
+        },
+        {
+          "id": "example-edge-5",
+          "from": "example-node-4",
+          "to": "example-node-5"
+        },
+        {
+          "id": "example-edge-6",
+          "from": "example-node-5",
+          "to": "example-node-6"
+        },
+        {
+          "id": "example-edge-7",
+          "from": "example-node-6",
+          "to": "example-end"
         }
       ]
     }
   ],
-  "layout": {},
+  "layout": {
+    "example-graph": {
+      "example-start": {
+        "x": 0,
+        "y": 0
+      },
+      "example-node": {
+        "x": 160,
+        "y": 0
+      },
+      "example-node-2": {
+        "x": 320,
+        "y": 0
+      },
+      "example-node-3": {
+        "x": 480,
+        "y": 0
+      },
+      "example-node-4": {
+        "x": 640,
+        "y": 0
+      },
+      "example-node-5": {
+        "x": 800,
+        "y": 0
+      },
+      "example-node-6": {
+        "x": 960,
+        "y": 0
+      },
+      "example-end": {
+        "x": 1120,
+        "y": 0
+      }
+    }
+  },
   "forms": [
     {
-      "id": "form-1",
-      "name": "收料單",
+      "id": "example-form",
+      "name": "領料單",
       "fields": [
         {
-          "id": "field-1",
+          "id": "example-field",
           "name": "批號",
           "type": "text",
           "required": true,
           "isKey": true
         },
         {
-          "id": "field-2",
-          "name": "數量",
-          "type": "integer",
-          "required": true,
+          "id": "example-field-2",
+          "name": "工單號",
+          "type": "text",
+          "required": false,
           "isKey": false
         },
         {
-          "id": "field-3",
-          "name": "收料日",
+          "id": "example-field-3",
+          "name": "領料數量",
+          "type": "decimal",
+          "required": false,
+          "isKey": false
+        },
+        {
+          "id": "example-field-4",
+          "name": "領料日期",
           "type": "date",
-          "required": true,
+          "required": false,
           "isKey": false
         }
       ]
     },
     {
-      "id": "form-2",
-      "name": "檢驗單",
+      "id": "example-form-2",
+      "name": "配料紀錄",
       "fields": [
         {
-          "id": "field-1",
+          "id": "example-field-5",
           "name": "批號",
           "type": "text",
           "required": true,
           "isKey": true
         },
         {
-          "id": "field-2",
-          "name": "重量",
+          "id": "example-field-6",
+          "name": "原料 A 實際重量",
           "type": "decimal",
+          "required": false,
+          "isKey": false
+        },
+        {
+          "id": "example-field-7",
+          "name": "原料 B 實際重量",
+          "type": "decimal",
+          "required": false,
+          "isKey": false
+        }
+      ]
+    },
+    {
+      "id": "example-form-3",
+      "name": "混合紀錄",
+      "fields": [
+        {
+          "id": "example-field-8",
+          "name": "批號",
+          "type": "text",
           "required": true,
+          "isKey": true
+        },
+        {
+          "id": "example-field-9",
+          "name": "混合時間",
+          "type": "integer",
+          "required": false,
+          "isKey": false
+        },
+        {
+          "id": "example-field-10",
+          "name": "混合完成",
+          "type": "boolean",
+          "required": false,
+          "isKey": false
+        }
+      ]
+    },
+    {
+      "id": "example-form-4",
+      "name": "檢驗紀錄",
+      "fields": [
+        {
+          "id": "example-field-11",
+          "name": "批號",
+          "type": "text",
+          "required": true,
+          "isKey": true
+        },
+        {
+          "id": "example-field-12",
+          "name": "檢驗值",
+          "type": "decimal",
+          "required": false,
+          "isKey": false
+        },
+        {
+          "id": "example-field-13",
+          "name": "檢驗日期",
+          "type": "date",
+          "required": false,
+          "isKey": false
+        }
+      ]
+    },
+    {
+      "id": "example-form-5",
+      "name": "包裝紀錄",
+      "fields": [
+        {
+          "id": "example-field-14",
+          "name": "批號",
+          "type": "text",
+          "required": true,
+          "isKey": true
+        },
+        {
+          "id": "example-field-15",
+          "name": "包裝數量",
+          "type": "integer",
+          "required": false,
           "isKey": false
         }
       ]
     }
   ],
-  "relations": []
+  "relations": [
+    {
+      "id": "example-relation",
+      "kind": "shared-key",
+      "origin": "user",
+      "confirmed": true,
+      "from": {
+        "formId": "example-form",
+        "fieldId": "example-field"
+      },
+      "to": {
+        "formId": "example-form-2",
+        "fieldId": "example-field-5"
+      }
+    },
+    {
+      "id": "example-relation-2",
+      "kind": "shared-key",
+      "origin": "user",
+      "confirmed": true,
+      "from": {
+        "formId": "example-form-2",
+        "fieldId": "example-field-5"
+      },
+      "to": {
+        "formId": "example-form-3",
+        "fieldId": "example-field-8"
+      }
+    },
+    {
+      "id": "example-relation-3",
+      "kind": "shared-key",
+      "origin": "user",
+      "confirmed": true,
+      "from": {
+        "formId": "example-form-3",
+        "fieldId": "example-field-8"
+      },
+      "to": {
+        "formId": "example-form-4",
+        "fieldId": "example-field-11"
+      }
+    },
+    {
+      "id": "example-relation-4",
+      "kind": "shared-key",
+      "origin": "user",
+      "confirmed": true,
+      "from": {
+        "formId": "example-form-4",
+        "fieldId": "example-field-11"
+      },
+      "to": {
+        "formId": "example-form-5",
+        "fieldId": "example-field-14"
+      }
+    }
+  ]
 }

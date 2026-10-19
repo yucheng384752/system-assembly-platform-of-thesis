@@ -1,8 +1,8 @@
 ---
 id: "20261016-example-scenario"
 title: "去識別化系統使用範例：輸入提示、載入範例按鈕與整合樣本"
-status: "waiting_for_user"
-owner: "user"
+status: "in_progress"
+owner: "claude"
 reviewer: "claude"
 priority: "normal"
 created_by: "claude"
@@ -55,6 +55,14 @@ artifacts:
 3. 載入或清除後，焦點與狀態播報須符合 DESIGN.md。
 4. 測試：載入後工廠、六個節點、五張表單、關聯數量正確；已有使用者資料時完全保留；清除後只剩使用者資料；重複載入與重複清除不出錯。
 
+### 2026-10-18 規格釐清（Claude 回覆 Codex 的停止問題，D99 同步更正）
+
+1. **詞彙禁令的範圍：** 禁止的是來源案例的真實公司、產品、原料、設備名稱與全部數值。`docs/example-scenario.md` 第 3、4 節明列的通用代稱（例如「原料 A 實際重量」「原料 B 實際重量」「混合槽」類通用詞）**允許且必須照寫**，兩者不衝突。凡該文件未列出的名詞，一律不得自行新增。
+2. **匯出範圍：** 提示文字與提示開關不進文件、不進匯出；載入後的範例資料已是使用者工作區的一般資料，正常參與匯出與匯入，且須匯出再匯入內容相等。D99 的原句寫得含糊，已更正。
+
+3. **表單所有權（回覆 2026-10-18 第二次停止）：** 你是對的，既有模型一張表單只屬一個節點，不得放寬。範例中「領料」節點**不設表單**（formId 為空），共五張表單、五個節點各一張。`docs/example-scenario.md` 第 3 節已更正。表單關聯為批號到批號的 4 條鏈（領料單、配料紀錄、混合紀錄、檢驗紀錄、包裝紀錄依序），origin 為 user。所有節點 actionId 為空。
+4. 若仍發現範例與既有 `integrityErrors` 或既有測試衝突，以既有模型為準，只改範例資料（不改模型），並在 Codex Notes 記錄調整處，不必停止；只有必須改模型或測試才停止。
+
 ### 停止條件
 
 需要新增依賴、修改 `schemas/`、修改 `config/` 或 `libs/ui-runtime/`、範例需要任何來源案例的資訊才能完成、既有測試意圖無法保留時，停止並在 Codex Notes 寫下問題，不自行變通。每個工作包完成後記錄：做了什麼、變更檔案、測試結果（含略過與失敗）、未解決的事。
@@ -65,12 +73,72 @@ artifacts:
 - `npm.cmd test`
 - `npm.cmd run build`
 
+## 2026-10-18 Claude 審閱 WP1 至 WP3
+
+- 重跑：typecheck 通過；`npm.cmd test` 35 個檔案、334 通過、0 失敗、1 略過（既有身分授權）；build 通過。
+- 專有詞彙搜尋（本機清單）：新增與改動的檔案命中為零；無任何數值。
+- 對照 `docs/example-scenario.md`：6 節點、5 表單、4 條批號關聯、欄位名稱與型別逐項相符；領料節點無表單。載入只新增、清除用頁內確認、開關狀態僅存 localStorage（try/catch），皆符合。
+- 發現：F1（低）NodeForm 欄位序號由 span 改 label，屬為提示輸入框補可見標籤的範圍外調整，接受；F2（低）以 `example-` 前綴辨識範例，使用者自訂 id 同前綴會誤判，機率低，暫不處理；F3 對比度、鍵盤與畫面位置需瀏覽器確認。
+- **瀏覽器實測未完成：** Chrome 對本機 dev server（5199、5200）三次皆 ERR_CONNECTION_REFUSED，已停止嘗試。待 user 於本機執行 `npm.cmd run dev` 後補驗：提示可見與關閉、載入、清除、匯出再匯入。
+- 結論：自動化檢查通過，先提交；瀏覽器驗證列為待補，不宣稱已完成。
+
 ## WP4（Claude）
 
 - 以專有詞彙清單在 repo 內搜尋，結果須為零（清單只留本機）。已知既有測試資料使用過產業用語，不屬本功能，另行處理。
 - 瀏覽器實際操作：提示可見與關閉、載入、清除、匯出再匯入。
-- 以範例匯出重做 `fixtures/aov-merge/b/` 的 v5 樣本，v1 至 v4 改以同一情境表達。
+- 以範例匯出重做 `fixtures/aov-merge/b/` 的 v5 樣本，v1 至 v4 改以同一情境表達。**已完成（2026-10-18）：** v5 由 `loadExample` 產生，v1 至 v4 為同情境舊格式；以 `importWorkflow` 驗證全部升為 v5，詞彙搜尋為零。
 
 ## Codex Notes
 
 （Codex 在此續寫）
+
+### 2026-10-18：WP2 完成
+
+- 新增 ExampleHintSettings.tsx、ExampleHintSettings.test.tsx；修改 FactoryPage.tsx、NodeDetails.tsx、NodeForm.tsx、WorkflowCanvas.tsx。可見且原生鍵盤可操作的「顯示填寫提示」開關放在共用工具列，狀態獨立於文件，localStorage 讀寫皆 try/catch，讀取失敗預設顯示，寫入失敗仍適用本次工作階段。
+- 所有指定輸入位置從 exampleHints.ts 取提示；關閉時移除 placeholder；數值動作參數只顯示「依貴廠規格填寫」。保留可見標籤，欄位名稱的既有可見文字改為對應 input 的 label。工廠／畫布兩種畫面的匯入工具維持相同掛載位置。
+- 三項新增測試通過：各提示開關、輸入值與 exportAovGraph 不變、重新掛載讀取偏好、數值參數提示與 localStorage 讀寫拋錯。既有測試未修改。
+- npm.cmd run typecheck：exit 0。npm.cmd test：exit 1，328 passed、1 failed、1 skipped；33 檔通過、1 檔失敗。既有 security.test.mjs 簽章／清理 EPERM，待本機清理 C:\Users\gslab\AppData\Local\Temp\composer-security-p7OvSH，未讀取金鑰。
+- npm.cmd run build：exit 1，仍為 esbuild 讀取上層目錄 Access is denied；額外 npm.cmd run build -- --configLoader native：exit 0，保留既有 use client／chunk 大小警告。未修改設定或依賴；真實瀏覽器可見性與鍵盤驗證留 WP4。
+
+### 2026-10-18：WP1 完成（HEAD 2cb936a 續作）
+
+- 已重讀指定四份文件、前兩輪 Notes 與規格釐清 1–4；唯讀確認 feature/example-scenario、HEAD 2cb936a，開工工作樹乾淨。
+- 新增 apps/composer-gui/src/exampleHints.ts 與 exampleHints.test.ts：集中提示與範例生成，六個業務節點、五張表單、四條 user/shared-key 批號關聯，領料不設表單、所有 actionId 為 null。依現有模型另帶開始／結束節點與連線、版面座標（系統結構，非製程數值）；未改模型或既有測試。
+- 載入只追加，所有新 id 為 example- 前綴，跨既有識別碼空間避碰；已有範例工廠時不重複載入。先檢查工廠、圖、表單、關聯容量，並檢查新增節點與生產邏輯上限及合併後 integrityErrors。
+- 三項新增測試通過：空文件／既有完整文件皆通過 schema、integrityErrors 與匯出再匯入內容相等；既有資料保持不變、識別碼避碰、重複載入、上限失敗不改原文件。
+- npm.cmd run typecheck：通過（exit 0）。npm.cmd test：exit 1，325 passed、1 failed、1 skipped；32 檔通過、1 檔失敗。失敗為既有 security.test.mjs 簽章私鑰讀取 EPERM，afterAll 清理亦 EPERM；未遮蔽或修改測試。待本機清理 C:\Users\gslab\AppData\Local\Temp\composer-security-9dzCEB，未讀取金鑰內容。
+- npm.cmd run build：exit 1，esbuild 讀取 ../.. Access is denied，無法載入 vite.config.ts。額外 npm.cmd run build -- --configLoader native：通過（exit 0），保留既有 use client／chunk 大小警告；未更動設定或依賴。瀏覽器與來源詞彙清單驗證留 WP4。
+
+### 2026-10-18：規格核對後依停止條件交回
+
+- 已完整閱讀 CLAUDE.md、DESIGN.md、docs/example-scenario.md、本 thread，並閱讀 decision-log.md 的 D99。唯讀 git status 確認分支為 feature/example-scenario，開工前工作樹乾淨；未執行任何 git 寫入、連網或啟動伺服器。
+- 阻擋：本次 user 要求範例內容逐字遵守第 3、4 節，同時禁止任何原料名稱；該兩節卻明定「原料 A 實際重量」與「原料 B 實際重量」。需確認禁令是否只針對來源案例的真實名稱，允許文件明列的通用代稱。未擅自刪除、改名或放寬禁令。
+- 另需釐清：D99 記載「提示與範例不進匯出文件」，但文件第 5、6 節及 WP1 要求範例文件可匯出再匯入且內容相等。請明定載入後的範例資料是否正常參與匯出，只有提示及開關不匯出。
+- WP1：尚未實作；資料字串限制待釐清，沒有新增 exampleHints.ts 或測試。
+- WP2：尚未實作；欄位提示涉及同一字串衝突，未修改元件或儲存狀態。
+- WP3：尚未實作；依賴 WP1，未修改載入或清除操作。
+- 驗證：npm.cmd run typecheck、npm.cmd test、npm.cmd run build 全部略過（在實作前觸發停止條件，沒有程式變更）；沒有已執行的測試失敗或通過結果。瀏覽器驗證與來源詞彙清單檢查未執行，仍屬 Claude 的 WP4。
+- 本次僅變更本 thread 與 mailbox index；依 user 指示維持 status=in_progress、owner=claude。WP1 至 WP3 均未完成，等待釐清後續作。
+
+### 2026-10-18：釐清後續作，發現既有表單所有權限制
+
+- 已重讀本 thread（含前次 Notes 與 Claude 規格釐清）、CLAUDE.md、DESIGN.md、docs/example-scenario.md；接受兩項釐清，不再將通用代稱或匯出視為阻擋。唯讀確認分支 feature/example-scenario、HEAD 5cb25fd、開工工作樹乾淨。
+- WP1 尚未完成：文件第 3 節要求「開立領料單」使用「領料單」，「領料」沿用同一張表單，合計五張表單。但 workflowGraph.ts 的 integrityErrors 明確拒絕一張表單由多個節點引用（owners 計數檢查）；workflowGraph.test.ts:87 已有「同一張表單屬於兩個節點」必須被拒絕的測試。現有 GraphNode 只有 formId 所有權，沒有另一種沿用表單的引用欄位。
+- 因此直接共用會無法通過既有 integrityErrors；放寬驗證會改變既有測試意圖，觸發明文停止條件。複製表單會變成六張；讓「領料」的 formId 為 null 則不表達文件要求的沿用。未自行採用任何變通，也未改 schema 或既有測試。請 Claude／user 決定如何在既有單一所有權模型中表達「沿用領料單」，再續作。
+- WP2、WP3 尚未實作；依停止條件停止整個工作包序列，沒有程式或測試檔案變更。
+- 基線驗證：npm.cmd run typecheck 通過（exit 0）；npm.cmd test 失敗（exit 1）：322 passed、1 failed、1 skipped，32 個檔案中 31 passed、1 failed。失敗為既有 security.test.mjs 的 CLI 簽章測試無法讀取暫存私鑰（EPERM），afterAll 清理同一目錄亦 EPERM；未修改測試或繞過安全限制。
+- 安全測試未成功清理的目錄：C:\Users\gslab\AppData\Local\Temp\composer-security-DNHw8t。可能含測試產生的金鑰，請 Claude 在有權限的本機環境清理；未讀取金鑰內容。
+- npm.cmd run build 通過（exit 0）；保留既有 @xyflow/react 的 use client 指令忽略與大於 500 kB chunk 警告。三項指定指令皆已執行，沒有略過；瀏覽器驗證、來源詞彙檢查與 WP4 未執行。以上是未修改程式的基線結果，不代表 WP1–WP3 完成。
+- 僅更新交接 thread 與 index；status 維持 in_progress，owner 交回 claude。未執行 git 寫入、連網、依賴安裝或啟動伺服器。
+
+### 2026-10-18：WP3 完成，WP1–WP3 交回 Claude
+
+- 修改 exampleHints.ts 與 FactoryPage.tsx，新增 ExampleScenario.test.tsx（5 項測試）。載入只追加範例工廠，已存在時停用並說明；成功後焦點到範例工廠名稱、role=status 播報。清除依 example- 工廠所有權重用 deleteFactory，包含其後新增／修改的生產邏輯、子流程、節點、表單、關聯與版面；不以其他資料的前綴掃除，其他工廠完整保留。
+- 清除沿用頁內確認，列出工廠、流程、節點數、表單與關聯，明示使用者在範例中的新增／修改也會清除；確認區可聚焦，取消回到清除按鈕、完成回到載入按鈕並播報。沒有使用 window.confirm。
+- 新增驗證涵蓋追加後數量與匯出匯入相等、重複載入／清除、取消、修改後清除、後續新增子流程與表單、保留非範例工廠、容量失敗原資料不變，以及提示開關跨畫面與匯入工具不重掛載。
+- WP3 首輪 npm.cmd run typecheck 與 npm.cmd run build 皆 exit 2：新增測試的 getByRole 誤用不支援的 exact 選項；已移除該選項，未改既有測試。當輪 npm.cmd test 為 333 passed、1 failed、1 skipped，失敗仍為既有 security EPERM；暫存目錄 C:\Users\gslab\AppData\Local\Temp\composer-security-MGiJb0 未能清除。
+- WP3 修正後重新執行三項：npm.cmd run typecheck 通過（exit 0）；npm.cmd test 為 exit 1，333 passed、1 failed、1 skipped，34 檔通過、1 檔失敗。唯一失敗仍是 security.test.mjs CLI 私鑰讀取 EPERM，afterAll 清理亦 EPERM；目錄 C:\Users\gslab\AppData\Local\Temp\composer-security-VOU6L7 待本機清理，未讀取金鑰。既有身分授權測試仍 skipped，沒有新增 skip。
+- npm.cmd run build 修正後為 exit 1：esbuild 讀取 ../.. Access is denied、無法載入 vite.config.ts。額外 npm.cmd run build -- --configLoader native 通過（exit 0），保留既有 @xyflow/react use client 與超過 500 kB chunk 警告。原指令失敗未以額外成功結果取代或遮蔽。
+- 最終檔案：新增 exampleHints.ts、exampleHints.test.ts、ExampleHintSettings.tsx、ExampleHintSettings.test.tsx、ExampleScenario.test.tsx；修改 FactoryPage.tsx、NodeDetails.tsx、NodeForm.tsx、WorkflowCanvas.tsx；更新本 thread 與 index。程式／測試皆在 apps/composer-gui/src/。新增 11 項測試全部通過；git diff --check 通過（僅換行提示）。
+- 未改 schemas/、config/、libs/ui-runtime/、kits/、package*.json、既有模型或既有測試；未執行 git 寫入、連網、啟動伺服器或新增依賴。UI 沿用既有控制項、樣式與 44px 標籤；未新增製程名詞、製程數值、樣本資料列或數值驗證規則。
+- 尚待 Claude WP4：真實瀏覽器可見性／對比度／鍵盤操作、來源專有詞彙本機清單掃描、整合 fixtures 與沙箱外標準 build／security 驗證；上列四個本次 security 暫存目錄可能含測試金鑰，須在有權限環境清理。WP1–WP3 實作完成，status 維持 in_progress、owner=claude，不宣稱 WP4 或整體功能驗收完成。

@@ -8,6 +8,7 @@ import { Column } from './Column';
 import { FactoryPage } from './FactoryPage';
 import { Icon } from './Icons';
 import { NodeDetails } from './NodeDetails';
+import { ExampleHintProvider, ExampleHintSwitch } from './ExampleHintSettings';
 
 // Press and release within this many pixels is a click (selects, opens the details); moving further is a drag (moves the node and nothing else).
 const DRAG_PX = 4;
@@ -24,7 +25,7 @@ const nodeTypes = { business: CircleNode };
 // path: the opened graphs, kept by the caller so leaving the step and coming back returns to the same flow; empty means the factory list (D79).
 interface CanvasProps { value: AovGraphDocument; onChange: (value: AovGraphDocument) => void; path: string[]; onPathChange: (path: string[]) => void; toolbarExtra?: ReactNode; resetKey?: number }
 export function WorkflowCanvas(props: CanvasProps) {
-  return <ReactFlowProvider><Canvas {...props} /></ReactFlowProvider>;
+  return <ExampleHintProvider><ReactFlowProvider><Canvas {...props} /></ReactFlowProvider></ExampleHintProvider>;
 }
 // Tools grouped by the category each action declares (catalog order); the business node, which adds no function, is its own group.
 const toolGroups: [string, { id: string; name: string }[]][] = (() => {
@@ -57,7 +58,7 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
     if (problems.length) { setError(problems.join(' ')); return false; }
     onChange(next); setError(''); return true;
   }
-  if (!graph) return <div className="workflow-page"><div className="canvas-toolbar">{null}{toolbarExtra}{null}</div><FactoryPage value={value} commit={commit} onOpen={id => { setPath([id]); setSelected(''); setDeleting(false); }} /></div>;
+  if (!graph) return <div className="workflow-page"><div className="canvas-toolbar">{null}<div><ExampleHintSwitch />{toolbarExtra}</div>{null}</div><FactoryPage value={value} commit={commit} onOpen={id => { setPath([id]); setSelected(''); setDeleting(false); }} /></div>;
   const place = graphPlaces(value).get(graph.id);
   const depth = place?.depth ?? 1;
   const add = (actionId: string | null, position?: { x: number; y: number }) => {
@@ -77,7 +78,7 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
   // The toolbar sits in the same slot for the factory list and the canvas, so the import button keeps its panel and notices when the view changes.
   return <div className="workflow-page">
     <div className="canvas-toolbar"><nav aria-label="流程層級" className="actions"><button onClick={() => { setPath([]); setSelected(''); setDeleting(false); }}>工廠</button><span className="crumb">{place?.factory.name || '（未命名工廠）'}</span>{path.filter(id => value.graphs.some(g => g.id === id)).map((id, index) => <button key={id} aria-current={id === graph.id ? 'location' : undefined} onClick={() => { setPath(path.slice(0, index + 1)); setSelected(''); setDeleting(false); }}>{value.graphs.find(g => g.id === id)!.name}</button>)}</nav>
-      {toolbarExtra}
+      <div><ExampleHintSwitch />{toolbarExtra}</div>
       <div className="actions canvas-zoom"><button onClick={() => void flow.zoomIn({ duration: 0 })}>放大</button><button onClick={() => void flow.zoomOut({ duration: 0 })}>縮小</button><button onClick={() => void flow.fitView({ duration: 0 })}>適合畫面</button></div></div>
     <div className={node ? 'columns workflow-columns has-details' : 'columns workflow-columns'}>
     <Column id="canvas-tools" title="工具箱" lead="選擇動作加入畫布，也可拖放至所需位置。" className="workflow-tools" scroll>
