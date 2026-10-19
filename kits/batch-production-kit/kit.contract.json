@@ -575,7 +575,7 @@
         "capability": "batch.event.changed",
         "module": "app.core.events",
         "symbol": "BatchChanged",
-        "note": "批次任何異動後發出；不帶內容，訂閱者自行重讀"
+        "note": "批次任何異動後發出；不帶內容，訂閱者自行重讀；帶 actor_id（誰做的），無帳號脈絡時為 None"
       }
     ],
     "python": [
@@ -625,6 +625,18 @@
         "module": "app.core.extension_points",
         "symbol": "set_object_store",
         "note": "物件儲存介面：put(batch_id, filename, content_type, data) -> ref；delete(ref)；url(ref)"
+      },
+      {
+        "capability": "batch.search",
+        "module": "app.core.batch_read",
+        "symbol": "search_batches, batch_counts, visible_batch_ids",
+        "note": "可見性（軟刪除、唯讀角色、產線範圍）與本 Kit 端點同一套規則"
+      },
+      {
+        "capability": "batch.trace",
+        "module": "app.core.batch_read",
+        "symbol": "batch_trace",
+        "note": "逐筆量測，依記錄時間排序"
       }
     ],
     "db": [

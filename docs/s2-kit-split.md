@@ -27,7 +27,7 @@ S2 是一套已上線的製程紙本電子化系統（React + FastAPI + PostgreS
 | `batch-production-kit` | 批次生產紀錄 | 開單派工、用料秤重、量測記錄、批號流水號、簽核、完成（第一階段）；入庫單、回鍋確認單、子表格備註、照片佐證（第二階段） | WP5 第一階段完成 |
 | `equipment-maintenance-kit` | 設備點檢與維修 | 日常點檢、複核、故障維修、月度匯出、生產閘門 | 後端核心完成（WP7），前端待做 |
 | `alarm-exception-kit` | 報警與異常簽核 | 量測超規判定、報警總覽與確認、檢驗異常簽核 | 後端核心完成（WP6），前端待做 |
-| `production-dashboard-kit` | 儀表板與製程查詢 | 報警與設備異常總覽、製程查詢、操作紀錄 | 待做 |
+| `production-dashboard-kit` | 儀表板與製程查詢 | 報警與設備異常總覽、製程查詢、操作紀錄 | 後端核心完成（WP9），前端待做 |
 | `runtime-settings-kit` | 參數設定中心 | 上線後參數調整、版本、異動紀錄、依場域限制驗證 | 待做（D-A2） |
 
 相依：platform-core → entry-permission → product-process → {equipment-maintenance, batch-production}；batch-production → {alarm-exception, production-dashboard}；runtime-settings 只依賴 platform-core 與 entry-permission。
@@ -74,4 +74,5 @@ S2 是一套已上線的製程紙本電子化系統（React + FastAPI + PostgreS
 | WP6 | alarm-exception-kit：規格範圍／門檻／一致性規則、報警對帳、異常簽核閘門（batch 補 `validate_value` 閘門與 `batch_read`） | 後端完成 |
 | WP7 | equipment-maintenance-kit：設備、點檢表、點檢與複核、維修、月度匯出、生產閘門（`order=10`，批次 Kit 為可選相依） | 後端完成 |
 | WP8 | batch-production-kit 第二階段：入庫單、回鍋確認單、子表格備註、照片佐證（預設關閉，`enable_batch_extras`） | 後端完成 |
-| WP9 起 | dashboard → runtime-settings | 待做 |
+| WP9 | production-dashboard-kit：總覽（可登錄區塊）、操作紀錄、製程查詢；批次 Kit 補 `BatchChanged.actor_id` 與搜尋／計數／追溯讀取介面；報警與設備 Kit 各登錄一個總覽區塊 | 後端完成 |
+| WP10 | runtime-settings-kit | 待做 |

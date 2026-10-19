@@ -208,6 +208,13 @@
         "module": "app.core.database",
         "symbol": "get_db, Base",
         "note": "同步 SQLAlchemy Session，同批次生產 Kit 的待決事項"
+      },
+      {
+        "capability": "dashboard.section.register",
+        "module": "app.core.dashboard_providers",
+        "symbol": "register",
+        "optional": true,
+        "note": "可選：有儀表板 Kit 才登錄總覽區塊"
       }
     ]
   }

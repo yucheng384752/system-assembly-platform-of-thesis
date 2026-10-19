@@ -17,4 +17,7 @@ def enable_equipment_kit(raw: dict | None = None) -> EquipmentSettings:
     if find_spec("app.core.gates") is not None:
         from app.core import batch_gate
         batch_gate.register()
+    if find_spec("app.core.dashboard_providers") is not None:
+        from app.core import dashboard_provider
+        dashboard_provider.register()
     return settings

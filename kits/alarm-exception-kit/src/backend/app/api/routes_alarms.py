@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_entry_point, require_password_changed, require_write_access
 from app.core.alarm_service import UNRESOLVED
 from app.core.alarm_settings import get_settings
-from app.core.batch_read import batch_labels, current_measurement, get_visible_batch
+from app.core.batch_read import batch_labels, current_measurement, get_visible_batch, visible_batch_ids
 from app.core.database import get_db
 from app.core.entry_points_registration import ALARM_MANAGE, EXCEPTION_DECIDE
 from app.core.events import BatchChanged, bus
@@ -55,16 +55,9 @@ def list_alarms(status_filter: str | None = None, batch_id: int | None = None, l
 
 
 def _filter_visible(db: Session, actor: User, items: list[AlarmRead]) -> list[AlarmRead]:
-    """逐批次套用可見性，避免清單洩漏範圍外或唯讀角色看不到的批次。"""
-    ok: dict[int, bool] = {}
-    for i in items:
-        if i.batch_id not in ok:
-            try:
-                get_visible_batch(db, i.batch_id, actor)
-                ok[i.batch_id] = True
-            except HTTPException:
-                ok[i.batch_id] = False
-    return [i for i in items if ok[i.batch_id]]
+    """逐批次套用可見性（產線範圍、唯讀角色），避免清單洩漏看不到的批次。"""
+    ok = visible_batch_ids(db, actor, {i.batch_id for i in items})
+    return [i for i in items if i.batch_id in ok]
 
 
 @router.post("/alarms/{alarm_id}/acknowledge", response_model=AlarmRead)
@@ -76,7 +69,7 @@ def acknowledge(alarm_id: int, actor: User = Depends(require_entry_point(ALARM_M
     if alarm.status != "active":
         raise HTTPException(409, "報警已確認或已解除")
     alarm.status, alarm.acknowledged_by, alarm.acknowledged_at = "acknowledged", actor.id, datetime.now(timezone.utc)
-    bus.publish(db, BatchChanged(alarm.batch_id, "alarm_acknowledged"))
+    bus.publish(db, BatchChanged(alarm.batch_id, "alarm_acknowledged", actor.id))
     db.commit()
     return AlarmRead.model_validate(alarm)
 
@@ -108,7 +101,7 @@ def create_request(batch_id: int, body: ExceptionCreate, actor: User = Depends(r
                            measured_value=None if cur[1] is None else float(cur[1]), reason=body.reason, requested_by=actor.id)
     db.add(req)
     db.flush()
-    bus.publish(db, BatchChanged(batch.id, "exception_requested"))
+    bus.publish(db, BatchChanged(batch.id, "exception_requested", actor.id))
     db.commit()
     return req
 
@@ -127,6 +120,6 @@ def decide(request_id: int, body: ExceptionDecision, actor: User = Depends(requi
         raise HTTPException(422, str(e)) from e
     req.status, req.decided_by, req.decided_at = body.status, actor.id, datetime.now(timezone.utc)
     req.verification_passed, req.decision_comment = body.verification_passed, body.comment
-    bus.publish(db, BatchChanged(req.batch_id, "exception_decided"))
+    bus.publish(db, BatchChanged(req.batch_id, "exception_decided", actor.id))
     db.commit()
     return req

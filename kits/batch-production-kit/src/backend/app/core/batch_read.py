@@ -6,10 +6,11 @@
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.roles import READ_ONLY_ROLES
@@ -74,3 +75,77 @@ def current_measurement(db: Session, batch_id: int, station_code: str, metric_ke
     if row is None:
         return None
     return row[0], (None if row[1] is None else Decimal(str(row[1])))
+
+
+# ---- 搜尋、計數、追溯（儀表板等唯讀使用者）----
+@dataclass(frozen=True)
+class BatchSummary:
+    id: int
+    lot_no: str
+    status: str
+    product_line_code: str
+    product_model_code: str
+    equipment_ref: str | None
+    created_at: datetime
+    finished_at: datetime | None
+
+
+@dataclass(frozen=True)
+class TraceCell:
+    station_code: str
+    metric_key: str
+    step_seq: int
+    value_num: Decimal | None
+    value_text: str | None
+    value_bool: bool | None
+    operator_id: int
+    recorded_at: datetime
+
+
+def _visible_batches(db: Session, actor: User):
+    """帳號看得到的批次：未刪除；唯讀角色只看已完成；產線範圍內。與 get_visible_batch 同一套規則。"""
+    q = select(Batch).where(Batch.deleted_at.is_(None))
+    if actor.role in READ_ONLY_ROLES:
+        q = q.where(Batch.status == "completed")
+    allowed = scoped_keys(actor, PRODUCT_LINE_SCOPE, db)
+    if allowed is not None:
+        q = q.where(Batch.product_line_code.in_(allowed))
+    return q
+
+
+def search_batches(db: Session, actor: User, *, lot_prefix: str | None = None, status: str | None = None,
+                   product_line_code: str | None = None, created_from: datetime | None = None,
+                   created_to: datetime | None = None, limit: int = 100) -> list[BatchSummary]:
+    q = _visible_batches(db, actor)
+    if lot_prefix:
+        q = q.where(Batch.lot_no.startswith(lot_prefix, autoescape=True))
+    if status:
+        q = q.where(Batch.status == status)
+    if product_line_code:
+        q = q.where(Batch.product_line_code == product_line_code)
+    if created_from:
+        q = q.where(Batch.created_at >= created_from)
+    if created_to:
+        q = q.where(Batch.created_at < created_to)
+    rows = db.scalars(q.order_by(Batch.id.desc()).limit(min(max(limit, 1), 500)))
+    return [BatchSummary(b.id, b.lot_no, b.status, b.product_line_code, b.product_model_code, b.equipment_ref, b.created_at, b.finished_at) for b in rows]
+
+
+def batch_counts(db: Session, actor: User) -> dict[str, int]:
+    visible = _visible_batches(db, actor).subquery()
+    rows = db.execute(select(visible.c.status, func.count()).group_by(visible.c.status))
+    return {status: n for status, n in rows}
+
+
+def visible_batch_ids(db: Session, actor: User, batch_ids: set[int]) -> set[int]:
+    """從給定編號中挑出帳號看得到的；清單類畫面一次過濾，不逐筆查。"""
+    if not batch_ids:
+        return set()
+    return set(db.scalars(_visible_batches(db, actor).where(Batch.id.in_(batch_ids)).with_only_columns(Batch.id)))
+
+
+def batch_trace(db: Session, batch_id: int, actor: User) -> list[TraceCell]:
+    get_visible_batch(db, batch_id, actor)
+    rows = db.scalars(select(Measurement).where(Measurement.batch_id == batch_id).order_by(Measurement.recorded_at, Measurement.id))
+    return [TraceCell(m.station_code, m.metric_key, m.step_seq, None if m.value_num is None else Decimal(str(m.value_num)),
+                      m.value_text, m.value_bool, m.operator_id, m.recorded_at) for m in rows]

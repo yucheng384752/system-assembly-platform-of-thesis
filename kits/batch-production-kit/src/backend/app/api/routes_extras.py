@@ -72,7 +72,7 @@ def save_entry(batch_id: int, body: WarehouseEntryWrite, actor: User = Depends(r
         db.add(entry)
     entry.quantity, entry.unit, entry.location, entry.lines, entry.note = body.quantity, body.unit, body.location, lines, body.note
     entry.updated_by, entry.updated_at = actor.id, _now()
-    bus.publish(db, BatchChanged(batch_id, "warehouse_saved"))
+    bus.publish(db, BatchChanged(batch_id, "warehouse_saved", actor.id))
     db.commit()
     return entry
 
@@ -90,7 +90,7 @@ def submit_entry(batch_id: int, actor: User = Depends(require_write_access), db:
     except WarehouseError as exc:
         raise HTTPException(422, str(exc)) from exc
     entry.status, entry.submitted_by, entry.submitted_at = "submitted", actor.id, _now()
-    bus.publish(db, BatchChanged(batch_id, "warehouse_submitted"))
+    bus.publish(db, BatchChanged(batch_id, "warehouse_submitted", actor.id))
     db.commit()
     return entry
 
@@ -112,7 +112,7 @@ def create_rework(batch_id: int, body: ReworkCreate, actor: User = Depends(requi
     rec = ReworkRecord(batch_id=batch_id, station_code=body.station_code, quantity=float(qty), unit=body.unit, reason=body.reason.strip(), created_by=actor.id)
     db.add(rec)
     db.flush()
-    bus.publish(db, BatchChanged(batch_id, "rework_created"))
+    bus.publish(db, BatchChanged(batch_id, "rework_created", actor.id))
     db.commit()
     return rec
 
@@ -128,7 +128,7 @@ def confirm_rework(record_id: int, actor: User = Depends(require_entry_point(REW
     except ReworkError as exc:
         raise HTTPException(409, str(exc)) from exc
     rec.status, rec.confirmed_by, rec.confirmed_at = "confirmed", actor.id, _now()
-    bus.publish(db, BatchChanged(rec.batch_id, "rework_confirmed"))
+    bus.publish(db, BatchChanged(rec.batch_id, "rework_confirmed", actor.id))
     db.commit()
     return rec
 
@@ -150,7 +150,7 @@ def add_note(batch_id: int, body: NoteCreate, actor: User = Depends(require_writ
     note = BatchNote(batch_id=batch_id, station_code=body.station_code, step_seq=body.step_seq, text=text, author_id=actor.id)
     db.add(note)
     db.flush()
-    bus.publish(db, BatchChanged(batch_id, "note_added"))
+    bus.publish(db, BatchChanged(batch_id, "note_added", actor.id))
     db.commit()
     return note
 
@@ -195,7 +195,7 @@ def upload_attachment(batch_id: int, key: str, file: UploadFile = File(...), act
     old.object_ref, old.filename, old.content_type, old.size = ref, filename, content_type, len(data)
     old.uploaded_by, old.uploaded_at = actor.id, _now()
     try:
-        bus.publish(db, BatchChanged(batch_id, "attachment_uploaded"))
+        bus.publish(db, BatchChanged(batch_id, "attachment_uploaded", actor.id))
         db.commit()
     except Exception:
         db.rollback()
@@ -214,7 +214,7 @@ def delete_attachment(batch_id: int, key: str, actor: User = Depends(require_wri
         raise HTTPException(404, "附件不存在")
     ref = att.object_ref
     db.delete(att)
-    bus.publish(db, BatchChanged(batch_id, "attachment_deleted"))
+    bus.publish(db, BatchChanged(batch_id, "attachment_deleted", actor.id))
     db.commit()
     if extension_points.object_store is not None:
         extension_points.object_store.delete(ref)

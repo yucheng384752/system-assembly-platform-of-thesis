@@ -44,6 +44,7 @@ class BatchChanged:
 
     batch_id: int
     reason: str
+    actor_id: int | None = None  # 誰做的；活動紀錄用。沒有帳號脈絡的異動為 None
 
 
 Handler = Callable[[Any, Any], None]  # (db, event)

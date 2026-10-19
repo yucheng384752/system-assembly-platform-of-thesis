@@ -1,0 +1,109 @@
+{
+  "id": "production-dashboard-kit",
+  "displayName": "生產儀表板與製程查詢",
+  "category": "operations",
+  "required": false,
+  "businessCapability": "一個畫面看批次狀態與各功能的待辦（報警、設備），查誰在何時對哪個批次做了什麼，並依批號搜尋、逐站追溯製程資料。",
+  "dependencies": [
+    "platform-core-kit",
+    "entry-permission-kit",
+    "batch-production-kit"
+  ],
+  "optionalDependencies": [
+    "alarm-exception-kit",
+    "equipment-maintenance-kit"
+  ],
+  "backend": {
+    "routers": [
+      "src/backend/app/api/routes_dashboard.py"
+    ],
+    "core": [
+      "src/backend/app/core/activity.py",
+      "src/backend/app/core/retention.py",
+      "src/backend/app/core/providers.py",
+      "src/backend/app/core/dashboard_providers.py",
+      "src/backend/app/core/dashboard_settings.py",
+      "src/backend/app/core/activity_service.py",
+      "src/backend/app/core/entry_points_registration.py",
+      "src/backend/app/core/startup.py"
+    ],
+    "services": [],
+    "models": [
+      "src/backend/app/models/activity_log.py"
+    ],
+    "schemas": [
+      "src/backend/app/schemas/dashboard.py"
+    ]
+  },
+  "frontend": {
+    "pages": [],
+    "components": [],
+    "note": "尚無前端；總覽、活動紀錄與製程查詢畫面待做"
+  },
+  "api": [
+    "GET /dashboard/overview",
+    "GET /dashboard/activity",
+    "POST /dashboard/activity/purge",
+    "GET /dashboard/batches",
+    "GET /dashboard/batches/{batch_id}/trace"
+  ],
+  "database": [
+    "activity_logs"
+  ],
+  "permissions": [
+    "activity_purge（admin）；其餘端點登入即可，範圍依批次可見性"
+  ],
+  "runtimeDependencies": [],
+  "subfeatures": [
+    {
+      "id": "overview",
+      "displayName": "總覽",
+      "businessCapability": "批次狀態計數，加上已安裝功能登錄的區塊（例如報警、設備）；沒裝的功能不會出現。",
+      "required": true,
+      "defaultSelected": true,
+      "options": []
+    },
+    {
+      "id": "activity-log",
+      "displayName": "操作紀錄",
+      "businessCapability": "誰在何時對哪個批次做了什麼，只增不改，可設定保留天數。",
+      "required": false,
+      "defaultSelected": true,
+      "options": [
+        {
+          "id": "activityEnabled",
+          "displayName": "記錄操作紀錄",
+          "type": "boolean",
+          "defaultValue": true
+        },
+        {
+          "id": "activityRetentionDays",
+          "displayName": "保留天數（0 為永久）",
+          "type": "number",
+          "defaultValue": 0
+        },
+        {
+          "id": "reasonLabels",
+          "displayName": "異動說法覆寫",
+          "type": "json",
+          "defaultValue": {}
+        }
+      ]
+    },
+    {
+      "id": "process-query",
+      "displayName": "製程查詢",
+      "businessCapability": "依批號前綴、狀態、產線與時間搜尋批次，並逐站逐項看填寫的資料。",
+      "required": false,
+      "defaultSelected": true,
+      "options": [
+        {
+          "id": "listLimit",
+          "displayName": "清單預設筆數",
+          "type": "number",
+          "defaultValue": 50
+        }
+      ]
+    }
+  ]
+}

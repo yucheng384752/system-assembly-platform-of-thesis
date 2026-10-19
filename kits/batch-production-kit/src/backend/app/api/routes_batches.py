@@ -54,8 +54,8 @@ def _today() -> date:
     return datetime.now(ZoneInfo(get_settings().timezone)).date()
 
 
-def _changed(db: Session, batch_id: int, reason: str) -> None:
-    bus.publish(db, BatchChanged(batch_id, reason))
+def _changed(db: Session, batch_id: int, reason: str, actor_id: int | None = None) -> None:
+    bus.publish(db, BatchChanged(batch_id, reason, actor_id))
 
 
 def _ctx(db: Session, batch: Batch) -> BatchContext:
@@ -164,7 +164,7 @@ def open_batch(body: BatchCreate, actor: User = Depends(require_entry_point(BATC
             raise HTTPException(status_code=422, detail=f"配方無法計算：{exc}") from exc
         for line in lines:
             db.add(BatchMaterial(batch_id=batch.id, kind=line.key, item_no=line.item_no, theoretical_qty=float(line.weight)))
-    _changed(db, batch.id, "created")
+    _changed(db, batch.id, "created", actor.id)
     db.commit()
     db.refresh(batch)
     return batch
@@ -176,7 +176,7 @@ def dispatch_batch(batch_id: int, actor: User = Depends(require_entry_point(BATC
     if batch.status != "not_started":
         raise HTTPException(status_code=409, detail="批號不是未開工狀態")
     batch.status, batch.dispatched_by, batch.dispatched_at = "in_progress", actor.id, _now()
-    _changed(db, batch.id, "dispatched")
+    _changed(db, batch.id, "dispatched", actor.id)
     db.commit()
     db.refresh(batch)
     return batch
@@ -214,7 +214,7 @@ def update_header(batch_id: int, body: BatchHeaderUpdate, actor: User = Depends(
         setattr(batch, field, value)
     if "env_temp_c" in data or "env_rh_pct" in data:
         batch.env_updated_at = _now()
-    _changed(db, batch.id, "header")
+    _changed(db, batch.id, "header", actor.id)
     db.commit()
     db.refresh(batch)
     return batch
@@ -225,7 +225,7 @@ def delete_batch(batch_id: int, body: BatchDeleteRequest, actor: User = Depends(
     """軟刪除：從清單隱藏，量測與簽核紀錄保留。刪除原因交由訂閱 BatchChanged 的活動紀錄功能保存。"""
     batch = _get_active_batch(batch_id, db, actor)
     batch.deleted_at = _now()
-    _changed(db, batch.id, f"deleted:{body.reason.strip()}")
+    _changed(db, batch.id, f"deleted:{body.reason.strip()}", actor.id)
     db.commit()
 
 
@@ -266,7 +266,7 @@ def submit_measurement(batch_id: int, body: MeasurementSubmit, actor: User = Dep
         value_num=None if body.value_num is None else Decimal(str(body.value_num)), value_text=body.value_text, value_bool=body.value_bool,
         spec_low=metric.spec_low, spec_high=metric.spec_high, operator_id=actor.id,
     ))
-    _changed(db, batch_id, "measurement")
+    _changed(db, batch_id, "measurement", actor.id)
     db.commit()
     db.refresh(row)
     return row
@@ -302,7 +302,7 @@ def replace_materials(batch_id: int, body: list[MaterialWrite], actor: User = De
     db.execute(delete(BatchMaterial).where(BatchMaterial.batch_id == batch_id))
     now = _now()
     db.add_all([BatchMaterial(batch_id=batch_id, updated_by=actor.id, updated_at=now, **m.model_dump()) for m in body])
-    _changed(db, batch_id, "materials")
+    _changed(db, batch_id, "materials", actor.id)
     db.commit()
     return list(db.scalars(select(BatchMaterial).where(BatchMaterial.batch_id == batch_id).order_by(BatchMaterial.id)))
 
@@ -321,7 +321,7 @@ def sign_batch(batch_id: int, body: SignRequest, actor: User = Depends(require_w
     if result.rowcount == 0:
         db.rollback()
         raise HTTPException(status_code=409, detail="此欄已簽核")
-    _changed(db, batch_id, f"signed:{body.role}")
+    _changed(db, batch_id, f"signed:{body.role}", actor.id)
     db.commit()
     return SignResult(role=body.role, signed_by=actor.id, signed_by_name=actor.display_name, signed_at=now)
 
@@ -347,7 +347,7 @@ def complete_batch(batch_id: int, actor: User = Depends(require_entry_point(BATC
     if missing:
         raise HTTPException(status_code=409, detail=f"尚未符合完成條件：{'、'.join(missing)}")
     batch.status, batch.finished_at, batch.completed_by = "completed", _now(), actor.id
-    _changed(db, batch.id, "completed")
+    _changed(db, batch.id, "completed", actor.id)
     db.commit()
     db.refresh(batch)
     return batch

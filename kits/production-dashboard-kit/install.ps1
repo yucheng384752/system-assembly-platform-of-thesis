@@ -1,0 +1,5 @@
+$ErrorActionPreference = "Stop"
+Write-Host "production-dashboard-kit: overview, activity log and process query enabled."
+Write-Host "  Backend: /dashboard"
+Write-Host "  Requires entry-permission-kit and batch-production-kit."
+Write-Host "  Call app.core.startup.enable_dashboard_kit(raw_settings) once at startup."

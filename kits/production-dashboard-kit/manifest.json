@@ -1,0 +1,13 @@
+{
+  "kit": "production-dashboard-kit",
+  "displayName": "生產儀表板與製程查詢",
+  "installOrder": 60,
+  "requires": [
+    "python"
+  ],
+  "runtimeEnv": [],
+  "scripts": {
+    "windows": "install.ps1",
+    "linux": "install.sh"
+  }
+}

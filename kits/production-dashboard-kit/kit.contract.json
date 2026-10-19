@@ -1,0 +1,182 @@
+{
+  "kit": "production-dashboard-kit",
+  "provides": {
+    "api": [
+      {
+        "capability": "dashboard.overview",
+        "method": "GET",
+        "path": "/dashboard/overview",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "OverviewRead"
+        },
+        "errors": [],
+        "sideEffects": []
+      },
+      {
+        "capability": "dashboard.activity",
+        "method": "GET",
+        "path": "/dashboard/activity",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "query",
+          "schema": "batch_id?,before_id?,limit?"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "ActivityRead[]"
+        },
+        "errors": [
+          404
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "dashboard.activity.purge",
+        "method": "POST",
+        "path": "/dashboard/activity/purge",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "{purged:int}"
+        },
+        "errors": [
+          403
+        ],
+        "sideEffects": [
+          "清除超過保留天數的活動紀錄"
+        ],
+        "entryPoint": "activity_purge"
+      },
+      {
+        "capability": "dashboard.batch.search",
+        "method": "GET",
+        "path": "/dashboard/batches",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "query",
+          "schema": "lot_prefix?,status_filter?,product_line_code?,created_from?,created_to?,limit?"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "BatchSummaryRead[]"
+        },
+        "errors": [
+          422
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "dashboard.batch.trace",
+        "method": "GET",
+        "path": "/dashboard/batches/{batch_id}/trace",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "TraceRead[]"
+        },
+        "errors": [
+          404
+        ],
+        "sideEffects": []
+      }
+    ],
+    "events": [],
+    "python": [
+      {
+        "capability": "dashboard.enable",
+        "module": "app.core.startup",
+        "symbol": "enable_dashboard_kit",
+        "note": "啟動時呼叫一次；訂閱 BatchChanged 寫入活動紀錄"
+      },
+      {
+        "capability": "dashboard.section.register",
+        "module": "app.core.dashboard_providers",
+        "symbol": "register",
+        "note": "其他 Kit 登錄總覽區塊：key、title、order、fetch(db, actor) -> {counts, rows}；單一區塊失敗不影響其他"
+      },
+      {
+        "capability": "dashboard.activity.purge",
+        "module": "app.core.activity_service",
+        "symbol": "purge_expired",
+        "note": "可由排程呼叫"
+      }
+    ],
+    "db": [
+      {
+        "table": "activity_logs",
+        "note": "以批次編號、帳號編號關聯，無外鍵；只增不改"
+      }
+    ]
+  },
+  "consumes": {
+    "api": [],
+    "python": [
+      {
+        "capability": "permission.entry-point.register",
+        "module": "app.core.entry_points",
+        "symbol": "registry.register"
+      },
+      {
+        "capability": "permission.entry-point.require",
+        "module": "app.api.deps",
+        "symbol": "require_entry_point"
+      },
+      {
+        "capability": "auth.user.model",
+        "module": "app.models.user",
+        "symbol": "User",
+        "fields": [
+          "id",
+          "role"
+        ]
+      },
+      {
+        "capability": "batch.event.subscribe",
+        "module": "app.core.events",
+        "symbol": "bus.subscribe, BatchChanged"
+      },
+      {
+        "capability": "batch.read",
+        "module": "app.core.batch_read",
+        "symbol": "search_batches, batch_counts, batch_trace, batch_labels, visible_batch_ids, get_visible_batch"
+      },
+      {
+        "capability": "platform.db.session",
+        "module": "app.core.database",
+        "symbol": "get_db, Base",
+        "note": "同步 SQLAlchemy Session；待決見 docs/s2-kit-split.md"
+      }
+    ]
+  }
+}
