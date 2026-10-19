@@ -1,0 +1,45 @@
+{
+  "format": "composer-aov-list",
+  "version": 2,
+  "steps": [
+    {
+      "id": "step-1",
+      "name": "收料",
+      "when": "到貨時",
+      "owner": "倉管",
+      "formIds": [
+        "form-1"
+      ]
+    }
+  ],
+  "forms": [
+    {
+      "id": "form-1",
+      "name": "收料單",
+      "fields": [
+        {
+          "id": "field-1",
+          "name": "批號",
+          "type": "text",
+          "required": true,
+          "isKey": true
+        },
+        {
+          "id": "field-2",
+          "name": "數量",
+          "type": "integer",
+          "required": true,
+          "isKey": false
+        },
+        {
+          "id": "field-3",
+          "name": "收料日",
+          "type": "date",
+          "required": true,
+          "isKey": false
+        }
+      ]
+    }
+  ],
+  "relations": []
+}

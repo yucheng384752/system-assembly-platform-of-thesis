@@ -1,0 +1,133 @@
+{
+  "format": "composer-aov-list",
+  "version": 5,
+  "factories": [
+    {
+      "id": "factory-1",
+      "name": "A 廠",
+      "logicGraphIds": [
+        "graph-root"
+      ]
+    }
+  ],
+  "graphs": [
+    {
+      "id": "graph-root",
+      "name": "主流程",
+      "nodes": [
+        {
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null,
+          "id": "graph-root-start",
+          "kind": "start",
+          "name": "開始"
+        },
+        {
+          "id": "node-1",
+          "kind": "node",
+          "name": "收料",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": "form-1",
+          "childGraphId": null
+        },
+        {
+          "id": "node-2",
+          "kind": "node",
+          "name": "檢驗",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": "form-2",
+          "childGraphId": null
+        },
+        {
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null,
+          "id": "graph-root-end",
+          "kind": "end",
+          "name": "結束"
+        }
+      ],
+      "edges": [
+        {
+          "id": "edge-1",
+          "from": "graph-root-start",
+          "to": "node-1"
+        },
+        {
+          "id": "edge-2",
+          "from": "node-1",
+          "to": "node-2"
+        },
+        {
+          "id": "edge-3",
+          "from": "node-2",
+          "to": "graph-root-end"
+        }
+      ]
+    }
+  ],
+  "layout": {},
+  "forms": [
+    {
+      "id": "form-1",
+      "name": "收料單",
+      "fields": [
+        {
+          "id": "field-1",
+          "name": "批號",
+          "type": "text",
+          "required": true,
+          "isKey": true
+        },
+        {
+          "id": "field-2",
+          "name": "數量",
+          "type": "integer",
+          "required": true,
+          "isKey": false
+        },
+        {
+          "id": "field-3",
+          "name": "收料日",
+          "type": "date",
+          "required": true,
+          "isKey": false
+        }
+      ]
+    },
+    {
+      "id": "form-2",
+      "name": "檢驗單",
+      "fields": [
+        {
+          "id": "field-1",
+          "name": "批號",
+          "type": "text",
+          "required": true,
+          "isKey": true
+        },
+        {
+          "id": "field-2",
+          "name": "重量",
+          "type": "decimal",
+          "required": true,
+          "isKey": false
+        }
+      ]
+    }
+  ],
+  "relations": []
+}

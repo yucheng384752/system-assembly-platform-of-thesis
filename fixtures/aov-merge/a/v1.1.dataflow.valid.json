@@ -1,0 +1,980 @@
+{
+  "format": "aov",
+  "schemaVersion": "1.1",
+  "documentType": "dataflow",
+  "project": {
+    "id": "example-project-11",
+    "name": "工單與入庫",
+    "description": "面向工程師與 Agent 的實作契約"
+  },
+  "rootGraphId": "d16f8266-f8c4-4b19-bd9c-4b7c39275576",
+  "graphs": [
+    {
+      "id": "d16f8266-f8c4-4b19-bd9c-4b7c39275576",
+      "name": "主流程",
+      "nodes": [
+        {
+          "id": "12829eef-5bed-45bb-8252-e23a2e78f676",
+          "kind": "group",
+          "name": "開工單",
+          "function": {
+            "purpose": "",
+            "preconditions": "",
+            "steps": "",
+            "rules": "",
+            "postconditions": "",
+            "errors": ""
+          },
+          "inputs": [
+            {
+              "id": "6c97c812-044c-4932-85b6-36a1e0b31ccf",
+              "name": "輸入",
+              "description": "",
+              "condition": "",
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "88807214-8926-46f9-bd0a-87e63f540ae0",
+              "name": "輸出",
+              "description": "",
+              "condition": "",
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          ],
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "variables": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "buffer": {
+            "mode": "all",
+            "rules": ""
+          },
+          "childGraphId": "b0ddd2ba-666e-4a99-aa5c-6cde0f6e2849",
+          "boundaryPortId": null,
+          "style": {
+            "color": "#4364d9"
+          },
+          "workflowNodeId": "step-0",
+          "external": null
+        },
+        {
+          "id": "57b93684-84ed-4e16-b241-2a3d755c4b8f",
+          "kind": "group",
+          "name": "入庫",
+          "function": {
+            "purpose": "",
+            "preconditions": "",
+            "steps": "",
+            "rules": "",
+            "postconditions": "",
+            "errors": ""
+          },
+          "inputs": [
+            {
+              "id": "fdc3d91d-3672-4297-9997-52559ea0effc",
+              "name": "輸入",
+              "description": "",
+              "condition": "",
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "6e05f2f3-626c-4aa5-bd3c-1b117a983dd3",
+              "name": "輸出",
+              "description": "",
+              "condition": "",
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          ],
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "variables": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "buffer": {
+            "mode": "all",
+            "rules": ""
+          },
+          "childGraphId": "6d2b5868-ea6f-4097-b161-a7a415fa4261",
+          "boundaryPortId": null,
+          "style": {
+            "color": "#147d64"
+          },
+          "workflowNodeId": "step-1",
+          "external": null
+        },
+        {
+          "id": "4f53026a-e1b1-44fa-bcb4-45b23e663309",
+          "kind": "group",
+          "name": "等待檢驗",
+          "function": {
+            "purpose": "",
+            "preconditions": "",
+            "steps": "",
+            "rules": "",
+            "postconditions": "",
+            "errors": ""
+          },
+          "inputs": [
+            {
+              "id": "f1c950b8-dd6b-430c-8671-0a1b81ea9c16",
+              "name": "輸入",
+              "description": "",
+              "condition": "",
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "ef04efa5-9493-481a-9475-21e05e621c9c",
+              "name": "輸出",
+              "description": "",
+              "condition": "",
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          ],
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "variables": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "buffer": {
+            "mode": "all",
+            "rules": ""
+          },
+          "childGraphId": "e968f4fc-1283-415f-9f36-31a1f44c97e6",
+          "boundaryPortId": null,
+          "style": {
+            "color": "#b66b22"
+          },
+          "workflowNodeId": "step-2",
+          "external": null
+        }
+      ],
+      "edges": []
+    },
+    {
+      "id": "b0ddd2ba-666e-4a99-aa5c-6cde0f6e2849",
+      "name": "開工單",
+      "nodes": [
+        {
+          "id": "d4f32b36-64ce-4607-a61a-103d299630ce",
+          "kind": "entry",
+          "name": "入口 · 輸入",
+          "function": {
+            "purpose": "",
+            "preconditions": "",
+            "steps": "",
+            "rules": "",
+            "postconditions": "",
+            "errors": ""
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "6c97c812-044c-4932-85b6-36a1e0b31ccf",
+              "name": "輸入",
+              "description": "",
+              "condition": "",
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          ],
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "variables": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "buffer": {
+            "mode": "all",
+            "rules": ""
+          },
+          "childGraphId": null,
+          "boundaryPortId": "6c97c812-044c-4932-85b6-36a1e0b31ccf",
+          "style": {
+            "color": "#4364d9"
+          },
+          "workflowNodeId": null,
+          "external": null
+        },
+        {
+          "id": "d42b8349-5dee-49ce-bd42-d182c3a872c9",
+          "kind": "exit",
+          "name": "出口 · 輸出",
+          "function": {
+            "purpose": "",
+            "preconditions": "",
+            "steps": "",
+            "rules": "",
+            "postconditions": "",
+            "errors": ""
+          },
+          "inputs": [
+            {
+              "id": "88807214-8926-46f9-bd0a-87e63f540ae0",
+              "name": "輸出",
+              "description": "",
+              "condition": "",
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          ],
+          "outputs": [],
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "variables": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "buffer": {
+            "mode": "all",
+            "rules": ""
+          },
+          "childGraphId": null,
+          "boundaryPortId": "88807214-8926-46f9-bd0a-87e63f540ae0",
+          "style": {
+            "color": "#4364d9"
+          },
+          "workflowNodeId": null,
+          "external": null
+        },
+        {
+          "id": "884b805d-53cf-4c2a-a87d-f90fb8d8ea2a",
+          "kind": "node",
+          "name": "開工單資料處理",
+          "function": {
+            "purpose": "定義開工單的資料轉換",
+            "preconditions": "",
+            "steps": "",
+            "rules": "",
+            "postconditions": "",
+            "errors": ""
+          },
+          "inputs": [
+            {
+              "id": "8c8ece9e-e5bf-4da4-89bc-10b1b6a08711",
+              "name": "輸入",
+              "description": "",
+              "condition": "",
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "0ad232a8-4b59-4204-b4a4-904e1ff1cdd9",
+              "name": "輸出",
+              "description": "",
+              "condition": "",
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          ],
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "variables": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "buffer": {
+            "mode": "all",
+            "rules": ""
+          },
+          "childGraphId": null,
+          "boundaryPortId": null,
+          "style": {
+            "color": "#4364d9"
+          },
+          "workflowNodeId": null,
+          "external": null
+        }
+      ],
+      "edges": [
+        {
+          "id": "0b57b9da-6306-403f-a9e2-1b16577399e4",
+          "kind": "forward",
+          "source": "d4f32b36-64ce-4607-a61a-103d299630ce",
+          "sourcePort": "6c97c812-044c-4932-85b6-36a1e0b31ccf",
+          "target": "884b805d-53cf-4c2a-a87d-f90fb8d8ea2a",
+          "targetPort": "8c8ece9e-e5bf-4da4-89bc-10b1b6a08711",
+          "name": "",
+          "condition": "",
+          "mapping": "",
+          "reason": "",
+          "loop": {
+            "mode": "once",
+            "maxIterations": null,
+            "stopCondition": "",
+            "onLimit": ""
+          }
+        },
+        {
+          "id": "c8c8f629-0d61-4856-ba06-e8c732b188eb",
+          "kind": "forward",
+          "source": "884b805d-53cf-4c2a-a87d-f90fb8d8ea2a",
+          "sourcePort": "0ad232a8-4b59-4204-b4a4-904e1ff1cdd9",
+          "target": "d42b8349-5dee-49ce-bd42-d182c3a872c9",
+          "targetPort": "88807214-8926-46f9-bd0a-87e63f540ae0",
+          "name": "",
+          "condition": "",
+          "mapping": "",
+          "reason": "",
+          "loop": {
+            "mode": "once",
+            "maxIterations": null,
+            "stopCondition": "",
+            "onLimit": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "6d2b5868-ea6f-4097-b161-a7a415fa4261",
+      "name": "入庫",
+      "nodes": [
+        {
+          "id": "56497657-4e96-4d01-8686-77136ab9fae8",
+          "kind": "entry",
+          "name": "入口 · 輸入",
+          "function": {
+            "purpose": "",
+            "preconditions": "",
+            "steps": "",
+            "rules": "",
+            "postconditions": "",
+            "errors": ""
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "fdc3d91d-3672-4297-9997-52559ea0effc",
+              "name": "輸入",
+              "description": "",
+              "condition": "",
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          ],
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "variables": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "buffer": {
+            "mode": "all",
+            "rules": ""
+          },
+          "childGraphId": null,
+          "boundaryPortId": "fdc3d91d-3672-4297-9997-52559ea0effc",
+          "style": {
+            "color": "#4364d9"
+          },
+          "workflowNodeId": null,
+          "external": null
+        },
+        {
+          "id": "ccd417ee-6bc7-4360-93a0-9aba603c1cfe",
+          "kind": "exit",
+          "name": "出口 · 輸出",
+          "function": {
+            "purpose": "",
+            "preconditions": "",
+            "steps": "",
+            "rules": "",
+            "postconditions": "",
+            "errors": ""
+          },
+          "inputs": [
+            {
+              "id": "6e05f2f3-626c-4aa5-bd3c-1b117a983dd3",
+              "name": "輸出",
+              "description": "",
+              "condition": "",
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          ],
+          "outputs": [],
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "variables": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "buffer": {
+            "mode": "all",
+            "rules": ""
+          },
+          "childGraphId": null,
+          "boundaryPortId": "6e05f2f3-626c-4aa5-bd3c-1b117a983dd3",
+          "style": {
+            "color": "#4364d9"
+          },
+          "workflowNodeId": null,
+          "external": null
+        },
+        {
+          "id": "8b1f1364-b2f3-4c5f-bd60-615255734f6c",
+          "kind": "node",
+          "name": "入庫資料處理",
+          "function": {
+            "purpose": "定義入庫的資料轉換",
+            "preconditions": "",
+            "steps": "",
+            "rules": "",
+            "postconditions": "",
+            "errors": ""
+          },
+          "inputs": [
+            {
+              "id": "564193de-21ba-42aa-a43f-47de4cda544f",
+              "name": "輸入",
+              "description": "",
+              "condition": "",
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "2bfcf23e-4a22-45b4-9d2d-dbfa2f49d844",
+              "name": "輸出",
+              "description": "",
+              "condition": "",
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          ],
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "variables": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "buffer": {
+            "mode": "all",
+            "rules": ""
+          },
+          "childGraphId": null,
+          "boundaryPortId": null,
+          "style": {
+            "color": "#4364d9"
+          },
+          "workflowNodeId": null,
+          "external": {
+            "category": "api",
+            "name": "外部庫存服務",
+            "provider": "",
+            "location": "https://example.invalid/inventory",
+            "version": "v1",
+            "usage": "庫存異動介面契約",
+            "method": "POST",
+            "path": "/stock",
+            "symbol": "",
+            "license": "",
+            "authentication": "",
+            "credentialRef": "",
+            "limits": ""
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "fae155cc-399b-4058-818c-ea6bf30d9fbe",
+          "kind": "forward",
+          "source": "56497657-4e96-4d01-8686-77136ab9fae8",
+          "sourcePort": "fdc3d91d-3672-4297-9997-52559ea0effc",
+          "target": "8b1f1364-b2f3-4c5f-bd60-615255734f6c",
+          "targetPort": "564193de-21ba-42aa-a43f-47de4cda544f",
+          "name": "",
+          "condition": "",
+          "mapping": "",
+          "reason": "",
+          "loop": {
+            "mode": "once",
+            "maxIterations": null,
+            "stopCondition": "",
+            "onLimit": ""
+          }
+        },
+        {
+          "id": "2bb2cbb3-7975-421f-8bad-1c1502dc1949",
+          "kind": "forward",
+          "source": "8b1f1364-b2f3-4c5f-bd60-615255734f6c",
+          "sourcePort": "2bfcf23e-4a22-45b4-9d2d-dbfa2f49d844",
+          "target": "ccd417ee-6bc7-4360-93a0-9aba603c1cfe",
+          "targetPort": "6e05f2f3-626c-4aa5-bd3c-1b117a983dd3",
+          "name": "",
+          "condition": "",
+          "mapping": "",
+          "reason": "",
+          "loop": {
+            "mode": "once",
+            "maxIterations": null,
+            "stopCondition": "",
+            "onLimit": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "e968f4fc-1283-415f-9f36-31a1f44c97e6",
+      "name": "等待檢驗",
+      "nodes": [
+        {
+          "id": "2f37b2d0-3b95-459e-a740-d6ecd31c0be2",
+          "kind": "entry",
+          "name": "入口 · 輸入",
+          "function": {
+            "purpose": "",
+            "preconditions": "",
+            "steps": "",
+            "rules": "",
+            "postconditions": "",
+            "errors": ""
+          },
+          "inputs": [],
+          "outputs": [
+            {
+              "id": "f1c950b8-dd6b-430c-8671-0a1b81ea9c16",
+              "name": "輸入",
+              "description": "",
+              "condition": "",
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          ],
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "variables": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "buffer": {
+            "mode": "all",
+            "rules": ""
+          },
+          "childGraphId": null,
+          "boundaryPortId": "f1c950b8-dd6b-430c-8671-0a1b81ea9c16",
+          "style": {
+            "color": "#4364d9"
+          },
+          "workflowNodeId": null,
+          "external": null
+        },
+        {
+          "id": "00bd4310-0373-455d-b386-a049bccaf738",
+          "kind": "exit",
+          "name": "出口 · 輸出",
+          "function": {
+            "purpose": "",
+            "preconditions": "",
+            "steps": "",
+            "rules": "",
+            "postconditions": "",
+            "errors": ""
+          },
+          "inputs": [
+            {
+              "id": "ef04efa5-9493-481a-9475-21e05e621c9c",
+              "name": "輸出",
+              "description": "",
+              "condition": "",
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          ],
+          "outputs": [],
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "variables": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "buffer": {
+            "mode": "all",
+            "rules": ""
+          },
+          "childGraphId": null,
+          "boundaryPortId": "ef04efa5-9493-481a-9475-21e05e621c9c",
+          "style": {
+            "color": "#4364d9"
+          },
+          "workflowNodeId": null,
+          "external": null
+        },
+        {
+          "id": "3c705a1a-19cb-4354-97df-55820907af9d",
+          "kind": "node",
+          "name": "等待檢驗資料處理",
+          "function": {
+            "purpose": "定義等待檢驗的資料轉換",
+            "preconditions": "",
+            "steps": "",
+            "rules": "",
+            "postconditions": "",
+            "errors": ""
+          },
+          "inputs": [
+            {
+              "id": "65b707c7-171a-4468-94f0-e2de9ffec800",
+              "name": "輸入",
+              "description": "",
+              "condition": "",
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "id": "b1543a61-648c-4611-a3f2-a8e4f8efb668",
+              "name": "輸出",
+              "description": "",
+              "condition": "",
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+              }
+            }
+          ],
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "variables": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "buffer": {
+            "mode": "all",
+            "rules": ""
+          },
+          "childGraphId": null,
+          "boundaryPortId": null,
+          "style": {
+            "color": "#4364d9"
+          },
+          "workflowNodeId": null,
+          "external": null
+        }
+      ],
+      "edges": [
+        {
+          "id": "d230bae6-ba18-402a-9ece-339595a88de7",
+          "kind": "forward",
+          "source": "2f37b2d0-3b95-459e-a740-d6ecd31c0be2",
+          "sourcePort": "f1c950b8-dd6b-430c-8671-0a1b81ea9c16",
+          "target": "3c705a1a-19cb-4354-97df-55820907af9d",
+          "targetPort": "65b707c7-171a-4468-94f0-e2de9ffec800",
+          "name": "",
+          "condition": "",
+          "mapping": "",
+          "reason": "",
+          "loop": {
+            "mode": "once",
+            "maxIterations": null,
+            "stopCondition": "",
+            "onLimit": ""
+          }
+        },
+        {
+          "id": "ef8f2c8c-9a1a-461b-b3a9-479a9373ddcb",
+          "kind": "forward",
+          "source": "3c705a1a-19cb-4354-97df-55820907af9d",
+          "sourcePort": "b1543a61-648c-4611-a3f2-a8e4f8efb668",
+          "target": "00bd4310-0373-455d-b386-a049bccaf738",
+          "targetPort": "ef04efa5-9493-481a-9475-21e05e621c9c",
+          "name": "",
+          "condition": "",
+          "mapping": "",
+          "reason": "",
+          "loop": {
+            "mode": "once",
+            "maxIterations": null,
+            "stopCondition": "",
+            "onLimit": ""
+          }
+        }
+      ]
+    }
+  ],
+  "layout": {
+    "d16f8266-f8c4-4b19-bd9c-4b7c39275576": {
+      "positions": {
+        "12829eef-5bed-45bb-8252-e23a2e78f676": {
+          "x": 0,
+          "y": 0
+        },
+        "57b93684-84ed-4e16-b241-2a3d755c4b8f": {
+          "x": 1100,
+          "y": 0
+        },
+        "4f53026a-e1b1-44fa-bcb4-45b23e663309": {
+          "x": 0,
+          "y": 700
+        }
+      },
+      "viewport": {
+        "x": 0,
+        "y": 0,
+        "zoom": 1
+      }
+    },
+    "b0ddd2ba-666e-4a99-aa5c-6cde0f6e2849": {
+      "positions": {
+        "d4f32b36-64ce-4607-a61a-103d299630ce": {
+          "x": 60,
+          "y": 100
+        },
+        "d42b8349-5dee-49ce-bd42-d182c3a872c9": {
+          "x": 740,
+          "y": 260
+        },
+        "884b805d-53cf-4c2a-a87d-f90fb8d8ea2a": {
+          "x": 390,
+          "y": 160
+        }
+      },
+      "viewport": {
+        "x": 0,
+        "y": 0,
+        "zoom": 1
+      }
+    },
+    "6d2b5868-ea6f-4097-b161-a7a415fa4261": {
+      "positions": {
+        "56497657-4e96-4d01-8686-77136ab9fae8": {
+          "x": 60,
+          "y": 100
+        },
+        "ccd417ee-6bc7-4360-93a0-9aba603c1cfe": {
+          "x": 740,
+          "y": 260
+        },
+        "8b1f1364-b2f3-4c5f-bd60-615255734f6c": {
+          "x": 390,
+          "y": 160
+        }
+      },
+      "viewport": {
+        "x": 0,
+        "y": 0,
+        "zoom": 1
+      }
+    },
+    "e968f4fc-1283-415f-9f36-31a1f44c97e6": {
+      "positions": {
+        "2f37b2d0-3b95-459e-a740-d6ecd31c0be2": {
+          "x": 60,
+          "y": 100
+        },
+        "00bd4310-0373-455d-b386-a049bccaf738": {
+          "x": 740,
+          "y": 260
+        },
+        "3c705a1a-19cb-4354-97df-55820907af9d": {
+          "x": 390,
+          "y": 160
+        }
+      },
+      "viewport": {
+        "x": 0,
+        "y": 0,
+        "zoom": 1
+      }
+    }
+  },
+  "definition": {
+    "status": "draft",
+    "issues": [
+      "開工單：尚未定義用途",
+      "開工單：尚未定義前置條件",
+      "開工單：尚未定義處理步驟",
+      "開工單：尚未定義規則",
+      "開工單：尚未定義完成條件",
+      "開工單：尚未定義錯誤處理",
+      "開工單：請補齊連接埠名稱與說明",
+      "開工單 / 輸入：尚未定義資料欄位（無資料可使用 null 型別）",
+      "開工單：請補齊連接埠名稱與說明",
+      "開工單 / 輸出：尚未定義資料欄位（無資料可使用 null 型別）",
+      "開工單 / 輸出：尚未定義輸出條件",
+      "入庫：尚未定義用途",
+      "入庫：尚未定義前置條件",
+      "入庫：尚未定義處理步驟",
+      "入庫：尚未定義規則",
+      "入庫：尚未定義完成條件",
+      "入庫：尚未定義錯誤處理",
+      "入庫：請補齊連接埠名稱與說明",
+      "入庫 / 輸入：尚未定義資料欄位（無資料可使用 null 型別）",
+      "入庫：請補齊連接埠名稱與說明",
+      "入庫 / 輸出：尚未定義資料欄位（無資料可使用 null 型別）",
+      "入庫 / 輸出：尚未定義輸出條件",
+      "等待檢驗：尚未定義用途",
+      "等待檢驗：尚未定義前置條件",
+      "等待檢驗：尚未定義處理步驟",
+      "等待檢驗：尚未定義規則",
+      "等待檢驗：尚未定義完成條件",
+      "等待檢驗：尚未定義錯誤處理",
+      "等待檢驗：請補齊連接埠名稱與說明",
+      "等待檢驗 / 輸入：尚未定義資料欄位（無資料可使用 null 型別）",
+      "等待檢驗：請補齊連接埠名稱與說明",
+      "等待檢驗 / 輸出：尚未定義資料欄位（無資料可使用 null 型別）",
+      "等待檢驗 / 輸出：尚未定義輸出條件",
+      "開工單資料處理：尚未定義前置條件",
+      "開工單資料處理：尚未定義處理步驟",
+      "開工單資料處理：尚未定義規則",
+      "開工單資料處理：尚未定義完成條件",
+      "開工單資料處理：尚未定義錯誤處理",
+      "開工單資料處理：請補齊連接埠名稱與說明",
+      "開工單資料處理 / 輸入：尚未定義資料欄位（無資料可使用 null 型別）",
+      "開工單資料處理：請補齊連接埠名稱與說明",
+      "開工單資料處理 / 輸出：尚未定義資料欄位（無資料可使用 null 型別）",
+      "開工單資料處理 / 輸出：尚未定義輸出條件",
+      "連線尚未定義觸發條件",
+      "連線尚未定義傳遞資料／欄位對應",
+      "連線尚未定義觸發條件",
+      "連線尚未定義傳遞資料／欄位對應",
+      "入庫資料處理：尚未定義前置條件",
+      "入庫資料處理：尚未定義處理步驟",
+      "入庫資料處理：尚未定義規則",
+      "入庫資料處理：尚未定義完成條件",
+      "入庫資料處理：尚未定義錯誤處理",
+      "入庫資料處理：請補齊連接埠名稱與說明",
+      "入庫資料處理 / 輸入：尚未定義資料欄位（無資料可使用 null 型別）",
+      "入庫資料處理：請補齊連接埠名稱與說明",
+      "入庫資料處理 / 輸出：尚未定義資料欄位（無資料可使用 null 型別）",
+      "入庫資料處理 / 輸出：尚未定義輸出條件",
+      "連線尚未定義觸發條件",
+      "連線尚未定義傳遞資料／欄位對應",
+      "連線尚未定義觸發條件",
+      "連線尚未定義傳遞資料／欄位對應",
+      "等待檢驗資料處理：尚未定義前置條件",
+      "等待檢驗資料處理：尚未定義處理步驟",
+      "等待檢驗資料處理：尚未定義規則",
+      "等待檢驗資料處理：尚未定義完成條件",
+      "等待檢驗資料處理：尚未定義錯誤處理",
+      "等待檢驗資料處理：請補齊連接埠名稱與說明",
+      "等待檢驗資料處理 / 輸入：尚未定義資料欄位（無資料可使用 null 型別）",
+      "等待檢驗資料處理：請補齊連接埠名稱與說明",
+      "等待檢驗資料處理 / 輸出：尚未定義資料欄位（無資料可使用 null 型別）",
+      "等待檢驗資料處理 / 輸出：尚未定義輸出條件",
+      "連線尚未定義觸發條件",
+      "連線尚未定義傳遞資料／欄位對應",
+      "連線尚未定義觸發條件",
+      "連線尚未定義傳遞資料／欄位對應"
+    ]
+  }
+}

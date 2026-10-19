@@ -1,0 +1,605 @@
+{
+  "formatVersion": 2,
+  "meta": {
+    "id": "bakery-line",
+    "name": "麵包產線",
+    "version": 1,
+    "status": "draft",
+    "domain": "食品",
+    "description": "混料 → 發酵 → 烘烤 → 量測含水率 → 品檢分流（成品／重工／報廢）（v0.2：品檢改用決策表，含水率以連線傳入）"
+  },
+  "artifactTypes": [
+    {
+      "id": "lot.flour",
+      "name": "麵粉批",
+      "extends": "material",
+      "identity": "lot",
+      "quantity": {
+        "dimension": "mass",
+        "baseUnit": "kg",
+        "conservation": "yield"
+      },
+      "attributes": {
+        "supplier": {
+          "type": "string",
+          "source": "generated",
+          "description": "供應商（進料時寫入）"
+        },
+        "grade": {
+          "type": "enum",
+          "values": [
+            "C",
+            "B",
+            "A"
+          ],
+          "source": "generated"
+        },
+        "expiry": {
+          "type": "datetime",
+          "source": "inherited",
+          "merge": "min"
+        },
+        "allergen": {
+          "type": "string[]",
+          "source": "inherited",
+          "merge": "union"
+        }
+      }
+    },
+    {
+      "id": "lot.yeast",
+      "name": "酵母批",
+      "extends": "material",
+      "identity": "lot",
+      "quantity": {
+        "dimension": "mass",
+        "baseUnit": "kg",
+        "conservation": "yield"
+      },
+      "attributes": {
+        "expiry": {
+          "type": "datetime",
+          "source": "inherited",
+          "merge": "min"
+        },
+        "allergen": {
+          "type": "string[]",
+          "source": "inherited",
+          "merge": "union"
+        }
+      }
+    },
+    {
+      "id": "lot.dough",
+      "name": "麵團批",
+      "extends": "material",
+      "identity": "lot",
+      "quantity": {
+        "dimension": "mass",
+        "baseUnit": "kg",
+        "conservation": "yield"
+      },
+      "attributes": {
+        "expiry": {
+          "type": "datetime",
+          "source": "inherited",
+          "merge": "min"
+        },
+        "allergen": {
+          "type": "string[]",
+          "source": "inherited",
+          "merge": "union"
+        },
+        "expiresAt": {
+          "type": "datetime",
+          "source": "generated",
+          "description": "發酵完成後的使用期限"
+        }
+      }
+    },
+    {
+      "id": "lot.bread",
+      "name": "麵包批",
+      "extends": "material",
+      "identity": "lot",
+      "quantity": {
+        "dimension": "mass",
+        "baseUnit": "kg",
+        "conservation": "yield"
+      },
+      "attributes": {
+        "expiry": {
+          "type": "datetime",
+          "source": "inherited",
+          "merge": "min"
+        },
+        "allergen": {
+          "type": "string[]",
+          "source": "inherited",
+          "merge": "union"
+        },
+        "bakeTemp": {
+          "type": "quantity",
+          "unit": "degC",
+          "source": "generated"
+        }
+      }
+    },
+    {
+      "id": "lot.scrap",
+      "name": "損耗／報廢",
+      "extends": "material",
+      "identity": "bulk",
+      "quantity": {
+        "dimension": "mass",
+        "baseUnit": "kg",
+        "conservation": "strict"
+      }
+    },
+    {
+      "id": "info.moisture",
+      "name": "含水率量測",
+      "extends": "info.measurement",
+      "subject": {
+        "types": [
+          "lot.bread"
+        ]
+      },
+      "attributes": {
+        "value": {
+          "type": "quantity",
+          "unit": "%",
+          "source": "generated"
+        }
+      }
+    },
+    {
+      "id": "info.qc",
+      "name": "品檢判定",
+      "extends": "info.judgment",
+      "subject": {
+        "types": [
+          "lot.bread"
+        ]
+      }
+    }
+  ],
+  "params": [
+    {
+      "id": "approvedSuppliers",
+      "type": "string[]",
+      "default": [
+        "供應商甲",
+        "供應商乙"
+      ],
+      "description": "核可供應商"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "src_flour",
+      "name": "原料倉・麵粉",
+      "category": "source",
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "out",
+          "type": "lot.flour",
+          "cardinality": "1..*",
+          "where": "self.grade >= 'B'"
+        }
+      ],
+      "boundary": {
+        "kind": "warehouse",
+        "location": "wh.raw"
+      }
+    },
+    {
+      "id": "src_yeast",
+      "name": "原料倉・酵母",
+      "category": "source",
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "out",
+          "type": "lot.yeast"
+        }
+      ],
+      "boundary": {
+        "kind": "warehouse",
+        "location": "wh.raw"
+      }
+    },
+    {
+      "id": "mix",
+      "name": "混料",
+      "category": "assemble",
+      "executor": "manual",
+      "inputs": [
+        {
+          "id": "flour",
+          "type": "lot.flour",
+          "cardinality": "1..*"
+        },
+        {
+          "id": "yeast",
+          "type": "lot.yeast"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "dough",
+          "type": "lot.dough",
+          "ratio": 0.98
+        },
+        {
+          "id": "loss",
+          "type": "lot.scrap",
+          "role": "loss"
+        }
+      ],
+      "guard": "in.flour.all(f, f.expiry > now) && in.flour.all(f, f.supplier in params.approvedSuppliers)"
+    },
+    {
+      "id": "proof",
+      "name": "發酵",
+      "category": "hold",
+      "executor": "auto",
+      "inputs": [
+        {
+          "id": "in",
+          "type": "lot.dough"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "out",
+          "type": "lot.dough"
+        }
+      ],
+      "params": {
+        "minDuration": "1h",
+        "maxDuration": "4h"
+      }
+    },
+    {
+      "id": "bake",
+      "name": "烘烤",
+      "category": "transform",
+      "executor": "auto",
+      "inputs": [
+        {
+          "id": "dough",
+          "type": "lot.dough",
+          "where": "self.expiresAt > now"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "bread",
+          "type": "lot.bread"
+        }
+      ],
+      "params": {
+        "maxWait": "30min"
+      },
+      "sim": {
+        "bakeTemp": 220
+      }
+    },
+    {
+      "id": "measure",
+      "name": "量測含水率",
+      "category": "measure",
+      "executor": "manual",
+      "inputs": [
+        {
+          "id": "in",
+          "type": "lot.bread"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "out",
+          "type": "lot.bread"
+        },
+        {
+          "id": "moisture",
+          "type": "info.moisture",
+          "role": "record"
+        }
+      ],
+      "sim": {
+        "value": 11.5,
+        "method": "烘乾法"
+      }
+    },
+    {
+      "id": "qc",
+      "name": "品檢",
+      "category": "judge",
+      "executor": "manual",
+      "inputs": [
+        {
+          "id": "lot",
+          "type": "lot.bread"
+        },
+        {
+          "id": "moisture",
+          "type": "info.moisture"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "ok",
+          "type": "lot.bread",
+          "label": "合格"
+        },
+        {
+          "id": "rework",
+          "type": "lot.bread",
+          "label": "重工"
+        },
+        {
+          "id": "ng",
+          "type": "lot.bread",
+          "label": "不合格"
+        },
+        {
+          "id": "record",
+          "type": "info.qc",
+          "role": "record"
+        }
+      ],
+      "decision": {
+        "hitPolicy": "first",
+        "inputs": [
+          {
+            "id": "m",
+            "label": "含水率",
+            "expr": "in.moisture.value"
+          }
+        ],
+        "rules": [
+          {
+            "when": {
+              "m": "<= 12 %"
+            },
+            "port": "ok",
+            "label": "合格"
+          },
+          {
+            "when": {
+              "m": "<= 14 %"
+            },
+            "port": "rework",
+            "label": "重工"
+          },
+          {
+            "when": {},
+            "port": "ng",
+            "label": "不合格"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sink_fg",
+      "name": "成品倉",
+      "category": "sink",
+      "inputs": [
+        {
+          "id": "in",
+          "type": "lot.bread"
+        }
+      ],
+      "outputs": [],
+      "boundary": {
+        "kind": "warehouse",
+        "location": "wh.fg"
+      }
+    },
+    {
+      "id": "sink_rework",
+      "name": "重工倉",
+      "category": "sink",
+      "inputs": [
+        {
+          "id": "in",
+          "type": "lot.bread"
+        }
+      ],
+      "outputs": [],
+      "boundary": {
+        "kind": "warehouse",
+        "location": "wh.rework"
+      }
+    },
+    {
+      "id": "sink_scrap",
+      "name": "報廢",
+      "category": "sink",
+      "inputs": [
+        {
+          "id": "in",
+          "type": "material",
+          "cardinality": "1..*"
+        }
+      ],
+      "outputs": [],
+      "boundary": {
+        "kind": "scrap",
+        "location": "scrap"
+      }
+    }
+  ],
+  "flows": [
+    {
+      "id": "f1",
+      "from": {
+        "node": "src_flour",
+        "port": "out"
+      },
+      "to": {
+        "node": "mix",
+        "port": "flour"
+      }
+    },
+    {
+      "id": "f2",
+      "from": {
+        "node": "src_yeast",
+        "port": "out"
+      },
+      "to": {
+        "node": "mix",
+        "port": "yeast"
+      }
+    },
+    {
+      "id": "f3",
+      "from": {
+        "node": "mix",
+        "port": "dough"
+      },
+      "to": {
+        "node": "proof",
+        "port": "in"
+      }
+    },
+    {
+      "id": "f4",
+      "from": {
+        "node": "mix",
+        "port": "loss"
+      },
+      "to": {
+        "node": "sink_scrap",
+        "port": "in"
+      }
+    },
+    {
+      "id": "f5",
+      "from": {
+        "node": "proof",
+        "port": "out"
+      },
+      "to": {
+        "node": "bake",
+        "port": "dough"
+      }
+    },
+    {
+      "id": "f6",
+      "from": {
+        "node": "bake",
+        "port": "bread"
+      },
+      "to": {
+        "node": "measure",
+        "port": "in"
+      }
+    },
+    {
+      "id": "f7",
+      "from": {
+        "node": "measure",
+        "port": "out"
+      },
+      "to": {
+        "node": "qc",
+        "port": "lot"
+      }
+    },
+    {
+      "id": "f8",
+      "from": {
+        "node": "qc",
+        "port": "ok"
+      },
+      "to": {
+        "node": "sink_fg",
+        "port": "in"
+      }
+    },
+    {
+      "id": "f9",
+      "from": {
+        "node": "qc",
+        "port": "rework"
+      },
+      "to": {
+        "node": "sink_rework",
+        "port": "in"
+      }
+    },
+    {
+      "id": "f10",
+      "from": {
+        "node": "qc",
+        "port": "ng"
+      },
+      "to": {
+        "node": "sink_scrap",
+        "port": "in"
+      }
+    },
+    {
+      "id": "f11",
+      "from": {
+        "node": "measure",
+        "port": "moisture"
+      },
+      "to": {
+        "node": "qc",
+        "port": "moisture"
+      }
+    }
+  ],
+  "layout": {
+    "src_flour": {
+      "x": 0,
+      "y": 40
+    },
+    "src_yeast": {
+      "x": 0,
+      "y": 260
+    },
+    "mix": {
+      "x": 220,
+      "y": 150
+    },
+    "proof": {
+      "x": 440,
+      "y": 150
+    },
+    "bake": {
+      "x": 660,
+      "y": 150
+    },
+    "measure": {
+      "x": 880,
+      "y": 150
+    },
+    "qc": {
+      "x": 1100,
+      "y": 150
+    },
+    "sink_fg": {
+      "x": 1340,
+      "y": 20
+    },
+    "sink_rework": {
+      "x": 1340,
+      "y": 180
+    },
+    "sink_scrap": {
+      "x": 1340,
+      "y": 360
+    }
+  },
+  "settings": {
+    "exceptionLocation": "wh.exception",
+    "lineageMaxDepth": 10
+  }
+}
