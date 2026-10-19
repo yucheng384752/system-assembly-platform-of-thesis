@@ -2,7 +2,7 @@
 id: "20261016-kit-workflows-live-preview"
 title: "Kit AoV 彙整與真實選配預覽"
 status: "in_progress"
-owner: "claude"
+owner: "codex"
 reviewer: "claude"
 priority: "high"
 created_by: "codex"
@@ -185,3 +185,31 @@ artifacts:
 - 我以腳本逐份核對九份新模板加既有一份：所有節點引用的能力在 registry 皆為 `verified: true`，全部為 draft；共 45 個新節點、5 條邊（generic-forms 3、import-pipeline 2），其餘 kit 無邊，無跨 kit 連線。
 - 邊的依據逐檔記於上方 Codex Notes；內容屬前置識別碼順序，與審閱時抽查一致。邊的語意正確性只靠靜態來源判讀，未經執行驗證，模板維持 draft。
 - 結論：WP2 通過。WP4 至 WP6 仍待 user 決定範圍、共用來源補齊、預覽資料庫（見上方後續分工）。
+
+## 2026-10-19 真實預覽 WP4 第一批派工（Claude）
+
+依 D104、D105 與 `docs/preview-todo.md`。範圍為全部相容 Kit；執行環境固定 Docker 加 PostgreSQL（Windows 與 Linux 皆可）。**Codex 只寫程式與設定；容器啟動、真實 API、資料寫入與重置的實測由 Claude 執行。**
+
+### WP4a 預覽後端組裝與容器設定（Codex）
+
+**預計完成時間：2026-10-19 18:00。** 到期未完成由 Claude 接手。目錄：`services/preview/`（新增）。參考檔在 `services/preview/reference/`（唯讀）。
+
+1. **組裝器：** 把 `kits/*/src/backend` 合併成單一 `app` 套件樹（各 Kit 的 `app/` 會重疊，不得靠命名空間套件碰運氣）。排除 `tenant-auth-kit`、無原始碼的 Kit（`station-admin-kit`、`station-data-link-kit`，見 todo T2、T3）與只有契約的 Kit。組裝器為確定性的：同輸入同輸出，並列出實際納入與排除的 Kit 及原因。可用 Node（`scripts/`，`.mjs`，須通過既有 typecheck）或 Python 實作，擇一並說明。
+2. **入口 `app.main`（預覽專用，不複製基線的 `baseline-main.py`）：** 註冊所有已納入 Kit 的路由；自行提供 `GET /healthz`（todo T5）；啟動時以模型建立資料表（todo T8）；提供只在預覽啟用的「重置資料」入口或指令，重置後資料表回到空狀態。路由註冊依 `reference/backend_router_registry.py` 的對應，但以 `kits/` 實際存在的檔案為準。
+3. **import-pipeline-kit 的 P1／P2／P3 分支（todo T1）：** 在 user 決定前，這些分支回傳明確的「不支援」錯誤（HTTP 501 與可讀訊息），不得崩潰。不修改基線複製的 `import_v2.py`；用組裝器層的方式處理（例如在組裝階段提供會拋出明確錯誤的替代模組，並在 Codex Notes 說明作法與理由）。
+4. **容器：** `services/preview/docker-compose.yml`（`postgres` 加後端兩個服務）、`services/preview/Dockerfile`（Python 版本固定，依賴以固定版本安裝；可參考 `reference/requirements.baseline.txt`，並說明與基線的差異）。PostgreSQL 與後端只綁 `127.0.0.1`，帳密只用本機測試用的固定假值並放在 compose 設定中，不得出現真實連線字串；使用具名 volume，重置指令要能清空。Windows 與 Linux 皆須可用：不得依賴 Windows 路徑或 PowerShell 專用語法，啟動只透過 `docker compose`。
+5. **啟停腳本：** `services/preview/preview.mjs`（Node，跨平台）提供 `up`、`down`、`reset`、`status`；失敗時輸出可讀原因。
+6. **測試：** 組裝器的單元測試（納入與排除、確定性、缺來源時明確列出）；組裝後的樹以 Python `compileall` 風格的靜態檢查驗證沒有 `app.*` 匯入缺口（可重用 `docs/preview-todo.md` 所述的掃描邏輯，寫成測試）；不得需要 Docker 或網路。
+7. **文件：** `services/preview/README.md`（繁體中文）：如何啟動、停止、重置；哪些 Kit 納入與排除及原因；已知限制。不得宣稱真實預覽已驗證。
+
+### 限制與停止條件
+
+- 不修改 `kits/` 內任何既有檔案（含基線複製檔）、`schemas/`、`config/`、`libs/ui-runtime/`、`package*.json`；不新增 npm 依賴；Python 依賴只寫進預覽的 requirements 與 Dockerfile。
+- 不連網、不執行 Docker、不啟動伺服器、不執行 git 寫入。
+- 範例資料、密碼、連線字串不得使用任何真實或來源案例內容。
+- 只有必須改 `kits/` 既有檔案、新增 npm 依賴或需要真實資料時才停止並寫明；其餘衝突以既有檔案為準，調整自己的實作並記錄。
+- 驗證指令：`npm.cmd run typecheck`、`npm.cmd test`、`npm.cmd run build`；完成後在 Codex Notes 記錄做了什麼、變更檔案、結果（含失敗與略過；security.test.mjs 的 EPERM 要如實回報）；thread status 維持 in_progress、owner 改 claude。
+
+### 之後（不在本批）
+
+WP4b（Claude）：以 Docker 實際啟動、驗證每個納入 Kit 的真實 API 與資料寫入。WP5：預覽後端驗證 Recipe、依有效選配開放功能並拒絕直接呼叫。WP6：重置、切換選配、獨立選配建置驗收。完成前畫面維持「模擬資料」標籤。
