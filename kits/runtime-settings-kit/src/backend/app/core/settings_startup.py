@@ -1,6 +1,6 @@
 """應用程式啟動時呼叫一次，請放在所有其他 Kit 的啟動函式之後：
 
-    from app.core.startup import enable_runtime_settings_kit
+    from app.core.settings_startup import enable_runtime_settings_kit
     enable_runtime_settings_kit(raw_settings_dict)        # 套用設定、驗證場域鎖定
     ...資料表建立後...
     from app.core.settings_service import apply_all

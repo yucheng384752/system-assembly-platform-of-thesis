@@ -24,8 +24,8 @@
       "src/backend/app/core/dashboard_providers.py",
       "src/backend/app/core/dashboard_settings.py",
       "src/backend/app/core/activity_service.py",
-      "src/backend/app/core/entry_points_registration.py",
-      "src/backend/app/core/startup.py",
+      "src/backend/app/core/dashboard_entry_points.py",
+      "src/backend/app/core/dashboard_startup.py",
       "src/backend/app/core/dashboard_params.py"
     ],
     "services": [],

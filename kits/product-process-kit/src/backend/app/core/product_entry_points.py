@@ -5,7 +5,7 @@
 """
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entry_points import EntryPoint, registry
 from app.core.roles import Role
@@ -26,8 +26,8 @@ PRODUCT_MODEL_MANAGE = registry.register(
 PRODUCT_LINE_SCOPE = "product-line"
 
 
-def _missing_lines(db: Session, keys: set[str]) -> set[str]:
-    found = set(db.scalars(select(ProductLine.code).where(ProductLine.code.in_(keys))))
+async def _missing_lines(db: AsyncSession, keys: set[str]) -> set[str]:
+    found = set(await db.scalars(select(ProductLine.code).where(ProductLine.code.in_(keys))))
     return keys - found
 
 

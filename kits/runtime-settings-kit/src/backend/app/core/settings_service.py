@@ -3,7 +3,7 @@
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.layers import SOURCE_LABELS, SiteLock, bounds, resolve
 from app.core.param_defs import ParamDef, to_storage
@@ -18,8 +18,8 @@ def stored_value(defn: ParamDef, row: RuntimeSetting | None) -> Any:
     return None if row is None else row.value  # 還原後為 None
 
 
-def effective(db: Session, defn: ParamDef) -> tuple[Any, str]:
-    row = db.scalar(select(RuntimeSetting).where(RuntimeSetting.key == defn.key))
+async def effective(db: AsyncSession, defn: ParamDef) -> tuple[Any, str]:
+    row = await db.scalar(select(RuntimeSetting).where(RuntimeSetting.key == defn.key))
     return resolve(defn, stored_value(defn, row), get_config().site_locks.get(defn.key))
 
 
@@ -36,13 +36,13 @@ def view(defn: ParamDef, row: RuntimeSetting | None, role: str) -> dict:
                 source_label=SOURCE_LABELS[source], version=row.version if row else 0, can_edit=ok, why_not=why)
 
 
-def all_rows(db: Session) -> dict[str, RuntimeSetting]:
-    return {r.key: r for r in db.scalars(select(RuntimeSetting))}
+async def all_rows(db: AsyncSession) -> dict[str, RuntimeSetting]:
+    return {r.key: r for r in await db.scalars(select(RuntimeSetting))}
 
 
-def apply_all(db: Session) -> None:
+async def apply_all(db: AsyncSession) -> None:
     """把目前所有有效值通知各 Kit（啟動時，或定期重新載入時）。"""
-    rows = all_rows(db)
+    rows = await all_rows(db)
     for defn in registry.all():
         if defn.kind != "value":
             continue

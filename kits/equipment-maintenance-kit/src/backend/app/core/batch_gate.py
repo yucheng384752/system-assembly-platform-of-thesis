@@ -14,18 +14,18 @@ class EquipmentCheckGate(GateBase):
     key = "equipment.check"
     order = 10
 
-    def write_blocker(self, ctx: BatchContext, station_code: str) -> str | None:
+    async def write_blocker(self, ctx: BatchContext, station_code: str) -> str | None:
         s = get_settings()
         if s.gated_stations is not None and station_code not in s.gated_stations:
             return None
         args = (s.required_frequencies, s.require_review, s.block_on_abnormal)
         if ctx.equipment_ref:
-            eq = find_equipment(ctx.db, ctx.equipment_ref)
+            eq = await find_equipment(ctx.db, ctx.equipment_ref)
             if eq is None:
                 return f"設備 {ctx.equipment_ref} 不在設備清單"
-            return blocker(facts_for(ctx.db, eq), *args)
+            return blocker(await facts_for(ctx.db, eq), *args)
         if s.global_mode == "line-equipment":
-            return global_blocker([facts_for(ctx.db, e) for e in equipment_in_scope(ctx.db, ctx.product_line_code)], *args)
+            return global_blocker([await facts_for(ctx.db, e) for e in await equipment_in_scope(ctx.db, ctx.product_line_code)], *args)
         return None
 
 

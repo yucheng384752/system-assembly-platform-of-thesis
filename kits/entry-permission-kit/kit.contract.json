@@ -304,13 +304,13 @@
         "capability": "permission.scope-type.register",
         "module": "app.core.user_scopes",
         "symbol": "scope_types.register",
-        "note": "擁有資源的 Kit 註冊範圍類型與鍵值檢查"
+        "note": "擁有資源的 Kit 註冊範圍類型與鍵值檢查；find_missing_keys 為 async (db, keys) -> set"
       },
       {
         "capability": "permission.scope.read",
         "module": "app.core.user_scopes",
         "symbol": "scoped_keys",
-        "note": "回傳 None 代表不限制"
+        "note": "async；回傳 None 代表不限制"
       }
     ],
     "db": [
@@ -337,7 +337,7 @@
         "capability": "platform.db.session",
         "module": "app.core.database",
         "symbol": "get_db, Base",
-        "note": "同步 SQLAlchemy Session；與基線 platform-core 的非同步連線不相容，待決（見 docs/s2-kit-split.md）"
+        "note": "非同步 AsyncSession（D-A5，不採 run_sync 過渡）：每個請求一個 session、expire_on_commit=False、請求以例外結束時回復未提交的變更；Kit 不使用隱式延遲載入"
       }
     ],
     "db": []

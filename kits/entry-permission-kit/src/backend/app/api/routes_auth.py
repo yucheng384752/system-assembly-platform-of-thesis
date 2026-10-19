@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.config import settings
@@ -35,14 +35,14 @@ def _bad_request(detail: str) -> HTTPException:
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(body: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
+async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
     try:
         login_guard.ensure_not_locked(body.username)
     except LoginLockedError as exc:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)
         ) from exc
-    user = db.scalar(select(User).where(User.username == body.username))
+    user = await db.scalar(select(User).where(User.username == body.username))
     if user is None or not verify_password(body.password, user.password_hash):
         login_guard.record_failure(body.username)
         # 統一訊息，不洩漏帳號是否存在。
@@ -55,32 +55,32 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
     return TokenResponse(
         access_token=create_access_token(str(user.id)),
         must_change_password=user.must_change_password,
-        user=user_read(user, db),
+        user=await user_read(user, db),
     )
 
 
 @router.get("/me", response_model=UserRead)
-def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> UserRead:
-    return user_read(user, db)
+async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)) -> UserRead:
+    return await user_read(user, db)
 
 
 @router.patch("/me", response_model=UserRead)
-def update_me(
+async def update_me(
     body: UpdateMeRequest,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> UserRead:
     user.display_name = body.display_name
-    db.commit()
-    db.refresh(user)
-    return user_read(user, db)
+    await db.commit()
+    await db.refresh(user)
+    return await user_read(user, db)
 
 
 @router.post("/change-password", response_model=UserRead)
-def change_password(
+async def change_password(
     body: ChangePasswordRequest,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> UserRead:
     if not verify_password(body.current_password, user.password_hash):
         raise _bad_request("目前密碼錯誤")
@@ -92,6 +92,6 @@ def change_password(
         raise _bad_request(str(exc)) from exc
     user.password_hash = hash_password(body.new_password)
     user.must_change_password = False
-    db.commit()
-    db.refresh(user)
-    return user_read(user, db)
+    await db.commit()
+    await db.refresh(user)
+    return await user_read(user, db)

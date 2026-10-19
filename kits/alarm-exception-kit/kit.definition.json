@@ -24,9 +24,9 @@
       "src/backend/app/core/alarm_settings.py",
       "src/backend/app/core/alarm_service.py",
       "src/backend/app/core/exception_service.py",
-      "src/backend/app/core/entry_points_registration.py",
-      "src/backend/app/core/startup.py",
-      "src/backend/app/core/dashboard_provider.py",
+      "src/backend/app/core/alarm_entry_points.py",
+      "src/backend/app/core/alarm_startup.py",
+      "src/backend/app/core/alarm_dashboard_section.py",
       "src/backend/app/core/alarm_params.py"
     ],
     "services": [],

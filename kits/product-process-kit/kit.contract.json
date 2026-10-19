@@ -190,7 +190,7 @@
       },
       {
         "capability": "product.line.scope-type",
-        "module": "app.core.entry_points_registration",
+        "module": "app.core.product_entry_points",
         "symbol": "PRODUCT_LINE_SCOPE",
         "note": "範圍類型鍵 'product-line'，鍵值為產線代碼"
       },
@@ -198,19 +198,19 @@
         "capability": "product.definition.seed",
         "module": "app.core.seed_loader",
         "symbol": "apply_seed",
-        "note": "寫入產線定義檔；只新增不覆蓋"
+        "note": "async；寫入產線定義檔；只新增不覆蓋"
       },
       {
         "capability": "product.model.snapshot",
         "module": "app.core.model_lookup",
         "symbol": "get_model_snapshot",
-        "note": "回傳不含 ORM 物件的型號快照（產線代碼、製程變體、屬性、配方明細）"
+        "note": "async；回傳不含 ORM 物件的型號快照（產線代碼、製程變體、屬性、配方明細）"
       },
       {
         "capability": "product.structure.load",
         "module": "app.core.model_lookup",
         "symbol": "load_stations",
-        "note": "依型號解析後的站點、步驟、項目與規格上下限；供批次進度與量測規格判斷使用"
+        "note": "async；依型號解析後的站點、步驟、項目與規格上下限；供批次進度與量測規格判斷使用"
       }
     ],
     "db": [
@@ -267,7 +267,7 @@
         "capability": "platform.db.session",
         "module": "app.core.database",
         "symbol": "get_db, Base",
-        "note": "同步 SQLAlchemy Session；與基線 platform-core 的非同步連線不相容，待決（見 docs/s2-kit-split.md）"
+        "note": "非同步 AsyncSession（D-A5，不採 run_sync 過渡）：每個請求一個 session、expire_on_commit=False、請求以例外結束時回復未提交的變更；Kit 不使用隱式延遲載入"
       }
     ],
     "db": []

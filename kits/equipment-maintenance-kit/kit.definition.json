@@ -25,9 +25,9 @@
       "src/backend/app/core/equipment_settings.py",
       "src/backend/app/core/equipment_service.py",
       "src/backend/app/core/batch_gate.py",
-      "src/backend/app/core/entry_points_registration.py",
-      "src/backend/app/core/startup.py",
-      "src/backend/app/core/dashboard_provider.py",
+      "src/backend/app/core/equipment_entry_points.py",
+      "src/backend/app/core/equipment_startup.py",
+      "src/backend/app/core/equipment_dashboard_section.py",
       "src/backend/app/core/equipment_params.py"
     ],
     "services": [],

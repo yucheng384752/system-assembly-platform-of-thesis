@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.form_resolver import MetricDef, ModelSpecDef, StepDef, effective_metrics, steps_for
 from app.core.recipe import RecipeLine as RecipeLineVO
@@ -59,35 +59,35 @@ class StationInfo:
     metrics: tuple[MetricInfo, ...]
 
 
-def get_model_snapshot(db: Session, model_id: int) -> ModelSnapshot | None:
-    model = db.get(ProductModel, model_id)
+async def get_model_snapshot(db: AsyncSession, model_id: int) -> ModelSnapshot | None:
+    model = await db.get(ProductModel, model_id)
     if model is None:
         return None
-    line = db.get(ProductLine, model.product_line_id)
-    rows = db.scalars(select(RecipeLine).where(RecipeLine.product_model_id == model.id).order_by(RecipeLine.display_order, RecipeLine.id))
+    line = await db.get(ProductLine, model.product_line_id)
+    rows = await db.scalars(select(RecipeLine).where(RecipeLine.product_model_id == model.id).order_by(RecipeLine.display_order, RecipeLine.id))
     lines = tuple(RecipeLineVO(r.key, r.label, r.item_no, None if r.ratio_pct is None else Decimal(str(r.ratio_pct)), r.ratio_base, r.is_remainder) for r in rows)
     return ModelSnapshot(model.id, line.code, model.code, model.process_variant, dict(model.attributes or {}), lines, model.is_active)
 
 
-def load_stations(db: Session, product_line_code: str, model_id: int | None) -> list[StationInfo]:
+async def load_stations(db: AsyncSession, product_line_code: str, model_id: int | None) -> list[StationInfo]:
     """某產線依型號解析後的站點、步驟與項目（含規格上下限，型號規格優先於常數規格）。"""
-    line = db.scalar(select(ProductLine).where(ProductLine.code == product_line_code))
+    line = await db.scalar(select(ProductLine).where(ProductLine.code == product_line_code))
     if line is None:
         return []
     variant = None
     specs: dict[str, ModelSpecDef] = {}
     if model_id is not None:
-        model = db.get(ProductModel, model_id)
+        model = await db.get(ProductModel, model_id)
         variant = model.process_variant if model else None
         specs = {s.metric_key: ModelSpecDef(s.metric_key, s.spec_min, s.spec_max, s.spec_text)
-                 for s in db.scalars(select(ModelSpec).where(ModelSpec.product_model_id == model_id))}
-    stations = list(db.scalars(select(Station).where(Station.product_line_id == line.id).order_by(Station.sequence)))
+                 for s in await db.scalars(select(ModelSpec).where(ModelSpec.product_model_id == model_id))}
+    stations = list(await db.scalars(select(Station).where(Station.product_line_id == line.id).order_by(Station.sequence)))
     ids = [s.id for s in stations]
-    metrics = list(db.scalars(select(Metric).where(Metric.station_id.in_(ids)))) if ids else []
+    metrics = list(await db.scalars(select(Metric).where(Metric.station_id.in_(ids)))) if ids else []
     by_id = {m.id: m for m in metrics}
     defs = [MetricDef(m.id, m.station_id, m.key, m.label, m.product_model_id, m.spec_source, m.display_order, m.spec_min, m.spec_max, m.spec_text) for m in metrics]
-    step_defs = [StepDef(s.station_id, s.seq, s.instruction, s.variant) for s in db.scalars(select(StationStep).where(StationStep.station_id.in_(ids)))] if ids else []
-    spec_text_by_key = {(s.station_id, s.seq, s.variant): s.spec_text for s in db.scalars(select(StationStep).where(StationStep.station_id.in_(ids)))} if ids else {}
+    step_defs = [StepDef(s.station_id, s.seq, s.instruction, s.variant) for s in await db.scalars(select(StationStep).where(StationStep.station_id.in_(ids)))] if ids else []
+    spec_text_by_key = {(s.station_id, s.seq, s.variant): s.spec_text for s in await db.scalars(select(StationStep).where(StationStep.station_id.in_(ids)))} if ids else {}
     out: list[StationInfo] = []
     for st in stations:
         infos: list[MetricInfo] = []
@@ -105,9 +105,9 @@ def load_stations(db: Session, product_line_code: str, model_id: int | None) -> 
     return out
 
 
-def find_model_id(db: Session, product_line_code: str, model_code: str) -> int | None:
+async def find_model_id(db: AsyncSession, product_line_code: str, model_code: str) -> int | None:
     """以業務鍵（產線代碼、型號代碼）找型號編號；批次只存業務鍵，需要時才在這裡解析。"""
-    line = db.scalar(select(ProductLine).where(ProductLine.code == product_line_code))
+    line = await db.scalar(select(ProductLine).where(ProductLine.code == product_line_code))
     if line is None:
         return None
-    return db.scalar(select(ProductModel.id).where(ProductModel.product_line_id == line.id, ProductModel.code == model_code))
+    return await db.scalar(select(ProductModel.id).where(ProductModel.product_line_id == line.id, ProductModel.code == model_code))

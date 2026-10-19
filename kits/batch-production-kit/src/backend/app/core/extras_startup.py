@@ -11,22 +11,22 @@ from app.core import extension_points
 from app.core.extras_settings import ExtrasSettings, configure, load_extras_settings
 
 
-def _has_warehouse_entry(db, batch_id: int) -> bool:
+async def _has_warehouse_entry(db, batch_id: int) -> bool:
     from sqlalchemy import select
     from app.models.extras import WarehouseEntry
-    return db.scalar(select(WarehouseEntry.id).where(WarehouseEntry.batch_id == batch_id, WarehouseEntry.status == "submitted")) is not None
+    return await db.scalar(select(WarehouseEntry.id).where(WarehouseEntry.batch_id == batch_id, WarehouseEntry.status == "submitted")) is not None
 
 
-def _uploaded_keys(db, batch_id: int) -> set[str]:
+async def _uploaded_keys(db, batch_id: int) -> set[str]:
     from sqlalchemy import select
     from app.models.extras import BatchAttachment
-    return set(db.scalars(select(BatchAttachment.attachment_key).where(BatchAttachment.batch_id == batch_id)))
+    return set(await db.scalars(select(BatchAttachment.attachment_key).where(BatchAttachment.batch_id == batch_id)))
 
 
-def _pending_rework(db, batch_id: int) -> list[str]:
+async def _pending_rework(db, batch_id: int) -> list[str]:
     from sqlalchemy import func, select
     from app.models.extras import ReworkRecord
-    n = db.scalar(select(func.count(ReworkRecord.id)).where(ReworkRecord.batch_id == batch_id, ReworkRecord.status == "pending")) or 0
+    n = await db.scalar(select(func.count(ReworkRecord.id)).where(ReworkRecord.batch_id == batch_id, ReworkRecord.status == "pending")) or 0
     return [f"尚有 {n} 筆回鍋確認單待確認"] if n else []
 
 

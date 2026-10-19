@@ -71,7 +71,7 @@
 
 ## 已知限制
 
-- 與 entry-permission-kit 相同，使用同步 SQLAlchemy Session，與基線版 platform-core 的非同步連線不相容，未解決前不可組裝。
-- 資料表與路由只通過語法編譯，沒有 API／資料庫整合測試（環境沒有 FastAPI、SQLAlchemy）；純邏輯有 30 項單元測試。
+- 資料庫存取為非同步 AsyncSession（D-A5）。事件處理函式、閘門四個方法、`batch_read` 函式、`extension_points` 插槽都是 async；物件儲存維持同步介面。
+- 驗證狀態：純函式有單元測試；資料庫與 HTTP 由 `tests/s2-kits-integration` 實跑（七個 Kit 組成一個 FastAPI 應用程式，SQLAlchemy 非同步 + 記憶體 SQLite）。尚未在 PostgreSQL 與基線 platform-core 上實跑。
 - 材料寫入的閘門詢問以第一個用料站點代碼代表（來源系統在此處呼叫全域點檢閘門），之後可改為專用的閘門方法。
 - 前端尚未抽出。

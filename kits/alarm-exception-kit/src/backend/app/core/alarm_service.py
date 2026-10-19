@@ -6,7 +6,7 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.alarm_settings import get_settings
 from app.core.batch_read import latest_values
@@ -18,15 +18,15 @@ from app.models.alarm import Alarm
 UNRESOLVED = ("active", "acknowledged")
 
 
-def _active(db: Session, batch_id: int, rule_key: str, measurement_id: int | None) -> list[Alarm]:
+async def _active(db: AsyncSession, batch_id: int, rule_key: str, measurement_id: int | None) -> list[Alarm]:
     q = select(Alarm).where(Alarm.batch_id == batch_id, Alarm.rule_key == rule_key, Alarm.status.in_(UNRESOLVED))
     if measurement_id is not None:
         q = q.where(Alarm.measurement_id == measurement_id)
-    return list(db.scalars(q.order_by(Alarm.id)))
+    return list(await db.scalars(q.order_by(Alarm.id)))
 
 
-def _apply(db: Session, ev: MeasurementRecorded, rule_key: str, outcome: Outcome, scope: str) -> None:
-    rows = _active(db, ev.batch_id, rule_key, ev.measurement_id if scope == "measurement" else None)
+async def _apply(db: AsyncSession, ev: MeasurementRecorded, rule_key: str, outcome: Outcome, scope: str) -> None:
+    rows = await _active(db, ev.batch_id, rule_key, ev.measurement_id if scope == "measurement" else None)
     actions = reconcile(outcome, [ActiveAlarm(a.id, a.measurement_id or 0, a.rule_key, a.message) for a in rows], scope=scope)
     by_id = {a.id: a for a in rows}
     now = datetime.now(timezone.utc)
@@ -37,29 +37,29 @@ def _apply(db: Session, ev: MeasurementRecorded, rule_key: str, outcome: Outcome
     if actions.create:
         db.add(Alarm(batch_id=ev.batch_id, measurement_id=ev.measurement_id, rule_key=rule_key, station_code=ev.station_code,
                      metric_key=ev.metric_key, severity=get_settings().severity, message=actions.create))
-    db.flush()
+    await db.flush()
 
 
-def on_measurement_recorded(db: Session, ev: MeasurementRecorded) -> None:
+async def on_measurement_recorded(db: AsyncSession, ev: MeasurementRecorded) -> None:
     s = get_settings()
     value = ev.value_num
 
     for rule in s.threshold_rules:
         if rule.matches(ev.station_code, ev.metric_key):
-            _apply(db, ev, rule.key, rule.evaluate(ev.metric_label, ev.unit, value), "measurement")
+            await _apply(db, ev, rule.key, rule.evaluate(ev.metric_label, ev.unit, value), "measurement")
 
     for rule in s.consistency_rules:
         if rule.matches(ev.station_code, ev.metric_key):
             scope_station = rule.station_code or ev.station_code
-            values = latest_values(db, ev.batch_id, scope_station, rule.all_keys)
-            _apply(db, ev, rule.key, rule.evaluate(values), "group")
+            values = await latest_values(db, ev.batch_id, scope_station, rule.all_keys)
+            await _apply(db, ev, rule.key, rule.evaluate(values), "group")
 
     if s.spec_range_enabled and not s.covered_by_dedicated_rule(ev.station_code, ev.metric_key):
-        _apply(db, ev, SPEC_RANGE_KEY, evaluate_spec_range(ev.metric_label, ev.unit, value, ev.spec_low, ev.spec_high), "measurement")
+        await _apply(db, ev, SPEC_RANGE_KEY, evaluate_spec_range(ev.metric_label, ev.unit, value, ev.spec_low, ev.spec_high), "measurement")
 
 
-def unresolved_count(db: Session, batch_id: int) -> int:
-    return len(list(db.scalars(select(Alarm.id).where(Alarm.batch_id == batch_id, Alarm.status.in_(UNRESOLVED)))))
+async def unresolved_count(db: AsyncSession, batch_id: int) -> int:
+    return len(list(await db.scalars(select(Alarm.id).where(Alarm.batch_id == batch_id, Alarm.status.in_(UNRESOLVED)))))
 
 
 def register() -> None:

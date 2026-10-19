@@ -23,29 +23,35 @@ def _event():
     return MeasurementRecorded(1, 2, "line_a", "M1", "process", "k", "K", None, 0, D("1"), None, None, D("0"), D("2"), 9)
 
 
-class EventBusTest(unittest.TestCase):
-    def test_no_subscriber_is_a_no_op(self):
-        EventBus().publish(object(), _event())
+def _recorder(seen, tag=None):
+    async def handler(db, e):
+        seen.append(e if tag is None else (tag, db, e.metric_key))
+    return handler
 
-    def test_handlers_receive_db_and_event_in_order(self):
+
+class EventBusTest(unittest.IsolatedAsyncioTestCase):
+    async def test_no_subscriber_is_a_no_op(self):
+        await EventBus().publish(object(), _event())
+
+    async def test_handlers_receive_db_and_event_in_order(self):
         bus, seen = EventBus(), []
-        bus.subscribe(MeasurementRecorded, lambda db, e: seen.append(("a", db, e.metric_key)))
-        bus.subscribe(MeasurementRecorded, lambda db, e: seen.append(("b", db, e.metric_key)))
-        bus.publish("DB", _event())
+        bus.subscribe(MeasurementRecorded, _recorder(seen, "a"))
+        bus.subscribe(MeasurementRecorded, _recorder(seen, "b"))
+        await bus.publish("DB", _event())
         self.assertEqual(seen, [("a", "DB", "k"), ("b", "DB", "k")])
 
-    def test_handler_error_propagates_so_the_whole_request_rolls_back(self):
+    async def test_handler_error_propagates_so_the_whole_request_rolls_back(self):
         bus = EventBus()
-        def boom(db, e): raise RuntimeError("alarm write failed")
+        async def boom(db, e): raise RuntimeError("alarm write failed")
         bus.subscribe(MeasurementRecorded, boom)
         with self.assertRaises(RuntimeError):
-            bus.publish(None, _event())
+            await bus.publish(None, _event())
 
-    def test_events_only_reach_their_own_type_and_double_subscribe_is_rejected(self):
+    async def test_events_only_reach_their_own_type_and_double_subscribe_is_rejected(self):
         bus, seen = EventBus(), []
-        h = lambda db, e: seen.append(e)
+        h = _recorder(seen)
         bus.subscribe(BatchChanged, h)
-        bus.publish(None, _event())
+        await bus.publish(None, _event())
         self.assertEqual(seen, [])
         with self.assertRaises(ValueError):
             bus.subscribe(BatchChanged, h)
@@ -54,46 +60,47 @@ class EventBusTest(unittest.TestCase):
 class _Gate(GateBase):
     def __init__(self, key, order, reason=None, blocked=(), completion=()):
         self.key, self.order, self._r, self._b, self._c = key, order, reason, set(blocked), list(completion)
-    def write_blocker(self, ctx, station_code): return self._r
-    def validate_value(self, ctx, station_code, metric_key, value_num, lo, hi): return self._v if hasattr(self, "_v") else None
-    def station_blocked(self, ctx, station_code): return station_code in self._b
-    def completion_blockers(self, ctx): return self._c
+    async def write_blocker(self, ctx, station_code): return self._r
+    async def validate_value(self, ctx, station_code, metric_key, value_num, lo, hi): return self._v if hasattr(self, "_v") else None
+    async def station_blocked(self, ctx, station_code): return station_code in self._b
+    async def completion_blockers(self, ctx): return self._c
 
 
 CTX = BatchContext(None, 1, "line_a", "M1", None, "in_progress")
 
 
-class GateTest(unittest.TestCase):
-    def test_empty_registry_allows_everything(self):
+class GateTest(unittest.IsolatedAsyncioTestCase):
+    async def test_empty_registry_allows_everything(self):
         g = GateRegistry()
-        self.assertIsNone(g.write_blocker(CTX, "x"))
-        self.assertFalse(g.station_blocked(CTX, "x"))
-        self.assertEqual(g.completion_blockers(CTX), [])
+        self.assertIsNone(await g.write_blocker(CTX, "x"))
+        self.assertFalse(await g.station_blocked(CTX, "x"))
+        self.assertEqual(await g.completion_blockers(CTX), [])
+        self.assertEqual(await GateBase().completion_blockers(CTX), [])
 
-    def test_lower_order_gate_speaks_first_so_the_specific_reason_wins(self):
+    async def test_lower_order_gate_speaks_first_so_the_specific_reason_wins(self):
         g = GateRegistry()
         g.register(_Gate("global", 100, "尚有設備未點檢"))
         g.register(_Gate("specific", 10, "第 3 台設備未點檢"))
-        self.assertEqual(g.write_blocker(CTX, "x"), "第 3 台設備未點檢")
+        self.assertEqual(await g.write_blocker(CTX, "x"), "第 3 台設備未點檢")
 
-    def test_station_block_and_completion_reasons_accumulate(self):
+    async def test_station_block_and_completion_reasons_accumulate(self):
         g = GateRegistry()
         g.register(_Gate("a", 1, blocked={"s2"}, completion=["尚有未結案報警"]))
         g.register(_Gate("b", 2, completion=["另一原因"]))
-        self.assertTrue(g.station_blocked(CTX, "s2"))
-        self.assertFalse(g.station_blocked(CTX, "s1"))
-        self.assertEqual(g.completion_blockers(CTX), ["尚有未結案報警", "另一原因"])
+        self.assertTrue(await g.station_blocked(CTX, "s2"))
+        self.assertFalse(await g.station_blocked(CTX, "s1"))
+        self.assertEqual(await g.completion_blockers(CTX), ["尚有未結案報警", "另一原因"])
 
-    def test_value_validation_runs_through_the_same_ordered_gates(self):
+    async def test_value_validation_runs_through_the_same_ordered_gates(self):
         g = GateRegistry()
         late, early = _Gate("late", 50), _Gate("early", 5)
         late._v, early._v = "較晚的原因", "數值必須是有效數字"
         g.register(late)
         g.register(early)
-        self.assertEqual(g.validate_value(CTX, "s", "k", None, None, None), "數值必須是有效數字")
-        self.assertIsNone(GateRegistry().validate_value(CTX, "s", "k", None, None, None))
+        self.assertEqual(await g.validate_value(CTX, "s", "k", None, None, None), "數值必須是有效數字")
+        self.assertIsNone(await GateRegistry().validate_value(CTX, "s", "k", None, None, None))
 
-    def test_duplicate_or_blank_key_is_rejected(self):
+    async def test_duplicate_or_blank_key_is_rejected(self):
         g = GateRegistry()
         g.register(_Gate("a", 1))
         with self.assertRaises(ValueError):

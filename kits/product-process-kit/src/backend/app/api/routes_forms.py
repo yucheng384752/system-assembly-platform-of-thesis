@@ -5,11 +5,11 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_password_changed
 from app.core.database import get_db
-from app.core.entry_points_registration import PRODUCT_LINE_SCOPE
+from app.core.product_entry_points import PRODUCT_LINE_SCOPE
 from app.core.form_resolver import MetricDef, ModelSpecDef, StepDef, effective_metrics, steps_for, with_model_specs
 from app.core.user_scopes import scoped_keys
 from app.models.metric import Metric
@@ -30,24 +30,24 @@ def _metric_def(m: Metric) -> MetricDef:
 
 
 @router.get("/{product_line_code}", response_model=FormRead)
-def get_form(product_line_code: str, model_id: int | None = None, user: User = Depends(require_password_changed), db: Session = Depends(get_db)) -> FormRead:
-    line = db.scalar(select(ProductLine).where(ProductLine.code == product_line_code))
-    allowed = scoped_keys(user, PRODUCT_LINE_SCOPE, db)
+async def get_form(product_line_code: str, model_id: int | None = None, user: User = Depends(require_password_changed), db: AsyncSession = Depends(get_db)) -> FormRead:
+    line = await db.scalar(select(ProductLine).where(ProductLine.code == product_line_code))
+    allowed = await scoped_keys(user, PRODUCT_LINE_SCOPE, db)
     if line is None or (allowed is not None and line.code not in allowed):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="產線不存在")
     if line.status != "defined":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="此產線尚未提供定義")
-    model = db.get(ProductModel, model_id) if model_id is not None else None
+    model = await db.get(ProductModel, model_id) if model_id is not None else None
     if model_id is not None and (model is None or model.product_line_id != line.id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="型號不存在")
     variant = model.process_variant if model else None
     specs = {} if model is None else {s.metric_key: ModelSpecDef(s.metric_key, s.spec_min, s.spec_max, s.spec_text)
-                                      for s in db.scalars(select(ModelSpec).where(ModelSpec.product_model_id == model.id))}
-    stations = list(db.scalars(select(Station).where(Station.product_line_id == line.id).order_by(Station.sequence)))
+                                      for s in await db.scalars(select(ModelSpec).where(ModelSpec.product_model_id == model.id))}
+    stations = list(await db.scalars(select(Station).where(Station.product_line_id == line.id).order_by(Station.sequence)))
     ids = [s.id for s in stations]
-    metric_rows = {m.id: m for m in db.scalars(select(Metric).where(Metric.station_id.in_(ids)))} if ids else {}
+    metric_rows = {m.id: m for m in await db.scalars(select(Metric).where(Metric.station_id.in_(ids)))} if ids else {}
     metric_defs = [_metric_def(m) for m in metric_rows.values()]
-    step_rows = list(db.scalars(select(StationStep).where(StationStep.station_id.in_(ids)))) if ids else []
+    step_rows = list(await db.scalars(select(StationStep).where(StationStep.station_id.in_(ids)))) if ids else []
     step_defs = [StepDef(s.station_id, s.seq, s.instruction, s.variant) for s in step_rows]
     out: list[StationFormRead] = []
     for st in stations:

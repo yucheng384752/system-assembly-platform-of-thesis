@@ -4,7 +4,7 @@ from collections.abc import Callable
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.entry_point_overrides import entry_point_allows
@@ -18,8 +18,8 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 _FORBIDDEN = "權限不足"
 
 
-def get_current_user(
-    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+async def get_current_user(
+    token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)
 ) -> User:
     credentials_error = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -29,7 +29,7 @@ def get_current_user(
     subject = decode_access_token(token)
     if subject is None or not subject.isdigit():
         raise credentials_error
-    user = db.get(User, int(subject))
+    user = await db.get(User, int(subject))
     if user is None or not user.is_active:
         raise credentials_error
     return user
@@ -52,11 +52,11 @@ def require_admin(user: User = Depends(require_password_changed)) -> User:
 
 
 def require_entry_point(entry_point: EntryPoint) -> Callable[..., User]:
-    def checker(
+    async def checker(
         user: User = Depends(require_password_changed),
-        db: Session = Depends(get_db),
+        db: AsyncSession = Depends(get_db),
     ) -> User:
-        if not entry_point_allows(user, entry_point, db):
+        if not await entry_point_allows(user, entry_point, db):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_FORBIDDEN)
         return user
 
@@ -70,14 +70,14 @@ def require_entry_point_or_tag(entry_point: EntryPoint, tag: str) -> Callable[..
     需求，本 Kit 不必引用它們的入口常數。
     """
 
-    def checker(
+    async def checker(
         user: User = Depends(require_password_changed),
-        db: Session = Depends(get_db),
+        db: AsyncSession = Depends(get_db),
     ) -> User:
-        candidates = (entry_point, *registry.with_tag(tag))
-        if not any(entry_point_allows(user, ep, db) for ep in candidates):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_FORBIDDEN)
-        return user
+        for ep in (entry_point, *registry.with_tag(tag)):
+            if await entry_point_allows(user, ep, db):
+                return user
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_FORBIDDEN)
 
     return checker
 

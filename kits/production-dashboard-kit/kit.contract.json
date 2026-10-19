@@ -115,7 +115,7 @@
     "python": [
       {
         "capability": "dashboard.enable",
-        "module": "app.core.startup",
+        "module": "app.core.dashboard_startup",
         "symbol": "enable_dashboard_kit",
         "note": "啟動時呼叫一次；訂閱 BatchChanged 寫入活動紀錄"
       },
@@ -123,7 +123,7 @@
         "capability": "dashboard.section.register",
         "module": "app.core.dashboard_providers",
         "symbol": "register",
-        "note": "其他 Kit 登錄總覽區塊：key、title、order、fetch(db, actor) -> {counts, rows}；單一區塊失敗不影響其他"
+        "note": "其他 Kit 登錄總覽區塊：key、title、order、async fetch(db, actor) -> {counts, rows}；單一區塊失敗不影響其他"
       },
       {
         "capability": "dashboard.activity.purge",
@@ -175,7 +175,7 @@
         "capability": "platform.db.session",
         "module": "app.core.database",
         "symbol": "get_db, Base",
-        "note": "同步 SQLAlchemy Session；待決見 docs/s2-kit-split.md"
+        "note": "非同步 AsyncSession（D-A5，不採 run_sync 過渡）：每個請求一個 session、expire_on_commit=False、請求以例外結束時回復未提交的變更；Kit 不使用隱式延遲載入"
       },
       {
         "capability": "settings.param.register",

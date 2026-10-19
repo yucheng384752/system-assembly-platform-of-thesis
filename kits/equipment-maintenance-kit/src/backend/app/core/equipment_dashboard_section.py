@@ -8,10 +8,10 @@ class EquipmentSection:
     title = "設備總覽"
     order = 20
 
-    def fetch(self, db, actor) -> dict:
+    async def fetch(self, db, actor) -> dict:
         from app.api.routes_equipment import list_equipment  # 延後匯入：沿用路由的產線範圍過濾
 
-        items = list_equipment(include_inactive=False, actor=actor, db=db)
+        items = await list_equipment(include_inactive=False, actor=actor, db=db)
         blocked = [e for e in items if e.blocker]
         counts = {"可用": len(items) - len(blocked), "不可用": len(blocked)}
         rows = [{"設備": e.name, "原因": e.blocker} for e in blocked]

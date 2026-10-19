@@ -3,7 +3,7 @@
 儀表板不認得報警或設備：想出現在總覽的 Kit 在啟動時登錄一個提供者，儀表板依 order 排列、
 單一提供者失敗只影響自己的區塊。沒有任何提供者時，總覽只剩批次狀態計數。
 
-提供者介面：key、title、order 三個屬性，加上 fetch(db, actor) -> {"counts": {標籤: 數量}, "rows": [dict, …]}。
+提供者介面：key、title、order 三個屬性，加上 async fetch(db, actor) -> {"counts": {標籤: 數量}, "rows": [dict, …]}。
 """
 
 from dataclasses import dataclass, field
@@ -17,7 +17,7 @@ class SectionProvider(Protocol):
     title: str
     order: int
 
-    def fetch(self, db: Any, actor: Any) -> dict: ...
+    async def fetch(self, db: Any, actor: Any) -> dict: ...
 
 
 @dataclass(frozen=True)
@@ -47,11 +47,11 @@ class ProviderRegistry:
     def _ordered(self) -> list[SectionProvider]:
         return sorted(self._providers.values(), key=lambda p: (p.order, p.key))
 
-    def collect(self, db: Any, actor: Any) -> list[Section]:
+    async def collect(self, db: Any, actor: Any) -> list[Section]:
         sections: list[Section] = []
         for provider in self._ordered():
             try:
-                data = provider.fetch(db, actor)
+                data = await provider.fetch(db, actor)
                 counts = {str(k): int(v) for k, v in dict(data.get("counts", {})).items()}
                 sections.append(Section(provider.key, provider.title, counts, list(data.get("rows", []))[:MAX_ROWS]))
             except Exception:  # noqa: BLE001  一個區塊壞掉不拖垮整個總覽

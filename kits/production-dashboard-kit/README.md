@@ -40,4 +40,4 @@
 
     PYTHONPATH=kits/production-dashboard-kit/src/backend python -m unittest discover -s kits/production-dashboard-kit/tests
 
-資料表與路由只做語法檢查，尚未連 FastAPI／資料庫實跑（沙箱沒有這些套件，且同步／非同步連線待決）。
+驗證狀態：純函式有單元測試；資料庫與 HTTP 由 `tests/s2-kits-integration` 實跑（七個 Kit 組成一個 FastAPI 應用程式，SQLAlchemy 非同步 + 記憶體 SQLite）。尚未在 PostgreSQL 與基線 platform-core 上實跑。

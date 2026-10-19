@@ -39,7 +39,7 @@
 ## 相依與已知限制
 
 - 相依 entry-permission-kit 的入口目錄、範圍機制與使用者模型（讀取 `id`、`role`、`display_name`）。
-- 與 entry-permission-kit 相同，使用同步 SQLAlchemy Session，與基線版 platform-core 的非同步連線不相容，處理方式待決，未解決前不可組裝。
-- 模型、路由未做 API 整合測試（環境沒有 FastAPI、SQLAlchemy），只通過語法編譯；純邏輯有單元測試。
+- 資料庫存取為非同步 AsyncSession（D-A5）；`model_lookup` 的函式與範圍檢查 `find_missing_keys` 都是 async。
+- 驗證狀態：純函式有單元測試；資料庫與 HTTP 由 `tests/s2-kits-integration` 實跑（七個 Kit 組成一個 FastAPI 應用程式，SQLAlchemy 非同步 + 記憶體 SQLite）。尚未在 PostgreSQL 與基線 platform-core 上實跑。
 - 前端（型號與配方管理、異動紀錄）尚未抽出。
 - 型號規格（`model_specs`）目前只能由定義檔或資料庫寫入，尚無編輯 API；之後可由參數設定中心或本 Kit 補上。

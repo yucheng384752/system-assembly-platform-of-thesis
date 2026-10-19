@@ -1,0 +1,8 @@
+# 只供整合測試；Kit 本身的相依以各 kit.contract.json 為準。
+sqlalchemy[asyncio]>=2.0
+aiosqlite
+fastapi
+httpx
+python-multipart
+bcrypt
+python-jose

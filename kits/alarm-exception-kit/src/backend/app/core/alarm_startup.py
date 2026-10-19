@@ -1,6 +1,6 @@
 """應用程式啟動時呼叫一次：套用設定、訂閱量測事件、註冊批次閘門。
 
-    from app.core.startup import enable_alarm_kit
+    from app.core.alarm_startup import enable_alarm_kit
     enable_alarm_kit(raw_settings_dict)   # raw 可為空 {}，只啟用規格範圍
 
 不呼叫就等於沒選這個 Kit：批次生產照常運作，沒有報警、沒有異常簽核。
@@ -19,8 +19,8 @@ def enable_alarm_kit(raw: dict | None = None) -> AlarmSettings:
     if settings.gating is not None:
         exception_service.register()
     if find_spec("app.core.dashboard_providers") is not None:
-        from app.core import dashboard_provider
-        dashboard_provider.register()
+        from app.core import alarm_dashboard_section
+        alarm_dashboard_section.register()
     if find_spec("app.core.runtime_params") is not None:
         from app.core import alarm_params
         alarm_params.register()

@@ -10,6 +10,8 @@
 閘門依 `order` 由小到大執行，數字小的先檢查，因此「指明是哪台設備」的精確閘門
 可排在籠統的全域閘門之前，使用者看到的是最具體的原因（沿用來源系統的行為）。
 沒有註冊任何閘門時全部放行。
+
+閘門方法一律為 async（會查資料庫，與請求共用同一個 AsyncSession）。
 """
 
 from dataclasses import dataclass
@@ -30,11 +32,11 @@ class BatchGate(Protocol):
     key: str
     order: int
 
-    def write_blocker(self, ctx: BatchContext, station_code: str) -> str | None: ...
-    def validate_value(self, ctx: BatchContext, station_code: str, metric_key: str, value_num: Any,
-                       spec_low: Any, spec_high: Any) -> str | None: ...
-    def station_blocked(self, ctx: BatchContext, station_code: str) -> bool: ...
-    def completion_blockers(self, ctx: BatchContext) -> list[str]: ...
+    async def write_blocker(self, ctx: BatchContext, station_code: str) -> str | None: ...
+    async def validate_value(self, ctx: BatchContext, station_code: str, metric_key: str, value_num: Any,
+                             spec_low: Any, spec_high: Any) -> str | None: ...
+    async def station_blocked(self, ctx: BatchContext, station_code: str) -> bool: ...
+    async def completion_blockers(self, ctx: BatchContext) -> list[str]: ...
 
 
 class GateBase:
@@ -43,17 +45,17 @@ class GateBase:
     key = ""
     order = 100
 
-    def write_blocker(self, ctx: BatchContext, station_code: str) -> str | None:
+    async def write_blocker(self, ctx: BatchContext, station_code: str) -> str | None:
         return None
 
-    def validate_value(self, ctx: BatchContext, station_code: str, metric_key: str, value_num: Any,
-                       spec_low: Any, spec_high: Any) -> str | None:
+    async def validate_value(self, ctx: BatchContext, station_code: str, metric_key: str, value_num: Any,
+                             spec_low: Any, spec_high: Any) -> str | None:
         return None
 
-    def station_blocked(self, ctx: BatchContext, station_code: str) -> bool:
+    async def station_blocked(self, ctx: BatchContext, station_code: str) -> bool:
         return False
 
-    def completion_blockers(self, ctx: BatchContext) -> list[str]:
+    async def completion_blockers(self, ctx: BatchContext) -> list[str]:
         return []
 
 
@@ -72,28 +74,31 @@ class GateRegistry:
     def _ordered(self) -> list[BatchGate]:
         return sorted(self._gates.values(), key=lambda g: (g.order, g.key))
 
-    def write_blocker(self, ctx: BatchContext, station_code: str) -> str | None:
+    async def write_blocker(self, ctx: BatchContext, station_code: str) -> str | None:
         for gate in self._ordered():
-            reason = gate.write_blocker(ctx, station_code)
+            reason = await gate.write_blocker(ctx, station_code)
             if reason:
                 return reason
         return None
 
-    def validate_value(self, ctx: BatchContext, station_code: str, metric_key: str, value_num: Any,
-                       spec_low: Any, spec_high: Any) -> str | None:
+    async def validate_value(self, ctx: BatchContext, station_code: str, metric_key: str, value_num: Any,
+                             spec_low: Any, spec_high: Any) -> str | None:
         for gate in self._ordered():
-            reason = gate.validate_value(ctx, station_code, metric_key, value_num, spec_low, spec_high)
+            reason = await gate.validate_value(ctx, station_code, metric_key, value_num, spec_low, spec_high)
             if reason:
                 return reason
         return None
 
-    def station_blocked(self, ctx: BatchContext, station_code: str) -> bool:
-        return any(g.station_blocked(ctx, station_code) for g in self._ordered())
+    async def station_blocked(self, ctx: BatchContext, station_code: str) -> bool:
+        for gate in self._ordered():
+            if await gate.station_blocked(ctx, station_code):
+                return True
+        return False
 
-    def completion_blockers(self, ctx: BatchContext) -> list[str]:
+    async def completion_blockers(self, ctx: BatchContext) -> list[str]:
         out: list[str] = []
         for gate in self._ordered():
-            out.extend(gate.completion_blockers(ctx))
+            out.extend(await gate.completion_blockers(ctx))
         return out
 
     def keys(self) -> list[str]:

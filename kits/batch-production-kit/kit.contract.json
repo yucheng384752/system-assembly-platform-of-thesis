@@ -582,13 +582,14 @@
       {
         "capability": "batch.event.subscribe",
         "module": "app.core.events",
-        "symbol": "bus.subscribe"
+        "symbol": "bus.subscribe",
+        "note": "處理函式為 async (db, event)，依訂閱順序 await，與發出事件的請求同一交易"
       },
       {
         "capability": "batch.gate.register",
         "module": "app.core.gates",
         "symbol": "gates.register",
-        "note": "插入寫入前條件、站點完成判斷、完成前阻擋原因；依 order 由小到大執行"
+        "note": "插入寫入前條件、站點完成判斷、完成前阻擋原因；四個方法皆為 async；依 order 由小到大執行"
       },
       {
         "capability": "batch.settings",
@@ -600,13 +601,13 @@
         "capability": "batch.extension.completion",
         "module": "app.core.extension_points",
         "symbol": "uploaded_attachment_keys, has_warehouse_entry, require_warehouse_entry",
-        "note": "入庫單與附件子功能覆寫，掛入完成條件"
+        "note": "入庫單與附件子功能覆寫，掛入完成條件；插槽為 async (db, batch_id)"
       },
       {
         "capability": "batch.read",
         "module": "app.core.batch_read",
         "symbol": "get_visible_batch, get_snapshot, batch_labels, latest_values, current_measurement",
-        "note": "其他 Kit 讀取批次資料的唯讀介面；可見性規則集中於 get_visible_batch"
+        "note": "其他 Kit 讀取批次資料的唯讀介面（皆為 async）；可見性規則集中於 get_visible_batch"
       },
       {
         "capability": "batch.extras.enable",
@@ -618,7 +619,7 @@
         "capability": "batch.completion-check.register",
         "module": "app.core.extension_points",
         "symbol": "completion_checks",
-        "note": "其他完成前檢查：函式 (db, batch_id) -> list[str]"
+        "note": "其他完成前檢查：async 函式 (db, batch_id) -> list[str]"
       },
       {
         "capability": "batch.object-store.set",
@@ -718,7 +719,7 @@
         "capability": "platform.db.session",
         "module": "app.core.database",
         "symbol": "get_db, Base",
-        "note": "同步 SQLAlchemy Session；與基線 platform-core 的非同步連線不相容，待決（見 docs/s2-kit-split.md）"
+        "note": "非同步 AsyncSession（D-A5，不採 run_sync 過渡）：每個請求一個 session、expire_on_commit=False、請求以例外結束時回復未提交的變更；Kit 不使用隱式延遲載入"
       },
       {
         "capability": "settings.param.register",

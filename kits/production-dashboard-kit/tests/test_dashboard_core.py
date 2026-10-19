@@ -73,15 +73,15 @@ class P:
     def __init__(self, key, order, result=None, boom=False):
         self.key, self.title, self.order, self._r, self._boom = key, key.upper(), order, result, boom
 
-    def fetch(self, db, actor):
+    async def fetch(self, db, actor):
         if self._boom:
             raise RuntimeError("壞了")
         return self._r
 
 
-class ProviderTest(unittest.TestCase):
-    def test_no_providers_gives_no_sections(self):
-        self.assertEqual(ProviderRegistry().collect(None, None), [])
+class ProviderTest(unittest.IsolatedAsyncioTestCase):
+    async def test_no_providers_gives_no_sections(self):
+        self.assertEqual(await ProviderRegistry().collect(None, None), [])
 
     def test_sections_follow_order_then_key(self):
         reg = ProviderRegistry()
@@ -90,18 +90,18 @@ class ProviderTest(unittest.TestCase):
         reg.register(P("z", 5, {"counts": {}}))
         self.assertEqual(reg.keys(), ["z", "a", "b"])
 
-    def test_one_failure_does_not_break_the_rest(self):
+    async def test_one_failure_does_not_break_the_rest(self):
         reg = ProviderRegistry()
         reg.register(P("ok", 1, {"counts": {"待處理": 3}, "rows": [{"x": 1}]}))
         reg.register(P("bad", 2, boom=True))
-        ok, bad = reg.collect(None, None)
+        ok, bad = await reg.collect(None, None)
         self.assertEqual((ok.counts, ok.rows, ok.error), ({"待處理": 3}, [{"x": 1}], None))
         self.assertEqual((bad.counts, bad.error), ({}, "此區塊暫時無法取得"))
 
-    def test_rows_are_capped(self):
+    async def test_rows_are_capped(self):
         reg = ProviderRegistry()
         reg.register(P("many", 1, {"counts": {}, "rows": [{"i": i} for i in range(MAX_ROWS + 10)]}))
-        self.assertEqual(len(reg.collect(None, None)[0].rows), MAX_ROWS)
+        self.assertEqual(len((await reg.collect(None, None))[0].rows), MAX_ROWS)
 
     def test_duplicate_or_keyless_provider_is_rejected(self):
         reg = ProviderRegistry()

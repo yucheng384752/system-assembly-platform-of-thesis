@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_entry_point, require_password_changed, require_write_access
 from app.core import extension_points
@@ -16,7 +16,7 @@ from app.core.attachment_rules import AttachmentError, sanitize_filename, valida
 from app.core.batch_read import get_visible_batch
 from app.core.batch_settings import get_settings
 from app.core.database import get_db
-from app.core.entry_points_registration import REWORK_CONFIRM
+from app.core.batch_entry_points import REWORK_CONFIRM
 from app.core.events import BatchChanged, bus
 from app.core.extras_settings import get_extras
 from app.core.note_rules import NoteError, clean_note
@@ -40,8 +40,8 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _writable_batch(db: Session, batch_id: int, actor: User):
-    batch = get_visible_batch(db, batch_id, actor)
+async def _writable_batch(db: AsyncSession, batch_id: int, actor: User):
+    batch = await get_visible_batch(db, batch_id, actor)
     if batch.status == "completed":
         raise HTTPException(409, "已完成批次不可修改")
     return batch
@@ -49,18 +49,18 @@ def _writable_batch(db: Session, batch_id: int, actor: User):
 
 # ---- 入庫單 ----
 @warehouse_router.get("", response_model=WarehouseEntryRead)
-def get_entry(batch_id: int, actor: User = Depends(require_password_changed), db: Session = Depends(get_db)) -> WarehouseEntry:
-    get_visible_batch(db, batch_id, actor)
-    entry = db.scalar(select(WarehouseEntry).where(WarehouseEntry.batch_id == batch_id))
+async def get_entry(batch_id: int, actor: User = Depends(require_password_changed), db: AsyncSession = Depends(get_db)) -> WarehouseEntry:
+    await get_visible_batch(db, batch_id, actor)
+    entry = await db.scalar(select(WarehouseEntry).where(WarehouseEntry.batch_id == batch_id))
     if entry is None:
         raise HTTPException(404, "尚未建立入庫單")
     return entry
 
 
 @warehouse_router.put("", response_model=WarehouseEntryRead)
-def save_entry(batch_id: int, body: WarehouseEntryWrite, actor: User = Depends(require_write_access), db: Session = Depends(get_db)) -> WarehouseEntry:
-    batch = _writable_batch(db, batch_id, actor)
-    entry = db.scalar(select(WarehouseEntry).where(WarehouseEntry.batch_id == batch_id))
+async def save_entry(batch_id: int, body: WarehouseEntryWrite, actor: User = Depends(require_write_access), db: AsyncSession = Depends(get_db)) -> WarehouseEntry:
+    batch = await _writable_batch(db, batch_id, actor)
+    entry = await db.scalar(select(WarehouseEntry).where(WarehouseEntry.batch_id == batch_id))
     if not can_edit(entry.status if entry else None, batch.status):
         raise HTTPException(409, "入庫單已送出，不可修改")
     try:
@@ -72,15 +72,15 @@ def save_entry(batch_id: int, body: WarehouseEntryWrite, actor: User = Depends(r
         db.add(entry)
     entry.quantity, entry.unit, entry.location, entry.lines, entry.note = body.quantity, body.unit, body.location, lines, body.note
     entry.updated_by, entry.updated_at = actor.id, _now()
-    bus.publish(db, BatchChanged(batch_id, "warehouse_saved", actor.id))
-    db.commit()
+    await bus.publish(db, BatchChanged(batch_id, "warehouse_saved", actor.id))
+    await db.commit()
     return entry
 
 
 @warehouse_router.post("/submit", response_model=WarehouseEntryRead)
-def submit_entry(batch_id: int, actor: User = Depends(require_write_access), db: Session = Depends(get_db)) -> WarehouseEntry:
-    _writable_batch(db, batch_id, actor)
-    entry = db.scalar(select(WarehouseEntry).where(WarehouseEntry.batch_id == batch_id))
+async def submit_entry(batch_id: int, actor: User = Depends(require_write_access), db: AsyncSession = Depends(get_db)) -> WarehouseEntry:
+    await _writable_batch(db, batch_id, actor)
+    entry = await db.scalar(select(WarehouseEntry).where(WarehouseEntry.batch_id == batch_id))
     if entry is None:
         raise HTTPException(409, "請先儲存入庫單")
     if entry.status == "submitted":
@@ -90,68 +90,68 @@ def submit_entry(batch_id: int, actor: User = Depends(require_write_access), db:
     except WarehouseError as exc:
         raise HTTPException(422, str(exc)) from exc
     entry.status, entry.submitted_by, entry.submitted_at = "submitted", actor.id, _now()
-    bus.publish(db, BatchChanged(batch_id, "warehouse_submitted", actor.id))
-    db.commit()
+    await bus.publish(db, BatchChanged(batch_id, "warehouse_submitted", actor.id))
+    await db.commit()
     return entry
 
 
 # ---- 回鍋確認單 ----
 @rework_router.get("/batches/{batch_id}/rework-records", response_model=list[ReworkRead])
-def list_rework(batch_id: int, actor: User = Depends(require_password_changed), db: Session = Depends(get_db)) -> list[ReworkRecord]:
-    get_visible_batch(db, batch_id, actor)
-    return list(db.scalars(select(ReworkRecord).where(ReworkRecord.batch_id == batch_id).order_by(ReworkRecord.id)))
+async def list_rework(batch_id: int, actor: User = Depends(require_password_changed), db: AsyncSession = Depends(get_db)) -> list[ReworkRecord]:
+    await get_visible_batch(db, batch_id, actor)
+    return list(await db.scalars(select(ReworkRecord).where(ReworkRecord.batch_id == batch_id).order_by(ReworkRecord.id)))
 
 
 @rework_router.post("/batches/{batch_id}/rework-records", response_model=ReworkRead, status_code=201)
-def create_rework(batch_id: int, body: ReworkCreate, actor: User = Depends(require_write_access), db: Session = Depends(get_db)) -> ReworkRecord:
-    _writable_batch(db, batch_id, actor)
+async def create_rework(batch_id: int, body: ReworkCreate, actor: User = Depends(require_write_access), db: AsyncSession = Depends(get_db)) -> ReworkRecord:
+    await _writable_batch(db, batch_id, actor)
     try:
         qty = validate_create(body.quantity, body.reason)
     except ReworkError as exc:
         raise HTTPException(422, str(exc)) from exc
     rec = ReworkRecord(batch_id=batch_id, station_code=body.station_code, quantity=float(qty), unit=body.unit, reason=body.reason.strip(), created_by=actor.id)
     db.add(rec)
-    db.flush()
-    bus.publish(db, BatchChanged(batch_id, "rework_created", actor.id))
-    db.commit()
+    await db.flush()
+    await bus.publish(db, BatchChanged(batch_id, "rework_created", actor.id))
+    await db.commit()
     return rec
 
 
 @rework_router.post("/rework-records/{record_id}/confirm", response_model=ReworkRead)
-def confirm_rework(record_id: int, actor: User = Depends(require_entry_point(REWORK_CONFIRM)), db: Session = Depends(get_db)) -> ReworkRecord:
-    rec = db.get(ReworkRecord, record_id)
+async def confirm_rework(record_id: int, actor: User = Depends(require_entry_point(REWORK_CONFIRM)), db: AsyncSession = Depends(get_db)) -> ReworkRecord:
+    rec = await db.get(ReworkRecord, record_id)
     if rec is None:
         raise HTTPException(404, "回鍋單不存在")
-    get_visible_batch(db, rec.batch_id, actor)
+    await get_visible_batch(db, rec.batch_id, actor)
     try:
         validate_confirm(rec.created_by, actor.id, rec.status, get_extras().rework_confirmer_must_differ)
     except ReworkError as exc:
         raise HTTPException(409, str(exc)) from exc
     rec.status, rec.confirmed_by, rec.confirmed_at = "confirmed", actor.id, _now()
-    bus.publish(db, BatchChanged(rec.batch_id, "rework_confirmed", actor.id))
-    db.commit()
+    await bus.publish(db, BatchChanged(rec.batch_id, "rework_confirmed", actor.id))
+    await db.commit()
     return rec
 
 
 # ---- 子表格備註 ----
 @notes_router.get("", response_model=list[NoteRead])
-def list_notes(batch_id: int, actor: User = Depends(require_password_changed), db: Session = Depends(get_db)) -> list[BatchNote]:
-    get_visible_batch(db, batch_id, actor)
-    return list(db.scalars(select(BatchNote).where(BatchNote.batch_id == batch_id).order_by(BatchNote.id)))
+async def list_notes(batch_id: int, actor: User = Depends(require_password_changed), db: AsyncSession = Depends(get_db)) -> list[BatchNote]:
+    await get_visible_batch(db, batch_id, actor)
+    return list(await db.scalars(select(BatchNote).where(BatchNote.batch_id == batch_id).order_by(BatchNote.id)))
 
 
 @notes_router.post("", response_model=NoteRead, status_code=201)
-def add_note(batch_id: int, body: NoteCreate, actor: User = Depends(require_write_access), db: Session = Depends(get_db)) -> BatchNote:
-    _writable_batch(db, batch_id, actor)
+async def add_note(batch_id: int, body: NoteCreate, actor: User = Depends(require_write_access), db: AsyncSession = Depends(get_db)) -> BatchNote:
+    await _writable_batch(db, batch_id, actor)
     try:
         text = clean_note(body.text)
     except NoteError as exc:
         raise HTTPException(422, str(exc)) from exc
     note = BatchNote(batch_id=batch_id, station_code=body.station_code, step_seq=body.step_seq, text=text, author_id=actor.id)
     db.add(note)
-    db.flush()
-    bus.publish(db, BatchChanged(batch_id, "note_added", actor.id))
-    db.commit()
+    await db.flush()
+    await bus.publish(db, BatchChanged(batch_id, "note_added", actor.id))
+    await db.commit()
     return note
 
 
@@ -168,26 +168,26 @@ def _read(att: BatchAttachment) -> AttachmentRead:
 
 
 @attachments_router.get("", response_model=list[AttachmentRead])
-def list_attachments(batch_id: int, actor: User = Depends(require_password_changed), db: Session = Depends(get_db)) -> list[AttachmentRead]:
-    get_visible_batch(db, batch_id, actor)
-    return [_read(a) for a in db.scalars(select(BatchAttachment).where(BatchAttachment.batch_id == batch_id).order_by(BatchAttachment.id))]
+async def list_attachments(batch_id: int, actor: User = Depends(require_password_changed), db: AsyncSession = Depends(get_db)) -> list[AttachmentRead]:
+    await get_visible_batch(db, batch_id, actor)
+    return [_read(a) for a in await db.scalars(select(BatchAttachment).where(BatchAttachment.batch_id == batch_id).order_by(BatchAttachment.id))]
 
 
 @attachments_router.post("/{key}", response_model=AttachmentRead)
-def upload_attachment(batch_id: int, key: str, file: UploadFile = File(...), actor: User = Depends(require_write_access), db: Session = Depends(get_db)) -> AttachmentRead:
+async def upload_attachment(batch_id: int, key: str, file: UploadFile = File(...), actor: User = Depends(require_write_access), db: AsyncSession = Depends(get_db)) -> AttachmentRead:
     store = extension_points.object_store
     if store is None:
         raise HTTPException(501, "尚未設定物件儲存")
-    _writable_batch(db, batch_id, actor)
+    await _writable_batch(db, batch_id, actor)
     limit = get_extras().attachment_max_bytes
-    data = file.file.read(limit + 1)
+    data = await file.read(limit + 1)
     try:
         content_type = validate_upload(key, _allowed_keys(), data, limit)
     except AttachmentError as exc:
         raise HTTPException(422, str(exc)) from exc
     filename = sanitize_filename(file.filename)
     ref = store.put(batch_id, filename, content_type, data)
-    old = db.scalar(select(BatchAttachment).where(BatchAttachment.batch_id == batch_id, BatchAttachment.attachment_key == key))
+    old = await db.scalar(select(BatchAttachment).where(BatchAttachment.batch_id == batch_id, BatchAttachment.attachment_key == key))
     old_ref = old.object_ref if old else None
     if old is None:
         old = BatchAttachment(batch_id=batch_id, attachment_key=key)
@@ -195,10 +195,10 @@ def upload_attachment(batch_id: int, key: str, file: UploadFile = File(...), act
     old.object_ref, old.filename, old.content_type, old.size = ref, filename, content_type, len(data)
     old.uploaded_by, old.uploaded_at = actor.id, _now()
     try:
-        bus.publish(db, BatchChanged(batch_id, "attachment_uploaded", actor.id))
-        db.commit()
+        await bus.publish(db, BatchChanged(batch_id, "attachment_uploaded", actor.id))
+        await db.commit()
     except Exception:
-        db.rollback()
+        await db.rollback()
         store.delete(ref)  # 資料庫失敗時不留下孤兒物件
         raise
     if old_ref:
@@ -207,15 +207,15 @@ def upload_attachment(batch_id: int, key: str, file: UploadFile = File(...), act
 
 
 @attachments_router.delete("/{key}", status_code=204)
-def delete_attachment(batch_id: int, key: str, actor: User = Depends(require_write_access), db: Session = Depends(get_db)) -> Response:
-    _writable_batch(db, batch_id, actor)
-    att = db.scalar(select(BatchAttachment).where(BatchAttachment.batch_id == batch_id, BatchAttachment.attachment_key == key))
+async def delete_attachment(batch_id: int, key: str, actor: User = Depends(require_write_access), db: AsyncSession = Depends(get_db)) -> Response:
+    await _writable_batch(db, batch_id, actor)
+    att = await db.scalar(select(BatchAttachment).where(BatchAttachment.batch_id == batch_id, BatchAttachment.attachment_key == key))
     if att is None:
         raise HTTPException(404, "附件不存在")
     ref = att.object_ref
-    db.delete(att)
-    bus.publish(db, BatchChanged(batch_id, "attachment_deleted", actor.id))
-    db.commit()
+    await db.delete(att)
+    await bus.publish(db, BatchChanged(batch_id, "attachment_deleted", actor.id))
+    await db.commit()
     if extension_points.object_store is not None:
         extension_points.object_store.delete(ref)
     return Response(status_code=204)

@@ -24,7 +24,7 @@
 
 ## 相依與已知限制
 
-- 消費 platform-core 的 `app.core.config.settings` 與 `app.core.database`（`get_db`、`Base`）。本 Kit 使用同步 SQLAlchemy Session；基線版 platform-core 的連線為非同步，兩者不相容，處理方式待決，未解決前不可組裝。
+- 消費 platform-core 的 `app.core.config.settings` 與 `app.core.database`（`get_db`、`Base`）。資料庫存取為非同步 AsyncSession（D-A5），平台須以 `expire_on_commit=False` 建立 session。
 - 登入鎖定存在單一程序記憶體，只在單一 worker 部署有效。
 - 權杖為無狀態 bearer token，沒有撤銷清單，到期即失效。
 - 前端頁面尚未抽出（下一個工作包）。
@@ -36,4 +36,4 @@
 PYTHONPATH=kits/entry-permission-kit/src/backend python -m unittest discover -s kits/entry-permission-kit/tests
 ```
 
-只涵蓋不需資料庫與第三方套件的入口目錄與登入鎖定；API 端點的整合測試需在裝有 FastAPI、SQLAlchemy 的環境補上。
+以上只涵蓋不需資料庫與第三方套件的入口目錄與登入鎖定。驗證狀態：純函式有單元測試；資料庫與 HTTP 由 `tests/s2-kits-integration` 實跑（七個 Kit 組成一個 FastAPI 應用程式，SQLAlchemy 非同步 + 記憶體 SQLite）。尚未在 PostgreSQL 與基線 platform-core 上實跑。

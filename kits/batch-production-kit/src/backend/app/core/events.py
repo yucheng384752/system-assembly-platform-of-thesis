@@ -4,13 +4,13 @@
 這取代來源系統在量測儲存流程裡直接新增報警資料列、直接呼叫儀表板更新的寫法。
 
 規則：
-- 處理函式同步執行，並與發出事件的請求共用同一個資料庫交易：訂閱者寫入失敗，
+- 處理函式為 async，依序 await，並與發出事件的請求共用同一個資料庫交易（AsyncSession）：訂閱者寫入失敗，
   整筆量測一併回復，不會出現「量測存了、報警沒開」的半套狀態。
 - 處理函式依訂閱順序執行；任一函式拋出例外就中止並往外傳。
 - 沒有任何訂閱者時，發出事件什麼都不做（沒選報警功能的系統照常運作）。
 """
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
@@ -47,7 +47,7 @@ class BatchChanged:
     actor_id: int | None = None  # 誰做的；活動紀錄用。沒有帳號脈絡的異動為 None
 
 
-Handler = Callable[[Any, Any], None]  # (db, event)
+Handler = Callable[[Any, Any], Awaitable[None]]  # async (db, event)
 
 
 class EventBus:
@@ -60,9 +60,9 @@ class EventBus:
             raise ValueError(f"{handler!r} 已訂閱 {event_type.__name__}")
         handlers.append(handler)
 
-    def publish(self, db: Any, event: Any) -> None:
+    async def publish(self, db: Any, event: Any) -> None:
         for handler in tuple(self._handlers.get(type(event), ())):
-            handler(db, event)
+            await handler(db, event)
 
     def subscriber_count(self, event_type: type) -> int:
         return len(self._handlers.get(event_type, ()))

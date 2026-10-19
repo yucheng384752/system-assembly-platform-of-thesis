@@ -152,7 +152,7 @@
       },
       {
         "capability": "settings.enable",
-        "module": "app.core.startup",
+        "module": "app.core.settings_startup",
         "symbol": "enable_runtime_settings_kit",
         "note": "請在所有其他 Kit 之後呼叫；場域鎖定指到未登錄的參數會直接報錯"
       },
@@ -210,7 +210,7 @@
         "capability": "platform.db.session",
         "module": "app.core.database",
         "symbol": "get_db, Base",
-        "note": "同步 SQLAlchemy Session；待決見 docs/s2-kit-split.md"
+        "note": "非同步 AsyncSession（D-A5，不採 run_sync 過渡）：每個請求一個 session、expire_on_commit=False、請求以例外結束時回復未提交的變更；Kit 不使用隱式延遲載入"
       }
     ]
   }

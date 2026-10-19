@@ -1,6 +1,6 @@
 """應用程式啟動時呼叫一次：套用設定並訂閱批次異動事件。
 
-    from app.core.startup import enable_dashboard_kit
+    from app.core.dashboard_startup import enable_dashboard_kit
     enable_dashboard_kit(raw_settings_dict)   # 可為空 {}
 
 報警、設備等 Kit 想出現在總覽，要在自己的啟動函式裡呼叫 dashboard_providers.register(...)；

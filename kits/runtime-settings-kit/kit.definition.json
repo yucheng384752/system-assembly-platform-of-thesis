@@ -26,8 +26,8 @@
       "src/backend/app/core/runtime_config.py",
       "src/backend/app/core/runtime_params.py",
       "src/backend/app/core/settings_service.py",
-      "src/backend/app/core/entry_points_registration.py",
-      "src/backend/app/core/startup.py"
+      "src/backend/app/core/settings_entry_points.py",
+      "src/backend/app/core/settings_startup.py"
     ],
     "services": [],
     "models": [
