@@ -9,7 +9,8 @@ import brokenNodes from '../../../fixtures/aov-merge/c/project.broken-nodes.json
 describe('固定版本的 aov core 快照（D103）', () => {
   test('快照檔案與 VERSION.json 記錄的雜湊一致，手動修改會被發現', () => {
     for (const file of version.files) {
-      const text = readFileSync(new URL(`../../../libs/aov-core/${file.path}`, import.meta.url));
+      // Line endings are normalised so a CRLF checkout on Windows still verifies.
+      const text = readFileSync(new URL(`../../../libs/aov-core/${file.path}`, import.meta.url), 'utf8').split(String.fromCharCode(13, 10)).join(String.fromCharCode(10));
       expect(createHash('sha256').update(text).digest('hex'), file.path).toBe(file.sha256);
     }
     expect(version.commit).toMatch(/^[0-9a-f]{40}$/);

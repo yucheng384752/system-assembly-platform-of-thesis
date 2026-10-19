@@ -10,6 +10,9 @@ if (!source) { console.error('用法：node scripts/sync-aov-core.mjs <aov-proje
 const from = resolve(source, 'packages/core/src');
 const to = resolve(import.meta.dirname, '../libs/aov-core');
 
+// Hash line endings as LF so a CRLF checkout on Windows still matches the recorded value.
+const lfHash = (/** @type {Buffer} */ buffer) => createHash('sha256').update(buffer.toString('utf8').split(String.fromCharCode(13, 10)).join(String.fromCharCode(10))).digest('hex');
+
 /** @param {string} dir @returns {string[]} */
 const list = dir => readdirSync(dir).flatMap(name => {
   const path = join(dir, name);
@@ -29,7 +32,7 @@ const files = list(from).map(path => {
   const target = join(to, rel);
   mkdirSync(join(target, '..'), { recursive: true });
   cpSync(path, target);
-  return { path: rel, sha256: createHash('sha256').update(readFileSync(path)).digest('hex') };
+  return { path: rel, sha256: lfHash(readFileSync(path)) };
 });
 writeFileSync(join(to, 'VERSION.json'), JSON.stringify({
   note: '固定版本快照，請勿手動修改；以 scripts/sync-aov-core.mjs 重新同步（D103）。',
