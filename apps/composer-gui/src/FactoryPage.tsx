@@ -33,8 +33,10 @@ export function FactoryPage({ value, commit, onOpen }: {
       {removal.forms.map(f => <li key={f.id}>表單：{f.name}</li>)}
       {removal.relations.map(r => <li key={r.id}>關聯：{describeEndpoint(value, r.from)}至{describeEndpoint(value, r.to)}</li>)}
     </ul>
-    <button className="danger" onClick={() => { if (commit(removal.value)) { setConfirm(undefined); setError(''); } }}>確認刪除</button>
-    <button onClick={() => setConfirm(undefined)}>取消</button>
+    <div className="actions">
+      <button className="danger" onClick={() => { if (commit(removal.value)) { setConfirm(undefined); setError(''); } }}>確認刪除</button>
+      <button onClick={() => setConfirm(undefined)}>取消</button>
+    </div>
   </section>;
   return <Column id="factory" title="工廠與生產邏輯" lead="先為工廠命名，再建立生產邏輯；每個生產邏輯是一張獨立的流程圖。" className="factory-page">
     {!value.factories.length && <p>尚未建立工廠。請先輸入工廠名稱，再按「建立生產邏輯」。</p>}
@@ -44,13 +46,17 @@ export function FactoryPage({ value, commit, onOpen }: {
         const logic = value.graphs.find(g => g.id === id);
         return logic && <li key={id}>
           <label>生產邏輯名稱<input value={logic.name} maxLength={100} onChange={e => commit(renameGraph(value, id, e.target.value))} /></label>
-          <button onClick={() => onOpen(id)}>開啟<span className="visually-hidden">：{logic.name || '（未命名）'}</span></button>
-          <button className="danger" onClick={() => setConfirm({ kind: 'logic', id })}>刪除<span className="visually-hidden">：{logic.name || '（未命名）'}</span></button>
+          <div className="actions">
+            <button onClick={() => onOpen(id)}>開啟<span className="visually-hidden">：{logic.name || '（未命名）'}</span></button>
+            <button className="danger" onClick={() => setConfirm({ kind: 'logic', id })}>刪除<span className="visually-hidden">：{logic.name || '（未命名）'}</span></button>
+          </div>
           {confirm?.kind === 'logic' && confirm.id === id && summary}
         </li>;
       })}</ul>
-      <button disabled={factory.logicGraphIds.length >= MAX_LOGICS} onClick={() => createLogic(factory.id, value)}>建立生產邏輯<span className="visually-hidden">：{factory.name || '（未命名工廠）'}</span></button>
-      <button className="danger" onClick={() => setConfirm({ kind: 'factory', id: factory.id })}>刪除工廠<span className="visually-hidden">：{factory.name || '（未命名工廠）'}</span></button>
+      <div className="actions">
+        <button disabled={factory.logicGraphIds.length >= MAX_LOGICS} onClick={() => createLogic(factory.id, value)}>建立生產邏輯<span className="visually-hidden">：{factory.name || '（未命名工廠）'}</span></button>
+        <button className="danger" onClick={() => setConfirm({ kind: 'factory', id: factory.id })}>刪除工廠<span className="visually-hidden">：{factory.name || '（未命名工廠）'}</span></button>
+      </div>
       {confirm?.kind === 'factory' && confirm.id === factory.id && summary}
     </section>)}
     <form className="flow-card" onSubmit={e => { e.preventDefault(); if (name.trim()) createFactory(); }}>
