@@ -30,13 +30,13 @@
       }
     },
     "artifacts": {
-      "type": "array", "minItems": 4, "maxItems": 8,
+      "type": "array", "minItems": 4, "maxItems": 10,
       "items": {
         "type": "object", "additionalProperties": false,
         "required": ["path", "role", "sha256", "bytes"],
         "properties": {
           "path": { "$ref": "#/$defs/path" },
-          "role": { "enum": ["readme", "recipe", "workflow", "validation-report", "manual", "site-profile"] },
+          "role": { "enum": ["readme", "recipe", "workflow", "kit-workflow", "validation-report", "manual", "site-profile"] },
           "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
           "bytes": { "type": "integer", "minimum": 1 }
         }

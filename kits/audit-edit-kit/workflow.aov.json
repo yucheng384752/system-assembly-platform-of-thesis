@@ -1,0 +1,18 @@
+{
+  "format": "composer-kit-workflow",
+  "version": 1,
+  "kitId": "audit-edit-kit",
+  "kitVersion": "c4b2b7b-ui.1",
+  "status": "draft",
+  "scope": "描述編輯原因管理、資料修正、稽核事件查詢與盡力寫入，以及由 platform-core-kit 提供的原因驗證。未建立先後連線：edit_record 使用本地 _active_reason 並寫入 RowEdit，未呼叫 db.edit-reasons.validate 或 AuditEvent 寫入服務；不能把資料修正接成稽核事件查詢流程。稽核寫入是共用能力，不綁定查詢子功能，且失敗可能被來源吞下。未涵蓋無獨立登錄能力的前後差異檢視及跨 Kit 稽核呼叫。尚未完成執行與授權驗證。",
+  "nodes": [
+    { "id": "list-reasons", "name": "查詢修改原因", "subfeatureId": "edit-reason", "capabilityIds": ["edit-reasons.list"] },
+    { "id": "create-reason", "name": "建立修改原因", "subfeatureId": "edit-reason", "capabilityIds": ["edit-reasons.create"] },
+    { "id": "update-reason", "name": "更新修改原因", "subfeatureId": "edit-reason", "capabilityIds": ["edit-reasons.update"] },
+    { "id": "validate-reason", "name": "驗證修改原因", "subfeatureId": "edit-reason", "capabilityIds": ["db.edit-reasons.validate"] },
+    { "id": "edit-record", "name": "修正資料紀錄", "subfeatureId": "record-correction", "capabilityIds": ["records.edit"] },
+    { "id": "write-audit", "name": "嘗試保存稽核事件", "capabilityIds": ["db.audit.events"] },
+    { "id": "list-audit", "name": "查詢稽核事件", "subfeatureId": "audit-event-query", "capabilityIds": ["audit.events.list"] }
+  ],
+  "edges": []
+}

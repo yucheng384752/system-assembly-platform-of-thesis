@@ -1,0 +1,15 @@
+{
+  "format": "composer-kit-workflow",
+  "version": 1,
+  "kitId": "station-data-link-kit",
+  "kitVersion": "c4b2b7b-ui.1",
+  "status": "draft",
+  "scope": "僅描述 registry 已驗證的四項共用資料查詢能力；實作依 implementedBy 位於 platform-core-kit 的 db_capabilities.py，本 Kit 沒有原始碼。四項函式獨立，沒有可確認的執行先後，不建立連線，也不綁定單一子功能。未涵蓋來源缺漏的 routes_import、P1/P2/P3 相容層、新站點定義、批號正規化、產品識別碼產生與資料寫入；StationLink 串聯實作屬 generic-forms-kit，不在此建立節點。尚未完成執行驗證。",
+  "nodes": [
+    { "id": "resolve-table", "name": "解析資料表", "capabilityIds": ["db.tables.resolve"] },
+    { "id": "list-forms", "name": "查詢表單清單", "capabilityIds": ["db.forms.list"] },
+    { "id": "search-records", "name": "搜尋站點紀錄", "capabilityIds": ["db.records.search"] },
+    { "id": "records-trend", "name": "統計紀錄趨勢", "capabilityIds": ["db.records.trend"] }
+  ],
+  "edges": []
+}

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Kit workflow description (not an executable workflow)",
+  "type": "object", "additionalProperties": false,
+  "required": ["format", "version", "kitId", "kitVersion", "status", "scope", "nodes", "edges"],
+  "properties": {
+    "format": { "const": "composer-kit-workflow" },
+    "version": { "const": 1 },
+    "kitId": { "$ref": "#/$defs/id" },
+    "kitVersion": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "status": { "enum": ["draft", "reviewed"] },
+    "scope": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "nodes": {
+      "type": "array", "minItems": 1, "maxItems": 100,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "name", "capabilityIds"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "subfeatureId": { "$ref": "#/$defs/id" },
+          "capabilityIds": { "type": "array", "maxItems": 50, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 100 } }
+        }
+      }
+    },
+    "edges": {
+      "type": "array", "maxItems": 500, "uniqueItems": true,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["from", "to"],
+        "properties": { "from": { "$ref": "#/$defs/id" }, "to": { "$ref": "#/$defs/id" } }
+      }
+    }
+  },
+  "$defs": { "id": { "type": "string", "maxLength": 100, "pattern": "^[a-z0-9-]+$" } }
+}

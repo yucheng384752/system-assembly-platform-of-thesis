@@ -1,0 +1,13 @@
+{
+  "format": "composer-kit-workflow",
+  "version": 1,
+  "kitId": "query-traceability-kit",
+  "kitVersion": "c4b2b7b-ui.1",
+  "status": "draft",
+  "scope": "描述批號查詢與批號追溯。兩個路由各自讀取批號紀錄；追溯未呼叫查詢路由，故無先查詢再追溯的連線。追溯回傳的站點資料圖不是本描述檔的執行順序。未涵蓋 verified:false 且找不到來源的 query.records.search，以及無已驗證獨立能力的產品識別碼查詢、進階篩選、動態欄位查詢。尚未完成執行驗證。",
+  "nodes": [
+    { "id": "search-lot", "name": "查詢批號紀錄", "subfeatureId": "lot-query", "capabilityIds": ["query.lot.search"] },
+    { "id": "trace-lot", "name": "追溯批號關聯", "subfeatureId": "traceability-detail", "capabilityIds": ["query.trace.lot"] }
+  ],
+  "edges": []
+}

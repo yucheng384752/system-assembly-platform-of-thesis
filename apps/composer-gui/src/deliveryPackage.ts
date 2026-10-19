@@ -7,10 +7,11 @@ import { validateSchema } from '../../../libs/ui-runtime/schema';
 import { sha256Hex, WORKFLOW_FILE } from './workflow';
 import { createZip } from './zip';
 import { flows, type Flow } from './catalog';
+import { summarizeKitWorkflows, workflowTable, KIT_WORKFLOW_SUMMARY, KIT_WORKFLOW_TABLE } from './kitWorkflows';
 import { assembleManual, checkManuals, fragmentPath, loadFragments, manualRoles, roleNames, type Fragments } from './manual';
 
 // Configuration delivery package (spec 12, D21, D31-D36): settings only, never an installable system.
-export type ArtifactRole = 'readme' | 'recipe' | 'workflow' | 'validation-report' | 'manual' | 'site-profile';
+export type ArtifactRole = 'readme' | 'recipe' | 'workflow' | 'kit-workflow' | 'validation-report' | 'manual' | 'site-profile';
 export interface PackageManifest {
   format: 'composer-delivery-package'; version: 1; installable: false; clientName: string;
   recipe: { name: string; recipeVersion: string };
@@ -62,6 +63,7 @@ function readme(manifest: Omit<PackageManifest, 'artifacts'>, hasSite = false): 
     '## 包含', '',
     '- `config/system.recipe.json`：系統設定檔（已選功能與畫面設定）。',
     '- `aov/workflow.aov.json`：流程規格（流程節點、子流程、表單欄位與驗證規則、已確認的表單關聯）。',
+    '- `aov/kit-workflows.json`、`aov/kit-workflows.md`：所選功能流程總表，包含已啟用步驟與明確連線；缺漏與草稿逐項標示，不代表執行驗證。',
     ...(hasSite ? ['- `config/site/site.profile.json`：場域設定原文（已去除 BOM），含場域限制與資料來源引用，不含秘密值。'] : []),
     '- `validation/report.json`：靜態檢查結果；測試環境演練與現場驗證尚未執行。',
     ...(!manifest.notProvided.some(item => item.path === 'docs/') ? manualRoles.map(role => `- \`docs/manual-${role}.md\`：${roleNames[role]}操作手冊；審閱狀態見各手冊首頁。`) : []),
@@ -111,6 +113,9 @@ export async function buildDeliveryPackage(recipeText: string, workflowText: str
   } else check(!recipe.siteRef, '系統設定檔引用的場域設定尚未提供。');
   if (failures.length) throw new Error(`設定交付包未產生：${failures.join(' ')}`);
 
+  const kitWorkflows = summarizeKitWorkflows(recipe, catalog.kits);
+  const incompleteWorkflows = kitWorkflows.filter(row => row.status !== 'reviewed');
+
   const fragments = manuals.fragments ?? loadFragments();
   const manualStatus = deliveryManualStatus(recipe, catalog, fragments);
   const missing = notProvided.filter(item => item.path !== 'docs/');
@@ -124,6 +129,7 @@ export async function buildDeliveryPackage(recipeText: string, workflowText: str
   const report: ValidationReport = {
     format: 'composer-validation-report', version: 1,
     staticChecks: [
+      { id: 'kit-workflows', description: incompleteWorkflows.length ? `功能流程尚未齊全或審閱：${incompleteWorkflows.map(row => row.name).join('、')}。詳見流程總表。` : '所選功能流程定義已審閱；未執行系統驗證。', status: incompleteWorkflows.length ? 'not-provided' : 'passed' },
       { id: 'workflow-schema', description: '流程規格符合支援的流程文件格式', status: 'passed' },
       { id: 'recipe-schema', description: '系統設定檔符合 Recipe 格式', status: 'passed' },
       { id: 'workflow-ref', description: '系統設定檔的 workflowRef 與流程規格的 SHA-256 相符', status: 'passed' },
@@ -146,6 +152,8 @@ export async function buildDeliveryPackage(recipeText: string, workflowText: str
     { path: 'README.md', role: 'readme', text: readme(base, siteText !== undefined) },
     { path: 'config/system.recipe.json', role: 'recipe', text: recipeText },
     { path: `aov/${WORKFLOW_FILE}`, role: 'workflow', text: workflowText },
+    { path: KIT_WORKFLOW_SUMMARY, role: 'kit-workflow', text: JSON.stringify({ format: 'composer-kit-workflow-summary', version: 1, kits: kitWorkflows }, null, 2) },
+    { path: KIT_WORKFLOW_TABLE, role: 'kit-workflow', text: workflowTable(kitWorkflows) },
     { path: 'validation/report.json', role: 'validation-report', text: JSON.stringify(report, null, 2) },
     ...manualFiles,
     ...(siteText !== undefined ? [{ path: 'config/site/site.profile.json', role: 'site-profile' as const, text: siteText }] : []),
