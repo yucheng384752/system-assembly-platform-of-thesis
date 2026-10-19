@@ -1,0 +1,365 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Composer AoV integration bundle",
+  "description": "D96、D101：單一 JSON，上限 10 MB（10,000,000 UTF-8 bytes），由驗證入口檢查。雜湊不是簽章，不證明來源，只偵測損壞或改動。C 僅驗外殼，不保證語意有效或可執行。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "version",
+    "platform",
+    "aov",
+    "libraries",
+    "bindings",
+    "manifest",
+    "migrationReport"
+  ],
+  "properties": {
+    "format": {
+      "const": "composer-aov-bundle"
+    },
+    "version": {
+      "const": 1
+    },
+    "platform": {
+      "type": "object",
+      "description": "原樣內嵌 B v5；入口另用既有 schemas.aov 驗證，不升級。"
+    },
+    "aov": {
+      "$ref": "#/$defs/project"
+    },
+    "libraries": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "version",
+          "dependencies",
+          "content"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "dependencies": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "version"
+              ],
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/id"
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "content": {
+            "$ref": "#/$defs/library"
+          }
+        }
+      }
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nodes",
+        "forms",
+        "actions"
+      ],
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "platformNodeId",
+              "aovNodeId",
+              "sourceVersion"
+            ],
+            "properties": {
+              "platformNodeId": {
+                "$ref": "#/$defs/platformId"
+              },
+              "aovNodeId": {
+                "$ref": "#/$defs/id"
+              },
+              "sourceVersion": {
+                "$ref": "#/$defs/hash"
+              }
+            }
+          }
+        },
+        "forms": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "sourceFormId",
+              "sourceVersion",
+              "aovFormId",
+              "fields"
+            ],
+            "properties": {
+              "sourceFormId": {
+                "$ref": "#/$defs/platformId"
+              },
+              "sourceVersion": {
+                "$ref": "#/$defs/hash"
+              },
+              "aovFormId": {
+                "$ref": "#/$defs/id"
+              },
+              "fields": {
+                "type": "array",
+                "maxItems": 100,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "sourceFieldId",
+                    "aovFieldId",
+                    "aovType"
+                  ],
+                  "properties": {
+                    "sourceFieldId": {
+                      "$ref": "#/$defs/platformId"
+                    },
+                    "aovFieldId": {
+                      "$ref": "#/$defs/id"
+                    },
+                    "aovType": {
+                      "enum": [
+                        "string",
+                        "number",
+                        "bool",
+                        "datetime",
+                        "quantity"
+                      ]
+                    },
+                    "unit": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "actions": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "platformActionId",
+              "aovActionId",
+              "sourceVersion",
+              "libraryId",
+              "libraryVersion"
+            ],
+            "properties": {
+              "platformActionId": {
+                "$ref": "#/$defs/platformId"
+              },
+              "aovActionId": {
+                "$ref": "#/$defs/id"
+              },
+              "sourceVersion": {
+                "$ref": "#/$defs/hash"
+              },
+              "libraryId": {
+                "$ref": "#/$defs/id"
+              },
+              "libraryVersion": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "manifest": {
+      "type": "array",
+      "maxItems": 104,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sha256",
+          "sourceProject",
+          "sourceVersion"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^(?:(?:platform|aov|bindings|migration-report)\\.json|libraries/(?:0|[1-9][0-9]*)\\.json)$"
+          },
+          "sha256": {
+            "$ref": "#/$defs/hash"
+          },
+          "sourceProject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "sourceVersion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        }
+      }
+    },
+    "migrationReport": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sourcePath",
+          "summary",
+          "suggestedAction"
+        ],
+        "properties": {
+          "sourcePath": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "suggestedAction": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "platformId": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "maxLength": 100
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "遞迴排序物件鍵（陣列順序不變）的 JSON UTF-8 sha256。雜湊不是簽章，不證明來源。"
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "name",
+        "version",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        }
+      }
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "formatVersion",
+        "meta",
+        "nodes",
+        "flows"
+      ],
+      "properties": {
+        "formatVersion": {
+          "const": 1
+        },
+        "meta": {
+          "$ref": "#/$defs/meta"
+        },
+        "nodes": {
+          "type": "array"
+        },
+        "flows": {
+          "type": "array"
+        }
+      }
+    },
+    "library": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "formatVersion",
+        "kind",
+        "meta",
+        "actions"
+      ],
+      "properties": {
+        "formatVersion": {
+          "const": 1
+        },
+        "kind": {
+          "const": "action-library"
+        },
+        "meta": {
+          "$ref": "#/$defs/meta"
+        },
+        "actions": {
+          "type": "array"
+        }
+      }
+    }
+  }
+}

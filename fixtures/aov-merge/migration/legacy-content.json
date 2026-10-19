@@ -1,0 +1,13 @@
+{
+  "format": "aov",
+  "schemaVersion": "1.2",
+  "documentType": "workflow",
+  "project": { "id": "generic-project", "name": "通用流程", "description": "人工確認說明" },
+  "rootGraphId": "main",
+  "graphs": [{
+    "id": "main",
+    "nodes": [{ "id": "step", "business": { "description": "保留自由文字" }, "external": { "document": "reference.json", "nodeId": "remote" }, "attachments": [{ "name": "說明附件", "path": "guide.txt" }], "forms": [{ "id": "form-a", "fields": [{ "id": "field-a", "type": "text" }] }, { "id": "form-b", "fields": [{ "id": "field-b", "type": "boolean" }] }] }],
+    "edges": [{ "id": "return-edge", "kind": "return", "source": "step", "target": "step", "reason": "需人工補正，保留原始返回描述" }]
+  }],
+  "layout": {}
+}
