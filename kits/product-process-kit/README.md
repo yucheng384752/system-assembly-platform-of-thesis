@@ -19,7 +19,7 @@
 |---|---|
 | 型號表內建行業專屬欄位（合金、配方短碼、主料與輔料佔比、兩個料號） | `attributes` 放描述性欄位；配方改為通用的 `recipe_lines`（key、比例、比例基準、餘量行、料號） |
 | 開單流程內寫死的用量拆算 | `app.core.recipe.compute_theoretical`，純函式、可單獨測試、循環參照與負餘量直接報錯 |
-| 製程步驟以「有鉛／無鉛」兩組區分 | 通用的 `process_variant`；步驟逐個 seq 優先取同變體，沒有就退回共用 |
+| 製程步驟以行業專屬的兩組區分 | 通用的 `process_variant`；步驟逐個 seq 優先取同變體，沒有就退回共用 |
 | 稽核角色要隱藏的欄位寫死在後端 key 清單，前端另存一份 | 每個項目的 `hidden_from_roles`，只在後端過濾 |
 | 步驟的時間、轉速、真空度為固定欄位 | `expected` 鍵值，鍵名由場域定義 |
 | 異動紀錄以外鍵指向帳號表 | 保存帳號編號與當時顯示名稱，不跨 Kit 建外鍵 |
@@ -31,7 +31,7 @@
 ## 資料遷移（對應來源系統）
 
 - `products` → `product_lines`（`ok`→`defined`、`wip`→`reserved` 需人工確認，因為兩者語意不完全相同）。
-- `product_models` 的行業專屬欄位 → `attributes` 與 `recipe_lines`；有鉛／無鉛 → `process_variant`。
+- `product_models` 的行業專屬欄位 → `attributes` 與 `recipe_lines`；兩組製程區分 → `process_variant`。
 - `station_steps.lead_type` → `variant`；時間、轉速、真空度 → `expected`。
 - `product_model_change_logs.changed_by` → `changed_by_id` 加上以帳號表補入的 `changed_by_name`。
 - 對照表與遷移腳本放在來源系統那一側的遷移包，本 Kit 不含任何場域資料。

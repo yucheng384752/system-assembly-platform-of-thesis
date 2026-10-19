@@ -25,3 +25,8 @@ BATCH_DISPATCH = registry.register(
         owner_kit=KIT,
     )
 )
+
+# 確認回鍋單：manager 與 admin（第二階段）。
+REWORK_CONFIRM = registry.register(
+    EntryPoint(key="rework_confirm", label="回鍋單確認", roles=(Role.manager, Role.admin), owner_kit=KIT)
+)

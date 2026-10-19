@@ -299,6 +299,269 @@
           "狀態改為完成；發出 BatchChanged"
         ],
         "entryPoint": "batch_manage"
+      },
+      {
+        "capability": "batch.warehouse.get",
+        "method": "GET",
+        "path": "/batches/{batch_id}/warehouse-entry",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "WarehouseEntryRead"
+        },
+        "errors": [
+          404
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "batch.warehouse.save",
+        "method": "PUT",
+        "path": "/batches/{batch_id}/warehouse-entry",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "WarehouseEntryWrite"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "WarehouseEntryRead"
+        },
+        "errors": [
+          404,
+          409,
+          422
+        ],
+        "sideEffects": [
+          "寫入入庫單草稿；發出 BatchChanged"
+        ]
+      },
+      {
+        "capability": "batch.warehouse.submit",
+        "method": "POST",
+        "path": "/batches/{batch_id}/warehouse-entry/submit",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "WarehouseEntryRead"
+        },
+        "errors": [
+          404,
+          409,
+          422
+        ],
+        "sideEffects": [
+          "送出並鎖定入庫單；發出 BatchChanged"
+        ]
+      },
+      {
+        "capability": "batch.rework.list",
+        "method": "GET",
+        "path": "/batches/{batch_id}/rework-records",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "ReworkRead[]"
+        },
+        "errors": [
+          404
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "batch.rework.create",
+        "method": "POST",
+        "path": "/batches/{batch_id}/rework-records",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "ReworkCreate"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "ReworkRead"
+        },
+        "errors": [
+          404,
+          409,
+          422
+        ],
+        "sideEffects": [
+          "新增回鍋單；發出 BatchChanged"
+        ]
+      },
+      {
+        "capability": "batch.rework.confirm",
+        "method": "POST",
+        "path": "/rework-records/{record_id}/confirm",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "ReworkRead"
+        },
+        "errors": [
+          403,
+          404,
+          409
+        ],
+        "sideEffects": [
+          "確認回鍋單；發出 BatchChanged"
+        ],
+        "entryPoint": "rework_confirm"
+      },
+      {
+        "capability": "batch.note.list",
+        "method": "GET",
+        "path": "/batches/{batch_id}/notes",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "NoteRead[]"
+        },
+        "errors": [
+          404
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "batch.note.add",
+        "method": "POST",
+        "path": "/batches/{batch_id}/notes",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "NoteCreate"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "NoteRead"
+        },
+        "errors": [
+          404,
+          409,
+          422
+        ],
+        "sideEffects": [
+          "新增備註（只增不改）；發出 BatchChanged"
+        ]
+      },
+      {
+        "capability": "batch.attachment.list",
+        "method": "GET",
+        "path": "/batches/{batch_id}/attachments",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "AttachmentRead[]"
+        },
+        "errors": [
+          404
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "batch.attachment.upload",
+        "method": "POST",
+        "path": "/batches/{batch_id}/attachments/{key}",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "multipart",
+          "schema": "file"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "AttachmentRead"
+        },
+        "errors": [
+          404,
+          409,
+          422,
+          501
+        ],
+        "sideEffects": [
+          "上傳至物件儲存並記錄參照；取代舊檔"
+        ]
+      },
+      {
+        "capability": "batch.attachment.delete",
+        "method": "DELETE",
+        "path": "/batches/{batch_id}/attachments/{key}",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "none"
+        },
+        "errors": [
+          404,
+          409
+        ],
+        "sideEffects": [
+          "刪除參照與物件"
+        ]
       }
     ],
     "events": [
@@ -344,6 +607,24 @@
         "module": "app.core.batch_read",
         "symbol": "get_visible_batch, get_snapshot, batch_labels, latest_values, current_measurement",
         "note": "其他 Kit 讀取批次資料的唯讀介面；可見性規則集中於 get_visible_batch"
+      },
+      {
+        "capability": "batch.extras.enable",
+        "module": "app.core.extras_startup",
+        "symbol": "enable_batch_extras",
+        "note": "啟動時呼叫一次，回傳要掛上的路由；預設全部關閉"
+      },
+      {
+        "capability": "batch.completion-check.register",
+        "module": "app.core.extension_points",
+        "symbol": "completion_checks",
+        "note": "其他完成前檢查：函式 (db, batch_id) -> list[str]"
+      },
+      {
+        "capability": "batch.object-store.set",
+        "module": "app.core.extension_points",
+        "symbol": "set_object_store",
+        "note": "物件儲存介面：put(batch_id, filename, content_type, data) -> ref；delete(ref)；url(ref)"
       }
     ],
     "db": [
@@ -357,6 +638,18 @@
           "lot_serial_counter_logs"
         ],
         "note": "其他 Kit 不得對這些表建外鍵；以批次編號、批號與業務鍵參照。批次對產品定義、帳號一律不建外鍵"
+      },
+      {
+        "table": "batch_warehouse_entries"
+      },
+      {
+        "table": "batch_rework_records"
+      },
+      {
+        "table": "batch_notes"
+      },
+      {
+        "table": "batch_attachments"
       }
     ]
   },

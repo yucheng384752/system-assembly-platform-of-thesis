@@ -9,3 +9,7 @@ manuals/generated/*
 *.pem
 license.lic
 *.sig.json
+
+# Python bytecode never belongs in the repo.
+__pycache__/
+*.pyc

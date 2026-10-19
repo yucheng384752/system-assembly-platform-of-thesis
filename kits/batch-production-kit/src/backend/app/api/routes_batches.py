@@ -329,7 +329,8 @@ def sign_batch(batch_id: int, body: SignRequest, actor: User = Depends(require_w
 def completion_blockers(batch: Batch, db: Session) -> list[str]:
     """簽核與完成共用，兩個端點對「還缺什麼」不會說法不一。"""
     cfg = get_settings()
-    return missing_before_completion(
+    extra = [reason for check in extension_points.completion_checks for reason in check(db, batch.id)]
+    return extra + missing_before_completion(
         operator_signed=batch.operator_signed_by is not None, inspector_signed=batch.inspector_signed_by is not None,
         incomplete_station=_current_station(batch, db), gate_blockers=gates.completion_blockers(_ctx(db, batch)),
         required_attachments=cfg.required_attachments, uploaded_attachment_keys=extension_points.uploaded_attachment_keys(db, batch.id),
