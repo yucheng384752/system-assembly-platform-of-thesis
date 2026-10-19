@@ -75,4 +75,4 @@ S2 是一套已上線的製程紙本電子化系統（React + FastAPI + PostgreS
 | WP7 | equipment-maintenance-kit：設備、點檢表、點檢與複核、維修、月度匯出、生產閘門（`order=10`，批次 Kit 為可選相依） | 後端完成 |
 | WP8 | batch-production-kit 第二階段：入庫單、回鍋確認單、子表格備註、照片佐證（預設關閉，`enable_batch_extras`） | 後端完成 |
 | WP9 | production-dashboard-kit：總覽（可登錄區塊）、操作紀錄、製程查詢；批次 Kit 補 `BatchChanged.actor_id` 與搜尋／計數／追溯讀取介面；報警與設備 Kit 各登錄一個總覽區塊 | 後端完成 |
-| WP10 | runtime-settings-kit | 待做 |
+| WP10 | runtime-settings-kit：參數定義、四層有效值、權限與風險、樂觀鎖、變更紀錄、場域鎖定；報警／設備／儀表板／批次共登錄 9 項參數驗證機制 | 後端完成 |

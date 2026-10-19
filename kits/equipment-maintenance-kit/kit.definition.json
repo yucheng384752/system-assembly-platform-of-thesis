@@ -27,7 +27,8 @@
       "src/backend/app/core/batch_gate.py",
       "src/backend/app/core/entry_points_registration.py",
       "src/backend/app/core/startup.py",
-      "src/backend/app/core/dashboard_provider.py"
+      "src/backend/app/core/dashboard_provider.py",
+      "src/backend/app/core/equipment_params.py"
     ],
     "services": [],
     "models": [

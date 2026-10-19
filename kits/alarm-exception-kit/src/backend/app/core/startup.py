@@ -21,4 +21,7 @@ def enable_alarm_kit(raw: dict | None = None) -> AlarmSettings:
     if find_spec("app.core.dashboard_providers") is not None:
         from app.core import dashboard_provider
         dashboard_provider.register()
+    if find_spec("app.core.runtime_params") is not None:
+        from app.core import alarm_params
+        alarm_params.register()
     return settings

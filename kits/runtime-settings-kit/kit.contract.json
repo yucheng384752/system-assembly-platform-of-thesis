@@ -1,0 +1,217 @@
+{
+  "kit": "runtime-settings-kit",
+  "provides": {
+    "api": [
+      {
+        "capability": "settings.list",
+        "method": "GET",
+        "path": "/settings",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "query",
+          "schema": "category?,kit_id?"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "SettingRead[]"
+        },
+        "errors": [],
+        "sideEffects": []
+      },
+      {
+        "capability": "settings.get",
+        "method": "GET",
+        "path": "/settings/{key}",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "SettingRead"
+        },
+        "errors": [
+          404
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "settings.set",
+        "method": "PUT",
+        "path": "/settings/{key}",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "SettingWrite"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "SettingRead"
+        },
+        "errors": [
+          403,
+          404,
+          409,
+          422
+        ],
+        "sideEffects": [
+          "寫入上線後調整的值與變更紀錄；提交後通知各 Kit 套用"
+        ]
+      },
+      {
+        "capability": "settings.reset",
+        "method": "POST",
+        "path": "/settings/{key}/reset",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "SettingReset"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "SettingRead"
+        },
+        "errors": [
+          403,
+          404,
+          409,
+          422
+        ],
+        "sideEffects": [
+          "清除上線後調整的值並留紀錄；通知各 Kit"
+        ]
+      },
+      {
+        "capability": "settings.history",
+        "method": "GET",
+        "path": "/settings/{key}/history",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "query",
+          "schema": "limit?"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "ChangeRead[]"
+        },
+        "errors": [
+          404
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "settings.export",
+        "method": "GET",
+        "path": "/settings/export",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "{key: {value, source, version}}"
+        },
+        "errors": [
+          403
+        ],
+        "sideEffects": [],
+        "entryPoint": "settings_export"
+      }
+    ],
+    "events": [],
+    "python": [
+      {
+        "capability": "settings.param.register",
+        "module": "app.core.runtime_params",
+        "symbol": "register_param",
+        "note": "登錄參數定義（型別、單位、範圍、風險、誰能改）與選用的 apply 回呼；其他 Kit 偵測到本模組存在才登錄"
+      },
+      {
+        "capability": "settings.enable",
+        "module": "app.core.startup",
+        "symbol": "enable_runtime_settings_kit",
+        "note": "請在所有其他 Kit 之後呼叫；場域鎖定指到未登錄的參數會直接報錯"
+      },
+      {
+        "capability": "settings.apply-all",
+        "module": "app.core.settings_service",
+        "symbol": "apply_all",
+        "note": "啟動或定期重新載入時，把有效值同步到各 Kit"
+      },
+      {
+        "capability": "settings.effective",
+        "module": "app.core.settings_service",
+        "symbol": "effective"
+      }
+    ],
+    "db": [
+      {
+        "table": "runtime_settings",
+        "note": "key 唯一；value 為 null 代表已還原"
+      },
+      {
+        "table": "runtime_setting_changes",
+        "note": "只增不改"
+      }
+    ]
+  },
+  "consumes": {
+    "api": [],
+    "python": [
+      {
+        "capability": "permission.entry-point.register",
+        "module": "app.core.entry_points",
+        "symbol": "registry.register"
+      },
+      {
+        "capability": "permission.entry-point.require",
+        "module": "app.api.deps",
+        "symbol": "require_entry_point"
+      },
+      {
+        "capability": "permission.write.require",
+        "module": "app.api.deps",
+        "symbol": "require_write_access"
+      },
+      {
+        "capability": "auth.user.model",
+        "module": "app.models.user",
+        "symbol": "User",
+        "fields": [
+          "id",
+          "role"
+        ]
+      },
+      {
+        "capability": "platform.db.session",
+        "module": "app.core.database",
+        "symbol": "get_db, Base",
+        "note": "同步 SQLAlchemy Session；待決見 docs/s2-kit-split.md"
+      }
+    ]
+  }
+}

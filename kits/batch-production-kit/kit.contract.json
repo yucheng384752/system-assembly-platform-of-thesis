@@ -719,6 +719,13 @@
         "module": "app.core.database",
         "symbol": "get_db, Base",
         "note": "同步 SQLAlchemy Session；與基線 platform-core 的非同步連線不相容，待決（見 docs/s2-kit-split.md）"
+      },
+      {
+        "capability": "settings.param.register",
+        "module": "app.core.runtime_params",
+        "symbol": "register_param",
+        "optional": true,
+        "note": "可選：有參數設定中心才登錄可上線後調整的參數"
       }
     ],
     "db": []

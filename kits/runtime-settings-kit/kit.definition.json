@@ -1,0 +1,113 @@
+{
+  "id": "runtime-settings-kit",
+  "displayName": "參數設定中心",
+  "category": "operations",
+  "required": false,
+  "businessCapability": "讓現場在系統上線後，由有權限的人調整各功能開放的參數（報警門檻、預填、表格顯示等）：每個值標示來源、範圍與風險，改動要留紀錄，場域鎖定的項目不能改。",
+  "dependencies": [
+    "platform-core-kit",
+    "entry-permission-kit"
+  ],
+  "optionalDependencies": [
+    "alarm-exception-kit",
+    "equipment-maintenance-kit",
+    "production-dashboard-kit",
+    "batch-production-kit"
+  ],
+  "backend": {
+    "routers": [
+      "src/backend/app/api/routes_settings.py"
+    ],
+    "core": [
+      "src/backend/app/core/param_defs.py",
+      "src/backend/app/core/layers.py",
+      "src/backend/app/core/policy.py",
+      "src/backend/app/core/registry.py",
+      "src/backend/app/core/runtime_config.py",
+      "src/backend/app/core/runtime_params.py",
+      "src/backend/app/core/settings_service.py",
+      "src/backend/app/core/entry_points_registration.py",
+      "src/backend/app/core/startup.py"
+    ],
+    "services": [],
+    "models": [
+      "src/backend/app/models/runtime_setting.py"
+    ],
+    "schemas": [
+      "src/backend/app/schemas/settings.py"
+    ]
+  },
+  "frontend": {
+    "pages": [],
+    "components": [],
+    "note": "尚無前端；參數清單、修改與變更紀錄畫面待做（版面見互動原型的「參數設定」）"
+  },
+  "api": [
+    "GET /settings",
+    "GET /settings/{key}",
+    "PUT /settings/{key}",
+    "POST /settings/{key}/reset",
+    "GET /settings/{key}/history",
+    "GET /settings/export"
+  ],
+  "database": [
+    "runtime_settings",
+    "runtime_setting_changes"
+  ],
+  "permissions": [
+    "改值：依各參數的 edit_roles（qc 只限低風險；高風險只限 admin；operator 與 audit 永遠不行）",
+    "settings_export（admin）"
+  ],
+  "runtimeDependencies": [],
+  "subfeatures": [
+    {
+      "id": "param-center",
+      "displayName": "參數清單與修改",
+      "businessCapability": "列出各功能開放的參數與目前有效值、來源、可調範圍；有權限者修改，改前檢查範圍、風險與版本。",
+      "required": true,
+      "defaultSelected": true,
+      "options": [
+        {
+          "id": "requireReasonFrom",
+          "displayName": "風險達到哪一級以上必須填原因",
+          "type": "string",
+          "defaultValue": "medium",
+          "choices": [
+            "never",
+            "high",
+            "medium",
+            "all"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "site-locks",
+      "displayName": "場域鎖定",
+      "businessCapability": "場域可固定某個參數的值，或收窄可調範圍；被鎖定的項目在介面上不能修改。",
+      "required": false,
+      "defaultSelected": false,
+      "options": [
+        {
+          "id": "siteLocks",
+          "displayName": "場域鎖定清單",
+          "type": "json",
+          "defaultValue": {},
+          "itemShape": {
+            "fixed": "值（與範圍擇一）",
+            "min": "number?",
+            "max": "number?"
+          }
+        }
+      ]
+    },
+    {
+      "id": "change-log",
+      "displayName": "變更紀錄與匯出",
+      "businessCapability": "每次修改或還原都記下誰、何時、舊值、新值與原因；可匯出目前有效值。",
+      "required": false,
+      "defaultSelected": true,
+      "options": []
+    }
+  ]
+}

@@ -20,4 +20,7 @@ def enable_equipment_kit(raw: dict | None = None) -> EquipmentSettings:
     if find_spec("app.core.dashboard_providers") is not None:
         from app.core import dashboard_provider
         dashboard_provider.register()
+    if find_spec("app.core.runtime_params") is not None:
+        from app.core import equipment_params
+        equipment_params.register()
     return settings

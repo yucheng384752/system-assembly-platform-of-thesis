@@ -215,6 +215,13 @@
         "symbol": "register",
         "optional": true,
         "note": "可選：有儀表板 Kit 才登錄總覽區塊"
+      },
+      {
+        "capability": "settings.param.register",
+        "module": "app.core.runtime_params",
+        "symbol": "register_param",
+        "optional": true,
+        "note": "可選：有參數設定中心才登錄可上線後調整的參數"
       }
     ]
   }

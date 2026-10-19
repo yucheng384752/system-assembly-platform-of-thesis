@@ -38,7 +38,8 @@
       "src/backend/app/core/note_rules.py",
       "src/backend/app/core/attachment_rules.py",
       "src/backend/app/core/extras_settings.py",
-      "src/backend/app/core/extras_startup.py"
+      "src/backend/app/core/extras_startup.py",
+      "src/backend/app/core/batch_params.py"
     ],
     "services": [],
     "models": [
