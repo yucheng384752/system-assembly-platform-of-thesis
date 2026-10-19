@@ -20,7 +20,7 @@ Composer 定位為：以 Kit 組裝功能、以 Function 作為最小能力與�
 - **建議**：原助理提案或本次補足的可落地規則，尚不是已核定決策。
 - **待確認**：需要既有程式、資料、使用情境或負責人才能決定。
 
-本次未讀取 Composer、`daihui_project`、`analytical_four` 原始碼，也未驗證其實際演算法、API、DB 或部署方式。既有 Obsidian 筆記提及 analytics-kit 曾經存在及調整，因此未來必須先盤點名稱與相容性，不能直接覆蓋。文中的資料欄位、命名、框架及優先序皆為建議契約；AoV 不擅自展開縮寫。
+本次未讀取 Composer、場域系統 S2、`analytical_four` 原始碼，也未驗證其實際演算法、API、DB 或部署方式。既有 Obsidian 筆記提及 analytics-kit 曾經存在及調整，因此未來必須先盤點名稱與相容性，不能直接覆蓋。文中的資料欄位、命名、框架及優先序皆為建議契約；AoV 不擅自展開縮寫。
 
 ## 2. 需求追溯
 
@@ -31,7 +31,7 @@ Composer 定位為：以 Kit 組裝功能、以 Function 作為最小能力與�
 | R03 | 業務可調參數抽離為多份設定檔，排除基礎設施運作參數 | 5 |
 | R04 | DB 物件具有可操作的遷移腳本 | 7 |
 | R05 | 表格、下拉與圖表採統一輸入格式及解析 | 6 |
-| R06 | daihui_project 入口權限成為可選 Kit，並取代基線版 tenant-auth-kit | 8 |
+| R06 | 場域系統 S2 入口權限成為可選 Kit，並取代基線版 tenant-auth-kit | 8 |
 | R07 | Kit／mService／Function／System 與最精簡 AoV | 4 |
 | R08 | 按所選 Kit 動態組合操作手冊 | 11 |
 | R09 | 每個可修改項目標示可設定的人及風險 | 3、5 |
@@ -288,7 +288,7 @@ Metadata 建議包含 migration id、來源 Kit/version、DB 方言/version、�
 
 **待確認：**目標 DB、既有 migration 工具、備份責任、可接受停機時間。確認前不產出可執行 SQL。
 
-## 8. daihui_project 入口權限 Kit 化
+## 8. 場域系統 S2 入口權限 Kit 化
 
 **需求：**將入口權限加入 Composer 可選 Kit。暫名 `entry-permission-kit`。
 
@@ -497,7 +497,7 @@ build 不等於部署成功。驗證報告分別列出靜態檢查、測試環�
 ## 15. 待確認與風險
 
 1. AoV 的正式語意、現有讀取端與不可破壞的相容欄位。（部分已知：基線版分 Workflow 與 Dataflow 兩種文件，見 §4.2、D18）
-2. Composer、daihui_project、analytical_four 儲存庫位置、版本及授權；既有 analytics-kit 如何合併。
+2. Composer、場域系統 S2、analytical_four 儲存庫位置、版本及授權；既有 analytics-kit 如何合併。
 3. 目標 DB、migration 工具、資料量與停機／復原條件。
 4. 首期分析任務、實際演算法、評估指標、代表性資料與容差。
 5. Runtime override 的可修改清單、期限、Site 硬性限制與角色授權。

@@ -11,6 +11,7 @@ from pathlib import Path
 
 from app.core.definition_changes import ReasonRequiredError, changed_fields, require_reason, summarize
 from app.core.form_resolver import MetricDef, ModelSpecDef, StepDef, effective_metrics, steps_for, with_model_specs
+from app.core.product_line_status import SourceStatusError, map_source_status, source_line_to_seed
 from app.core.recipe import RecipeError, RecipeLine, compute_theoretical, validate_lines
 from app.core.seed_check import check_seed
 
@@ -134,6 +135,26 @@ class SeedCheckTest(unittest.TestCase):
         text = "\n".join(check_seed(doc))
         for needle in ("產線代碼重複", "項目 key 重複", "dataType 不合法", "規格下限大於上限"):
             self.assertIn(needle, text)
+
+
+class SourceStatusTest(unittest.TestCase):
+    def test_ok_maps_to_defined_and_wip_to_reserved(self):
+        self.assertEqual(map_source_status("ok"), "defined")
+        self.assertEqual(map_source_status("wip"), "reserved")
+        self.assertEqual(map_source_status(" OK "), "defined")
+
+    def test_unknown_or_missing_status_is_an_error_not_a_guess(self):
+        for raw in ("done", "", None, 1, "defined"):
+            with self.subTest(raw=raw), self.assertRaises(SourceStatusError):
+                map_source_status(raw)
+
+    def test_seed_line_passes_seed_check(self):
+        station = {"code": "s1", "name": "站一", "sequence": 1, "metrics": [{"key": "k", "label": "K", "dataType": "number"}]}
+        defined = source_line_to_seed("line_x", "X", "ok", [station])
+        reserved = source_line_to_seed("line_y", "Y", "wip", [station])
+        self.assertEqual(defined["stations"], [station])
+        self.assertNotIn("stations", reserved)
+        self.assertEqual(check_seed({"productLines": [defined, reserved]}), [])
 
 
 if __name__ == "__main__":

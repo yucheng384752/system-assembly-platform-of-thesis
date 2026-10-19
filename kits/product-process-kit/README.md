@@ -30,7 +30,7 @@
 
 ## 資料遷移（對應來源系統）
 
-- `products` → `product_lines`（`ok`→`defined`、`wip`→`reserved` 需人工確認，因為兩者語意不完全相同）。
+- `products` → `product_lines`：狀態以 `core/product_line_status.py` 的 `map_source_status` 對照（`ok`→`defined`、`wip`→`reserved`，已確認；對照外的值報錯），`source_line_to_seed` 轉成定義檔時預留產線不帶站點。
 - `product_models` 的行業專屬欄位 → `attributes` 與 `recipe_lines`；兩組製程區分 → `process_variant`。
 - `station_steps.lead_type` → `variant`；時間、轉速、真空度 → `expected`。
 - `product_model_change_logs.changed_by` → `changed_by_id` 加上以帳號表補入的 `changed_by_name`。

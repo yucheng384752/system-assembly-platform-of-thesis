@@ -16,12 +16,16 @@ S2 是一套已上線的製程紙本電子化系統（React + FastAPI + PostgreS
 | D-A2 | Composer 新增「參數設定」步驟（流程畫布 → 功能選配 → 參數設定 → 輸出），並新增選配 Kit `runtime-settings-kit` 負責「上線後調整」層 | user 要求最大限度由 GUI 調整表格、預填與報警參數；spec §5 的 Runtime override 層尚未設計。此項改變 D77 的必填步驟數，須同步更新 spec 與 DESIGN.md |
 | D-A3 | 產品線改為設定資料，可選擇啟用；未提供定義的產品線顯示「尚未提供定義」，不產生假資料 | user 要求預留尚未建置的產品線 |
 | D-A4 | 去識別化對照表（真名 ↔ 代號）不進 repo，由 Claude 在本機維護；搜尋驗收比照 example-scenario | M01 |
+| D-A5 | S2 系 Kit 的資料庫存取改為非同步 AsyncSession，不採 `run_sync` 過渡；事件、閘門、批次讀取、擴充插槽、儀表板提供者介面一併改 async，設定中心的 `apply` 回呼維持同步 | user 決議；與基線 platform-core 的非同步連線一致 |
+| D-A6 | 各 Kit 共用 `app.core` 命名空間，啟動、入口註冊、儀表板區塊模組改用 Kit 專屬名稱（`alarm_startup`、`batch_entry_points`、`alarm_dashboard_section` 等） | 原本四個 Kit 都叫 `startup.py`、六個都叫 `entry_points_registration.py`，組在同一個程序時互相遮蔽 |
+| D-A7 | 產線狀態對照：來源 `ok` → `defined`、`wip` → `reserved`，對照外的值報錯（`product_line_status.py`） | user 決議 |
+| D-A8 | S2 系 Kit 不加 `tenant_id`（維持單租戶）；主鍵維持整數 | user 決議不加租戶；主鍵未另行指示，維持現狀 |
 
 ## 2. Kit 邊界
 
 | Kit | 顯示名稱 | 範圍 | 狀態 |
 |---|---|---|---|
-| `platform-core-kit` | 系統基本功能 | 沿用；需補同步 DB session 契約（見 §5 待決 1）與事件匯流排 | 待決 |
+| `platform-core-kit` | 系統基本功能 | 沿用；DB session 為非同步（D-A5），須以 `expire_on_commit=False` 建立；事件匯流排由批次 Kit 提供 | 契約已定 |
 | `entry-permission-kit` | 帳號與入口權限 | 登入、帳號管理、入口註冊與覆寫、資源範圍 | WP1 後端完成 |
 | `product-process-kit` | 產品與製程定義 | 產品線（可預留）、型號、配方明細、站點、製程步驟、量測項目、型號規格、異動紀錄 | WP4 後端完成 |
 | `batch-production-kit` | 批次生產紀錄 | 開單派工、用料秤重、量測記錄、批號流水號、簽核、完成（第一階段）；入庫單、回鍋確認單、子表格備註、照片佐證（第二階段） | WP5 第一階段完成 |
@@ -57,9 +61,9 @@ S2 是一套已上線的製程紙本電子化系統（React + FastAPI + PostgreS
 
 ## 5. 待決
 
-1. **DB session 契約**：S2 為同步 SQLAlchemy；基線版 platform-core 的連線為非同步，且其 `app.core.database` 原始碼不在本專案。可選：platform-core 同時提供同步 session、S2 系 Kit 改寫為非同步、或另立 S2 用的 platform-core 變體。未決前 S2 系 Kit 不可組裝。
+1. ~~DB session 契約~~：已決，D-A5（非同步）。
 2. **GUI 登錄**：新 Kit 須寫入 `kits/form-analysis.kit-manifest.json`、`config/registry/`、`config/kits/overlay.json`；這些檔案被 GUI 測試讀取，須在可跑 `npm.cmd test` 的環境登錄並驗證。
-3. **spec §8 標題**含 S2 的專案名稱，是否改為代號。
+3. ~~spec §8 標題~~：已改為代號（spec 內其他三處同步改）。
 
 ## 6. 工作包
 
@@ -67,7 +71,7 @@ S2 是一套已上線的製程紙本電子化系統（React + FastAPI + PostgreS
 |---|---|---|
 | WP1 | entry-permission-kit 後端、契約、definition、單元測試 | 完成（14 項通過） |
 | WP2 | entry-permission-kit 前端（登入、改密碼、帳號管理、入口覆寫） | 待做 |
-| WP3 | 決議待決 1、2，登錄 GUI | 待決 |
+| WP3 | 決議待決 1、2，登錄 GUI | 待決 1 已決（D-A5）；GUI 登錄待做 |
 | WP4 | product-process-kit 後端、契約、定義、產線定義範例、單元測試（16 項通過） | 完成 |
 | WP5 | batch-production-kit 第一階段：事件、閘門、批號樣板、進度、完成條件、核心 API（30 項單元測試通過） | 完成 |
 | WP5b | batch-production-kit 第二階段：入庫單、回鍋確認單、子表格備註、照片佐證 | 待做 |
@@ -76,3 +80,4 @@ S2 是一套已上線的製程紙本電子化系統（React + FastAPI + PostgreS
 | WP8 | batch-production-kit 第二階段：入庫單、回鍋確認單、子表格備註、照片佐證（預設關閉，`enable_batch_extras`） | 後端完成 |
 | WP9 | production-dashboard-kit：總覽（可登錄區塊）、操作紀錄、製程查詢；批次 Kit 補 `BatchChanged.actor_id` 與搜尋／計數／追溯讀取介面；報警與設備 Kit 各登錄一個總覽區塊 | 後端完成 |
 | WP10 | runtime-settings-kit：參數定義、四層有效值、權限與風險、樂觀鎖、變更紀錄、場域鎖定；報警／設備／儀表板／批次共登錄 9 項參數驗證機制 | 後端完成 |
+| WP11 | 七個 Kit 改非同步 AsyncSession（D-A5）、模組改名（D-A6）、產線狀態對照（D-A7）；新增 `tests/s2-kits-integration` 整合測試（主流程、可見性與範圍、樂觀鎖、閘門順序、第二階段子功能、訂閱者失敗回復） | 完成 |
