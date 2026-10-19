@@ -35,6 +35,9 @@ export function App() {
   const [session, setSession] = useState(0);
   const [site, setSite] = useState<SiteSession>();
   const [page, setPage] = useState<PageId>('home');
+  const [goTo, setGoTo] = useState<{ step: number; n: number }>();
+  const [focusNode, setFocusNode] = useState<{ nodeId: string; n: number }>();
+  const open = (step: number) => setGoTo(previous => ({ step, n: (previous?.n ?? 0) + 1 }));
   const derived = deriveKits(graphActionIds(graph), actionCatalog, registry);
   const derivedIds = derived.kits.map(k => k.kitId);
   const selection = selectKits(catalog.kits, requested, manual, flows, derivedIds);
@@ -46,8 +49,8 @@ export function App() {
     conflict || (!recipe.clientName?.trim() ? '請填寫客戶代稱。' : workflowProblems.length ? `流程規格尚未完成：${workflowProblems[0]}` : ''),
   ][step] ?? '';
   // The step flow stays mounted (only hidden) so switching pages never loses the confirmed steps.
-  const steps = <StepShell stepError={stepError} renderStep={step => step === 0 ? <WorkflowCanvas resetKey={graphSession} value={graph} onChange={setGraph} path={canvasPath} onPathChange={setCanvasPath} toolbarExtra={<WorkflowTransfer onChange={next => { setGraph(next); setCanvasPath([]); setGraphSession(s => s + 1); }} />} />
-    : step === 1 ? <FlowPage graph={graph} derived={derived} site={site?.site} recipe={recipe} onChange={setRecipe} requested={requested} manual={manual} session={session} onSelect={(nextFlows, nextKits) => {
+  const steps = <StepShell stepError={stepError} goTo={goTo} renderStep={step => step === 0 ? <WorkflowCanvas focusNode={focusNode} resetKey={graphSession} value={graph} onChange={setGraph} path={canvasPath} onPathChange={setCanvasPath} toolbarExtra={<><WorkflowTransfer onChange={next => { setGraph(next); setCanvasPath([]); setGraphSession(s => s + 1); }} /><p className="kit-count" role="status">這張流程會用到 {derived.kits.length} 個功能<button onClick={() => open(1)}>查看功能選配</button></p></>} />
+    : step === 1 ? <FlowPage onShowCanvas={() => open(0)} onJumpNode={nodeId => { setFocusNode(previous => ({ nodeId, n: (previous?.n ?? 0) + 1 })); open(0); }} graph={graph} derived={derived} site={site?.site} recipe={recipe} onChange={setRecipe} requested={requested} manual={manual} session={session} onSelect={(nextFlows, nextKits) => {
       setRequested(nextFlows); setManual(nextKits);
     }} />
       : step === 2 ? <ParamsPage site={site?.site} recipe={recipe} onChange={setRecipe} session={session} />

@@ -57,6 +57,14 @@ export function graphPlaces(doc: AovGraphDocument): Map<string, { factory: Facto
   }
   return places;
 }
+// The opened-graph path (production logic first, then each sub-graph) that leads to a graph; empty when the graph is unreachable.
+export function graphPath(doc: AovGraphDocument, graphId: string): string[] {
+  const parent = new Map<string, string>();
+  for (const graph of doc.graphs) for (const node of graph.nodes) if (node.childGraphId && !parent.has(node.childGraphId)) parent.set(node.childGraphId, graph.id);
+  const path = [graphId];
+  while (parent.has(path[0]) && path.length <= doc.graphs.length) path.unshift(parent.get(path[0])!);
+  return logicRoots(doc).includes(path[0]) ? path : [];
+}
 // Depth of every reachable graph (a production logic = 1, D79).
 export function graphDepths(doc: AovGraphDocument): Map<string, number> {
   return new Map([...graphPlaces(doc)].map(([id, place]) => [id, place.depth]));

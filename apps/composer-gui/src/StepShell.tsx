@@ -10,8 +10,10 @@ export const steps: StepInfo[] = [
   { number: '04', title: '輸出', lead: '把設定打包成設定交付包，交付時只需要這一個檔案。', hint: '個別的流程規格與系統設定檔放在「進階」，用來重新載入設定。' },
 ];
 // stepError: a non-empty message blocks confirming that step until the content is fixed.
-export function StepShell({ renderStep, stepError = () => '' }: { renderStep: (step: number) => ReactNode; stepError?: (step: number) => string }) {
+// goTo: a request from outside the shell to open a step (for example a link from one step back to another); `n` makes a repeated request count.
+export function StepShell({ renderStep, stepError = () => '', goTo }: { renderStep: (step: number) => ReactNode; stepError?: (step: number) => string; goTo?: { step: number; n: number } }) {
   const [step, setStep] = useState(0);
+  useEffect(() => { if (goTo && goTo.step >= 0 && goTo.step < steps.length) setStep(goTo.step); }, [goTo]);
   const [completed, setCompleted] = useState<number[]>([]);
   const heading = useRef<HTMLHeadingElement>(null);
   const error = stepError(step);

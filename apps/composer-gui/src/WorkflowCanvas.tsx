@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { ReactFlow, ReactFlowProvider, Handle, MarkerType, Position, useReactFlow, type Node, type NodeProps } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { actionCatalog, describeEndpoint } from './workflow';
-import { graphDepths, graphPlaces, integrityErrors, MAX_DEPTH, MAX_GRAPHS, MAX_NODES, suggestActions, type AovGraphDocument, type GraphNode, type NodeKind } from './workflowGraph';
+import { graphDepths, graphPath, graphPlaces, integrityErrors, MAX_DEPTH, MAX_GRAPHS, MAX_NODES, suggestActions, type AovGraphDocument, type GraphNode, type NodeKind } from './workflowGraph';
 import { addCanvasNode, addChildGraph, connectCanvasNodes, deleteCanvasNode } from './canvasEditing';
 import { Column } from './Column';
 import { FactoryPage } from './FactoryPage';
@@ -22,7 +22,7 @@ function CircleNode({ data }: NodeProps<BusinessNode>) {
 const nodeTypes = { business: CircleNode };
 
 // path: the opened graphs, kept by the caller so leaving the step and coming back returns to the same flow; empty means the factory list (D79).
-interface CanvasProps { value: AovGraphDocument; onChange: (value: AovGraphDocument) => void; path: string[]; onPathChange: (path: string[]) => void; toolbarExtra?: ReactNode; resetKey?: number }
+interface CanvasProps { value: AovGraphDocument; onChange: (value: AovGraphDocument) => void; path: string[]; onPathChange: (path: string[]) => void; toolbarExtra?: ReactNode; resetKey?: number; focusNode?: { nodeId: string; n: number } }
 export function WorkflowCanvas(props: CanvasProps) {
   return <ReactFlowProvider><Canvas {...props} /></ReactFlowProvider>;
 }
@@ -33,7 +33,7 @@ const toolGroups: [string, { id: string; name: string }[]][] = (() => {
   groups.set('一般', [...(groups.get('一般') ?? []), { id: '', name: '業務節點' }]);
   return [...groups];
 })();
-function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, resetKey = 0 }: CanvasProps) {
+function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, resetKey = 0, focusNode }: CanvasProps) {
   const [selected, setSelected] = useState('');
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -50,6 +50,14 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
   const flow = useReactFlow<BusinessNode>();
   // A new import replaces the document: clear the selection (the caller resets the path; the toolbar, with its import notices, stays mounted).
   useEffect(() => { setSelected(''); setDeleting(false); setError(''); }, [resetKey]);
+  // (Declared after the reset above so it wins on mount.) A request from another step to show one node: open the graph that holds it and select it (D-A3).
+  useEffect(() => {
+    if (!focusNode) return;
+    const holder = value.graphs.find(g => g.nodes.some(n => n.id === focusNode.nodeId));
+    const target = holder ? graphPath(value, holder.id) : [];
+    if (!target.length) return;
+    setPath(target); setSelected(focusNode.nodeId); setDeleting(false);
+  }, [focusNode]); // eslint-disable-line react-hooks/exhaustive-deps
   const graph = value.graphs.find(g => g.id === path.at(-1));
   const node = graph?.nodes.find(n => n.id === selected);
   function commit(next: AovGraphDocument) {
