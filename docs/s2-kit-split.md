@@ -25,7 +25,7 @@ S2 是一套已上線的製程紙本電子化系統（React + FastAPI + PostgreS
 | `entry-permission-kit` | 帳號與入口權限 | 登入、帳號管理、入口註冊與覆寫、資源範圍 | WP1 後端完成 |
 | `product-process-kit` | 產品與製程定義 | 產品線（可預留）、型號、配方明細、站點、製程步驟、量測項目、型號規格、異動紀錄 | WP4 後端完成 |
 | `batch-production-kit` | 批次生產紀錄 | 開單派工、用料秤重、量測記錄、批號流水號、簽核、完成（第一階段）；入庫單、回鍋確認單、子表格備註、照片佐證（第二階段） | WP5 第一階段完成 |
-| `equipment-maintenance-kit` | 設備點檢與維修 | 日常點檢、複核、故障維修、月度匯出、生產閘門 | 待做 |
+| `equipment-maintenance-kit` | 設備點檢與維修 | 日常點檢、複核、故障維修、月度匯出、生產閘門 | 後端核心完成（WP7），前端待做 |
 | `alarm-exception-kit` | 報警與異常簽核 | 量測超規判定、報警總覽與確認、檢驗異常簽核 | 後端核心完成（WP6），前端待做 |
 | `production-dashboard-kit` | 儀表板與製程查詢 | 報警與設備異常總覽、製程查詢、操作紀錄 | 待做 |
 | `runtime-settings-kit` | 參數設定中心 | 上線後參數調整、版本、異動紀錄、依場域限制驗證 | 待做（D-A2） |
@@ -72,4 +72,5 @@ S2 是一套已上線的製程紙本電子化系統（React + FastAPI + PostgreS
 | WP5 | batch-production-kit 第一階段：事件、閘門、批號樣板、進度、完成條件、核心 API（30 項單元測試通過） | 完成 |
 | WP5b | batch-production-kit 第二階段：入庫單、回鍋確認單、子表格備註、照片佐證 | 待做 |
 | WP6 | alarm-exception-kit：規格範圍／門檻／一致性規則、報警對帳、異常簽核閘門（batch 補 `validate_value` 閘門與 `batch_read`） | 後端完成 |
-| WP7 起 | equipment → dashboard → runtime-settings | 待做 |
+| WP7 | equipment-maintenance-kit：設備、點檢表、點檢與複核、維修、月度匯出、生產閘門（`order=10`，批次 Kit 為可選相依） | 後端完成 |
+| WP8 起 | batch 第二階段 → dashboard → runtime-settings | 待做 |

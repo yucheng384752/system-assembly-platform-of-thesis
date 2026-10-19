@@ -1,0 +1,400 @@
+{
+  "kit": "equipment-maintenance-kit",
+  "provides": {
+    "api": [
+      {
+        "capability": "equipment.list",
+        "method": "GET",
+        "path": "/equipment",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "query",
+          "schema": "include_inactive?"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "EquipmentStatus[]"
+        },
+        "errors": [],
+        "sideEffects": []
+      },
+      {
+        "capability": "equipment.create",
+        "method": "POST",
+        "path": "/equipment",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "EquipmentWrite"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "EquipmentRead"
+        },
+        "errors": [
+          403,
+          409,
+          422
+        ],
+        "sideEffects": [
+          "寫入設備"
+        ],
+        "entryPoint": "equipment_manage"
+      },
+      {
+        "capability": "equipment.get",
+        "method": "GET",
+        "path": "/equipment/{code}",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "EquipmentStatus"
+        },
+        "errors": [
+          404
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "equipment.update",
+        "method": "PATCH",
+        "path": "/equipment/{code}",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "EquipmentUpdate"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "EquipmentRead"
+        },
+        "errors": [
+          403,
+          404,
+          422
+        ],
+        "sideEffects": [
+          "更新設備"
+        ],
+        "entryPoint": "equipment_manage"
+      },
+      {
+        "capability": "equipment.checklist.get",
+        "method": "GET",
+        "path": "/equipment/{code}/checklist",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "query",
+          "schema": "frequency?"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "ChecklistItemRead[]"
+        },
+        "errors": [
+          404
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "equipment.checklist.replace",
+        "method": "PUT",
+        "path": "/equipment/{code}/checklist",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "ChecklistItemWrite[]"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "ChecklistItemRead[]"
+        },
+        "errors": [
+          403,
+          404,
+          422
+        ],
+        "sideEffects": [
+          "整份取代點檢表；歷史紀錄不受影響"
+        ],
+        "entryPoint": "equipment_manage"
+      },
+      {
+        "capability": "equipment.check.submit",
+        "method": "POST",
+        "path": "/equipment/{code}/checks",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "CheckSubmit"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "CheckRead"
+        },
+        "errors": [
+          404,
+          409,
+          422
+        ],
+        "sideEffects": [
+          "寫入或覆寫本期點檢（複核前）"
+        ]
+      },
+      {
+        "capability": "equipment.check.list",
+        "method": "GET",
+        "path": "/equipment/{code}/checks",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "query",
+          "schema": "frequency?,limit?"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "CheckRead[]"
+        },
+        "errors": [
+          404
+        ],
+        "sideEffects": []
+      },
+      {
+        "capability": "equipment.check.review",
+        "method": "POST",
+        "path": "/equipment-checks/{check_id}/review",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "none"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "CheckRead"
+        },
+        "errors": [
+          403,
+          404,
+          409
+        ],
+        "sideEffects": [
+          "標記已複核"
+        ],
+        "entryPoint": "equipment_review"
+      },
+      {
+        "capability": "equipment.repair.report",
+        "method": "POST",
+        "path": "/equipment/{code}/repairs",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "RepairCreate"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "RepairRead"
+        },
+        "errors": [
+          404,
+          422
+        ],
+        "sideEffects": [
+          "新增維修單；結案前閘門視為維修中"
+        ]
+      },
+      {
+        "capability": "equipment.repair.list",
+        "method": "GET",
+        "path": "/equipment-repairs",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "query",
+          "schema": "status_filter?,code?,limit?"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "RepairRead[]"
+        },
+        "errors": [],
+        "sideEffects": []
+      },
+      {
+        "capability": "equipment.repair.close",
+        "method": "POST",
+        "path": "/equipment-repairs/{repair_id}/close",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "json",
+          "schema": "RepairClose"
+        },
+        "output": {
+          "kind": "json",
+          "schema": "RepairRead"
+        },
+        "errors": [
+          403,
+          404,
+          409,
+          422
+        ],
+        "sideEffects": [
+          "結案維修單"
+        ],
+        "entryPoint": "repair_close"
+      },
+      {
+        "capability": "equipment.export.month",
+        "method": "GET",
+        "path": "/equipment/export",
+        "auth": {
+          "required": true,
+          "scheme": "bearer",
+          "passwordChanged": true
+        },
+        "input": {
+          "kind": "query",
+          "schema": "month=YYYY-MM"
+        },
+        "output": {
+          "kind": "file",
+          "contentType": "text/csv"
+        },
+        "errors": [
+          403,
+          422
+        ],
+        "sideEffects": [],
+        "entryPoint": "equipment_manage"
+      }
+    ],
+    "events": [],
+    "python": [
+      {
+        "capability": "equipment.enable",
+        "module": "app.core.startup",
+        "symbol": "enable_equipment_kit",
+        "note": "啟動時呼叫一次；有安裝批次生產 Kit 時才註冊閘門"
+      },
+      {
+        "capability": "equipment.status",
+        "module": "app.core.equipment_service",
+        "symbol": "facts_for, equipment_in_scope, find_equipment",
+        "note": "供儀表板等讀取設備現況"
+      }
+    ],
+    "db": [
+      {
+        "table": "equipment"
+      },
+      {
+        "table": "equipment_checklist_items"
+      },
+      {
+        "table": "equipment_check_records",
+        "note": "(設備, 頻率, 期別) 唯一"
+      },
+      {
+        "table": "equipment_repairs"
+      }
+    ]
+  },
+  "consumes": {
+    "api": [],
+    "python": [
+      {
+        "capability": "permission.entry-point.register",
+        "module": "app.core.entry_points",
+        "symbol": "registry.register"
+      },
+      {
+        "capability": "permission.entry-point.require",
+        "module": "app.api.deps",
+        "symbol": "require_entry_point"
+      },
+      {
+        "capability": "permission.write.require",
+        "module": "app.api.deps",
+        "symbol": "require_write_access"
+      },
+      {
+        "capability": "permission.scope.read",
+        "module": "app.core.user_scopes",
+        "symbol": "scoped_keys",
+        "note": "範圍類型 'product-line' 由 product-process-kit 註冊；未安裝時視為不受限"
+      },
+      {
+        "capability": "auth.user.model",
+        "module": "app.models.user",
+        "symbol": "User",
+        "fields": [
+          "id",
+          "role"
+        ]
+      },
+      {
+        "capability": "batch.gate.register",
+        "module": "app.core.gates",
+        "symbol": "gates.register",
+        "optional": true,
+        "note": "可選：有批次生產 Kit 才註冊生產閘門"
+      },
+      {
+        "capability": "platform.db.session",
+        "module": "app.core.database",
+        "symbol": "get_db, Base",
+        "note": "同步 SQLAlchemy Session；待決見 docs/s2-kit-split.md"
+      }
+    ]
+  }
+}

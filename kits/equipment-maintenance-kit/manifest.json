@@ -1,0 +1,13 @@
+{
+  "kit": "equipment-maintenance-kit",
+  "displayName": "設備點檢與維修",
+  "installOrder": 35,
+  "requires": [
+    "python"
+  ],
+  "runtimeEnv": [],
+  "scripts": {
+    "windows": "install.ps1",
+    "linux": "install.sh"
+  }
+}

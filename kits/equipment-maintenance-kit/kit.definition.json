@@ -1,0 +1,174 @@
+{
+  "id": "equipment-maintenance-kit",
+  "displayName": "設備點檢與維修",
+  "category": "operations",
+  "required": false,
+  "businessCapability": "管理設備清單與每日、每週、每月點檢表，點檢可複核，故障可報修與結案，月底可匯出；設備未通過點檢或維修中時，擋住該設備的生產。",
+  "dependencies": [
+    "platform-core-kit",
+    "entry-permission-kit"
+  ],
+  "optionalDependencies": [
+    "batch-production-kit",
+    "product-process-kit",
+    "production-dashboard-kit"
+  ],
+  "backend": {
+    "routers": [
+      "src/backend/app/api/routes_equipment.py"
+    ],
+    "core": [
+      "src/backend/app/core/periods.py",
+      "src/backend/app/core/check_rules.py",
+      "src/backend/app/core/gate_rules.py",
+      "src/backend/app/core/export_csv.py",
+      "src/backend/app/core/equipment_settings.py",
+      "src/backend/app/core/equipment_service.py",
+      "src/backend/app/core/batch_gate.py",
+      "src/backend/app/core/entry_points_registration.py",
+      "src/backend/app/core/startup.py"
+    ],
+    "services": [],
+    "models": [
+      "src/backend/app/models/equipment.py"
+    ],
+    "schemas": [
+      "src/backend/app/schemas/equipment.py"
+    ]
+  },
+  "frontend": {
+    "pages": [],
+    "components": [],
+    "note": "尚無前端；點檢填寫、複核、維修單與匯出畫面待做"
+  },
+  "api": [
+    "GET|POST /equipment",
+    "GET|PATCH /equipment/{code}",
+    "GET|PUT /equipment/{code}/checklist",
+    "GET|POST /equipment/{code}/checks",
+    "POST /equipment-checks/{check_id}/review",
+    "POST /equipment/{code}/repairs",
+    "GET /equipment-repairs",
+    "POST /equipment-repairs/{repair_id}/close",
+    "GET /equipment/export"
+  ],
+  "database": [
+    "equipment",
+    "equipment_checklist_items",
+    "equipment_check_records",
+    "equipment_repairs"
+  ],
+  "permissions": [
+    "equipment_manage（manager、admin）",
+    "equipment_review（qc、manager、admin）",
+    "repair_close（manager、admin）"
+  ],
+  "runtimeDependencies": [],
+  "subfeatures": [
+    {
+      "id": "daily-check",
+      "displayName": "設備點檢",
+      "businessCapability": "設備清單與點檢表；現場依頻率填寫，同一期別只有一筆。",
+      "required": true,
+      "defaultSelected": true,
+      "options": [
+        {
+          "id": "timezone",
+          "displayName": "判斷「今天」的時區",
+          "type": "string",
+          "defaultValue": "UTC"
+        }
+      ]
+    },
+    {
+      "id": "check-frequencies",
+      "displayName": "週檢與月檢",
+      "businessCapability": "除每日點檢外，另有每週、每月的點檢表。",
+      "required": false,
+      "defaultSelected": false,
+      "options": [
+        {
+          "id": "requiredFrequencies",
+          "displayName": "閘門要求完成的頻率",
+          "type": "json",
+          "defaultValue": [
+            "daily"
+          ],
+          "choices": [
+            "daily",
+            "weekly",
+            "monthly"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "check-review",
+      "displayName": "點檢複核",
+      "businessCapability": "點檢送出後由另一人複核；複核後鎖定。",
+      "required": false,
+      "defaultSelected": true,
+      "options": [
+        {
+          "id": "requireReview",
+          "displayName": "須複核才算完成",
+          "type": "boolean",
+          "defaultValue": false
+        },
+        {
+          "id": "reviewerMustDiffer",
+          "displayName": "複核者不可是點檢者",
+          "type": "boolean",
+          "defaultValue": true
+        },
+        {
+          "id": "blockOnAbnormal",
+          "displayName": "異常點檢複核前擋生產",
+          "type": "boolean",
+          "defaultValue": true
+        }
+      ]
+    },
+    {
+      "id": "repair-log",
+      "displayName": "故障維修紀錄",
+      "businessCapability": "報修與結案；維修中的設備不能生產。",
+      "required": false,
+      "defaultSelected": false,
+      "options": []
+    },
+    {
+      "id": "monthly-export",
+      "displayName": "月度匯出",
+      "businessCapability": "依月份匯出點檢紀錄為 CSV。",
+      "required": false,
+      "defaultSelected": false,
+      "options": []
+    },
+    {
+      "id": "production-gate",
+      "displayName": "生產閘門",
+      "businessCapability": "批次指定設備時，該設備未通過點檢或維修中就不能填寫；可選擇批次未指定設備時檢查整條產線。",
+      "required": false,
+      "defaultSelected": true,
+      "options": [
+        {
+          "id": "gatedStations",
+          "displayName": "只擋這些站點（空白為全部）",
+          "type": "json",
+          "defaultValue": null
+        },
+        {
+          "id": "globalMode",
+          "displayName": "批次未指定設備時",
+          "type": "string",
+          "defaultValue": "off",
+          "choices": [
+            "off",
+            "line-equipment"
+          ]
+        }
+      ]
+    }
+  ]
+}
