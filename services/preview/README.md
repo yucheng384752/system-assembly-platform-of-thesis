@@ -37,13 +37,15 @@ PostgreSQL **不發布到宿主埠**，只在內部網路 `data` 中供後端連
 
 啟動以所有組裝模型的 `Base.metadata.create_all` 建表；logs-ops 的 `system_logs` 另使用該 Kit 自帶的 PostgreSQL DDL。啟動不種租戶或業務資料，租戶 API 在空資料庫會回傳 404；健康檢查不需要租戶。
 
-實測需要租戶時，明確執行下列預覽專用命令，只建立固定、合成的租戶，不產生來源案例資料：
+實測需要租戶時，明確執行下列預覽專用命令，建立固定合成租戶與表格種子，不產生來源案例資料：
 
 ```text
 docker compose -p composer-preview -f services/preview/docker-compose.yml exec -T backend python -m app.preview_seed
 ```
 
 預期輸出 `PREVIEW_TENANT: 00000000-0000-4000-8000-000000000001`；可重複執行。建立後可帶 `X-Tenant-Id` 同值，或利用唯一租戶解析測試一般 API。
+
+D107：種子同時建立 `preview_entries` 的 TableRegistry、SchemaVersion、Station 與 StationSchema，欄位為 `entry_key`、`value`，讓匯入管線走 schema_driven 寫入 generic_records。重跑不新增版本；既有 schema 與種子不同時拒絕覆蓋並要求重置。P1/P2/P3 只建立 TableRegistry，不建立同名 Station，以便測到相容模型分支。
 
 ```text
 node services/preview/preview.mjs reset
@@ -60,7 +62,7 @@ node services/preview/preview.mjs reset
 | platform-core-kit | 納入共用基底；broker `/api/kit`、權限設定 `/api/admin/endpoint-permissions` |
 | generic-forms-kit | 納入 `/api/forms` 與 `/api/dataflows/links` |
 | upload-validation-kit | 納入上傳與驗證，組裝前綴 `/api` |
-| import-pipeline-kit | 納入 `/api/v2/import`，P1/P2/P3 明確 501 |
+| import-pipeline-kit | 納入 `/api/v2/import`，P1/P2/P3 使用預覽相容模型（待容器實測） |
 | query-traceability-kit | 納入 `/api/v2/query` |
 | analytics-kit | 納入 `/api/analytics` |
 | audit-edit-kit | 納入 `/api/edit` 與 `/api/audit/events` |
@@ -77,8 +79,8 @@ node services/preview/preview.mjs reset
 
 - `core/monitoring.py` 明確採 logs-ops 版本，取代 platform-core 的 no-op，符合檔案自身說明；不啟動遠端 heartbeat。
 - 重建 `models/__init__.py`，載入現有模型，排除基線匯出但不存在的 analytics_mapping、validation_rule、tenant_user、tenant_api_key。為既有可空稽核外鍵建立只有 UUID 主鍵的 `tenant_api_keys` 空表；不製造驗證模型、使用者或金鑰，不宣稱授權有效。
-- 對組裝版 import 路由插入 table-code 檢查，涵蓋明確指定與 CSV fingerprint 解析的建立入口；提交路由在改狀態／排背景工作前查詢同租戶 job 並拒絕 P1/P2/P3。服務 `commit_job` 也在任何修改之前檢查，涵蓋內部呼叫。大小寫與空白正規化後皆回 HTTP 501，訊息含「等待使用者決定 T1」。這三個保留名稱即使建立同名通用表單，也暫不開放 import-pipeline 路徑。
-- 五個缺失的舊模型模組提供明確拒絕匯出的 fallback，不假裝存在可用模型。補丁定位與出現次數須吻合，來源變更即停止組裝，防止靜默漏套。
+- D107：五個 P1/P2/P3 相容模型放在預覽覆蓋層，依基線實際使用的屬性建欄位並全部註冊至 models/__init__.py。逐欄依據見 mailbox thread 的 WP4c Codex Notes。
+- 移除 T1 專用 501 補丁及 fallback；組裝後 import 路由與服務保持基線內容，其他檢查不變。T10 日期補丁仍要求錨點吻合，來源漂移即停止。
 - `app.main` 是新入口，不載入 baseline-main、不啟動正式授權或 bootstrap。啟動必須符合 `COMPOSER_PREVIEW=1`、固定預覽 DB、固定本機 MOD URL 及外部服務關閉條件。
 
 ## Python 依賴
@@ -108,7 +110,7 @@ Linux 的 Python 命令可使用 `python3`，npm 使用 `npm`。`.assembled` 必
 
 1. 補跑上述 Python 檢查與 unittest，確認模型匯入／SQLAlchemy mapper、外鍵與 ENUM 的實際相容性，再用 Compose build/up。發生錯誤應保留完整日誌，不吞錯或臆測為已通過。
 2. 確認宿主只發布兩個 loopback 埠、容器不可連外、兩服務 healthy、healthz 查 DB 成功、初始業務表與租戶表空白。
-3. 執行 seed，對九個 Kit 逐個測實際端點與資料持久化。一般表單先 `POST /api/forms`、設定 schema、寫入合成資料再查詢。用同一租戶建立 import 工作，驗證 P1/P2/P3（含 fingerprint、既存 READY job）都是 501 且不新增工作／不改狀態；一般表單路徑不被拒絕。
+3. 執行 seed 兩次核對資料列數。對九個 Kit 逐個測實際端點與資料持久化。驗證 preview_entries 的 fingerprint 解析、READY、空錯誤清單、提交 COMPLETED 與 records 讀回。P1/P2/P3 各建立並提交成功；P3 使用合成 date，直接查 DB 確認三種 record 及 P2/P3 item 實際寫入，再重匯驗證更新及替換。不得建立同名 Station 而繞過相容模型。
 4. MOD 同步用任意合成 subscription id；假服務固定回 basic/active，回應含 `preview_fake: true`，不得作為真實訂閱證據。驗證本機 sync、query、entitlements、帶假 webhook secret 的 webhook。外部 PDF 轉換未提供，不連外。
 5. 寫入後執行 reset，確認租戶、所有業務表、system_logs、上傳檔與權限設定清空；再 seed／CRUD 確認可重新使用。具名 volume 會重新建立。
 6. 重跑 security 測試並處理 EPERM 暫存目錄。本次 `composer-security-73Ib7q` 未宣稱清除成功。
@@ -122,3 +124,7 @@ Linux 的 Python 命令可使用 `python3`，npm 使用 `npm`。`.assembled` 必
 管理員與角色限定端點（端點權限、稽核事件、修正原因）需要身分：預覽入口以固定假金鑰 `X-Admin-API-Key: preview-fake-admin-key` 視為管理員，並以 `X-Preview-Role: manager|operator` 指定角色。**這只是測試用替身，不是驗證機制，授權測試仍標為「未涵蓋」。**
 
 靜態測試不需要 Docker：`node --test services/preview/tests/preview.test.mjs` 與 `python -I services/preview/tests/test_static.py`。
+
+## WP4c 交接（2026-10-20）
+
+T9 與 T1 程式已補齊，尚未執行本批容器實測。T9 不再接受 GAP，必須提交完成並核對讀回資料；三種相容分支必須建立 201、查錯誤為空、提交 200 並完成。P1/P2 使用合成 lot_no，P3 另加通用 date，不放寬基線規則。靜態檢查與環境失敗完整記於 mailbox Codex Notes，容器驗收由 Claude 執行。

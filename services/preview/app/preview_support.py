@@ -1,8 +1,7 @@
 """Preview-only compatibility boundaries; never imported by the original kits."""
 import os
 
-from fastapi import HTTPException
-from sqlalchemy import Column, Table, select
+from sqlalchemy import Column, Table
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.core.database import Base
@@ -21,20 +20,3 @@ def require_preview():
 
 # shortcut: only a nullable audit FK target, replace when real identity is approved.
 Table("tenant_api_keys", Base.metadata, Column("id", UUID(as_uuid=True), primary_key=True))
-
-
-def reject_table_code(code):
-    if (code or "").strip().upper() in {"P1", "P2", "P3"}:
-        raise HTTPException(501, "預覽不支援 P1/P2/P3 舊模型；等待使用者決定 T1")
-
-
-async def reject_job(db, job_id, tenant_id=None):
-    from app.models.core.schema_registry import TableRegistry
-    from app.models.import_job import ImportJob
-
-    statement = select(TableRegistry.table_code).join(
-        ImportJob, ImportJob.table_id == TableRegistry.id
-    ).where(ImportJob.id == job_id)
-    if tenant_id is not None:
-        statement = statement.where(ImportJob.tenant_id == tenant_id)
-    reject_table_code((await db.execute(statement)).scalar_one_or_none())
