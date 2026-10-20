@@ -100,6 +100,7 @@ main { max-width: var(--page-max); margin: auto; padding: var(--space-lg) var(--
 input.file-input { position: absolute; opacity: 0; width: 1px; height: 1px; min-height: 0; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); }
 .file-button { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-sm); min-height: 44px; padding: var(--space-sm) var(--space); border: 1px solid var(--primary); border-radius: var(--radius); color: var(--primary); background: var(--surface); font-weight: 600; }
 .file-input:disabled + .file-button { color: var(--muted); border-style: dashed; cursor: default; }
+.preview-tab-status { display: block; font-size: 0.875rem; font-weight: 400; }
 .drop-zone { display: grid; justify-items: center; gap: var(--space-sm); padding: var(--space-lg); border: 1px dashed var(--border); border-radius: var(--radius); background: var(--preview); text-align: center; }
 .drop-zone > .icon { width: 4rem; height: 4rem; color: var(--muted); }
 .actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); }

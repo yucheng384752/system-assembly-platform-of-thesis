@@ -4,6 +4,7 @@
 
 | ID | Title | Status | Owner | Reviewer | Updated |
 | --- | --- | --- | --- | --- | --- |
+| [20261020-preview-wiring](threads/20261020-preview-wiring.md) | 畫面接上預覽後端：真實預覽偵測、Recipe 推送、第一批三個畫面（D116 至 D119） | completed | claude | claude | 2026-10-20 |
 | [20261020-canvas-production-review](threads/20261020-canvas-production-review.md) | AoV 正式畫布、參數設定、逐站模擬與產業範本：接手審查與合併（D110 至 D114） | completed | claude | claude | 2026-10-20 |
 | [20261016-kit-workflows-live-preview](threads/20261016-kit-workflows-live-preview.md) | Kit AoV 與真實預覽（WP5a／WP6a 因必要依賴與組裝排除矛盾停止，待 Claude 裁定） | in_progress | claude | claude | 2026-10-20 |
 | [20261016-example-scenario](threads/20261016-example-scenario.md) | 去識別化系統使用範例：WP1–WP3 完成，待 WP4 與審閱；標準 build／security 受沙箱權限限制 | completed | user | claude | 2026-10-19 |
