@@ -96,7 +96,7 @@
 | 重置 | `preview.mjs reset` 前 stations 2 筆、重置後 0 筆，服務仍 healthy |
 | 清理 | 已 `down --volumes`、移除 `composer-preview-backend` 映像與測試目錄；主機無殘留容器與資料卷 |
 
-觀察（不影響結果）：repo 內 `docker-compose.yml`、`Dockerfile` 等檔以 CRLF 換行儲存，Linux 上 Docker 仍可正常解析，但建議之後以 `.gitattributes` 固定為 LF（需另案決定）。Linux 實測未涵蓋：WP5 選配閘門（尚未完成）、長時間運行、非 root 以外的權限設定。
+觀察（不影響結果；2026-10-20 更正）：repo 內的檔案（blob）本來就是 LF；測試程式來源用 `git archive` 在 Windows 上產生，而此機器的 `core.autocrlf=true` 會讓封存內容轉成 CRLF，所以 Linux 主機拿到的是 CRLF 版本，Docker 仍可正常解析。原先寫成「repo 內以 CRLF 儲存」是錯的。Linux 實測未涵蓋：WP5 選配閘門（尚未完成）、長時間運行、非 root 以外的權限設定。
 
 ## 6. 選配閘門與獨立組裝（2026-10-20，WP5、WP6，Claude 接手完成）
 
@@ -113,3 +113,7 @@
 | 編號 | 缺口 | 說明 |
 |---|---|---|
 | T13 | `platform-core-kit` 的資料庫能力延遲匯入 audit-edit-kit 與 import-pipeline-kit 的模型 | 只選「核心加通用表單」無法獨立部署；組裝階段 fail-closed 報告。最小可獨立集合含 platform-core、generic-forms、audit-edit、import-pipeline、upload-validation。若要縮小集合，需以組裝補丁處理這些延遲匯入，另案決定 |
+
+### 新 schema 重新驗證（2026-10-20）
+
+畫布與參數設定工作合併後（Recipe schema 新增可選欄位 `productionSettings`，D111），以 `main` 重新建置映像並驗證閘門：映像內的 `recipe.schema.json` 含新欄位；全量煙霧測試 20/20 通過；選配閘門 13/13 通過（新增一項：含 `productionSettings` 的 Recipe 通過、版本錯誤與多餘欄位被拒）。
