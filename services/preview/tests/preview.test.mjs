@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { assemble, inventory, adapt, directory, repository } from '../assemble.mjs';
+import { assemble, inventory, adapt, directory, repository, policyData, pythonCheck } from '../assemble.mjs';
 import { commands, execute } from '../preview.mjs';
 
 test('actual kit inventory, deterministic assembly, closed imports and source preservation', async () => {
@@ -64,7 +64,9 @@ test('T10: log timestamps are bound as datetimes while the response keeps its IS
 test('T1 removes only preview rejection and registers all compatibility models', async () => {
   for (const name of ['api/routes_import_v2.py', 'services/import_v2.py']) {
     const original = await readFile(path.join(repository, 'kits/import-pipeline-kit/src/backend/app', name), 'utf8');
-    assert.equal(adapt('app/' + name, original), original.replaceAll('\r\n', '\n'));
+    const patched = adapt('app/' + name, original);
+    assert.equal(patched.replace(/^.*require_access.*\n/gm, ''), original.replaceAll('\r\n', '\n') + '\n');
+    assert.ok(patched.includes('require_access("import-pipeline-kit"'));
   }
   const temp = await mkdtemp(path.join(directory, '.test-'));
   try {
@@ -138,4 +140,99 @@ test('container isolation, fake subscription and fixed dependency versions', asy
   assert.match(compose, /MOD_API_BASE_URL: http:\/\/127\.0\.0\.1:8000\/_preview\/mod/);
   const requirements = await readFile(path.join(directory, 'requirements.txt'), 'utf8');
   for (const line of requirements.split(/\r?\n/).filter(l => l && !l.startsWith('#'))) assert.match(line, /^[\w-]+==[\w.]+$/);
+});
+
+test('policy metadata uses catalog replacements, unavailable kits and workflow bindings', async () => {
+  const policy = await policyData(await inventory(path.join(repository, 'kits')));
+  assert.equal(Object.keys(policy.kits).length, 12);
+  assert.equal(policy.kits['tenant-auth-kit'], undefined);
+  for (const kit of ['entry-permission-kit', 'station-admin-kit', 'station-data-link-kit']) {
+    assert.equal(policy.kits[kit].available, false);
+  }
+  assert.ok(policy.kits['import-pipeline-kit'].dependencies.includes('entry-permission-kit'));
+  assert.deepEqual(policy.capabilities['analytics.trend'].subfeatures,
+    [{ kit: 'analytics-kit', feature: 'trend-analysis' }]);
+  assert.equal(policy.capabilities['db.forms.list'].kit, 'platform-core-kit');
+  assert.deepEqual(policy.capabilities['db.edit-reasons.validate'].subfeatures,
+    [{ kit: 'audit-edit-kit', feature: 'edit-reason' }]);
+  assert.equal(policy.capabilities['stations.manage'].kit, 'station-admin-kit');
+});
+
+test('recipe assembly only copies selected backends, invokes Python validation and closure, and stays deterministic', async () => {
+  const temp = await mkdtemp(path.join(directory, '.test-'));
+  try {
+    const recipe = path.join(temp, 'recipe.json');
+    await writeFile(recipe, JSON.stringify({ recipeVersion: '0.2.0', name: 'synthetic',
+      sourceManifest: 'synthetic', database: { engine: 'postgresql' }, enabledKits: ['platform-core-kit'] }));
+    const calls = [];
+    // Only the process boundary is stubbed here; test_static.py exercises the real validator/checker.
+    const run = (executable, args, options) => {
+      calls.push({ executable, args, options });
+      return { status: 0 };
+    };
+    const one = await assemble(path.join(temp, 'one'), undefined, { recipe, run });
+    const two = await assemble(path.join(temp, 'two'), undefined, { recipe, run });
+    assert.deepEqual(one, two);
+    assert.deepEqual(one.included.map(i => i.kit), ['platform-core-kit']);
+    assert.ok(one.excluded.some(i => i.kit === 'analytics-kit' && i.reason === 'Recipe 未選取'));
+    assert.ok(!one.files.some(f => f.path.includes('routes_analytics') || f.path.includes('p1_record')));
+    assert.ok(!one.files.some(f => f.path === 'app/preview_seed.py'));
+    assert.equal(calls.length, 4);
+    assert.ok(calls[0].args[1].endsWith('preview_gate.py'));
+    assert.deepEqual(JSON.parse(calls[0].options.input).recipe.enabledKits, ['platform-core-kit']);
+    assert.ok(calls[1].args[1].endsWith('check_tree.py'));
+    assert.equal(calls[1].args[2], path.join(temp, 'one'));
+    const policy = JSON.parse(await readFile(path.join(temp, 'one/app/preview_policy.json'), 'utf8'));
+    assert.equal(policy.kits['analytics-kit'].available, true);
+    assert.equal(policy.kits['analytics-kit'].assembled, false);
+    await assert.rejects(assemble(path.join(temp, 'rejected'), undefined, {
+      recipe, run: () => ({ status: 1, stderr: 'synthetic validation failure' }),
+    }), /synthetic validation failure/);
+    await assert.rejects(readFile(path.join(temp, 'rejected/assembly-report.json')), /ENOENT/);
+    let count = 0;
+    await assert.rejects(assemble(path.join(temp, 'gap'), undefined, {
+      recipe, run: () => ++count === 1 ? { status: 0 } : { status: 1, stderr: 'missing app.models.station' },
+    }), /missing app.models.station/);
+  } finally { await rm(temp, { recursive: true, force: true }); }
+});
+
+test('recipe up passes JSON build argument without shell interpolation; plain up clears inherited recipe', async () => {
+  const temp = await mkdtemp(path.join(directory, '.test-'));
+  try {
+    const recipe = path.join(temp, 'recipe with spaces.json');
+    const content = { name: 'synthetic', description: 'literal $() and "quotes"' };
+    await writeFile(recipe, '\uFEFF' + JSON.stringify(content));
+    const calls = [];
+    const run = (executable, args, options) => { calls.push({ executable, args, options }); return { status: 0 }; };
+    execute('up', run, recipe);
+    assert.equal(calls.length, 1);
+    assert.deepEqual(JSON.parse(calls[0].options.env.PREVIEW_RECIPE_JSON), content);
+    assert.ok(calls[0].args.includes('--build'));
+    assert.equal(calls[0].options.shell, false);
+    execute('up', run);
+    assert.equal(calls[1].options.env.PREVIEW_RECIPE_JSON, '');
+    assert.throws(() => execute('down', run, recipe), /只適用/);
+    await writeFile(recipe, '{');
+    assert.throws(() => execute('up', run, recipe), SyntaxError);
+    assert.equal(calls.length, 2);
+    assert.throws(() => pythonCheck([], undefined, () => ({ error: new Error('unavailable') })), /unavailable/);
+  } finally { await rm(temp, { recursive: true, force: true }); }
+});
+
+test('all service and background guard patches fail closed on source drift', async () => {
+  for (const [kit, file] of [
+    ['platform-core-kit', 'core/kit_broker.py'],
+    ['import-pipeline-kit', 'api/routes_import_v2.py'],
+    ['import-pipeline-kit', 'services/import_v2.py'],
+    ['generic-forms-kit', 'api/routes_generic_forms.py'],
+    ['upload-validation-kit', 'services/pdf_conversion.py'],
+    ['mod-subscription-kit', 'services/mod_subscription.py'],
+  ]) {
+    const name = 'app/' + file;
+    const original = await readFile(path.join(repository, 'kits', kit, 'src/backend', name), 'utf8');
+    const patched = adapt(name, original);
+    assert.ok(patched.includes('from app.preview_gate import require_access'), name);
+    assert.ok(patched.includes('require_access('), name);
+    assert.throws(() => adapt(name, ''), /來源已變更/, name);
+  }
 });

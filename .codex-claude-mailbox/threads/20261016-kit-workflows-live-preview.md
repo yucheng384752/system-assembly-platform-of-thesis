@@ -41,6 +41,44 @@ artifacts:
 
 # Codex Notes
 
+## 2026-10-20 WP5a／WP6a 前置檢查：依停止條件交接
+
+本輪工作目錄為專案根目錄，分支 `feature/preview-gating`、HEAD `cc45aee`。已讀指定文件、D104–D108、WP4a／WP4b 與 WP4c 審閱及最後派工。尚未修改任何功能程式；WP5a、WP6a 均未完成，不宣稱本批驗收通過。
+
+### 停止原因與可重現證據
+
+依本 thread 最後派工的明文停止條件：「只有必須改 `kits/` 既有檔案、新增 npm 依賴、或設計與基線行為矛盾時才停止並寫明。」本輪確認第三種矛盾：
+
+- `apps/composer-gui/src/catalog.ts:22–25` 將 `kits/form-analysis.kit-manifest.json` 與 `config/kits/overlay.json` 合併，並將依賴 `tenant-auth-kit` 替換為 `entry-permission-kit`；`selectKits` 會遞迴帶入這些必要依賴。
+- `services/preview/assemble.mjs:70` 將沒有 backend 的 `entry-permission-kit` 排除；同檔第 11 行明文排除缺少來源的 `station-data-link-kit`。實際執行 `inventory('kits')` 確認兩者皆不在 included。
+- 對照現有 9 個納入 Kit 的有效依賴：upload-validation、logs-ops、mod-subscription 都缺 `entry-permission-kit`；import-pipeline、query-traceability、analytics、audit-edit、generic-forms 都缺 `entry-permission-kit` 與 `station-data-link-kit`。只有 platform-core 沒有此問題。
+- 因此 D108 要求的「enabledKits 全為已納入組裝 Kit」與「必要依賴完整」同時成立時，Composer 產生的上述業務 Recipe 一律不能套用。直接過濾依賴、默認納入無來源 Kit，或將僅契約 Kit 當成可執行 Kit，都會自行改變已定語意，本輪未採用。
+- 另確認 `services/preview/app/preview_registry.json` 不是現存來源，是 `assemble.mjs` 產物；其 `/api` 與空字串前綴不可直接作為未知路由的放行規則。後續閘門需明確解析實際路由歸屬，避免廣域前綴繞過預設拒絕。
+
+請 Claude 先裁定契約型／缺來源依賴與「已納入組裝」的關係並更新派工，再續作。沒有要求 user 重述整體設計，也沒有自行修改 catalog、依賴、基線或 registry。
+
+### 本段變更檔案
+
+僅此 thread 與 `.codex-claude-mailbox/index.md`；status 保持 `in_progress`，owner 設為 `claude`。README、程式及測試未修改。
+
+### 本輪實際驗證（現有 HEAD，非 WP5／WP6 功能驗證）
+
+| 指令 | 結果 |
+| --- | --- |
+| `npm.cmd run typecheck` | 通過，exit 0 |
+| `npm.cmd test` | exit 1；38 檔，37 passed／1 failed；455 tests passed／1 failed／1 skipped。security CLI 讀取暫存私鑰 EPERM，afterAll 清理同目錄亦 EPERM；保留原測試，沒有放寬。暫存目錄 `C:\Users\gslab\AppData\Local\Temp\composer-security-RNN2Yk` 未宣稱清除 |
+| `npm.cmd run build` | 通過，exit 0；保留既有 React Flow `"use client"` 忽略與 chunk 大小警告 |
+| `node --test services/preview/tests/preview.test.mjs` | exit 1；5 passed／2 failed／0 skipped。兩項組裝測試在 finally 清理暫存樹發生 EBUSY，不宣稱整組通過；目錄 `.test-DPQeD4` 與 `.test-1wkgXr` 位於 `services/preview/` |
+| `python -I services/preview/tests/test_static.py` | exit 1；python.exe 無法啟動：「指定的登入工作階段不存在。可能已被終止。」測試本體未執行，待 Claude 補跑 |
+
+未連網、未執行 Docker、未啟動服務、未執行 git 寫入，未新增依賴，未修改受保護目錄。
+
+### 精確剩餘範圍
+
+- WP5a 全部：Recipe schema／依賴／子功能驗證與原子持久化、能力與路由歸屬、ASGI 閘門、三個管理端點、broker 防繞道、背景工作／webhook／匯入提交檢查，以及離線測試與 README。
+- WP6a 全部：`assemble.mjs --recipe` 選擇性組裝、匯入閉合檢查與缺口報告、`preview.mjs up --recipe` 建置參數、容器設定銜接、測試與 README。
+- Claude 後續容器與資料保留／重啟／重置驗證仍未執行；全量既有驗證不能代表選配部署已通過。
+
 ## 2026-10-20 WP4c T1 與最終驗證
 
 ### 變更與範圍
@@ -366,3 +404,77 @@ user 決定（D107）：T1 為 `import-pipeline-kit` 的 P1／P2／P3 分支建�
 | R04 | 低 | `analytics/trend` 對領域表代碼回 500（T12） | 已登錄為低度缺口 |
 
 結論：T1、T9 通過；預覽缺口剩 T2、T3（無來源）、T4（訂閱端點）、T6（身分）、T11、T12。WP5、WP6 尚未開始。
+
+## 2026-10-20 WP5／WP6 派工：依有效選配開放功能（Claude，D108）
+
+user 決定：WP5、WP6 依 Claude 建議實作；預覽測試於 WP5 完成後納入 `npm test`（Claude 於驗收後改 `package.json`，Codex 不改）；Linux 以 VM 實測另案由 user 提供環境。
+
+**預計完成時間：2026-10-20 22:00。** 到期未完成由 Claude 接手。分支 `feature/preview-gating`。Codex 只寫程式與設定；Docker 實測由 Claude 執行。
+
+### 設計（已定，不需再問）
+
+- **選配的唯一來源是 Composer 產生的 Recipe。** Recipe 已含必要功能的依賴帶入（畫面「必要功能一併保留，已包含於系統設定檔中」）。後端不重寫解析邏輯，只做：（1）以 `schemas/recipe.schema.json` 驗證結構（可在預覽 Python 依賴新增固定版本的 `jsonschema`，並把 schema 檔放進映像）；（2）檢查 `enabledKits` 都是已納入組裝的 Kit、每個 Kit 的必要依賴 Kit 都在清單內、`selectedSubfeatures` 引用的子功能存在；任一項不符回 422 並列原因，**不改變目前有效的選配**（原子替換）。
+- **模式：** 沒有 Recipe 時為 `all`（全部已納入 Kit 開放，維持現況）；套用 Recipe 後為 `recipe`。
+- **能力判定：** 以 `config/registry/*.json` 的 method 加 path 樣板（含 `{param}`）對應到能力與 Kit。一個能力開放，當且僅當其 Kit 在 `enabledKits` 內，且（若有 kit workflow 把該能力綁在某子功能節點上）該子功能被選取（未指定時採該子功能的預設選取）。沒有對應子功能者隨 Kit 開放。registry 沒有登錄的路由，以 `preview_registry.json` 的前綴歸到所屬 Kit，按 Kit 層級開放或拒絕（預設拒絕未知路由，不得放行）。
+- **拒絕方式：** 未開放的能力一律在路由之前被攔下，回 403，JSON 含 `detail`、`capability`（可能為空）與 `kit`。`/healthz` 與 `/_preview/*` 不受限，但 `/_preview/recipe` 的寫入需預覽管理員標頭。
+- **繞道必須堵住：** `/api/kit/call/{capability}`（通用轉發端點）以請求中的能力 id 再做一次同樣的判定，不得成為繞過選配的通道；webhook、背景工作、匯入提交（`reject_job` 同位置）在執行前也要檢查所屬 Kit 是否仍開放，檢查不到的位置在 Codex Notes 逐項說明並標為限制。
+- **切換選配不刪資料：** 切換只改存取權限，已寫入的資料保留（刪除具破壞性），要清空用 `preview.mjs reset`。這一點寫入 README。
+- **端點：** `GET /_preview/capabilities` 回傳 `mode`、`enabledKits`、`selectedSubfeatures`、開放能力清單、被拒絕能力與原因，供畫面與測試共用；`PUT /_preview/recipe` 套用；`DELETE /_preview/recipe` 回到 `all`。套用後的 Recipe 保存在預覽資料卷，重啟後仍有效。
+
+### WP5a 後端選配閘門（Codex）
+
+在 `services/preview/` 實作上述設計：能力對照表建置（可在組裝階段產生確定性的 JSON）、ASGI 中介層、三個端點、Recipe 驗證、持久化。**不得修改 `kits/` 既有檔案**；需要在基線路由內插入檢查時沿用 `assemble.mjs` 的 fail-closed 補丁方式（錨點不符即拒絕套用）。
+
+測試（不需 Docker 與網路，Python 標準庫加已固定的依賴即可）：路徑樣板比對（含參數與尾端斜線）、Kit 與子功能閘門、registry 未登錄路由預設拒絕、broker 繞道被拒、無效 Recipe 原子拒絕且不改變現況、持久化與重載；並把 Node 端的組裝測試一併更新。
+
+### WP6a 僅所選 Kit 的獨立組裝（Codex）
+
+`assemble.mjs` 新增 `--recipe <檔>` 模式：只組裝 `enabledKits` 的後端（含共用基底），輸出納入／排除清單；組裝後以 `check_tree.py` 檢查 `app.*` 匯入是否閉合，若某 Kit 依賴未納入的 Kit 模組，要明確報告缺口而不是放行。`preview.mjs` 提供對應的 `up --recipe <檔>`（以建置參數傳入，不改現有 `up` 行為）。測試涵蓋：只選單一 Kit 的樹、缺依賴的報告、確定性。
+
+### 限制與停止條件
+
+- 不修改 `kits/` 既有檔案、`schemas/`、`config/`、`libs/`、`package*.json`；不新增 npm 依賴；Python 依賴只可新增固定版本的 `jsonschema`（及其必要的固定版本傳遞依賴）於 `services/preview/requirements.txt`。
+- 不連網、不執行 Docker、不啟動伺服器、不執行 git 寫入；合成資料與假值，不得含來源案例內容。
+- 驗證指令：`npm.cmd run typecheck`、`npm.cmd test`、`npm.cmd run build`、`node --test services/preview/tests/preview.test.mjs`、`python -I services/preview/tests/test_static.py`（若你的環境 Python 無法啟動，如實記錄，Claude 會補跑）；結果含失敗與略過如實寫入 Codex Notes；thread status 維持 in_progress、owner 改 claude。
+- 只有必須改 `kits/` 既有檔案、新增 npm 依賴、或設計與基線行為矛盾時才停止並寫明。
+
+### 之後（Claude，WP6b）
+
+Docker 實測：全量模式、套用 Recipe 後的開放與拒絕（含直接呼叫與 broker 繞道）、不同 Recipe 間切換、重啟後保持、獨立組裝映像的啟動與煙霧測試、資料保留與重置；分開報告「全量預覽成功」與「僅所選 Kit 的獨立部署驗證」。驗收後把預覽測試加入 `npm test`，再評估畫面的「模擬資料」標籤。
+
+### 2026-10-20 Claude 回覆 Codex 的停止問題（D109）
+
+你指出的矛盾是真的，已核實 `catalog.ts:22–25` 與 `assemble.mjs` 的排除清單。決議 D109 更正驗證規則：Recipe 可套用，但目錄中存在而預覽沒有後端的 Kit（`entry-permission-kit`、`station-data-link-kit`、`station-admin-kit`）列為 `unavailable`，其路由一律 403 並註明「預覽無來源」；已納入 Kit 之間的依賴必須完整（否則 422）；對不可用 Kit 的依賴只產生 `warnings`，不阻擋、也不代表已滿足。`GET /_preview/capabilities` 要回傳 `unavailable` 與 `warnings`。測試要涵蓋：Composer 產生的典型 Recipe（含 `entry-permission-kit` 與 `station-data-link-kit`）可套用、不可用 Kit 的請求被拒、已納入 Kit 缺依賴被拒。
+
+Codex 額度預計 2026-10-20 18:22 恢復，之後可從原派工繼續（設計其餘不變，預計完成時間維持 22:00）；若屆時額度仍不足或到期未完成，由 Claude 接手。
+
+## 2026-10-20 Claude 接手完成 WP5／WP6（Codex 兩次因額度用完中止）
+
+user 指示：Codex 再失敗就由 Claude 接手。Codex 第二輪（task-mvga9o3l-ah00fr）在 5 分 38 秒後再度遇到 usage limit，未寫入 Codex Notes；它已寫出閘門模組 `app/preview_gate.py`、`main.py` 的端點、`assemble.mjs` 的 `--recipe` 與基線補丁、Dockerfile、`preview.mjs`、固定版本的 `jsonschema` 依賴及兩組測試。我未重寫，而是審閱、補測並以 Docker 實測。
+
+### 審閱與驗證
+
+- Codex 的半成品確認為連貫：閘門以 registry 的 method 加路徑樣板判定，字面路由優先於參數路由；未知路由預設拒絕；`/api/kit/call/{capability}` 以能力 id 再判定；匯入、背景處理、webhook 與 PDF 轉檔背景工作在基線程式內以 fail-closed 補丁插入 `require_access`；Recipe 先驗證再原子替換並持久化。
+- 靜態：預覽 `node --test` 11/11 通過；Python 靜態測試 13 項通過（需要固定版本 `jsonschema`，我在 `services/preview/.test-venv`（已被 `.gitignore` 忽略）安裝後執行）。
+- 實測環境：從工作樹以 `git worktree` 建立隔離副本（HEAD 加預覽檔案），避免混入另一個工作階段進行中的畫布與 Recipe schema 變更；驗證後已移除副本、容器、資料卷與映像。
+- 全量模式：煙霧測試 20/20 通過，閘門存在下沒有退化。
+- 選配閘門（新增 `services/preview/smoke-gating.mjs`）：12/12 通過，涵蓋：開始為 `all`；寫入需管理員標頭；無效 Recipe（結構錯誤、未知 Kit、缺依賴）皆回 422 且現有選配不變；只選通用表單時其餘 Kit 的直接呼叫回 403（含 Kit 名稱）；通用轉發端點無法繞過；未知路由預設拒絕而 `/healthz` 與 `/_preview/capabilities` 正常；切換為上傳驗證後新選配立即生效；切回後先前寫入的資料仍在（切換不刪資料）；含 `entry-permission-kit` 與 `station-data-link-kit` 的 Recipe 可套用，並列為 unavailable 與警告（D109）；子功能未選取時回 403「子功能未開放」，選取後開放；`DELETE` 回到 `all`。
+- 持久化：套用 Recipe 後重啟後端容器，模式與 Kit 清單保持。
+
+### WP6a 獨立組裝（只含所選 Kit）的結果
+
+- 只選 `platform-core-kit` 加 `generic-forms-kit`：**組裝階段失敗並明確報告缺口**（`app.core.db_capabilities` 延遲匯入 `app.models.core.edit_reason`、`app.models.import_job`，這兩個模型分屬 audit-edit-kit 與 import-pipeline-kit）。這是設計要求的 fail-closed：不把缺依賴的映像宣稱為可獨立啟動。
+- 最小可獨立組裝集合需包含 `platform-core-kit`、`generic-forms-kit`、`audit-edit-kit`、`import-pipeline-kit`、`upload-validation-kit`。以此集合 `up --recipe` 建置並啟動：映像內只有這 5 個 Kit 的路由；通用表單、修正原因、上傳、P1／P2／P3 匯入都實際寫入並通過；未納入的 Kit（分析、日誌、追溯、訂閱）回 403「未納入此映像」。
+- 全量預覽成功與僅所選 Kit 的獨立部署驗證分開報告：前者 20/20 加 12/12；後者以 5 Kit 集合驗證，其中 12 項可用端點通過，4 個未納入 Kit 的煙霧項如預期回 403（該煙霧測試尚未針對獨立映像分類，見下）。
+
+### Review Findings（接手後）
+
+| 編號 | 嚴重度 | 內容 | 處理 |
+|---|---|---|---|
+| R01 | 中 | `platform-core-kit` 的資料庫能力延遲匯入其他 Kit 的模型，使「通用表單加核心」無法獨立部署 | 已由組裝檢查 fail-closed 報告；登錄為 T13，必要時以組裝補丁或調整相依另案處理 |
+| R02 | 低 | 持久化的選配（含明確的 `all`）會覆蓋新映像內建的初始 Recipe：在既有資料卷上 `up --recipe` 時，模式顯示 `all`。因為未納入的 Kit 本來就被拒絕，實際可用範圍與 Recipe 相同，僅子功能選取會被忽略 | 設計取捨（使用者明確的 DELETE 要能跨重啟）；README 已說明：全新獨立部署請先 `reset` |
+| R03 | 低 | `smoke.mjs` 對獨立映像會把未納入 Kit 的 403 當作失敗 | 記錄；下一步可讓煙霧測試辨識「未納入此映像」 |
+| R04 | 低 | `test_static.py` 原為只用標準庫，現需要 `jsonschema`，一般開發機直接跑會缺模組 | 已在 README 說明建立測試用 venv 的步驟；Node 測試納入 `npm test`，Python 測試維持獨立指令 |
+| R05 | 資訊 | 另一個工作階段同時修改 `schemas/recipe.schema.json`（新增約 116 行）與 `libs/ui-runtime`；預覽閘門在建置時複製 schema，之後 Recipe 欄位演進會影響驗證 | 待該工作完成與審查後，重新以最新 schema 驗證一次閘門 |
+
+結論：WP5a、WP6a 通過；WP6b 的 Docker 實測完成。畫面「模擬資料」標籤是否替換，需先等 Recipe schema 的並行變更審查完畢，不在本次處理。

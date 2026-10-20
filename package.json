@@ -7,7 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "npm run typecheck && vite build",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
-    "test": "vitest run --configLoader native",
+    "test": "vitest run --configLoader native && node --test services/preview/tests/preview.test.mjs",
     "test:kits": ".venv\\Scripts\\python -B -m pytest -p no:cacheprovider -q kits/platform-core-kit/tests"
   },
   "dependencies": {
