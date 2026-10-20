@@ -2,7 +2,7 @@
 id: "20261016-kit-workflows-live-preview"
 title: "Kit AoV 彙整與真實選配預覽"
 status: "in_progress"
-owner: "claude"
+owner: "codex"
 reviewer: "claude"
 priority: "high"
 created_by: "codex"
@@ -366,3 +366,40 @@ user 決定（D107）：T1 為 `import-pipeline-kit` 的 P1／P2／P3 分支建�
 | R04 | 低 | `analytics/trend` 對領域表代碼回 500（T12） | 已登錄為低度缺口 |
 
 結論：T1、T9 通過；預覽缺口剩 T2、T3（無來源）、T4（訂閱端點）、T6（身分）、T11、T12。WP5、WP6 尚未開始。
+
+## 2026-10-20 WP5／WP6 派工：依有效選配開放功能（Claude，D108）
+
+user 決定：WP5、WP6 依 Claude 建議實作；預覽測試於 WP5 完成後納入 `npm test`（Claude 於驗收後改 `package.json`，Codex 不改）；Linux 以 VM 實測另案由 user 提供環境。
+
+**預計完成時間：2026-10-20 22:00。** 到期未完成由 Claude 接手。分支 `feature/preview-gating`。Codex 只寫程式與設定；Docker 實測由 Claude 執行。
+
+### 設計（已定，不需再問）
+
+- **選配的唯一來源是 Composer 產生的 Recipe。** Recipe 已含必要功能的依賴帶入（畫面「必要功能一併保留，已包含於系統設定檔中」）。後端不重寫解析邏輯，只做：（1）以 `schemas/recipe.schema.json` 驗證結構（可在預覽 Python 依賴新增固定版本的 `jsonschema`，並把 schema 檔放進映像）；（2）檢查 `enabledKits` 都是已納入組裝的 Kit、每個 Kit 的必要依賴 Kit 都在清單內、`selectedSubfeatures` 引用的子功能存在；任一項不符回 422 並列原因，**不改變目前有效的選配**（原子替換）。
+- **模式：** 沒有 Recipe 時為 `all`（全部已納入 Kit 開放，維持現況）；套用 Recipe 後為 `recipe`。
+- **能力判定：** 以 `config/registry/*.json` 的 method 加 path 樣板（含 `{param}`）對應到能力與 Kit。一個能力開放，當且僅當其 Kit 在 `enabledKits` 內，且（若有 kit workflow 把該能力綁在某子功能節點上）該子功能被選取（未指定時採該子功能的預設選取）。沒有對應子功能者隨 Kit 開放。registry 沒有登錄的路由，以 `preview_registry.json` 的前綴歸到所屬 Kit，按 Kit 層級開放或拒絕（預設拒絕未知路由，不得放行）。
+- **拒絕方式：** 未開放的能力一律在路由之前被攔下，回 403，JSON 含 `detail`、`capability`（可能為空）與 `kit`。`/healthz` 與 `/_preview/*` 不受限，但 `/_preview/recipe` 的寫入需預覽管理員標頭。
+- **繞道必須堵住：** `/api/kit/call/{capability}`（通用轉發端點）以請求中的能力 id 再做一次同樣的判定，不得成為繞過選配的通道；webhook、背景工作、匯入提交（`reject_job` 同位置）在執行前也要檢查所屬 Kit 是否仍開放，檢查不到的位置在 Codex Notes 逐項說明並標為限制。
+- **切換選配不刪資料：** 切換只改存取權限，已寫入的資料保留（刪除具破壞性），要清空用 `preview.mjs reset`。這一點寫入 README。
+- **端點：** `GET /_preview/capabilities` 回傳 `mode`、`enabledKits`、`selectedSubfeatures`、開放能力清單、被拒絕能力與原因，供畫面與測試共用；`PUT /_preview/recipe` 套用；`DELETE /_preview/recipe` 回到 `all`。套用後的 Recipe 保存在預覽資料卷，重啟後仍有效。
+
+### WP5a 後端選配閘門（Codex）
+
+在 `services/preview/` 實作上述設計：能力對照表建置（可在組裝階段產生確定性的 JSON）、ASGI 中介層、三個端點、Recipe 驗證、持久化。**不得修改 `kits/` 既有檔案**；需要在基線路由內插入檢查時沿用 `assemble.mjs` 的 fail-closed 補丁方式（錨點不符即拒絕套用）。
+
+測試（不需 Docker 與網路，Python 標準庫加已固定的依賴即可）：路徑樣板比對（含參數與尾端斜線）、Kit 與子功能閘門、registry 未登錄路由預設拒絕、broker 繞道被拒、無效 Recipe 原子拒絕且不改變現況、持久化與重載；並把 Node 端的組裝測試一併更新。
+
+### WP6a 僅所選 Kit 的獨立組裝（Codex）
+
+`assemble.mjs` 新增 `--recipe <檔>` 模式：只組裝 `enabledKits` 的後端（含共用基底），輸出納入／排除清單；組裝後以 `check_tree.py` 檢查 `app.*` 匯入是否閉合，若某 Kit 依賴未納入的 Kit 模組，要明確報告缺口而不是放行。`preview.mjs` 提供對應的 `up --recipe <檔>`（以建置參數傳入，不改現有 `up` 行為）。測試涵蓋：只選單一 Kit 的樹、缺依賴的報告、確定性。
+
+### 限制與停止條件
+
+- 不修改 `kits/` 既有檔案、`schemas/`、`config/`、`libs/`、`package*.json`；不新增 npm 依賴；Python 依賴只可新增固定版本的 `jsonschema`（及其必要的固定版本傳遞依賴）於 `services/preview/requirements.txt`。
+- 不連網、不執行 Docker、不啟動伺服器、不執行 git 寫入；合成資料與假值，不得含來源案例內容。
+- 驗證指令：`npm.cmd run typecheck`、`npm.cmd test`、`npm.cmd run build`、`node --test services/preview/tests/preview.test.mjs`、`python -I services/preview/tests/test_static.py`（若你的環境 Python 無法啟動，如實記錄，Claude 會補跑）；結果含失敗與略過如實寫入 Codex Notes；thread status 維持 in_progress、owner 改 claude。
+- 只有必須改 `kits/` 既有檔案、新增 npm 依賴、或設計與基線行為矛盾時才停止並寫明。
+
+### 之後（Claude，WP6b）
+
+Docker 實測：全量模式、套用 Recipe 後的開放與拒絕（含直接呼叫與 broker 繞道）、不同 Recipe 間切換、重啟後保持、獨立組裝映像的啟動與煙霧測試、資料保留與重置；分開報告「全量預覽成功」與「僅所選 Kit 的獨立部署驗證」。驗收後把預覽測試加入 `npm test`，再評估畫面的「模擬資料」標籤。
