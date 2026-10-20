@@ -1,5 +1,5 @@
 import { actionCatalog, nextId } from './workflow';
-import { MAX_FACTORIES, MAX_GRAPHS, MAX_LOGICS, newGraphParts, type AovGraphDocument, type GraphNode, type Position } from './workflowGraph';
+import { graphDepths, MAX_DEPTH, MAX_FACTORIES, MAX_GRAPHS, MAX_LOGICS, newGraphParts, type AovGraphDocument, type GraphNode, type Position } from './workflowGraph';
 
 const allEdges = (doc: AovGraphDocument) => doc.graphs.flatMap(g => g.edges);
 const clip = (name: string) => name.trim().slice(0, 100);
@@ -27,9 +27,17 @@ export function connectCanvasNodes(doc: AovGraphDocument, graphId: string, from:
     edges: connected ? [...g.edges, { id: nextId('edge', allEdges(doc)), from, to }] : g.edges.filter(e => e.from !== from || e.to !== to) }) };
 }
 
+// Replace atomically so the canvas can reject invalid connections without losing the original edge.
+export function reconnectCanvasEdge(doc: AovGraphDocument, graphId: string, edgeId: string, from: string, to: string): AovGraphDocument {
+  return { ...doc, graphs: doc.graphs.map(g => g.id !== graphId ? g : { ...g,
+    edges: g.edges.map(e => e.id === edgeId ? { ...e, from, to } : e) }) };
+}
+
 // A sub-flow of a node: its own start and end are created with it (D80).
 export function addChildGraph(doc: AovGraphDocument, nodeId: string): AovGraphDocument {
-  const node = doc.graphs.flatMap(g => g.nodes).find(n => n.id === nodeId)!;
+  const parent = doc.graphs.find(g => g.nodes.some(n => n.id === nodeId));
+  const node = parent?.nodes.find(n => n.id === nodeId);
+  if (!parent || !node || node.kind !== 'node' || node.childGraphId || doc.graphs.length >= MAX_GRAPHS || (graphDepths(doc).get(parent.id) ?? MAX_DEPTH) >= MAX_DEPTH) return doc;
   const id = nextId('graph', doc.graphs);
   const parts = newGraphParts(id, clip(`${node.name}的子流程`) || '子流程');
   const patched = patchCanvasNode(doc, nodeId, { childGraphId: id });

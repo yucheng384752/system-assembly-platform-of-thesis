@@ -10,9 +10,10 @@ import { Icon } from './Icons';
 import './style.css';
 
 // split: renders the preview column and the settings column as two siblings for the configurator grid.
-export function KitPreview({ recipe, onChange, catalog, session = 0, legacy = false, split = false, site }: { recipe: Recipe; onChange: (recipe: Recipe) => void; catalog: Catalog; session?: number; legacy?: boolean; split?: boolean; site?: SiteProfile }) {
+export function KitPreview({ recipe, onChange, catalog, session = 0, legacy = false, split = false, site, simulation }: { recipe: Recipe; onChange: (recipe: Recipe) => void; catalog: Catalog; session?: number; legacy?: boolean; split?: boolean; site?: SiteProfile; simulation?: ReactNode }) {
   const { kits, definitions, sources } = catalog;
   const setRecipe = onChange;
+  const [previewMode, setPreviewMode] = useState<'kit' | 'workflow'>('kit');
   const [activeId, setActiveId] = useState('');
   const selected = kits.filter(k => recipe.enabledKits.includes(k.id));
   const active = selected.find(k => k.id === activeId) ?? selected[0];
@@ -63,10 +64,11 @@ export function KitPreview({ recipe, onChange, catalog, session = 0, legacy = fa
     <section className="column column-preview" role="region" aria-labelledby="preview-title" tabIndex={0}>
       <div className="column-head"><h2 id="preview-title">即時預覽</h2><span className="badge"><Icon name="file" />模擬資料</span></div>
       <p className="lead">根據所選功能，預覽實際應用畫面與資料。</p>
-      {tabs}{panel(!definition ? noScreen : previewRegion)}
+      {simulation && <div className="actions"><button aria-pressed={previewMode === 'kit'} onClick={() => setPreviewMode('kit')}>功能畫面</button><button aria-pressed={previewMode === 'workflow'} onClick={() => setPreviewMode('workflow')}>逐站模擬</button></div>}
+      {previewMode === 'workflow' && simulation ? simulation : <>{tabs}{panel(!definition ? noScreen : previewRegion)}</>}
       <p className="column-foot"><Icon name="info" />依右側設定更新，尚未執行資料匯入。</p>
     </section>
-    <Column id="adjust" title={`調整${active.displayName}`} lead="設定所選功能的顯示方式與順序。">
+    <Column scroll id="adjust" title={`調整${active.displayName}`} lead="設定所選功能的顯示方式與順序。">
       {settings || <p>此功能沒有可調整的項目。</p>}
       <p className="column-foot"><Icon name="info" />角色提示不代表身分授權；目前尚未串接身分驗證。</p>
     </Column>

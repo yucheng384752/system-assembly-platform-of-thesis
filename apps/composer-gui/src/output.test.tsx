@@ -75,7 +75,7 @@ test('A22, A15: downloads validate, carry no rows, the Recipe checksum matches t
   const storage = vi.spyOn(Storage.prototype, 'setItem'); const xhr = vi.spyOn(XMLHttpRequest.prototype, 'open');
   await buildWorkflow();
   fireEvent.click(screen.getByRole('button', { name: /^確認關聯/ }));
-  fireEvent.click(screen.getByRole('button', { name: /03 輸出/ }));
+  fireEvent.click(screen.getByRole('button', { name: /04 輸出/ }));
   // D52: draft manuals are included, and their status must be readable before the download.
   expect(document.getElementById('manual-status')?.textContent).toContain('手冊齊全');
   expect(document.getElementById('manual-status')?.textContent).toContain('含草稿內容');
@@ -117,7 +117,7 @@ test('missing manual status names the feature and role while configuration deliv
   vi.spyOn(manual, 'loadFragments').mockReturnValue(fragments);
   const zips: Uint8Array[] = []; captureDownloads(zips);
   await buildWorkflow();
-  fireEvent.click(screen.getByRole('button', { name: /03 輸出/ }));
+  fireEvent.click(screen.getByRole('button', { name: /04 輸出/ }));
   const status = document.getElementById('manual-status')!;
   expect(status.getAttribute('role')).toBe('status');
   expect(status.textContent).toContain(`${kit.displayName}（一般使用者）`);
@@ -133,7 +133,7 @@ test('missing manual status names the feature and role while configuration deliv
 });
 test('an incomplete Workflow blocks every download and says why', () => {
   render(<App />); openFlow();
-  fireEvent.click(screen.getByRole('button', { name: /03 輸出/ }));
+  fireEvent.click(screen.getByRole('button', { name: /04 輸出/ }));
   fireEvent.change(screen.getByLabelText('客戶代稱'), { target: { value: '示範客戶' } });
   expect(screen.getByRole('alert').textContent).toContain('請先建立工廠與生產邏輯');
   openAdvancedFiles();
@@ -148,7 +148,7 @@ test('Recipe file import is atomic and restores flow selection and editor settin
   fireEvent.click(screen.getByRole('checkbox', { name: '查詢追溯' }));
   fireEvent.click(screen.getByRole('tab', { name: '查詢與追溯' }));
   fireEvent.change(screen.getByLabelText('批號的名稱'), { target: { value: '保留中的欄位' } });
-  fireEvent.click(screen.getByRole('button', { name: /03 輸出/ }));
+  fireEvent.click(screen.getByRole('button', { name: /04 輸出/ }));
   const input = screen.getByLabelText('選擇 JSON 檔案');
   const invalid = new File(['{}'], 'invalid.json'); Object.defineProperty(invalid, 'text', { value: async () => '{}' });
   fireEvent.change(input, { target: { files: [invalid] } });
@@ -156,7 +156,7 @@ test('Recipe file import is atomic and restores flow selection and editor settin
   fireEvent.click(screen.getByRole('button', { name: /02 功能選配/ }));
   fireEvent.click(screen.getByRole('tab', { name: '查詢與追溯' }));
   expect(screen.getByRole('columnheader', { name: '保留中的欄位' })).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: /03 輸出/ }));
+  fireEvent.click(screen.getByRole('button', { name: /04 輸出/ }));
   const good = new File([''], 'valid.json');
   Object.defineProperty(good, 'text', { value: async () => exportRecipe({ ...initialRecipe, clientName: '匯入客戶' }, catalog) });
   fireEvent.change(screen.getByLabelText('選擇 JSON 檔案'), { target: { files: [good] } });
@@ -185,7 +185,7 @@ test('場域 A／B 匯入、預覽及交付包使用同一份設定，移除後�
   const page = (number: string) => fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${number} `) }));
   page('02'); fireEvent.click(screen.getByRole('tab', { name: '檔案上傳與驗證' }));
   fireEvent.change(screen.getByLabelText('資料列的欄寬'), { target: { value: '210' } });
-  page('03'); fireEvent.change(screen.getByLabelText('客戶代稱'), { target: { value: '模擬客戶' } });
+  page('04'); fireEvent.change(screen.getByLabelText('客戶代稱'), { target: { value: '模擬客戶' } });
   for (const [index, site] of [siteA, siteB].entries()) {
     const text = ` ${JSON.stringify(site, null, 3)}\r\n`;
     fireEvent.change(screen.getByLabelText('匯入場域設定'), { target: { files: [csv('mock.site.json', `\uFEFF${text}`)] } });
@@ -197,7 +197,7 @@ test('場域 A／B 匯入、預覽及交付包使用同一份設定，移除後�
     expect(width.value).toBe(String(site.optionOverrides[key]['row-width']));
     expect(document.getElementById(`${width.id}-site`)?.textContent).toContain(`最大 ${site.optionLimits[key]['row-width'].maximum}`);
     expect(screen.getByRole('columnheader', { name: site.optionOverrides[key]['row-label'] }).style.width).toBe(`${width.value}px`);
-    page('03');
+    page('04');
     await waitFor(() => expect((screen.getByRole('button', { name: '下載設定交付包' }) as HTMLButtonElement).disabled).toBe(false));
   openAdvancedFiles();
     fireEvent.click(screen.getByRole('button', { name: '下載系統設定檔' }));
@@ -216,7 +216,7 @@ test('場域 A／B 匯入、預覽及交付包使用同一份設定，移除後�
   page('02'); fireEvent.click(screen.getByRole('tab', { name: '檔案上傳與驗證' }));
   expect((screen.getByLabelText('資料列的欄寬') as HTMLInputElement).value).toBe('210');
   expect((screen.getByLabelText('資料列的欄寬') as HTMLInputElement).disabled).toBe(false);
-  page('03');
+  page('04');
   await waitFor(() => expect((screen.getByRole('button', { name: '下載設定交付包' }) as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(screen.getByRole('button', { name: '下載設定交付包' }));
   await waitFor(() => expect(zips).toHaveLength(3));
@@ -229,7 +229,7 @@ test('場域 A／B 匯入、預覽及交付包使用同一份設定，移除後�
 // D86: the package is the one download to hand over; the loose files and the settings loader are tucked under an advanced disclosure.
 test('the output step leads with the delivery package and keeps the loose files under an advanced disclosure', () => {
   render(<App />); openFlow();
-  fireEvent.click(screen.getByRole('button', { name: /03 輸出/ }));
+  fireEvent.click(screen.getByRole('button', { name: /04 輸出/ }));
   const packageButton = screen.getByRole('button', { name: '下載設定交付包' });
   expect(packageButton.className).toContain('primary');
   // Closed: the loose downloads are not offered (and not reachable by assistive technology).
@@ -252,7 +252,7 @@ test('the output step leads with the delivery package and keeps the loose files 
 
 test('the contents column says what the package holds and that it is not an installer', () => {
   render(<App />); openFlow();
-  fireEvent.click(screen.getByRole('button', { name: /03 輸出/ }));
+  fireEvent.click(screen.getByRole('button', { name: /04 輸出/ }));
   const contents = screen.getByRole('region', { name: '檔案內容' });
   expect(within(contents).getByText('設定交付包包含')).toBeTruthy();
   expect(within(contents).getByText(/檔案清單：各檔案的校驗碼/)).toBeTruthy();

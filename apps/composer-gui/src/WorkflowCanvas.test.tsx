@@ -79,7 +79,7 @@ test('A-C8: upload stores only inferred fields in the selected node, never sampl
 });
 test('A-C3/C4: third level disables child creation and circles contain names only', () => {
   const { container } = fresh();
-  for (let i = 0; i < 2; i++) { addTool('業務節點'); click('建立子流程'); click('進入子流程'); }
+  for (let i = 0; i < 2; i++) { addTool('業務節點'); click('建立子流程'); }
   addTool('業務節點');
   expect((screen.getByRole('button', { name: '建立子流程' }) as HTMLButtonElement).disabled).toBe(true);
   expect(current.graphs).toHaveLength(3);

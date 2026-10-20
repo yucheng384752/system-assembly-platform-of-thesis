@@ -1,3 +1,5 @@
+import { emptyProduction, productionErrors } from '../../../libs/ui-runtime/production';
+import { productionBindings } from './ProductionPage';
 import { useEffect, useMemo, useState } from 'react';
 import type { Recipe } from '../../../libs/ui-runtime/types';
 import { flows } from './catalog';
@@ -8,7 +10,7 @@ import { downloadBlob, downloadJson } from './fileTransfer';
 import { buildDeliveryPackage, deliveryManualStatus } from './deliveryPackage';
 import { loadFragments } from './manual';
 import { sha256Hex, WORKFLOW_FILE } from './workflow';
-import { exportAovGraph, type AovGraphDocument } from './workflowGraph';
+import { exportAovGraph, graphIssues, type WorkflowIssue, type AovGraphDocument } from './workflowGraph';
 import { Column } from './Column';
 import { Icon } from './Icons';
 import { SiteTransfer } from './SiteTransfer';
@@ -19,7 +21,9 @@ const included = ['客戶代稱', '已選功能', '可調整的畫面設定', '�
 const workflowIncluded = ['流程節點、先後順序、子流程與位置', '時機、負責職務與動作設定', '各節點的標準表單、欄位及驗證規則', '已確認的表單關聯'];
 const packageIncluded = ['流程規格與系統設定檔', '所選功能流程總表：步驟、連線與缺漏狀態', '檔案清單：各檔案的校驗碼與所選功能的版本', '檢查報告：靜態檢查結果，測試環境演練與現場驗證標為未執行', '所選功能的使用手冊：齊全時才附上'];
 const excluded = ['原始資料列與樣本內容', '連線資訊與密碼', '未確認的推測關聯', '程式碼、資料庫變更與安裝腳本：設定交付包不是安裝包'];
-export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport, site, siteConflict = '', onSiteChange }: { recipe: Recipe; workflow: AovGraphDocument; selectedFlows: string[]; onChange: (recipe: Recipe) => void; onImport: (recipe: Recipe) => void; site?: SiteSession; siteConflict?: string; onSiteChange?: (site?: SiteSession) => void }) {
+export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport, site, siteConflict = '', onSiteChange, onLocate }: { onLocate?: (issue: WorkflowIssue) => void; recipe: Recipe; workflow: AovGraphDocument; selectedFlows: string[]; onChange: (recipe: Recipe) => void; onImport: (recipe: Recipe) => void; site?: SiteSession; siteConflict?: string; onSiteChange?: (site?: SiteSession) => void }) {
+  const settingsErrors = [...productionErrors(recipe.productionSettings ?? emptyProduction), ...productionBindings(recipe.productionSettings ?? emptyProduction, workflow)];
+  const issues = graphIssues(workflow);
   const name = (id: string) => catalog.kits.find(k => k.id === id)?.displayName ?? id;
   const groups = flows.filter(f => selectedFlows.includes(f.id)).map(f => ({ id: f.id, title: f.name, kits: f.kits.filter(id => recipe.enabledKits.includes(id)) }));
   // Required features and dependencies that no selected flow names directly.
@@ -45,6 +49,7 @@ export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport
   const manualStatus = deliveryManualStatus(recipe, catalog, fragments);
   // Packs the same bytes as the separate downloads, so the package and the loose files never disagree (D36).
   async function downloadPackage() {
+    if (settingsErrors.length) { setPackageError(settingsErrors.join(" ")); return; }
     if (siteConflict) { setPackageError(siteConflict); return; }
     setPacking(true);
     try {
@@ -55,8 +60,8 @@ export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport
       setPackageNotice(''); setPackageError(failure instanceof Error ? failure.message : '設定交付包未產生。');
     } finally { setPacking(false); }
   }
-  return <div className="columns">
-    <Column id="summary" title="選配摘要" lead={`已選擇 ${recipe.enabledKits.length} 項功能，依業務流程列出。`}>
+  return <div className="columns integrated-columns output-columns">
+    <Column scroll id="summary" title="選配摘要" lead={`已選擇 ${recipe.enabledKits.length} 項功能，依業務流程列出。`}>
       {[...groups, ...(others.length ? [{ id: 'others', title: '必要與相依功能', kits: others }] : [])].map(group => <section key={group.id} className="flow-card" aria-labelledby={`sum-${group.id}`}>
         <div className="flow-title"><h3 id={`sum-${group.id}`} className="actions"><Icon name="check" />{group.title}</h3><span className="badge badge-selected">已選擇</span></div>
         <p className="muted">包含的功能</p><ul>{group.kits.map(id => <li key={id}>{name(id)}</li>)}</ul>
@@ -64,7 +69,7 @@ export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport
       <p className="column-foot"><Icon name="info" />必要功能一併保留，已包含於系統設定檔中。</p>
       <KitWorkflowSummary recipe={recipe} kits={catalog.kits} />
     </Column>
-    <Column id="package" title="設定交付包" lead="交付時只需要這一個壓縮檔：它把流程規格、系統設定檔、檔案清單與檢查報告放在一起。內容是設定，不能直接安裝或部署。">
+    <Column scroll id="package" title="設定交付包" lead="交付時只需要這一個壓縮檔：它把流程規格、系統設定檔、檔案清單與檢查報告放在一起。內容是設定，不能直接安裝或部署。">
       <label htmlFor="client-name" className="field-label">客戶代稱</label>
       <input id="client-name" value={recipe.clientName ?? ''} maxLength={100} required aria-describedby="client-note client-error" onChange={e => onChange({ ...recipe, clientName: e.target.value })} />
       <p id="client-note" className="muted">使用去識別化代稱，勿包含個資或秘密值。</p>
@@ -72,8 +77,10 @@ export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport
       {onSiteChange && <SiteTransfer current={site} referenced={Boolean(recipe.siteRef)} onChange={onSiteChange} />}
       <p id="site-conflict" role={siteConflict ? 'alert' : undefined}>{siteConflict ? `場域設定衝突：${siteConflict} 修正前無法下載設定。` : ''}</p>
       <p id="manual-status" role="status">{manualStatus.description}</p>
+      {settingsErrors.length > 0 && <p role="alert">{settingsErrors.join(' ')} 請至「參數設定」修正。</p>}
+      {issues.length > 0 && <section aria-label="待修正流程"><h3>流程待修正</h3><ul>{issues.map((issue, i) => <li key={i}>{issue.message}{onLocate && <button onClick={() => onLocate(issue)}>前往修改{issue.nodeId ? '節點' : '流程'}</button>}</li>)}</ul></section>}
       <p id="workflow-error" role={exported.error ? 'alert' : undefined}>{exported.error}</p>
-      <button className="primary" disabled={packing || !sha256 || !recipe.clientName?.trim() || Boolean(siteConflict)} aria-describedby="package-error manual-status site-conflict workflow-error" onClick={downloadPackage}><Icon name="download" />下載設定交付包</button>
+      <button className="primary" disabled={packing || settingsErrors.length > 0 || !sha256 || !recipe.clientName?.trim() || Boolean(siteConflict)} aria-describedby="package-error manual-status site-conflict workflow-error" onClick={downloadPackage}><Icon name="download" />下載設定交付包</button>
       <p id="package-error" role={packageError ? 'alert' : undefined}>{packageError}</p>
       <p role="status">{packageNotice}</p>
       <section className="advanced-files" aria-label="個別檔案與載入設定">
@@ -92,7 +99,7 @@ export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport
         </div>
       </section>
     </Column>
-    <Column id="contents" title="檔案內容" lead="設定交付包與其中各檔案包含與不包含的項目。">
+    <Column scroll id="contents" title="檔案內容" lead="設定交付包與其中各檔案包含與不包含的項目。">
       <ul className="check-list"><li className="list-title">設定交付包包含</li>{packageIncluded.map(item => <li key={item}><Icon name="check" />{item}</li>)}</ul>
       <ul className="check-list"><li className="list-title">系統設定檔包含</li>{included.map(item => <li key={item}><Icon name="check" />{item}</li>)}</ul>
       <ul className="check-list"><li className="list-title">流程規格包含</li>{workflowIncluded.map(item => <li key={item}><Icon name="check" />{item}</li>)}</ul>

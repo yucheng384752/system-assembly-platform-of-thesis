@@ -277,14 +277,18 @@ export function nodeErrors(doc: AovGraphDocument, node: GraphNode): string[] {
   }
   return errors;
 }
-export function graphErrors(doc: AovGraphDocument): string[] {
-  const errors: string[] = [];
+export interface WorkflowIssue { message: string; nodeId?: string; formId?: string; fieldId?: string; graphId?: string }
+export function graphIssues(doc: AovGraphDocument): WorkflowIssue[] {
+  const issues: WorkflowIssue[] = [];
+  let context: Omit<WorkflowIssue, 'message'> = {};
+  const errors = { push: (...messages: string[]) => messages.forEach(message => issues.push({ message, ...context })) };
   if (!doc.factories.length) errors.push('請先建立工廠與生產邏輯。');
   for (const factory of doc.factories) {
     if (!factory.name.trim()) errors.push('有工廠尚未命名。');
     if (!factory.logicGraphIds.length) errors.push(`工廠「${factory.name.trim() || '（未命名工廠）'}」尚未建立生產邏輯。`);
   }
   for (const graph of doc.graphs) {
+    context = { graphId: graph.id };
     if (!graph.name.trim()) errors.push('有生產邏輯或子流程尚未命名。');
     const working = workingNodes(graph);
     if (!working.length) errors.push(`「${graphLabel(graph)}」尚未建立節點。`);
@@ -292,20 +296,30 @@ export function graphErrors(doc: AovGraphDocument): string[] {
     const start = graph.nodes.find(n => n.kind === 'start'); const end = graph.nodes.find(n => n.kind === 'end');
     const fromStart = start ? reach(graph, start.id, true) : new Set<string>(); const toEnd = end ? reach(graph, end.id, false) : new Set<string>();
     for (const node of working) {
+      context = { graphId: graph.id, nodeId: node.id };
       const missing = [fromStart.has(node.id) ? '' : '開始', toEnd.has(node.id) ? '' : '結束'].filter(Boolean);
       if (missing.length) errors.push(`節點「${nodeName(node)}」尚未接到${missing.join('與')}。`);
     }
   }
-  for (const { node } of allNodes(doc)) errors.push(...nodeErrors(doc, node));
+  for (const { node, graph } of allNodes(doc)) { context = { nodeId: node.id, graphId: graph.id }; errors.push(...nodeErrors(doc, node)); }
   for (const form of doc.forms) {
     const owner = allNodes(doc).find(({ node }) => node.formId === form.id)?.node;
+    context = { nodeId: owner?.id, formId: form.id };
     const label = `${owner ? `節點「${nodeName(owner)}」的` : ''}表單「${form.name.trim() || '（未命名表單）'}」`;
     if (!owner) errors.push(`${label}尚未指派給任何節點。`);
     const problem = !form.fields.length ? '尚未建立欄位。' : formError(form);
     if (problem) errors.push(`${label}尚未完成：${problem}`);
-    for (const field of form.fields) { const message = validationError(field); if (message) errors.push(`${label}的${message}`); }
+    for (const field of form.fields) { context = { nodeId: owner?.id, formId: form.id, fieldId: field.id }; const message = validationError(field); if (message) errors.push(`${label}的${message}`); }
   }
-  return [...errors, ...relationErrors(doc)];
+  return [...issues, ...relationErrors(doc).map(message => ({ message }))];
+}
+
+export function graphErrors(doc: AovGraphDocument): string[] { return graphIssues(doc).map(i => i.message); }
+export function graphPath(doc: AovGraphDocument, graphId: string): string[] {
+  const path: string[] = [], seen = new Set<string>();
+  let id: string | undefined = graphId;
+  while (id && !seen.has(id)) { seen.add(id); path.unshift(id); id = doc.graphs.find(g => g.nodes.some(n => n.childGraphId === id))?.id; }
+  return path;
 }
 
 // Imports into a detached candidate; callers replace the session only after this returns.

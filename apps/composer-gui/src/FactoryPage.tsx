@@ -10,6 +10,7 @@ import { useExampleHints } from './ExampleHintSettings';
 export function FactoryPage({ value, commit, onOpen }: {
   value: AovGraphDocument; commit: (next: AovGraphDocument) => boolean; onOpen: (logicGraphId: string) => void;
 }) {
+  const [showExample, setShowExample] = useState(true);
   const hints = useExampleHints();
   const [name, setName] = useState('');
   const [error, setError] = useState('');
@@ -65,7 +66,9 @@ export function FactoryPage({ value, commit, onOpen }: {
     </div>
   </section>;
   return <Column id="factory" title="工廠與生產邏輯" lead="先為工廠命名，再建立生產邏輯；每個生產邏輯是一張獨立的流程圖。" className="factory-page">
-    <section className="flow-card" aria-label="範例">
+    {!showExample && <button onClick={() => setShowExample(true)}>顯示流程範例</button>}
+    <section hidden={!showExample} className="flow-card" aria-label="範例">
+      <button aria-label="關閉流程範例" onClick={() => setShowExample(false)}>×</button>
       <div className="actions">
         <button id="load-example" disabled={loaded} aria-describedby="example-state" onClick={load}>載入範例</button>
         <button id="clear-example" className="danger" disabled={!loaded} onClick={() => setConfirm({ kind: 'example', id: '' })}>清除範例</button>
