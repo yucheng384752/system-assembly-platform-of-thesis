@@ -46,7 +46,7 @@ test('single-node upload names failures, retains only fields, and never sends or
   expect(document.activeElement).toBe(added);
   expect([added.selectionStart, added.selectionEnd]).toEqual([0, added.value.length]);
   expect(exportRecipe(initialRecipe, catalog)).not.toMatch(/PRIVATE_SAMPLE_SENTINEL|自訂名稱/);
-  expect(fetch).not.toHaveBeenCalled(); expect(xhr).not.toHaveBeenCalled(); expect(storage).not.toHaveBeenCalled();
+  expect(fetch.mock.calls.filter(([url]) => url !== "/preview-api/healthz")).toEqual([]); expect(xhr).not.toHaveBeenCalled(); expect(storage).not.toHaveBeenCalled();
 });
 test('A20/D23: incomplete and unassigned forms block confirmation and name the form', () => {
   render(<App />); openFlow(); startLogic();

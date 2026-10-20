@@ -1,8 +1,8 @@
 ---
 id: "20261020-preview-wiring"
 title: "畫面接上預覽後端：真實預覽偵測、Recipe 推送、第一批三個畫面讀寫真實 API"
-status: "in_progress"
-owner: "codex"
+status: "completed"
+owner: "claude"
 reviewer: "claude"
 priority: "high"
 created_by: "claude"
@@ -89,8 +89,56 @@ artifacts:
 
 # Codex Notes
 
-（待 Codex 填寫：做了什麼、驗證結果、停止原因與缺依據的欄位。）
+2026-10-20 Codex：步驟 2 至 4 **尚未完成**，因同一工作樹有並行改寫而停止整合，待確認單一寫入者。
+
+- 已完整讀取指定 thread、D116–D119、CLAUDE.md、DESIGN.md、README、smoke 與 KitPreview。資料格式依據：
+  - `routes_generic_forms.py` 的 StationCreate／StationRead、list_forms、create_form、list_records（含分頁與 records 的 id／lot_no_raw／data）。
+  - `routes_upload.py` 的 upload_file、get_upload_status；schemas/upload.py；`routes_validate.py` 與 schemas/validate.py。sample_errors 的行號從 0 開始，validate 查詢的行號已加 1。
+  - `routes_query_v2.py` 的 search_lot、trace_lot，顯示站別名稱、紀錄與上下游關聯。
+  - `services/preview/app/preview_gate.py` 的 snapshot 與 main.py 的 recipe/capabilities 路由；config/registry 的能力識別碼。上傳畫面另讀驗證結果，須核對 `upload.validation.get`。
+- 已新增 `live/GenericForms.tsx`、`UploadValidation.tsx`、`Traceability.tsx`、`shared.tsx` 與 `screens.test.tsx`；修改 KitPreview、style.css、vite.config.ts。三畫面有明確寫入按鈕、測試資料庫提示、404 初始化輔助說明、純文字呈現及回應型別檢查。模擬 Renderer 的解析邏輯未改。
+- **並行寫入衝突**：Codex 新增的 `previewBackend.ts` 在 15:06:24 被另一程序改為不同介面（現存 `Fetcher/probeBackend/applyRecipe/kitMode`；Codex 的呼叫端使用 `Fetch/browserFetch/previewRequest/kitAccess/previewLabel`）。沒有覆蓋或刪除另一程序的版本。已向 user 詢問停止另一寫入者並確認由誰整合，尚未收到答覆。
+- 驗證結果：
+  - `npm.cmd run typecheck`：失敗，主要為以上匯出不一致與連帶型別錯誤。
+  - `npm.cmd run build`：失敗，在內含 typecheck 步驟停止，未執行 Vite build。
+  - `npm.cmd test`：已執行，出現 `kitAccess is not a function`，包含 output.test.tsx 的 3 項失敗；後續持續執行但未輸出完整總結，已中止（exit 1）。不報完整通過／失敗總數。因 script 使用 `&&`，後續預覽 Node 測試未執行。
+  - `live/screens.test.tsx` 在上述測試啟動後才新增，**尚未執行**。
+- 待接手：先統一連線模組與所有呼叫端，補 probe 四結果、四條件標籤、Recipe 成功／422、防抖與過期回應測試，再重跑三個指定指令。現存另一版 probe 只使用 AbortController，且以 response.ok 判定，應核對嚴格 200 與 3 秒期限；重新偵測及 Recipe 換版須防止舊回應標成已套用。新增畫面目前不可交付使用。
+- 未修改 services/preview、kits、schemas、config、libs、package*.json；未新增依賴，未做 git 寫入、網路、Docker 或啟動伺服器。真實瀏覽器、Docker 全量與獨立部署仍由 Claude 分開驗證。沒有缺乏依據而猜測的請求／回應形狀；本次停止原因為並行修改，不是後端契約缺失。
 
 # Claude Notes
 
-（待驗收：Docker 全量預覽、獨立部署、瀏覽器 Network 證據。）
+2026-10-20 Claude 接手完成（user 通知 Codex 額度用完）。
+
+## 接手與衝突處理（規則 7）
+
+Codex 與我同時寫同一工作樹：Codex 的 `previewBackend.ts` 被我的版本覆蓋（Codex 回報的「另一個程序」就是我），兩套實作介面不同（Codex：`Fetch/browserFetch/kitAccess/previewLabel`，我：`Fetcher/probeBackend/applyRecipe/kitMode/usePreviewBackend`）。裁定只留一套：保留我的連線模組與 `live/LiveGenericForms.tsx`、`LiveUpload.tsx`、`LiveTrace.tsx`、`previewApi.ts`（回應形狀以執行中的後端實測），刪除 Codex 的 `live/GenericForms.tsx`、`UploadValidation.tsx`、`Traceability.tsx`、`shared.tsx`、`screens.test.tsx`（對應已不存在的介面）；Codex 的 `vite.config.ts` 代理與 `.preview-tab-status` 樣式沿用。`KitPreview.tsx` 還原後以新模組重新整合。教訓：派工後不應在 Codex 執行期間自己寫同一批檔案（我在等待時開始實作，造成衝突）。
+
+## 驗證（自動）
+
+- typecheck 通過；`npm.cmd test`：40 個檔案、497 通過、1 略過（既有身分授權）、0 失敗；預覽 Node 測試同在 npm test 內；build 通過。
+- 新增 `previewBackend.test.tsx` 22 項：探測四種結果（正確回應、錯誤內容、錯誤狀態、網路失敗、逾時）、標籤邏輯七個退回條件、Recipe 推送標頭與 422、三個畫面以注入的假 fetch 驗證「只在按鈕時寫入」與純文字呈現、KitPreview 三種連線情境。變異測試（拿掉「Kit 未開放」與「能力未開」兩個條件）使 2 項失敗，還原後全過。
+- 既有 3 處「不得送出資料」測試原為 `fetch` 完全不可呼叫；預覽畫面現在會做健康檢查探測，改為除 `/preview-api/healthz` 以外不得有任何呼叫，資料列仍不外送的意圖不變。
+- 分頁無障礙名稱維持為 Kit 名稱（`aria-label`），狀態文字以 `aria-describedby` 提供，既有測試不需改。
+
+## 驗證（瀏覽器與 Docker，localhost 的 Vite 開發伺服器，Chrome）
+
+全量預覽（9 個 Kit 的映像、`all` 模式）：
+- 畫面顯示「預覽後端：已連線」；Network 實際出現 `/preview-api/healthz`、`PUT /_preview/recipe`、`GET /_preview/capabilities`，皆 200；改選配後再次推送。
+- 通用表單、檔案上傳與驗證、查詢與追溯三個分頁標「真實預覽」，其餘分頁標「模擬資料」。
+- 上傳一個含合法與非法批號的 CSV：後端回「通過 1 列、有問題 1 列」與錯誤列說明；批號查詢與追溯讀回種子資料；建立表單後直接以 API 讀後端，資料已寫入。
+- 停止後端容器並按「重新偵測」：全部分頁退回「模擬資料」，說明「未連上預覽後端」。
+
+僅所選 Kit 的獨立部署（5 個 Kit 的映像，`up --recipe`）：
+- 只選上傳與表單相關功能時，Recipe 套用成功，上傳分頁為「真實預覽」，實際上傳通過；其餘分頁為模擬資料。
+- 再加入「查詢追溯」（未納入此映像）：後端對 Recipe 回 422「未納入此映像，請重新組裝」，畫面全部退回模擬資料並顯示該原因；取消勾選後恢復真實預覽。這符合 D108 的原子拒絕，但也表示獨立映像不含的 Kit 一旦被選，整個預覽都不會升級為真實預覽。
+
+## 未涵蓋與已知限制
+
+- 靜態打包版（`vite preview`／build 產物）沒有代理，一律為模擬資料，預期。
+- 5173 埠另有舊的 Vite 程序，與本功能無關，測試改用 5174。
+- 探測在開發模式（React StrictMode）會出現兩次，正式版一次。
+- 通用表單畫面不含「設定欄位」與「匯入」（需要修正原因等前置資料，D118 只要求列表、建立、檢視）。
+- 第二層以後的子功能對應（某子功能未選時對應畫面關閉）只由 `kitMode` 的能力檢查涵蓋，未在瀏覽器逐一測。
+- 使用 Chrome 擴充工具以腳本設定檔案與輸入值（不是人手操作），鍵盤與螢幕閱讀器流程未實測。
+

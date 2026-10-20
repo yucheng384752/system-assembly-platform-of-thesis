@@ -106,7 +106,7 @@ test('A22, A15: downloads validate, carry no rows, the Recipe checksum matches t
   for (const role of manual.manualRoles) expect(packed[`docs/manual-${role}.md`]).toContain('本手冊含草稿內容，尚未經審閱');
   expect(packed['docs/manual-user.md']).toContain('操作順序：上傳頁 → 匯入工作頁 → 錯誤檢視頁');
   expect(Object.values(packed).join()).not.toMatch(/PRIVATE_UPLOAD_SENTINEL/);
-  expect(fetch).not.toHaveBeenCalled(); expect(xhr).not.toHaveBeenCalled(); expect(storage).not.toHaveBeenCalled();
+  expect(fetch.mock.calls.filter(([url]) => url !== "/preview-api/healthz")).toEqual([]); expect(xhr).not.toHaveBeenCalled(); expect(storage).not.toHaveBeenCalled();
 });
 
 // D34: missing manual text must name the feature and role without disabling an otherwise valid download.
@@ -223,7 +223,7 @@ test('場域 A／B 匯入、預覽及交付包使用同一份設定，移除後�
   const removed = Object.fromEntries(readZip(zips[2]).map(e => [e.path, new TextDecoder().decode(e.data)]));
   expect(removed['config/site/site.profile.json']).toBeUndefined();
   expect(JSON.parse(removed['config/system.recipe.json']).siteRef).toBeUndefined();
-  expect(fetch).not.toHaveBeenCalled(); expect(xhr).not.toHaveBeenCalled(); expect(storage).not.toHaveBeenCalled();
+  expect(fetch.mock.calls.filter(([url]) => url !== "/preview-api/healthz")).toEqual([]); expect(xhr).not.toHaveBeenCalled(); expect(storage).not.toHaveBeenCalled();
 });
 
 // D86: the package is the one download to hand over; the loose files and the settings loader are tucked under an advanced disclosure.

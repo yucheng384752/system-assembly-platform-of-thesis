@@ -1,6 +1,6 @@
 # WP4a 預覽後端組裝
 
-此目錄提供全量相容 Kit 的預覽後端。**尚未完成 Docker、PostgreSQL、真實 API 與重置實測**；WP4b 由 Claude 執行。Composer 畫面仍維持「模擬資料」，本批不修改 UI、Recipe 選配或部署流程。
+此目錄提供全量相容 Kit 的預覽後端。**尚未完成 Docker、PostgreSQL、真實 API 與重置實測**；WP4b 由 Claude 執行。Composer 畫面（開發伺服器）會偵測此後端並在連線時對第一批三個畫面顯示「真實預覽」（D116 至 D119，經 Vite 代理 `/preview-api`）；其餘 Kit 與未連線時維持「模擬資料」。
 
 ## 啟動與停止
 
