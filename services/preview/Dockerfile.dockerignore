@@ -9,5 +9,12 @@
 !services/preview/check_tree.py
 !services/preview/requirements.txt
 !services/preview/Dockerfile
+!config/
+!config/registry/
+!config/registry/**
+!config/kits/
+!config/kits/overlay.json
+!schemas/
+!schemas/recipe.schema.json
 **/__pycache__/
 **/*.pyc

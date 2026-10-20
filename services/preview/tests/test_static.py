@@ -6,12 +6,195 @@ import importlib.util
 import json
 import tempfile
 import unittest
+import copy
+import os
+import subprocess
+import sys
+from unittest.mock import patch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("check_tree", ROOT / "check_tree.py")
 checker = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(checker)
+spec = importlib.util.spec_from_file_location("preview_gate", ROOT / "app/preview_gate.py")
+policy = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(policy)
+
+
+class GateTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temp = tempfile.TemporaryDirectory(dir=ROOT)
+        cls.assembled = Path(cls.temp.name) / "assembled"
+        subprocess.run(["node", str(ROOT / "assemble.mjs"), str(cls.assembled)], check=True,
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        cls.catalog = json.loads((cls.assembled / "app/preview_policy.json").read_text(encoding="utf-8"))
+        cls.schema = json.loads((cls.assembled / "app/recipe.schema.json").read_text(encoding="utf-8"))
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.temp.cleanup()
+
+    def setUp(self):
+        self.tempdir = tempfile.TemporaryDirectory(dir=ROOT)
+        self.addCleanup(self.tempdir.cleanup)
+        self.state = Path(self.tempdir.name) / "recipe.json"
+        self.gate = policy.Gate(self.catalog, self.schema, self.state)
+        self.recipe = {"recipeVersion": "0.2.0", "name": "synthetic-preview",
+                       "sourceManifest": "synthetic", "database": {"engine": "postgresql"},
+                       "enabledKits": list(self.catalog["kits"])}
+
+    def test_real_assembly_import_closure(self):
+        self.assertGreater(checker.check(self.assembled), 70)
+
+    def test_default_subfeatures_parameters_slashes_and_literal_priority(self):
+        self.gate.replace(self.recipe)
+        self.assertIsNone(self.gate.request("GET", "/api/analytics/trend/"))
+        self.assertIsNone(self.gate.request("GET", "/api/v2/import/jobs/synthetic"))
+        self.recipe["selectedSubfeatures"] = {"analytics-kit": []}
+        self.gate.replace(self.recipe)
+        self.assertEqual(self.gate.request("GET", "/api/analytics/trend")["detail"], "子功能未開放")
+        self.assertTrue(policy.matches("/api/jobs/{id}", "/api/jobs/a/"))
+        self.assertFalse(policy.matches("/api/jobs/{id}", "/api/jobs/a/b"))
+        self.gate.catalog = copy.deepcopy(self.catalog)
+        self.gate.catalog["capabilities"]["test.dynamic"] = {
+            "kit": "analytics-kit", "method": "GET", "path": "/api/v2/import/jobs/{id}", "subfeatures": []}
+        self.gate.catalog["capabilities"]["test.literal"] = {
+            "kit": "station-admin-kit", "method": "GET", "path": "/api/v2/import/jobs/fixed", "subfeatures": []}
+        self.assertEqual(self.gate.request("GET", "/api/v2/import/jobs/fixed")["detail"], "預覽無來源")
+
+    def test_d109_typical_recipe_unavailable_and_missing_executable_dependency(self):
+        self.gate.replace(self.recipe)
+        snapshot = self.gate.snapshot()
+        self.assertEqual(len(snapshot["unavailable"]), 3)
+        self.assertTrue(any("依賴未滿足" in w for w in snapshot["warnings"]))
+        self.assertEqual(self.gate.request("GET", "/api/stations")["detail"], "預覽無來源")
+        self.assertEqual(self.gate.deny("entry-permission-kit")["detail"], "預覽無來源")
+        self.assertEqual(self.gate.deny("station-data-link-kit")["detail"], "預覽無來源")
+        self.recipe["enabledKits"].remove("entry-permission-kit")
+        self.recipe["enabledKits"].remove("station-data-link-kit")
+        self.gate.replace(self.recipe)  # Missing unavailable dependencies warn, never block.
+        self.recipe["enabledKits"].remove("upload-validation-kit")
+        with self.assertRaisesRegex(ValueError, "analytics-kit 缺少依賴 upload-validation-kit"):
+            self.gate.replace(self.recipe)
+
+    def test_unknown_fallback_broker_and_disabled_kit(self):
+        self.gate.routes = [{"kit": "analytics-kit", "methods": ["GET"], "path": "/api/extra/{id}"}]
+        self.assertIsNone(self.gate.request("GET", "/api/extra/one"))
+        self.assertIsNotNone(self.gate.request("GET", "/api/extra/one/more"))
+        self.assertIsNotNone(self.gate.request("DELETE", "/api/extra/one"))
+        self.assertIsNotNone(self.gate.request("GET", "/unknown"))
+        self.assertIsNone(self.gate.request("GET", "/healthz"))
+        self.assertIsNone(self.gate.request("PUT", "/_preview/recipe"))
+        self.recipe["enabledKits"].remove("analytics-kit")
+        self.gate.replace(self.recipe)
+        for route in ("/api/extra/one", "/api/analytics/trend", "/api/kit/call/analytics.trend"):
+            self.assertEqual(self.gate.request("GET", route)["kit"], "analytics-kit")
+        self.assertIsNotNone(self.gate.request("POST", "/api/kit/call/unknown"))
+        self.recipe["selectedSubfeatures"] = {"audit-edit-kit": []}
+        self.gate.replace(self.recipe)
+        self.assertEqual(self.gate.capability("db.edit-reasons.validate")["detail"], "子功能未開放")
+
+    def test_atomic_validation_persistence_reload_and_reset(self):
+        self.gate.replace(self.recipe)
+        before = self.state.read_bytes()
+        invalid = [
+            {}, {"enabledKits": []}, {**self.recipe, "enabledKits": ["unknown"]},
+            {**self.recipe, "selectedSubfeatures": {"analytics-kit": ["unknown"]}},
+            {**self.recipe, "enabledKits": ["tenant-auth-kit"]},
+            {**self.recipe, "database": {"engine": "invalid"}},
+        ]
+        for candidate in invalid:
+            with self.assertRaises(ValueError):
+                self.gate.replace(candidate)
+            self.assertEqual(self.state.read_bytes(), before)
+            self.assertEqual(self.gate.recipe, self.recipe)
+        with patch.object(policy.os, "replace", side_effect=OSError("synthetic disk failure")):
+            with self.assertRaises(OSError):
+                self.gate.replace(None)
+        self.assertEqual(self.state.read_bytes(), before)
+        self.assertEqual(self.gate.recipe, self.recipe)
+        reloaded = policy.Gate(self.catalog, self.schema, self.state)
+        self.assertEqual(reloaded.snapshot(), self.gate.snapshot())
+        self.gate.replace(None)
+        self.assertEqual(policy.Gate(self.catalog, self.schema, self.state, self.recipe).snapshot()["mode"], "all")
+        self.state.write_text("{}")
+        with self.assertRaises(ValueError):
+            policy.Gate(self.catalog, self.schema, self.state)
+
+    def test_image_cannot_enable_omitted_executable_kit(self):
+        catalog = copy.deepcopy(self.catalog)
+        catalog["kits"]["analytics-kit"]["assembled"] = False
+        gate = policy.Gate(catalog, self.schema, self.state)
+        with self.assertRaisesRegex(ValueError, "未納入此映像"):
+            gate.replace(self.recipe)
+        self.assertEqual(gate.capability("analytics.trend")["detail"], "未納入此映像")
+
+    def test_asgi_denies_before_handler_and_keeps_json_contract(self):
+        events, called = [], []
+
+        async def app(scope, receive, send):
+            called.append(scope["path"])
+
+        async def send(event):
+            events.append(event)
+
+        async def receive():
+            raise AssertionError("gate must not consume request body")
+
+        middleware = policy.GateMiddleware(app, self.gate)
+        asyncio.run(middleware({"type": "http", "method": "GET", "path": "/unknown"}, receive, send))
+        self.assertFalse(called)
+        self.assertEqual(events[0]["status"], 403)
+        self.assertEqual(set(json.loads(events[1]["body"])), {"detail", "capability", "kit"})
+        asyncio.run(middleware({"type": "http", "method": "GET", "path": "/healthz"}, receive, send))
+        self.assertEqual(called, ["/healthz"])
+
+    def test_recipe_assembly_runs_real_validator_and_reports_import_gap(self):
+        source = Path(self.tempdir.name) / "input.json"
+        self.recipe["enabledKits"] = ["platform-core-kit"]
+        source.write_text(json.dumps(self.recipe))
+        output = Path(self.tempdir.name) / "output"
+        result = subprocess.run(["node", str(ROOT / "assemble.mjs"), str(output), "--recipe", str(source)],
+                                env={**os.environ, "PREVIEW_PYTHON": sys.executable},
+                                capture_output=True, text=True, encoding="utf-8")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("missing app.models.station", result.stderr)
+        self.assertTrue((output / "assembly-report.json").exists())
+
+    def test_management_endpoints_admin_and_invalid_payload(self):
+        # Exercise the real endpoint functions without importing SQLAlchemy or opening a port.
+        tree = ast.parse((ROOT / "app/main.py").read_text(encoding="utf-8"))
+        nodes = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                 and n.name in {"require_admin", "put_recipe", "delete_recipe"}]
+        for node in nodes:
+            node.decorator_list = []
+
+        class HTTPException(Exception):
+            def __init__(self, status_code, detail):
+                self.status_code, self.detail = status_code, detail
+
+        class Request:
+            def __init__(self, admin, body):
+                self.state = type("State", (), {"is_admin": admin})()
+                self.body = body
+
+            async def json(self):
+                return self.body
+
+        namespace = {"HTTPException": HTTPException, "Request": Request, "gate": self.gate}
+        exec(compile(ast.Module(body=nodes, type_ignores=[]), "endpoints", "exec"), namespace)
+        for name in ("put_recipe", "delete_recipe"):
+            with self.assertRaises(HTTPException) as error:
+                asyncio.run(namespace[name](Request(False, self.recipe)))
+            self.assertEqual(error.exception.status_code, 403)
+        for invalid in ({}, None):
+            with self.assertRaises(HTTPException) as error:
+                asyncio.run(namespace["put_recipe"](Request(True, invalid)))
+            self.assertEqual(error.exception.status_code, 422)
+        self.assertEqual(asyncio.run(namespace["put_recipe"](Request(True, self.recipe)))["mode"], "recipe")
+        self.assertEqual(asyncio.run(namespace["delete_recipe"](Request(True, None)))["mode"], "all")
 
 
 class StaticTests(unittest.TestCase):

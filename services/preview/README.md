@@ -128,3 +128,11 @@ Linux 的 Python 命令可使用 `python3`，npm 使用 `npm`。`.assembled` 必
 ## WP4c 交接（2026-10-20）
 
 T9 與 T1 程式已補齊，尚未執行本批容器實測。T9 不再接受 GAP，必須提交完成並核對讀回資料；三種相容分支必須建立 201、查錯誤為空、提交 200 並完成。P1/P2 使用合成 lot_no，P3 另加通用 date，不放寬基線規則。靜態檢查與環境失敗完整記於 mailbox Codex Notes，容器驗收由 Claude 執行。
+
+## 選配閘門與獨立組裝
+
+- **選配的來源是 Composer 的 Recipe。** 預設無 Recipe（`all`）：映像內所有 Kit 開放。`PUT /_preview/recipe`（需預覽管理員標頭）套用 Recipe，`DELETE /_preview/recipe` 回到 `all`，`GET /_preview/capabilities` 回傳 mode、開放與被拒絕的能力、`unavailable` 與 `warnings`。無效 Recipe 回 422，現有選配不變。
+- **未開放一律回 403**（含 Kit 名稱與能力）；registry 沒有登錄的路由預設拒絕；`/api/kit/call/{capability}` 以請求的能力再判定；匯入、背景工作與 webhook 在執行前也檢查。目錄中存在但預覽無後端的 Kit（`entry-permission-kit`、`station-data-link-kit`、`station-admin-kit`）列為 `unavailable`，Recipe 仍可套用，依賴它們只產生警告，並不代表依賴已滿足。
+- **切換選配只改存取權限，不刪資料**；要清空請用 `preview.mjs reset`。
+- **獨立組裝：** `node services/preview/preview.mjs up --recipe <Recipe 檔>` 只組裝所選 Kit。若某 Kit 依賴未納入的 Kit 模組，組裝會失敗並報告缺口。實測的最小可獨立集合為 platform-core、generic-forms、audit-edit、import-pipeline、upload-validation（見 `docs/preview-todo.md` T13）。選配狀態保存在資料卷，在既有資料卷上改用 `--recipe` 時先執行 `reset` 才是全新的獨立部署。
+- **測試：** `node services/preview/smoke-gating.mjs` 對執行中的容器驗證閘門（需先 `up` 與 `app.preview_seed`）；Python 靜態測試需要固定版本的 `jsonschema`：`python -m venv services/preview/.test-venv`，安裝 `jsonschema==4.23.0` 後以該 venv 的 Python 執行 `test_static.py`。Node 測試已納入 `npm test`。

@@ -97,3 +97,19 @@
 | 清理 | 已 `down --volumes`、移除 `composer-preview-backend` 映像與測試目錄；主機無殘留容器與資料卷 |
 
 觀察（不影響結果）：repo 內 `docker-compose.yml`、`Dockerfile` 等檔以 CRLF 換行儲存，Linux 上 Docker 仍可正常解析，但建議之後以 `.gitattributes` 固定為 LF（需另案決定）。Linux 實測未涵蓋：WP5 選配閘門（尚未完成）、長時間運行、非 root 以外的權限設定。
+
+## 6. 選配閘門與獨立組裝（2026-10-20，WP5、WP6，Claude 接手完成）
+
+詳見 `.codex-claude-mailbox/threads/20261016-kit-workflows-live-preview.md` 的「Claude 接手完成 WP5／WP6」。
+
+| 結果 | 內容 |
+|---|---|
+| 全量預覽 | 煙霧測試 20/20 通過（含選配閘門存在時） |
+| 選配閘門 | `smoke-gating.mjs` 12/12 通過：無效 Recipe 原子拒絕、未開放 Kit 與子功能回 403、通用轉發端點不能繞過、未知路由預設拒絕、切換即時生效且不刪資料、重啟後保持、預覽不可用 Kit（D109）列為 unavailable |
+| 獨立組裝 | 5 個 Kit 的集合可獨立組裝、啟動並寫入資料；未納入的 Kit 回 403「未納入此映像」 |
+
+新增缺口：
+
+| 編號 | 缺口 | 說明 |
+|---|---|---|
+| T13 | `platform-core-kit` 的資料庫能力延遲匯入 audit-edit-kit 與 import-pipeline-kit 的模型 | 只選「核心加通用表單」無法獨立部署；組裝階段 fail-closed 報告。最小可獨立集合含 platform-core、generic-forms、audit-edit、import-pipeline、upload-validation。若要縮小集合，需以組裝補丁處理這些延遲匯入，另案決定 |

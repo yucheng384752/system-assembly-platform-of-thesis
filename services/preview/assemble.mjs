@@ -2,6 +2,7 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 
 export const directory = path.dirname(fileURLToPath(import.meta.url));
 export const repository = path.resolve(directory, '../..');
@@ -50,11 +51,88 @@ export function adapt(name, text) {
     text = replaceExact(text, '        params["until"] = until', '        params["until"] = datetime.fromisoformat(until.replace("Z", "+00:00"))', 1);
     text = replaceExact(text, '            {"since": since, "tenant_id": str(tenant.id)},', '            {"since": datetime.fromisoformat(since), "tenant_id": str(tenant.id)},', 1);
   }
+  const checks = {
+    'app/core/kit_broker.py': [
+      ['    payload = payload or {}', '    require_access("platform-core-kit", capability)'],
+    ],
+    'app/api/routes_import_v2.py': [
+      ['            logger.info(f"Starting background processing for job {job_id}")', '            require_access("import-pipeline-kit")'],
+      ['            logger.info(f"Starting background commit for job {job_id}")', '            require_access("import-pipeline-kit", "import.job.commit")'],
+    ],
+    'app/services/import_v2.py': [
+      ['        logger.info(f"Starting commit_job for {job_id}")', '        require_access("import-pipeline-kit", "import.job.commit")'],
+    ],
+    'app/api/routes_generic_forms.py': [
+      ['    try:\n        df, exc = _parse_csv_content(content)', '    try:\n        require_access("generic-forms-kit")'],
+    ],
+    'app/services/pdf_conversion.py': [
+      ['async def process_pdf_conversion_job_background(job_id: uuid.UUID) -> None:',
+        'async def process_pdf_conversion_job_background(job_id: uuid.UUID) -> None:\n    require_access("upload-validation-kit")'],
+    ],
+    'app/services/mod_subscription.py': [
+      ['    """Apply a webhook event to the matching subscription record."""', '    require_access("mod-subscription-kit")'],
+    ],
+  };
+  for (const [anchor, check] of checks[name] ?? []) {
+    const replacement = anchor.startsWith('async def') ? check :
+      anchor.startsWith('    try:') ? check + '\n        df, exc = _parse_csv_content(content)' :
+        check + '\n' + anchor;
+    text = replaceExact(text, anchor, replacement, 1);
+  }
+  if (checks[name]) {
+    // Keep __future__ imports first; delayed helper imports do not initialize the gate.
+    text += '\nfrom app.preview_gate import require_access\n';
+  }
   return text;
 }
 
+const readJson = async file => JSON.parse((await readFile(file, 'utf8')).replace(/^\uFEFF/, ''));
+
+export async function policyData(plan, kits = path.join(repository, 'kits')) {
+  const manifest = await readJson(path.join(kits, 'form-analysis.kit-manifest.json'));
+  const overlay = await readJson(path.join(repository, 'config/kits/overlay.json'));
+  const definitions = [...manifest.kits.filter(k => !overlay.replacements[k.id]), ...overlay.add];
+  const catalog = { kits: {}, capabilities: {} };
+  for (const item of definitions.sort((a, b) => a.id.localeCompare(b.id))) {
+    catalog.kits[item.id] = {
+      available: plan.included.includes(item.id), assembled: plan.included.includes(item.id),
+      dependencies: item.dependencies.map(id => overlay.replacements[id] ?? id),
+      subfeatures: Object.fromEntries((item.subfeatures ?? []).map(f => [f.id, !!f.defaultSelected])),
+    };
+    let registry, workflow;
+    try { registry = await readJson(path.join(repository, 'config/registry', `${item.id}.json`)); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+    try { workflow = await readJson(path.join(kits, item.id, 'workflow.aov.json')); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+    let contract;
+    try { contract = await readJson(path.join(kits, item.id, 'kit.contract.json')); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+    // Contract-only declarations still identify unavailable endpoints; registry wins.
+    const capabilities = new Map((contract?.provides?.api ?? []).map(c => [c.capability, { ...c, id: c.capability }]));
+    for (const c of registry?.capabilities ?? []) capabilities.set(c.id, c);
+    for (const c of capabilities.values()) {
+      const owner = c.implementedBy?.kitId ?? item.id;
+      const previous = catalog.capabilities[c.id];
+      if (previous && previous.kit !== owner) throw new Error(`能力歸屬衝突：${c.id}`);
+      catalog.capabilities[c.id] = { kit: owner, ...(c.method ? { method: c.method, path: c.path } : {}),
+        subfeatures: [...(previous?.subfeatures ?? []),
+          ...(workflow?.nodes ?? []).filter(n => n.capabilityIds?.includes(c.id) && n.subfeatureId)
+            .map(n => ({ kit: item.id, feature: n.subfeatureId }))] };
+    }
+  }
+  return catalog;
+}
+
+export function pythonCheck(args, input, run = spawnSync) {
+  const result = run(process.env.PREVIEW_PYTHON ?? (process.platform === 'win32' ? 'python' : 'python3'),
+    ['-I', ...args], { input, encoding: 'utf8', shell: false });
+  if (result.error || result.status !== 0) {
+    throw new Error(`Python 預覽驗證失敗：${result.error?.message ?? result.stderr ?? result.stdout}`);
+  }
+}
+
 /** @param {string} kits @returns {Promise<{included: string[], excluded: {kit: string, reason: string}[], sources: Map<string, {kit: string, data: Buffer}>, overrides: string[]}>} */
-export async function inventory(kits) {
+export async function inventory(kits, selected = null) {
   const included = [], omitted = [], overrides = [];
   /** @type {Map<string, {kit: string, data: Buffer}>} */
   const sources = new Map();
@@ -62,6 +140,7 @@ export async function inventory(kits) {
     if (!entry.isDirectory()) continue;
     const kit = entry.name;
     if (excluded.has(kit)) { omitted.push({ kit, reason: excluded.get(kit) ?? '' }); continue; }
+    if (selected && !selected.includes(kit)) { omitted.push({ kit, reason: 'Recipe 未選取' }); continue; }
     const backend = path.join(kits, kit, 'src/backend');
     let names;
     try { names = await files(backend); }
@@ -92,8 +171,15 @@ export async function inventory(kits) {
 
 /** Output must be a new directory: never delete or overwrite user files.
  * @param {string} output @param {string} [kits] */
-export async function assemble(output, kits = path.join(repository, 'kits')) {
-  const plan = await inventory(kits);
+export async function assemble(output, kits = path.join(repository, 'kits'), options = {}) {
+  const all = await inventory(kits);
+  const catalog = await policyData(all, kits);
+  const schema = await readJson(path.join(repository, 'schemas/recipe.schema.json'));
+  const recipe = options.recipe ? await readJson(options.recipe) : null;
+  if (recipe) pythonCheck([path.join(directory, 'app/preview_gate.py')],
+    JSON.stringify({ recipe, catalog, schema }), options.run);
+  const plan = recipe ? await inventory(kits, recipe.enabledKits) : all;
+  for (const [kit, item] of Object.entries(catalog.kits)) item.assembled = plan.included.includes(kit);
   /** @type {Map<string, Buffer>} */
   const tree = new Map();
   /** @type {{module: string, prefix: string, tenant: boolean}[]} */
@@ -104,17 +190,22 @@ export async function assemble(output, kits = path.join(repository, 'kits')) {
     if (name.startsWith('app/api/routes_') && name.endsWith('.py')) {
       const stem = path.posix.basename(name, '.py');
       if (!prefixes.has(stem)) throw new Error(`路由缺少明確註冊規則：${name}`);
-      routers.push({ module: `app.api.${stem}`, prefix: prefixes.get(stem) ?? '',
+      routers.push({ module: `app.api.${stem}`, kit: source.kit, prefix: prefixes.get(stem) ?? '',
         tenant: !['routes_kit_broker', 'routes_admin_permissions', 'routes_audit_events', 'routes_mod_subscription'].includes(stem) });
     }
   }
   for (const name of await files(path.join(directory, 'app'))) {
+    if (recipe && name.startsWith('models/') && !plan.included.includes('import-pipeline-kit')) continue;
+    if (recipe && name === 'preview_seed.py' && !plan.included.includes('generic-forms-kit')) continue;
     if (tree.has(`app/${name}`)) throw new Error(`預覽檔案意外覆蓋 Kit：app/${name}`);
     tree.set(`app/${name}`, await readFile(path.join(directory, 'app', name)));
   }
   const models = [...tree.keys()].filter(n => n.startsWith('app/models/') && n.endsWith('.py') && !n.endsWith('__init__.py')).sort();
   tree.set('app/models/__init__.py', Buffer.from(models.map(n => `import ${n.slice(0, -3).replaceAll('/', '.')}`).join('\n') + '\n'));
   tree.set('app/preview_registry.json', Buffer.from(JSON.stringify(routers.sort((a, b) => a.module.localeCompare(b.module)), null, 2) + '\n'));
+  tree.set('app/preview_policy.json', Buffer.from(JSON.stringify(catalog, null, 2) + '\n'));
+  tree.set('app/recipe.schema.json', Buffer.from(JSON.stringify(schema, null, 2) + '\n'));
+  tree.set('app/initial_recipe.json', Buffer.from(JSON.stringify(recipe, null, 2) + '\n'));
   for (const name of [...tree.keys()]) {
     let parent = path.posix.dirname(name);
     while (parent !== '.') {
@@ -139,14 +230,17 @@ export async function assemble(output, kits = path.join(repository, 'kits')) {
     await writeFile(path.join(output, name), data);
   }
   await writeFile(path.join(output, 'assembly-report.json'), JSON.stringify(report, null, 2) + '\n');
+  if (recipe) pythonCheck([path.join(directory, 'check_tree.py'), output], undefined, options.run);
   return report;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const output = process.argv[2];
-    if (!output || process.argv.length !== 3) throw new Error('用法：node services/preview/assemble.mjs <新的輸出目錄>');
-    const report = await assemble(path.resolve(output));
+    if (!output || !(process.argv.length === 3 || (process.argv.length === 5 && process.argv[3] === '--recipe'))) {
+      throw new Error('用法：node services/preview/assemble.mjs <新的輸出目錄> [--recipe <檔>]');
+    }
+    const report = await assemble(path.resolve(output), undefined, { recipe: process.argv[4] });
     console.log(JSON.stringify(report, null, 2));
   } catch (error) { console.error(`預覽組裝失敗：${error instanceof Error ? error.message : error}`); process.exitCode = 1; }
 }
