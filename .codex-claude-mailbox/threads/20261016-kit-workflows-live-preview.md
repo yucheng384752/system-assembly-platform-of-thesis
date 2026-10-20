@@ -2,12 +2,12 @@
 id: "20261016-kit-workflows-live-preview"
 title: "Kit AoV 彙整與真實選配預覽"
 status: "in_progress"
-owner: "codex"
+owner: "claude"
 reviewer: "claude"
 priority: "high"
 created_by: "codex"
 created_at: "2026-10-16"
-updated_at: "2026-10-19"
+updated_at: "2026-10-20"
 role_priority:
   implementation: "codex"
   review: "claude"
@@ -40,6 +40,62 @@ artifacts:
 - 工作區已有使用者／其他工作未提交變更：FactoryPage、WorkflowCanvas、aov.test、decision-log、mailbox index 與 AoV 合併／範例文件；保留不覆寫。
 
 # Codex Notes
+
+## 2026-10-20 WP4c T1 與最終驗證
+
+### 變更與範圍
+
+- 新增 `services/preview/app/models/{p1_record,p2_record,p2_item_v2,p3_record,p3_item_v2}.py`，類別分別為 P1Record、P2Record、P2ItemV2、P3Record、P3ItemV2。只有實際使用的欄位，沒有額外 created_at、關聯集合或業務規則。屬性名稱保留呼叫端相容性，不在 seed/CSV 複製來源案例的業務欄位與值。
+- 修改 `assemble.mjs`：移除 import 路由／服務的拒絕補丁及五個 fallback，模型納入自動產生的 models/__init__.py；main.py:19,27 既有流程會先載入再 create_all。來源衝突檢查仍拒絕 Kit 覆蓋。
+- 修改 `app/preview_support.py`：只移除 reject_table_code/reject_job 與不再使用的匯入；require_preview、固定 DB／MOD、外部服務限制、tenant_api_keys 外鍵目標原樣保留。組裝後 import 路由／服務與基線僅換行差異，租戶、路徑、重複檔、狀態檢查均保留。
+- 修改 `app/preview_seed.py`：加入 P1/P2/P3 三列 TableRegistry；不建立同名 Station，避免 schema_driven 繞過相容分支。只建立 T9 通用表的 schema；P1/P2/P3 不需要猜造 schema，job.schema_version_id 可空。
+- 修改 `smoke.mjs`：三種分支都必須建立 201、有 id、READY、錯誤清單空、提交 200、COMPLETED、total_rows=1、error_count=0。合成資料只有 lot_no=`9000001_01`，P3 加 date=`2099-01-01`；P3 缺日期會在 import_v2.py:1758–1762 拒絕，因此提供可解析的通用 date，不改規則。
+- 修改 `tests/preview.test.mjs`：註冊與基線保留測試；實際煙霧 helper 的成功及無 id、501、READY 前失敗、有驗證錯誤、提交失敗、提交後 FAILED 測試（請求替身，並非容器實測）。
+- 修改 `tests/test_static.py`：實際 require_preview 防護、AST 比對模型欄位與建構參數／動態賦值、以查詢替身執行實際 seed 驗證重跑不增列與 schema 漂移拒絕。此 Python 測試尚未成功執行。
+- 更新 `services/preview/README.md` 與本 thread／index 的交接資訊。未改 kits/、schemas/、config/、libs/、package*.json，無新增依賴、git 寫入、Docker、伺服器或連網。
+
+### 逐欄依據
+
+以下行號均指 `kits/import-pipeline-kit/src/backend/app/services/import_v2.py`。已以 rg 掃描所有 kits 的 Python：五個類別的實際使用者只有此檔，routes_import_v2.py 沒有額外模型屬性要求。Text 不推定字串長度；Float 對應 float()；UUID 對應 uuid4／既有 FK；JSONB 對應 dict。表名依類別與檔案及服務的 p3_records/p3_items_v2 註解（948）；不承諾復原來源案例的資料表契約。
+
+| 模型 | 每個欄位與型別 | 程式依據 |
+| --- | --- | --- |
+| P1Record | id: UUID；tenant_id: UUID；lot_no_raw: Text；lot_no_norm: BigInteger；schema_version_id: nullable UUID；extras: JSONB | 1222–1229 建構；1210–1211 租戶／整數正規化 key 查詢；1217–1218 更新 raw 與 dict |
+| P1Record | updated_at: nullable DateTime(timezone=True) | 1219 func.now()；新建時未傳，因此不臆造初始時間 |
+| P2Record | id: UUID；tenant_id: UUID；lot_no_raw: Text；lot_no_norm: BigInteger；schema_version_id: nullable UUID；winder_number: Integer；extras: JSONB | 1260–1268 建構；1252–1254 查詢與 int()；1272–1273 更新 |
+| P2Record | updated_at: nullable DateTime(timezone=True) | 1274 func.now()；新建未傳 |
+| P3Record | id: UUID；tenant_id: UUID；lot_no_raw: Text；lot_no_norm: BigInteger；schema_version_id: nullable UUID；production_date_yyyymmdd: Integer；machine_no: Text；mold_no: Text；product_id: Text；extras: JSONB | 1041–1054 建構、1002–1007 查詢；1013–1038 日期轉 int 與字串組合；1668–1764 提取（缺日期拒絕，machine/mold 缺值使用基線 UNKNOWN） |
+| P3Record | updated_at: nullable DateTime(timezone=True) | 1059 func.now()；新建未傳 |
+| P2ItemV2 | id: UUID；p2_record_id: UUID；tenant_id: UUID；winder_number: Integer；production_date_yyyymmdd: nullable Integer；trace_lot_no: nullable Text；row_data: JSONB | 1282–1294 建構；1277 record 外鍵刪除；1560–1620 日期提取回 int 或 None；154–169 trace 組合可回 None |
+| P2ItemV2 | slitting_result: nullable Float | 1297–1299 賦值，1622–1666 提取可回 float/int 或 None |
+| P2ItemV2 | sheet_width、thickness1、thickness2、thickness3、thickness4、thickness5、thickness6、thickness7、appearance、rough_edge：各為 nullable Float | 1301–1315 明列欄位並 setattr(..., float(...))；未提供不賦值 |
+| P3ItemV2 | id: UUID；p3_record_id: UUID；tenant_id: UUID；row_no: Integer；row_data: JSONB | 1170–1185 建構；1071 enumerate(start=1)；1063–1064 record 外鍵刪除 |
+| P3ItemV2 | product_id: nullable Text；lot_no: Text；machine_no: Text；mold_no: Text | 1073–1078 初值；1086–1094、1115–1123 str().strip()；1145–1149 product id 組合；1175–1180 建構 |
+| P3ItemV2 | production_date: nullable Date | 1075 None；1097–1110 datetime.date(...)；1177 傳入 |
+| P3ItemV2 | production_lot: nullable Integer；source_winder: nullable Integer | 1079–1080 None；1126–1129、1152–1155 int(float(...))；1181–1182 傳入 |
+| P3ItemV2 | specification: nullable Text；bottom_tape_lot: nullable Text | 1081–1082 None；1160–1166 str().strip()；1183–1184 傳入 |
+
+UUID 外鍵目標：tenant_id 來自 job.tenant_id（`models/import_job.py:31–33` → tenants.id）；schema_version_id 來自 job.schema_version_id（同檔 37–39 → schema_versions.id，nullable）；兩個 item 的 record_id 直接來自已 flush 的 record.id。主鍵由各建構式明確傳 uuid4，不另加預設生成器。未新增唯一約束或推測商業欄位限制。
+
+### 驗證結果與 Claude 待辦
+
+- `npm.cmd run typecheck`：通過。
+- `npm.cmd run build`：通過；既有 React Flow use client 與大於 500 kB chunk 警告。
+- `npm.cmd test`：38 檔，37 通過、1 失敗；453 tests 通過、1 失敗、1 略過。失敗為 security.test.mjs:128 私鑰 open EPERM，afterAll:107 清理也 EPERM。暫存目錄 `C:\Users\gslab\AppData\Local\Temp\composer-security-w6F5TQ` 未宣稱清除；未讀取或輸出金鑰內容，未修改安全測試。
+- `node --test services/preview/tests/preview.test.mjs`：7/7 通過。
+- `python -I services/preview/tests/test_static.py`：已嘗試兩次，python.exe 都無法啟動「指定的登入工作階段不存在。可能已被終止。」因此 Python 語法／AST／seed 測試及 ORM mapper 未驗證。
+- 額外 assemble/preview checkJs 與 smoke `node --check`：通過。初次 diff --check 發現 README 混合換行，後續發現 preview_support 尾端空行；兩者已修正，最終 diff --check 通過（只有 Git 換行提示）。最終工作樹僅列 services/preview 與 mailbox，五個新增模型均已核對。
+- Claude：先補 Python 檢查與模型 mapper/DDL 驗證，重建容器，seed 兩次核對 TableRegistry=4、SchemaVersion=1、Station=1、StationSchema=1（全新預覽 DB）。執行 smoke；直接查 p1_records/p2_records/p3_records 與 p2_items_v2/p3_items_v2 的合成資料，重匯後確認更新／替換不增筆；T9 經 records API 核對 generic_records。再驗 reset 全空與重新 seed。
+- T1/T9 程式交接完成，實際 DB／容器結果仍待 Claude；thread 維持 in_progress、owner=claude。
+
+## 2026-10-20 WP4c T9
+
+- 起點已核對：feature/preview-gaps、20f5ae6，工作樹乾淨。完整閱讀 CLAUDE.md、D104–D107、preview-todo、preview README、末尾派工與 Claude WP4a/WP4b 審閱。
+- 變更 `services/preview/app/preview_seed.py`：明確 seed 命令建立 `preview_entries` 的 TableRegistry、SchemaVersion、同租戶 Station 與 StationSchema；啟動仍不種資料。既有 seed 資料重跑不新增版本，不覆蓋變更過的 schema，衝突報錯。欄位只有合成 `entry_key`、`value`。
+- fingerprint 依 `routes_import_v2.py:86–88` 的排序、管線分隔、SHA256；schema 依 `import_v2.py:36–62`。Station/StationSchema 必須同時存在，依 `import_v2.py:833–867,1343–1398,1471–1503` 才會進 schema_driven 並寫 generic_records。
+- 變更 `services/preview/smoke.mjs`：T9 不再列 GAP，省略 table_code 測 fingerprint 解析，建立後輪詢 READY、查錯誤為空、提交、輪詢 COMPLETED、經表單 records API 核對合成 key/value；無 ID、HTTP 失敗或終止狀態均失敗。
+- 本段驗證：Node 預覽測試 6/6；smoke 語法檢查通過。`python -I services/preview/tests/test_static.py` 無法啟動（指定的登入工作階段不存在），未宣稱 Python 通過。根目錄 typecheck/test/build 將於本批完成後執行，結果另記。
+- 真實 API、DB 寫入、重跑 seed 的資料庫冪等性尚未實測，交由 Claude；本段不執行 Docker、伺服器或網路。
 
 ## 2026-10-19 WP4a：組裝器與容器設定交接
 
@@ -293,3 +349,20 @@ user 決定（D107）：T1 為 `import-pipeline-kit` 的 P1／P2／P3 分支建�
 - 不連網、不執行 Docker、不啟動伺服器、不執行 git 寫入。
 - 合成資料不得含來源案例的任何真實名稱、欄位語意或數值。
 - 驗證指令：`npm.cmd run typecheck`、`npm.cmd test`、`npm.cmd run build`，以及 `node --test services/preview/tests/preview.test.mjs`、`python -I services/preview/tests/test_static.py`；結果（含失敗與略過）如實記錄於 Codex Notes；thread status 維持 in_progress、owner 改 claude。
+
+## 2026-10-20 Claude 審閱 WP4c（T1、T9）
+
+- Codex 任務 task-mvg9c0k6-79ex4q 為 completed（7 分 6 秒）；以下為我獨立驗證。
+- 靜態：typecheck 通過；`npm.cmd test` 38 個檔案、454 通過、0 失敗、1 略過（Codex 回報的 EPERM 失敗在我的環境未重現）；預覽 `node --test` 7/7、Python 靜態測試 4 項通過；`git diff` 確認未改 `kits/`、`schemas/`、`config/`、`libs/`、`package*.json`；專有詞彙搜尋命中為零。
+- Docker 實測：重建映像後執行種子兩次、煙霧測試三次，20/20 通過；P1／P2／P3 與通用表的匯入皆 COMPLETED 並寫入資料庫，重匯不重複。詳見 `docs/preview-todo.md` 的「T1、T9 完成紀錄」。
+
+### Review Findings（WP4c）
+
+| 編號 | 嚴重度 | 內容 | 處理 |
+|---|---|---|---|
+| R01 | 中 | 煙霧測試的通用表讀回原本走 `/api/forms/{code}/records`，但種子把同一代碼同時登錄為 station 與 table_registry，基線視為領域表而查不到資料，造成 1 項失敗 | 已修：讀回改走 query-traceability；缺口記為 T12 |
+| R02 | 中 | 五個 P 系列模型欄位帶有特定製程語意（見 todo 的重要說明） | 欄位皆有基線程式行號為據、無自創；需 user 知悉，對外文件需另行去識別化說明 |
+| R03 | 低 | `preview.mjs reset` 的重啟不含 `--build`，程式變更後只執行 reset 會沿用舊映像（本輪即因此看到舊的 501 訊息） | 記錄；程式變更後請用 `up` 重建，README 已有說明 |
+| R04 | 低 | `analytics/trend` 對領域表代碼回 500（T12） | 已登錄為低度缺口 |
+
+結論：T1、T9 通過；預覽缺口剩 T2、T3（無來源）、T4（訂閱端點）、T6（身分）、T11、T12。WP5、WP6 尚未開始。

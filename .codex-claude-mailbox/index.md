@@ -97,4 +97,4 @@
 
 2026-10-01 Claude：20261001-site-profile 人工驗證通過並合併至 main，標為 completed。
 
-2026-10-16 Codex：[Kit AoV 彙整與真實選配預覽](threads/20261016-kit-workflows-live-preview.md) — in_progress，owner=codex，reviewer=claude。使用者已授權開始，先實作流程契約、首份模板與選配總表；真實預覽另列待完成工作包。
+2026-10-20 Codex：[Kit AoV 彙整與真實選配預覽](threads/20261016-kit-workflows-live-preview.md) — in_progress，owner=claude，reviewer=claude。WP4c T9 種子與 T1 相容模型已交接；typecheck/build 與預覽 Node 7/7 通過，Vitest security EPERM、Python 啟動失敗如實記於 Codex Notes，待 Claude 容器與資料庫實測。

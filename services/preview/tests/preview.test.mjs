@@ -61,17 +61,22 @@ test('T10: log timestamps are bound as datetimes while the response keeps its IS
   assert.throws(() => adapt('app/api/routes_logs.py', ''), /來源已變更/);
 });
 
-test('legacy import guards precede mutations and preserve indentation', async () => {
-  const route = await readFile(path.join(repository, 'kits/import-pipeline-kit/src/backend/app/api/routes_import_v2.py'), 'utf8');
-  const patched = adapt('app/api/routes_import_v2.py', route);
-  assert.equal([...patched.matchAll(/reject_table_code\(table_registry.table_code\)/g)].length, 4);
-  assert.ok(patched.includes('            reject_table_code(table_registry.table_code)\n            return table_registry, normalized'));
-  const commit = patched.slice(patched.indexOf('async def commit_import_job('));
-  assert.ok(commit.indexOf('await reject_job') < commit.indexOf('job.status ='));
-  const service = adapt('app/services/import_v2.py', await readFile(path.join(repository, 'kits/import-pipeline-kit/src/backend/app/services/import_v2.py'), 'utf8'));
-  const body = service.slice(service.indexOf('    async def commit_job('));
-  assert.ok(body.indexOf('await reject_job') < body.indexOf('self._touch_status('));
-  assert.throws(() => adapt('app/services/import_v2.py', ''), /來源已變更/);
+test('T1 removes only preview rejection and registers all compatibility models', async () => {
+  for (const name of ['api/routes_import_v2.py', 'services/import_v2.py']) {
+    const original = await readFile(path.join(repository, 'kits/import-pipeline-kit/src/backend/app', name), 'utf8');
+    assert.equal(adapt('app/' + name, original), original.replaceAll('\r\n', '\n'));
+  }
+  const temp = await mkdtemp(path.join(directory, '.test-'));
+  try {
+    await assemble(path.join(temp, 'assembled'));
+    const imports = await readFile(path.join(temp, 'assembled/app/models/__init__.py'), 'utf8');
+    for (const model of ['p1_record', 'p2_record', 'p2_item_v2', 'p3_record', 'p3_item_v2']) {
+      assert.ok(imports.includes('import app.models.' + model));
+      const source = await readFile(path.join(temp, 'assembled/app/models', model + '.py'), 'utf8');
+      assert.ok(source.includes('(Base):'));
+      assert.ok(!source.includes('__getattr__'));
+    }
+  } finally { await rm(temp, { recursive: true, force: true }); }
 });
 
 test('compose commands use explicit project, propagate failure and stop reset on failure', () => {
@@ -87,6 +92,42 @@ test('compose commands use explicit project, propagate failure and stop reset on
   assert.ok(calls[0].args.includes('composer-preview'));
   assert.equal(calls[0].options.shell, false);
   assert.throws(() => execute('up', () => ({ error: new Error('ENOENT'), status: null, signal: null, pid: 0, output: [], stdout: null, stderr: null })), /無法執行/);
+});
+
+test('smoke import requires an id, READY, no errors and completed commit', async () => {
+  const source = await readFile(path.join(directory, 'smoke.mjs'), 'utf8');
+  const helpers = source.slice(source.indexOf('async function waitForJob('),
+    source.indexOf("await check('import-pipeline-kit', '建立匯入工作並查詢'"));
+  async function run(responses) {
+    const calls = [];
+    const call = async (method, route, options) => {
+      calls.push({ method, route, options });
+      assert.ok(responses.length, 'unexpected extra request');
+      return responses.shift();
+    };
+    const importAndCommit = new Function('call', 'csv', 'setTimeout',
+      helpers + '\nreturn importAndCommit;')(call, () => new Blob(['synthetic']),
+      resolve => resolve());
+    const result = await importAndCommit(null, 'entry_key,value', ['key,value'], 'entries.csv');
+    assert.equal(calls[0].options.form.has('table_code'), false);
+    assert.equal(calls[2].route, '/api/v2/import/jobs/synthetic/errors');
+    assert.equal(calls[3].method, 'POST');
+    assert.equal(calls[3].route, '/api/v2/import/jobs/synthetic/commit');
+    assert.equal(responses.length, 0);
+    return result;
+  }
+  const created = () => ({ status: 201, body: { id: 'synthetic' } });
+  const ready = () => ({ status: 200, body: { status: 'READY' } });
+  const clean = () => ({ status: 200, body: [] });
+  assert.equal((await run([created(), ready(), clean(),
+    { status: 200, body: {} }, { status: 200, body: { status: 'COMPLETED' } }])).status, 'COMPLETED');
+  await assert.rejects(run([{ status: 201, body: {} }]), /建立/);
+  await assert.rejects(run([{ status: 501, body: {} }]), /建立/);
+  await assert.rejects(run([created(), { status: 200, body: { status: 'FAILED' } }]), /預期 READY/);
+  await assert.rejects(run([created(), ready(), { status: 200, body: [{}] }]), /查錯誤/);
+  await assert.rejects(run([created(), ready(), clean(), { status: 400, body: {} }]), /提交/);
+  await assert.rejects(run([created(), ready(), clean(), { status: 200, body: {} },
+    { status: 200, body: { status: 'FAILED' } }]), /預期 COMPLETED/);
 });
 
 test('container isolation, fake subscription and fixed dependency versions', async () => {

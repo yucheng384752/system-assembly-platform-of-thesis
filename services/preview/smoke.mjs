@@ -63,21 +63,60 @@ await check('upload-validation-kit', '上傳檔案 POST /api/upload', async () =
 });
 await check('upload-validation-kit', '查詢上傳狀態', async () => { if (!processId) return [false, '缺少 process_id']; const r = await call('GET', `/api/upload/${processId}/status`); return [r.status === 200, `status ${r.status}`]; });
 
-knownGap('建立匯入工作並查詢', 'T9 table_registry 沒有來源資料');
 knownGap('系統日誌清單與摘要', 'T10 asyncpg 與日期字串');
+async function waitForJob(id, expected) {
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const r = await call('GET', `/api/v2/import/jobs/${id}`);
+    if (r.status !== 200) throw new Error(`查詢 ${r.status}: ${JSON.stringify(r.body)}`);
+    if (r.body.status === expected) return r.body;
+    if (['FAILED', 'CANCELLED', 'COMPLETED'].includes(r.body.status)) {
+      throw new Error(`預期 ${expected}: ${JSON.stringify(r.body)}`);
+    }
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  throw new Error(`工作 ${id} 等待 ${expected} 逾時`);
+}
+
+async function importAndCommit(tableCode, header, lines, filename) {
+  const f = new FormData();
+  if (tableCode) f.append('table_code', tableCode);
+  f.append('allow_duplicate', 'true');
+  f.append('files', csv(header, lines), filename);
+  const r = await call('POST', '/api/v2/import/jobs', { form: f });
+  const id = r.body?.id;
+  if (r.status !== 201 || !id) throw new Error(`建立 ${r.status}: ${JSON.stringify(r.body)}`);
+  await waitForJob(id, 'READY');
+  const errors = await call('GET', `/api/v2/import/jobs/${id}/errors`);
+  if (errors.status !== 200 || !Array.isArray(errors.body) || errors.body.length) {
+    throw new Error(`查錯誤 ${errors.status}: ${JSON.stringify(errors.body)}`);
+  }
+  const committed = await call('POST', `/api/v2/import/jobs/${id}/commit`);
+  if (committed.status !== 200) throw new Error(`提交 ${committed.status}: ${JSON.stringify(committed.body)}`);
+  return waitForJob(id, 'COMPLETED');
+}
+
 await check('import-pipeline-kit', '建立匯入工作並查詢', async () => {
-  const f = new FormData(); f.append('table_code', code); f.append('files', csv('lot_no', ['B001']), 'import.csv');
-  const r = await call('POST', '/api/v2/import/jobs', { form: f });
-  const id = r.body?.job_id ?? r.body?.id ?? r.body?.jobs?.[0]?.id;
-  if (!id) return [r.status < 400, `建立 status ${r.status}（無 job id）${JSON.stringify(r.body).slice(0, 100)}`];
-  const g = await call('GET', `/api/v2/import/jobs/${id}`);
-  return [g.status === 200, `建立 ${r.status}, 查詢 ${g.status}`];
+  // Omit table_code to exercise the seeded header fingerprint, not only explicit lookup.
+  const job = await importAndCommit(null, 'entry_key,value', ['preview-entry,synthetic-value'], 'entries.csv');
+  // Read back through query-traceability (a different kit). The generic-forms listing cannot be used here: a code that
+  // is both a station and a table_registry entry is treated by the baseline as a domain-backed table (T12).
+  const r = await call('GET', '/api/v2/query/lot/preview-entry');
+  const found = Array.isArray(r.body) && r.body.some(group => group.station_code === 'preview_entries'
+    && group.records?.some(row => row.lot_no_raw === 'preview-entry' && row.data?.entry_key === 'preview-entry'
+      && row.data?.value === 'synthetic-value'));
+  return [job.table_code === 'preview_entries' && r.status === 200 && found,
+    `工作 ${job.status}, 讀回 ${r.status}, 合成列 ${!!found}`];
 });
-await check('import-pipeline-kit', 'P1/P2/P3 分支回傳明確的不支援而非崩潰（T1）', async () => {
-  const f = new FormData(); f.append('table_code', 'P1'); f.append('files', csv('lot_no', ['C001']), 'p1.csv');
-  const r = await call('POST', '/api/v2/import/jobs', { form: f });
-  return [r.status < 500 || r.status === 501, `status ${r.status} ${JSON.stringify(r.body).slice(0, 100)}`];
-});
+for (const tableCode of ['P1', 'P2', 'P3']) {
+  await check('import-pipeline-kit', `${tableCode} 建立與提交（T1）`, async () => {
+    const job = await importAndCommit(tableCode,
+      tableCode === 'P3' ? 'lot_no,date' : 'lot_no',
+      [tableCode === 'P3' ? '9000001_01,2099-01-01' : '9000001_01'],
+      `${tableCode}_preview.csv`);
+    return [job.table_code === tableCode && job.total_rows === 1 && job.error_count === 0,
+      `工作 ${job.status}, 資料列 ${job.total_rows}, 錯誤 ${job.error_count}`];
+  });
+}
 
 await check('analytics-kit', '上傳歷史與趨勢', async () => { const a = await call('GET', '/api/analytics/upload-history'); const b = await call('GET', `/api/analytics/trend?code=${code}`); return [a.status === 200 && b.status === 200, `history ${a.status}, trend ${b.status}`]; });
 await check('logs-ops-kit', '系統日誌清單與摘要', async () => { const a = await call('GET', '/api/logs/'); const b = await call('GET', '/api/logs/summary'); return [a.status === 200 && b.status === 200, `list ${a.status}, summary ${b.status}`]; });

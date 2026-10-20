@@ -43,21 +43,6 @@ function replaceExact(text, anchor, replacement, count) {
  * @param {string} name @param {string} text */
 export function adapt(name, text) {
   text = text.replaceAll('\r\n', '\n');
-  if (name === 'app/api/routes_import_v2.py') {
-    text = 'from app.preview_support import reject_table_code, reject_job\n' + text;
-    text = replaceExact(text, '    requested = (table_code or "").strip()',
-      '    reject_table_code(table_code)\n    requested = (table_code or "").strip()', 2);
-    if ([...text.matchAll(/^( +)return table_registry,/gm)].length !== 4) throw new Error('來源已變更：table registry 回傳位置');
-    text = text.replace(/^( +)return table_registry,/gm,
-      '$1reject_table_code(table_registry.table_code)\n$1return table_registry,');
-    text = replaceExact(text, '    Commit a READY import job to target tables.\n    """',
-      '    Commit a READY import job to target tables.\n    """\n    await reject_job(db, job_id, current_tenant.id)', 1);
-  }
-  if (name === 'app/services/import_v2.py') {
-    text = 'from app.preview_support import reject_job\n' + text;
-    text = replaceExact(text, '        logger.info(f"Starting commit_job for {job_id}")',
-      '        await reject_job(self.db, job_id)\n        logger.info(f"Starting commit_job for {job_id}")', 1);
-  }
   // T10 (D107): the baseline passes ISO strings to asyncpg timestamp parameters, which asyncpg rejects. The response
   // keeps the string it always returned; only the bound query parameters become datetimes.
   if (name === 'app/api/routes_logs.py') {
@@ -127,13 +112,7 @@ export async function assemble(output, kits = path.join(repository, 'kits')) {
     if (tree.has(`app/${name}`)) throw new Error(`預覽檔案意外覆蓋 Kit：app/${name}`);
     tree.set(`app/${name}`, await readFile(path.join(directory, 'app', name)));
   }
-  const missingModels = ['p1_record', 'p2_record', 'p2_item_v2', 'p3_record', 'p3_item_v2'];
-  for (const model of missingModels) {
-    const name = `app/models/${model}.py`;
-    if (tree.has(name)) throw new Error(`T1 來源已補齊，請重新審閱預覽策略：${name}`);
-    tree.set(name, Buffer.from('from fastapi import HTTPException\n\ndef __getattr__(name):\n    raise HTTPException(501, "預覽不支援 P1/P2/P3 舊模型；等待使用者決定 T1")\n'));
-  }
-  const models = [...tree.keys()].filter(n => n.startsWith('app/models/') && n.endsWith('.py') && !n.endsWith('__init__.py') && !missingModels.some(m => n === `app/models/${m}.py`)).sort();
+  const models = [...tree.keys()].filter(n => n.startsWith('app/models/') && n.endsWith('.py') && !n.endsWith('__init__.py')).sort();
   tree.set('app/models/__init__.py', Buffer.from(models.map(n => `import ${n.slice(0, -3).replaceAll('/', '.')}`).join('\n') + '\n'));
   tree.set('app/preview_registry.json', Buffer.from(JSON.stringify(routers.sort((a, b) => a.module.localeCompare(b.module)), null, 2) + '\n'));
   for (const name of [...tree.keys()]) {
@@ -148,7 +127,7 @@ export async function assemble(output, kits = path.join(repository, 'kits')) {
   }
   const report = { included: plan.included.map(kit => ({ kit, reason: '具有後端 app 來源' })),
     excluded: plan.excluded, overrides: plan.overrides,
-    adaptations: ['重建 models/__init__.py，僅載入現有模型', 'P1/P2/P3 建立與提交前回傳 501，缺模型提供拒絕模組',
+    adaptations: ['重建 models/__init__.py，僅載入現有模型', 'P1/P2/P3 由預覽相容模型提供，保留基線匯入檢查',
       'preview_support 提供空 tenant_api_keys 外鍵目標，非驗證模型'],
     unavailableRoutes: ['platform.health 由預覽 /healthz 提供；registry verified 不變',
       'reference 的 routes_ut、traceability 無來源，不註冊'],
