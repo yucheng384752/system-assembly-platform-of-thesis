@@ -83,3 +83,17 @@
 | 編號 | 缺口 | 說明 |
 |---|---|---|
 | T12 | 一個代碼若同時是 station 與 `table_registry` 項目，基線把它視為「以實體資料表儲存」的領域表：通用表單的 `/api/forms/{code}/records` 查不到資料，`/api/analytics/trend?code=` 回 500（找不到同名實體資料表） | 這是種子選用同一個代碼所致，符合基線語意，不是基線缺陷。影響範圍只有這張合成表的兩個端點；讀回改走 query-traceability。若要完整支援，需為合成表建立實體資料表，另案 |
+
+## 5. Linux 主機實測（2026-10-20，Claude 實測）
+
+環境：Ubuntu 22.04.5（核心 6.8.0）、Docker 29.1.3、使用者在 docker 群組；主機原本沒有 Node 與 Docker Compose 外掛。測試用的工具都裝在使用者目錄，不使用 sudo：Node v22.23.3（官方 tarball，SHA-256 與 `SHASUMS256.txt` 相符）、Docker Compose v5.6.0（GitHub release 的執行檔，SHA-256 相符，放在 `~/.docker/cli-plugins/`，**測試後保留**）。程式來源為 `main`（`git archive`，等同乾淨檢出，不含工作樹的未提交變更）。
+
+| 項目 | 結果 |
+|---|---|
+| `node services/preview/preview.mjs up` | 映像建置成功，兩個容器 healthy，埠只綁 `127.0.0.1:18000` |
+| 種子與煙霧測試 | 20/20 通過、0 項已知缺口、0 項未預期失敗（含真實寫入與 P1／P2／P3 匯入） |
+| 靜態測試 | `node --test` 7/7 通過；`python3` 靜態測試 4 項通過（Python 3.10） |
+| 重置 | `preview.mjs reset` 前 stations 2 筆、重置後 0 筆，服務仍 healthy |
+| 清理 | 已 `down --volumes`、移除 `composer-preview-backend` 映像與測試目錄；主機無殘留容器與資料卷 |
+
+觀察（不影響結果）：repo 內 `docker-compose.yml`、`Dockerfile` 等檔以 CRLF 換行儲存，Linux 上 Docker 仍可正常解析，但建議之後以 `.gitattributes` 固定為 LF（需另案決定）。Linux 實測未涵蓋：WP5 選配閘門（尚未完成）、長時間運行、非 root 以外的權限設定。
