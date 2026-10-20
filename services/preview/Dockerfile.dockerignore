@@ -1,0 +1,13 @@
+**
+!kits/
+!kits/**
+!services/
+!services/preview/
+!services/preview/assemble.mjs
+!services/preview/app/
+!services/preview/app/**
+!services/preview/check_tree.py
+!services/preview/requirements.txt
+!services/preview/Dockerfile
+**/__pycache__/
+**/*.pyc

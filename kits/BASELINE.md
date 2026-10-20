@@ -26,3 +26,7 @@
 - `import-pipeline-kit/src/backend/app/`：`api/routes_import_v2.py`、`services/import_v2.py`、`models/import_job.py`、`schemas/import_job.py`
 - 未複製的外部依賴：`app.core.*`、`app.config.constants`、`services/csv_field_mapper.py`、`utils/normalization.py`、`models/record`（組裝輸出中也不存在）
 - 補不齊：`station-admin-kit` 的 `routes_stations.py` 在基線版任何位置都不存在；`station-data-link-kit` 的 `routes_import.py` 不在組裝輸出。兩者維持無原始碼，不上架為工具
+
+## 共用後端基底補齊（2026-10-19，D104）
+
+為了讓全部相容 Kit 的後端能一起啟動，自基線版組裝輸出 `dist/generated-system/backend/app` 逐檔原樣複製 15 個共用檔案進 `platform-core-kit/src/backend/app/`（清單見 `docs/preview-todo.md` 第 1 節）。不修改內容。補不齊的項目（`app.models.p1_record` 等 5 個模型、`routes_stations.py`、`routes_import.py` 等）列在 `docs/preview-todo.md` 第 2 節，必須完成或明確標示不可用。

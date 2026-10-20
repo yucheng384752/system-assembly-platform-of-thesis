@@ -7,7 +7,7 @@ reviewer: "claude"
 priority: "high"
 created_by: "codex"
 created_at: "2026-10-16"
-updated_at: "2026-10-18"
+updated_at: "2026-10-19"
 role_priority:
   implementation: "codex"
   review: "claude"
@@ -40,6 +40,39 @@ artifacts:
 - 工作區已有使用者／其他工作未提交變更：FactoryPage、WorkflowCanvas、aov.test、decision-log、mailbox index 與 AoV 合併／範例文件；保留不覆寫。
 
 # Codex Notes
+
+## 2026-10-19 WP4a：組裝器與容器設定交接
+
+- cwd 確認為 `C:\Users\gslab\Desktop\composer-refactor`，分支 `feature/real-preview-sources`、HEAD `f00c23a`，開始時工作區乾淨。完整讀取 CLAUDE.md、DESIGN.md、本 thread、preview-todo、BASELINE，以及 decision-log 的 D89–D94／D104／D105。只做 WP4a，沒有執行 Docker、啟動伺服器、連網或 Git 寫入。
+- 新增 Node 組裝器，僅用標準庫，適合目前可執行的 Node 環境。全部 `app` 檔案合併為實體套件樹，補套件標記，固定排序／LF／SHA-256 報告，不含時間或機器絕對路徑；要求新輸出目錄，不刪除既有產物。納入 9 Kit、排除 entry-permission（無 backend）、tenant-auth（廢除）、station-admin／station-data-link（缺來源），逐項附原因。管理 scripts 不作為 app 或容器入口。未知檔案衝突、未知路由或補丁定位不符直接失敗。
+- 依 reference 與實際來源註冊 12 router，補入 reference 未列的 generic-forms、mod-subscription、admin-permissions；缺來源的 routes_ut／traceability 不虛構。`/healthz` 為新預覽入口提供，不修改既有 capability verified。只把納入 Kit 契約複製至產物供 broker 查詢。
+- 組裝衝突明確採 logs-ops 的 monitoring 覆蓋 platform-core no-op（符合來源說明），本機 writer 需 psycopg2-binary；不開外部 heartbeat。重建模型 __init__ 僅載入現有模型，避免基線匯出不存在的 analytics_mapping、validation_rule、tenant_user、tenant_api_key。另在 preview_support 定義只有 UUID 主鍵的空 tenant_api_keys 表，解決既有可空稽核外鍵；不是身分驗證模型，不製造使用者／金鑰。
+- T1 採組裝版來源補丁：兩種 table registry resolver 在明確 table_code 及 fingerprint 結果都檢查；commit 路由在更改狀態／排背景任務前查同租戶 job，服務 commit_job 亦在任何狀態修改前檢查。P1/P2/P3（含空白及大小寫）回 501 與可讀 T1 訊息。五個缺失模型另提供拒絕匯出的 fallback，避免漏網路徑變 ModuleNotFoundError。未修改任何 kits 來源。保留的三個名稱即使設為通用表單，import-pipeline 仍暫拒絕，等待 user 決定。
+- 入口啟動以模型 create_all，logs 表用 Kit 自帶 DDL；不自動 seed，初始／重置後租戶及業務資料均空白。另提供 `python -m app.preview_seed`，只透過 compose exec 建立固定合成租戶供 Claude 實測。重置使用 Node 腳本呼叫固定 project 的 compose down --volumes，再 up --wait，先終止背景工作再刪具名 DB/files volumes，沒有網頁重置入口。
+- Compose 的 PostgreSQL／backend 只發布 127.0.0.1:55432／58000，internal network 禁止連外；固定本機假帳密、secret 與 webhook secret。MOD 同步只連同一容器的 `/_preview/mod` 假服務（basic/active），PDF 與遠端監控關閉。app.main 檢查預覽旗標與固定連線設定。管理員權限／audit events 原始 403 保留，未偽造管理員。WP5 的有效能力與授權未實作。
+- Docker 固定 Python 3.12.8、Node 22.14.0 組裝階段與 PostgreSQL 16.6；requirements 固定直接／間接版本。相對 baseline 移除 SQLite aiosqlite、uvicorn standard extras，下限套件改固定版，新增同步日誌 driver psycopg2-binary。Dockerfile 專用 ignore 限縮建置內容，不送 .git、宿主 .env、mailbox 或本機產物。依賴候選未經安裝／resolver 實測，不宣稱已驗證。
+
+### 新增／變更檔案
+
+- `services/preview/assemble.mjs`、`preview.mjs`：組裝及跨平台 up/down/reset/status。
+- `services/preview/app/main.py`、`preview_support.py`、`preview_seed.py`：預覽入口、隔離／501／外鍵補足、明確合成租戶命令。
+- `services/preview/Dockerfile`、`Dockerfile.dockerignore`、`docker-compose.yml`、`requirements.txt`：容器與固定依賴。
+- `services/preview/check_tree.py`、`tests/preview.test.mjs`、`tests/test_static.py`：標準庫 Python 語法／AST 匯入閉合檢查與 guard 測試；Node 組裝、來源保留、確定性、缺來源、衝突、501 補丁位置、命令失敗及隔離設定測試。
+- `services/preview/README.md`、`.gitignore`：繁中操作／預期結果／限制／Claude 驗收步驟，忽略本機產物。
+- 本 thread 與 mailbox index。未修改 kits、schemas、config、libs/ui-runtime、package*.json 或唯讀 reference；沒有 npm 新依賴。
+
+### 驗證結果與未執行項目
+
+- `node --test services/preview/tests/preview.test.mjs`：exit 0，5 passed、0 failed、0 skipped；最後重跑仍通過。兩次組裝每個檔案逐位元組相同，前後 Kit 來源 bytes 相同。
+- 兩個新 .mjs 的 `node --check` 與額外 `tsc --allowJs --checkJs --strict ...`：exit 0。既有 tsconfig 未納 services，故額外檢查，不更改專案設定。
+- `npm.cmd run typecheck`：exit 0，通過。
+- `npm.cmd test`：exit 1，38 files = 37 passed／1 failed；455 tests = 453 passed／1 failed／1 skipped。失敗為既有 `src/security.test.mjs` CLI 簽署時開啟 `C:\Users\gslab\AppData\Local\Temp\composer-security-73Ib7q\keys\signing-private-key.pem` 遭 EPERM；afterAll 清理同一暫存目錄也遭 EPERM（suite failure）。沒有改測試或私鑰規則，沒有手動讀取私鑰，暫存目錄未宣稱清除，請 Claude 處理與重跑。
+- 1 skipped 是既有 App.test.tsx「未涵蓋：以 User 身分修改 MIS 項目由授權邊界拒絕（尚無身分機制）」，本輪未新增 skip。
+- `npm.cmd run build`：exit 0，內含 typecheck／Vite build 通過；既有 React Flow use client 忽略與 App bundle 732.41 kB 超過 500 kB 警告保留。
+- `git diff --check`：exit 0（新檔尚未追蹤，不把此命令當新檔完整驗證）。Git 唯讀狀態查詢有全域 ignore 權限警告。
+- Python **未執行**：`python --version` 的 WindowsApps 入口無法執行，回 logon session 不存在；`.venv/Scripts/python.exe --version` 指向不可用的 Python313。未安裝／下載 Python，也未用 Docker 繞過。`check_tree.py` 與 Python unittest 已備妥，需 Claude 用可用 Python 補跑；Dockerfile 建置亦會執行語法／匯入閉合檢查。Node import 掃描已通過，但不代表 Python compile／執行通過。
+- Docker build、pip resolver、PostgreSQL 建表、SQLAlchemy mapper、真實 API／背景寫入、重置、連外隔離與 Windows/Linux 實際容器相容性均**未實測**。README 明列啟動命令、預期輸出與逐 Kit／501／重置檢查清單，不宣稱真實預覽已驗證。
+- 實際驗證日誌時間已晚於原定 18:00，未回填為準時完成。WP4a 程式與設定交 Claude 審閱及 WP4b 實測；thread 維持 `in_progress`，owner 改 `claude`，未把 WP4–WP6 標完成。
 
 ## 修改計畫與範圍
 
@@ -185,3 +218,51 @@ artifacts:
 - 我以腳本逐份核對九份新模板加既有一份：所有節點引用的能力在 registry 皆為 `verified: true`，全部為 draft；共 45 個新節點、5 條邊（generic-forms 3、import-pipeline 2），其餘 kit 無邊，無跨 kit 連線。
 - 邊的依據逐檔記於上方 Codex Notes；內容屬前置識別碼順序，與審閱時抽查一致。邊的語意正確性只靠靜態來源判讀，未經執行驗證，模板維持 draft。
 - 結論：WP2 通過。WP4 至 WP6 仍待 user 決定範圍、共用來源補齊、預覽資料庫（見上方後續分工）。
+
+## 2026-10-19 真實預覽 WP4 第一批派工（Claude）
+
+依 D104、D105 與 `docs/preview-todo.md`。範圍為全部相容 Kit；執行環境固定 Docker 加 PostgreSQL（Windows 與 Linux 皆可）。**Codex 只寫程式與設定；容器啟動、真實 API、資料寫入與重置的實測由 Claude 執行。**
+
+### WP4a 預覽後端組裝與容器設定（Codex）
+
+**預計完成時間：2026-10-19 18:00。** 到期未完成由 Claude 接手。目錄：`services/preview/`（新增）。參考檔在 `services/preview/reference/`（唯讀）。
+
+1. **組裝器：** 把 `kits/*/src/backend` 合併成單一 `app` 套件樹（各 Kit 的 `app/` 會重疊，不得靠命名空間套件碰運氣）。排除 `tenant-auth-kit`、無原始碼的 Kit（`station-admin-kit`、`station-data-link-kit`，見 todo T2、T3）與只有契約的 Kit。組裝器為確定性的：同輸入同輸出，並列出實際納入與排除的 Kit 及原因。可用 Node（`scripts/`，`.mjs`，須通過既有 typecheck）或 Python 實作，擇一並說明。
+2. **入口 `app.main`（預覽專用，不複製基線的 `baseline-main.py`）：** 註冊所有已納入 Kit 的路由；自行提供 `GET /healthz`（todo T5）；啟動時以模型建立資料表（todo T8）；提供只在預覽啟用的「重置資料」入口或指令，重置後資料表回到空狀態。路由註冊依 `reference/backend_router_registry.py` 的對應，但以 `kits/` 實際存在的檔案為準。
+3. **import-pipeline-kit 的 P1／P2／P3 分支（todo T1）：** 在 user 決定前，這些分支回傳明確的「不支援」錯誤（HTTP 501 與可讀訊息），不得崩潰。不修改基線複製的 `import_v2.py`；用組裝器層的方式處理（例如在組裝階段提供會拋出明確錯誤的替代模組，並在 Codex Notes 說明作法與理由）。
+4. **容器：** `services/preview/docker-compose.yml`（`postgres` 加後端兩個服務）、`services/preview/Dockerfile`（Python 版本固定，依賴以固定版本安裝；可參考 `reference/requirements.baseline.txt`，並說明與基線的差異）。PostgreSQL 與後端只綁 `127.0.0.1`，帳密只用本機測試用的固定假值並放在 compose 設定中，不得出現真實連線字串；使用具名 volume，重置指令要能清空。Windows 與 Linux 皆須可用：不得依賴 Windows 路徑或 PowerShell 專用語法，啟動只透過 `docker compose`。
+5. **啟停腳本：** `services/preview/preview.mjs`（Node，跨平台）提供 `up`、`down`、`reset`、`status`；失敗時輸出可讀原因。
+6. **測試：** 組裝器的單元測試（納入與排除、確定性、缺來源時明確列出）；組裝後的樹以 Python `compileall` 風格的靜態檢查驗證沒有 `app.*` 匯入缺口（可重用 `docs/preview-todo.md` 所述的掃描邏輯，寫成測試）；不得需要 Docker 或網路。
+7. **文件：** `services/preview/README.md`（繁體中文）：如何啟動、停止、重置；哪些 Kit 納入與排除及原因；已知限制。不得宣稱真實預覽已驗證。
+
+### 限制與停止條件
+
+- 不修改 `kits/` 內任何既有檔案（含基線複製檔）、`schemas/`、`config/`、`libs/ui-runtime/`、`package*.json`；不新增 npm 依賴；Python 依賴只寫進預覽的 requirements 與 Dockerfile。
+- 不連網、不執行 Docker、不啟動伺服器、不執行 git 寫入。
+- 範例資料、密碼、連線字串不得使用任何真實或來源案例內容。
+- 只有必須改 `kits/` 既有檔案、新增 npm 依賴或需要真實資料時才停止並寫明；其餘衝突以既有檔案為準，調整自己的實作並記錄。
+- 驗證指令：`npm.cmd run typecheck`、`npm.cmd test`、`npm.cmd run build`；完成後在 Codex Notes 記錄做了什麼、變更檔案、結果（含失敗與略過；security.test.mjs 的 EPERM 要如實回報）；thread status 維持 in_progress、owner 改 claude。
+
+### 之後（不在本批）
+
+WP4b（Claude）：以 Docker 實際啟動、驗證每個納入 Kit 的真實 API 與資料寫入。WP5：預覽後端驗證 Recipe、依有效選配開放功能並拒絕直接呼叫。WP6：重置、切換選配、獨立選配建置驗收。完成前畫面維持「模擬資料」標籤。
+
+## 2026-10-19 Claude 審閱 WP4a 與 WP4b 實測
+
+- Codex 任務 task-mvf5tahb-d03y18 為 completed（9 分 3 秒）。我獨立驗證，不採信自述。
+- 靜態：typecheck 通過；`npm.cmd test` 38 個檔案、454 通過、0 失敗、1 略過；build 通過；預覽的 `node --test` 5 項與 Python 靜態測試 2 項通過（這兩組不在 `npm test` 內，已寫入 README）。`git diff` 確認未改 `kits/`、`schemas/`、`config/`、`libs/`、`package*.json`。
+- Docker 實測（WP4b，Claude 執行）：映像建置成功（靜態檢查 72 個 Python 模組、匯入無缺口），兩個容器 healthy，`/healthz` 正常，資料表由模型建立，`PREVIEW_READY` 出現。煙霧測試 17 項：15 通過、2 項已知缺口（T9、T10）、0 項未預期失敗；包含真實寫入與讀回。重置前 stations 3 筆，重置後 0 筆，仍 healthy。
+- 實測發現 WP4a 三個問題，已由我修正並寫入 D106：F1 Windows 保留埠段使 PostgreSQL 埠無法綁定；F2 `internal: true` 使發布埠無效（容器 healthy 但宿主連不上）；F3 管理員與角色限定端點永遠 403（缺身分替身）。詳見 `docs/preview-todo.md` §4。
+- 新增缺口 T9（table_registry 無來源資料，匯入管線無法建立工作）、T10（日誌摘要因 asyncpg 日期字串回 500）、T11（只驗證可呼叫，未驗證商業語意）。
+
+### Review Findings（WP4a）
+
+| 編號 | 嚴重度 | 內容 | 處理 |
+|---|---|---|---|
+| R01 | 高 | `internal: true` 使容器發布埠完全無效，宿主連不上；靜態測試甚至把它當成必要條件 | 已修（D106），測試改為斷言資料網路內部、只發布後端一個埠 |
+| R02 | 高 | 預覽入口缺身分替身，所有管理員端點 403，連帶無法設定欄位與註冊資料表，整條表單流程斷掉 | 已修（D106）；仍標明不是驗證機制 |
+| R03 | 中 | 固定埠 55432 在 Windows 會落在保留埠段而無法綁定 | 已修：預設 18000 並可覆寫；PostgreSQL 不再發布 |
+| R04 | 低 | Codex 的測試只驗證設定字串與靜態規則，沒有任何一項能發現 R01、R02；這類問題只有實際啟動才看得出來 | 新增 `smoke.mjs` 對真實 API 驗證，實測納入驗收 |
+| R05 | 低 | 預覽的測試不在 `npm test` 內 | 先寫入 README；是否納入 npm script 需改 `package.json`，另行決定 |
+
+結論：WP4a 的程式經修正後通過；WP4b 部分完成（啟動、真實寫入、重置已驗證；T9、T10 缺口待決）。WP5（依有效選配開放功能並拒絕直接呼叫）與 WP6（切換選配、獨立選配建置驗收）尚未開始。畫面上的「模擬資料」標籤維持不變。

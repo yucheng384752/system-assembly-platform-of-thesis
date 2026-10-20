@@ -1,0 +1,58 @@
+name: composer-preview
+services:
+  postgres:
+    image: postgres:16.6-bookworm
+    environment:
+      POSTGRES_USER: preview
+      POSTGRES_PASSWORD: preview-local-only
+      POSTGRES_DB: preview
+    volumes:
+      - preview-db:/var/lib/postgresql/data
+    networks: [data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U preview -d preview"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  backend:
+    build:
+      context: ../..
+      dockerfile: services/preview/Dockerfile
+    environment:
+      COMPOSER_PREVIEW: "1"
+      DATABASE_URL: postgresql+asyncpg://preview:preview-local-only@postgres:5432/preview
+      SECRET_KEY: preview-only-fixed-fake-key-not-for-production
+      ENVIRONMENT: preview
+      AUTH_MODE: "off"
+      ALLOW_AUTH_OFF: "true"
+      USE_GENERIC_SCHEMA: "true"
+      UPLOAD_TEMP_DIR: /preview-data/uploads
+      LOG_DIR: /preview-data/logs
+      ENDPOINT_PERMISSIONS_FILE: /preview-data/endpoint_permissions.json
+      MOD_API_BASE_URL: http://127.0.0.1:8000/_preview/mod
+      PREVIEW_ADMIN_API_KEY: preview-fake-admin-key
+      MOD_API_KEY: preview-fake-api-key
+      MOD_WEBHOOK_SECRET: preview-fake-webhook-secret
+      PDF_SERVER_URL: ""
+      MONITOR_SERVER_URL: ""
+    ports:
+      - "127.0.0.1:${PREVIEW_API_PORT:-18000}:8000"
+    volumes:
+      - preview-files:/preview-data
+    networks: [data, edge]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+# data is internal so PostgreSQL has no route in or out; edge exists only so the host can reach the backend on 127.0.0.1.
+networks:
+  data:
+    internal: true
+  edge: {}
+volumes:
+  preview-db:
+  preview-files:
