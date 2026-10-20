@@ -58,6 +58,13 @@ export function adapt(name, text) {
     text = replaceExact(text, '        logger.info(f"Starting commit_job for {job_id}")',
       '        await reject_job(self.db, job_id)\n        logger.info(f"Starting commit_job for {job_id}")', 1);
   }
+  // T10 (D107): the baseline passes ISO strings to asyncpg timestamp parameters, which asyncpg rejects. The response
+  // keeps the string it always returned; only the bound query parameters become datetimes.
+  if (name === 'app/api/routes_logs.py') {
+    text = replaceExact(text, '        params["since"] = since', '        params["since"] = datetime.fromisoformat(since.replace("Z", "+00:00"))', 1);
+    text = replaceExact(text, '        params["until"] = until', '        params["until"] = datetime.fromisoformat(until.replace("Z", "+00:00"))', 1);
+    text = replaceExact(text, '            {"since": since, "tenant_id": str(tenant.id)},', '            {"since": datetime.fromisoformat(since), "tenant_id": str(tenant.id)},', 1);
+  }
   return text;
 }
 

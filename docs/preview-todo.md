@@ -58,5 +58,9 @@
 | 編號 | 缺口 | 證據 | 目前處理 |
 |---|---|---|---|
 | T9 | `import-pipeline-kit` 建立匯入工作需要 `table_registry` 有資料列，但沒有任何程式或來源會建立；通用表單存在 `stations`，兩者是不同登錄 | 資料庫 `table_registry` 為空；建立匯入工作回 400 `Invalid table code` | 煙霧測試列為 GAP。需決定：補一份通用的 table_registry 種子與對應資料表，或預覽標示匯入管線不可用 |
-| T10 | `logs-ops-kit` 的 `/api/logs/summary` 回 500：程式把 ISO 日期字串傳給 asyncpg 的 timestamp 參數 | 容器日誌 `expected a datetime.date or datetime.datetime instance, got 'str'`，位於 `routes_logs.py` 的 `log_summary`（`list` 端點回 200） | 煙霧測試列為 GAP。基線複製檔不修改；可在組裝階段以補丁修正，需 user 同意 |
+| T10（已完成 2026-10-20，D107） | `logs-ops-kit` 的 `/api/logs/summary` 回 500：程式把 ISO 日期字串傳給 asyncpg 的 timestamp 參數 | 容器日誌 `expected a datetime.date or datetime.datetime instance, got 'str'`，位於 `routes_logs.py` 的 `log_summary`（`list` 端點回 200） | 煙霧測試列為 GAP。基線複製檔不修改；可在組裝階段以補丁修正，需 user 同意 |
 | T11 | 煙霧測試只驗證端點可呼叫與資料寫入，未驗證各 Kit 的商業語意（例如上傳的驗證規則需要環境設定的合法值，測試檔 2 列皆被判為無效） | 上傳回應 `valid_rows 0, invalid_rows 2` | 屬預期，不視為失敗；語意驗證另案 |
+
+### T10 完成紀錄（2026-10-20）
+
+組裝階段補丁已套用（`assemble.mjs` 的 `adapt`，錨點不符即拒絕）。Docker 重新建置後實測：`/api/logs/summary` 回 200，`/api/logs/?since=&until=` 以 ISO 起訖時間過濾回 200；煙霧測試 16/17 通過、1 項已知缺口（T9）。單元測試涵蓋補丁內容、回應仍為 ISO 字串、來源漂移時拒絕。

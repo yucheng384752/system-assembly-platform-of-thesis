@@ -81,6 +81,7 @@ await check('import-pipeline-kit', 'P1/P2/P3 分支回傳明確的不支援而�
 
 await check('analytics-kit', '上傳歷史與趨勢', async () => { const a = await call('GET', '/api/analytics/upload-history'); const b = await call('GET', `/api/analytics/trend?code=${code}`); return [a.status === 200 && b.status === 200, `history ${a.status}, trend ${b.status}`]; });
 await check('logs-ops-kit', '系統日誌清單與摘要', async () => { const a = await call('GET', '/api/logs/'); const b = await call('GET', '/api/logs/summary'); return [a.status === 200 && b.status === 200, `list ${a.status}, summary ${b.status}`]; });
+await check('logs-ops-kit', '以起訖時間過濾日誌（T10 補丁涵蓋的查詢參數）', async () => { const r = await call('GET', `/api/logs/?since=${encodeURIComponent(new Date(Date.now() - 3600000).toISOString())}&until=${encodeURIComponent(new Date(Date.now() + 3600000).toISOString())}`); return [r.status === 200, `status ${r.status}`]; });
 await check('query-traceability-kit', '以批號查詢', async () => { const a = await call('GET', '/api/v2/query/lot/A001'); const b = await call('GET', '/api/v2/query/trace/A001'); return [a.status < 500 && b.status < 500, `lot ${a.status}, trace ${b.status}`]; });
 await check('mod-subscription-kit', '訂閱同步使用本機假服務', async () => { const r = await call('POST', '/api/mod/subscriptions/sync', { json: { external_subscription_id: 'smoke-sub' } }); return [r.status < 500, `status ${r.status} ${JSON.stringify(r.body).slice(0, 100)}`]; });
 

@@ -51,6 +51,16 @@ test('missing backends are explained and unknown collisions fail closed', async 
   } finally { await rm(temp, { recursive: true, force: true }); }
 });
 
+test('T10: log timestamps are bound as datetimes while the response keeps its ISO string, and drifted sources fail closed', async () => {
+  const logs = await readFile(path.join(repository, 'kits/logs-ops-kit/src/backend/app/api/routes_logs.py'), 'utf8');
+  const patched = adapt('app/api/routes_logs.py', logs);
+  assert.ok(patched.includes('params["since"] = datetime.fromisoformat(since.replace("Z", "+00:00"))'));
+  assert.ok(patched.includes('params["until"] = datetime.fromisoformat(until.replace("Z", "+00:00"))'));
+  assert.ok(patched.includes('{"since": datetime.fromisoformat(since), "tenant_id": str(tenant.id)},'));
+  assert.ok(patched.includes('        "since": since,'), 'the response must still return the ISO string');
+  assert.throws(() => adapt('app/api/routes_logs.py', ''), /來源已變更/);
+});
+
 test('legacy import guards precede mutations and preserve indentation', async () => {
   const route = await readFile(path.join(repository, 'kits/import-pipeline-kit/src/backend/app/api/routes_import_v2.py'), 'utf8');
   const patched = adapt('app/api/routes_import_v2.py', route);
@@ -82,9 +92,9 @@ test('compose commands use explicit project, propagate failure and stop reset on
 test('container isolation, fake subscription and fixed dependency versions', async () => {
   const compose = await readFile(path.join(directory, 'docker-compose.yml'), 'utf8');
   // PostgreSQL stays on the internal network and is never published; only the backend is reachable, on loopback.
-  assert.match(compose, /data:\n    internal: true/);
+  assert.match(compose, /data:\r?\n    internal: true/);
   assert.deepEqual([...compose.matchAll(/- "([^"]+:\d+)"/g)].map(m => m[1]), ['127.0.0.1:${PREVIEW_API_PORT:-18000}:8000']);
   assert.match(compose, /MOD_API_BASE_URL: http:\/\/127\.0\.0\.1:8000\/_preview\/mod/);
   const requirements = await readFile(path.join(directory, 'requirements.txt'), 'utf8');
-  for (const line of requirements.split('\n').filter(l => l && !l.startsWith('#'))) assert.match(line, /^[\w-]+==[\w.]+$/);
+  for (const line of requirements.split(/\r?\n/).filter(l => l && !l.startsWith('#'))) assert.match(line, /^[\w-]+==[\w.]+$/);
 });
