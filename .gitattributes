@@ -1,2 +1,8 @@
 # Shell scripts run on Linux deploy targets; keep LF regardless of core.autocrlf.
 *.sh text eol=lf
+
+# Repository blobs are LF. Windows launchers must stay CRLF (scripts/start.ps1 also needs a UTF-8 BOM).
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
