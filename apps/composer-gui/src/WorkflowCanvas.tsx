@@ -1,9 +1,10 @@
+import { addIndustryTemplate, industryTemplates } from './industryTemplates';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { ReactFlow, ReactFlowProvider, Handle, MarkerType, Position, useReactFlow, type Node, type NodeProps } from '@xyflow/react';
+import { ReactFlow, ReactFlowProvider, Handle, MarkerType, Position, ConnectionLineType, useReactFlow, type Node, type NodeProps } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { actionCatalog, describeEndpoint } from './workflow';
 import { graphDepths, graphPlaces, integrityErrors, MAX_DEPTH, MAX_GRAPHS, MAX_NODES, suggestActions, type AovGraphDocument, type GraphNode, type NodeKind } from './workflowGraph';
-import { addCanvasNode, addChildGraph, connectCanvasNodes, deleteCanvasNode } from './canvasEditing';
+import { addCanvasNode, addChildGraph, connectCanvasNodes, reconnectCanvasEdge, deleteCanvasNode } from './canvasEditing';
 import { Column } from './Column';
 import { FactoryPage } from './FactoryPage';
 import { Icon } from './Icons';
@@ -23,7 +24,7 @@ function CircleNode({ data }: NodeProps<BusinessNode>) {
 const nodeTypes = { business: CircleNode };
 
 // path: the opened graphs, kept by the caller so leaving the step and coming back returns to the same flow; empty means the factory list (D79).
-interface CanvasProps { value: AovGraphDocument; onChange: (value: AovGraphDocument) => void; path: string[]; onPathChange: (path: string[]) => void; toolbarExtra?: ReactNode; resetKey?: number }
+interface CanvasProps { value: AovGraphDocument; onChange: (value: AovGraphDocument) => void; path: string[]; onPathChange: (path: string[]) => void; toolbarExtra?: ReactNode; resetKey?: number; locate?: { nodeId: string; fieldId?: string; request: number } }
 export function WorkflowCanvas(props: CanvasProps) {
   return <ExampleHintProvider><ReactFlowProvider><Canvas {...props} /></ReactFlowProvider></ExampleHintProvider>;
 }
@@ -34,7 +35,9 @@ const toolGroups: [string, { id: string; name: string }[]][] = (() => {
   groups.set('一般', [...(groups.get('一般') ?? []), { id: '', name: '業務節點' }]);
   return [...groups];
 })();
-function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, resetKey = 0 }: CanvasProps) {
+function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, resetKey = 0, locate }: CanvasProps) {
+  const [industry, setIndustry] = useState('');
+  const [toolSearch, setToolSearch] = useState('');
   const [selected, setSelected] = useState('');
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -53,6 +56,24 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
   useEffect(() => { setSelected(''); setDeleting(false); setError(''); }, [resetKey]);
   const graph = value.graphs.find(g => g.id === path.at(-1));
   const node = graph?.nodes.find(n => n.id === selected);
+  const centerRequest = useRef(false);
+  useEffect(() => { if (locate && graph?.nodes.some(n => n.id === locate.nodeId)) { setSelected(locate.nodeId); setDeleting(false); centerRequest.current = true; } }, [locate, graph?.id]);
+  useEffect(() => {
+    if (!graph || !selected || !centerRequest.current) return;
+    let frame = 0, stopped = false, attempts = 0;
+    const center = () => {
+      if (stopped) return;
+      const n = flow.getNode(selected);
+      if ((!n?.measured?.width || !n?.measured?.height) && attempts++ < 60) { frame = requestAnimationFrame(center); return; }
+      if (!n) return;
+      centerRequest.current = false;
+      void flow.setCenter(n.position.x + 32, n.position.y + 32, { zoom: flow.getZoom(), duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180 });
+      const field = locate?.fieldId && document.getElementById(`${locate.fieldId}-name`);
+      (field || document.getElementById('node-name'))?.focus({ preventScroll: true });
+    };
+    frame = requestAnimationFrame(center); return () => { stopped = true; cancelAnimationFrame(frame); };
+  }, [selected, graph?.id, locate, flow]);
+
   function commit(next: AovGraphDocument) {
     const problems = integrityErrors(next);
     if (problems.length) { setError(problems.join(' ')); return false; }
@@ -82,6 +103,12 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
       <div className="actions canvas-zoom"><button onClick={() => void flow.zoomIn({ duration: 0 })}>放大</button><button onClick={() => void flow.zoomOut({ duration: 0 })}>縮小</button><button onClick={() => void flow.fitView({ duration: 0 })}>適合畫面</button></div></div>
     <div className={node ? 'columns workflow-columns has-details' : 'columns workflow-columns'}>
     <Column id="canvas-tools" title="工具箱" lead="選擇動作加入畫布，也可拖放至所需位置。" className="workflow-tools" scroll>
+      <details><summary>產業紀錄範本（{industryTemplates.length}）</summary>
+        <p>提供表單欄位起點；使用既有表單功能，不代表設備控制、庫存或簽核引擎。加入後請確認欄位型別、必填與規格。</p>
+        <label>搜尋產業節點<input type="search" value={toolSearch} onChange={e => setToolSearch(e.target.value)} /></label>
+        <label>產業分類<select value={industry} onChange={e => setIndustry(e.target.value)}><option value="">全部</option>{[...new Set(industryTemplates.map(t => t.industry))].map(i => <option key={i}>{i}</option>)}</select></label>
+        {industryTemplates.filter(t => (!industry || t.industry === industry) && t.name.includes(toolSearch)).map(t => <div className="tool-card" key={t.id}><span>{t.name}</span><button aria-label={`加入產業節點：${t.name}`} onClick={() => { try { const next = addIndustryTemplate(value, graph.id, t.id); if (commit(next)) { setSelected(next.graphs.find(g => g.id === graph.id)!.nodes.at(-1)!.id); centerRequest.current = true; } } catch (error) { setError(error instanceof Error ? error.message : '無法新增範本'); } }}>＋</button></div>)}
+      </details>
       {toolGroups.map(([group, tools], index) => {
         const open = openGroups.includes(group);
         return <section className="tool-group" key={group}>
@@ -95,16 +122,16 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
           </div>
         </section>;
       })}
-      <h3>選取節點</h3><ul className="step-list">{graph.nodes.map(n => <li key={n.id}><button aria-current={n.id === selected ? true : undefined} onClick={() => { focus.current = true; setSelected(n.id); setDeleting(false); }}>{n.name || '（未命名節點）'}</button></li>)}</ul>
+      <h3>選取節點</h3><ul className="step-list">{graph.nodes.map(n => <li key={n.id}><button aria-current={n.id === selected ? true : undefined} onClick={() => { centerRequest.current = true; focus.current = true; setSelected(n.id); setDeleting(false); }}>{n.name || '（未命名節點）'}</button></li>)}</ul>
     </Column>
     <Column id="canvas" title="流程畫布" lead="連線表示先後順序，多條出線表示平行作業。" className="workflow-canvas-column">
       <div className="workflow-canvas" onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }} onDrop={e => {
         e.preventDefault(); const action = e.dataTransfer.getData('application/x-workflow-action');
         if (action) add(action === 'business' ? null : action, flow.screenToFlowPosition({ x: e.clientX, y: e.clientY }));
       }}>
-        <ReactFlow<BusinessNode> key={resetKey} nodes={graph.nodes.map((n, i) => ({ id: n.id, type: 'business', data: { label: n.name || '（未命名節點）', kind: n.kind },
+        <ReactFlow<BusinessNode> key={`${resetKey}:${graph.id}`} nodes={graph.nodes.map((n, i) => ({ id: n.id, type: 'business', data: { label: n.name || '（未命名節點）', kind: n.kind },
           position: value.layout[graph.id]?.[n.id] ?? { x: i * 180, y: 0 }, selected: n.id === selected, ariaLabel: n.name || '（未命名節點）' }))}
-          edges={graph.edges.map(e => ({ id: e.id, source: e.from, target: e.to, animated: false, focusable: false, markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: '#40576a' } }))} nodeTypes={nodeTypes}
+          edges={graph.edges.map(e => ({ id: e.id, source: e.from, target: e.to, type: 'straight', reconnectable: true, animated: false, focusable: false, markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: '#40576a' } }))} nodeTypes={nodeTypes}
           deleteKeyCode={null} selectNodesOnDrag={false} nodeDragThreshold={DRAG_PX} nodeClickDistance={DRAG_PX} nodesFocusable edgesFocusable={false} autoPanOnNodeFocus={false}
           ariaLabelConfig={{ 'node.a11yDescription.default': '按 Enter 或空白鍵選取節點，方向鍵移動；先後順序與刪除請使用節點細項。', 'node.a11yDescription.keyboardDisabled': '請使用工具箱選取節點。', 'node.a11yDescription.ariaLiveMessage': ({ x, y }) => `節點已移至橫向 ${x}、縱向 ${y}。`, 'edge.a11yDescription.default': '請在節點細項調整先後順序。', 'handle.ariaLabel': '連線接點' }}
           onNodeDragStart={() => { dragged.current = true; }}
@@ -116,6 +143,8 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
             const picked = changes.find(c => c.type === 'select' && c.selected);
             if (picked?.type === 'select' && !dragged.current) { setSelected(picked.id); setDeleting(false); }
           }}
+          edgesReconnectable reconnectRadius={28} connectionLineType={ConnectionLineType.Straight}
+          onReconnect={(edge, connection) => commit(reconnectCanvasEdge(value, graph.id, edge.id, connection.source, connection.target))}
           onConnect={c => commit(connectCanvasNodes(value, graph.id, c.source, c.target, true))}
           onPaneClick={() => { setSelected(''); setDeleting(false); }}
           fitView fitViewOptions={{ duration: 0 }} />
@@ -129,7 +158,7 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
         <NodeDetails key={node.id} value={value} node={node} onChange={commit} />
         {predecessors(node)}
         {node.childGraphId ? <button onClick={() => { setPath([...path, node.childGraphId!]); setSelected(''); setDeleting(false); }}>進入子流程</button>
-          : <><button disabled={depth >= MAX_DEPTH || value.graphs.length >= MAX_GRAPHS} aria-describedby="depth-note" onClick={() => commit(addChildGraph(value, node.id))}>建立子流程</button><p id="depth-note">{depth >= MAX_DEPTH ? '已達第 3 層，不可再建立子流程。' : value.graphs.length >= MAX_GRAPHS ? `整份流程最多 ${MAX_GRAPHS} 張圖。` : '流程最多 3 層。'}</p></>}
+          : <><button disabled={depth >= MAX_DEPTH || value.graphs.length >= MAX_GRAPHS} aria-describedby="depth-note" onClick={() => { const next = addChildGraph(value, node.id); if (commit(next)) { const child = next.graphs.find(g => g.id === graph.id)!.nodes.find(n => n.id === node.id)!.childGraphId; if (child) { setPath([...path, child]); setSelected(''); setDeleting(false); } } }}>建立子流程</button><p id="depth-note">{depth >= MAX_DEPTH ? '已達第 3 層，不可再建立子流程。' : value.graphs.length >= MAX_GRAPHS ? `整份流程最多 ${MAX_GRAPHS} 張圖。` : '流程最多 3 層。'}</p></>}
         <button className="danger" onClick={() => setDeleting(true)}>刪除節點</button>
         {removal && <section role="region" aria-label="確認刪除節點"><h3>確認刪除以下內容</h3><ul>
           {removal.nodes.map(n => <li key={n.id}>節點：{n.name}</li>)}{removal.graphs.map(g => <li key={g.id}>子流程：{g.name}</li>)}{removal.forms.map(f => <li key={f.id}>表單：{f.name}</li>)}

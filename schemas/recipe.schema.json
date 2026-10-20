@@ -171,10 +171,18 @@
     "siteRef": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["path", "sha256"],
+      "required": [
+        "path",
+        "sha256"
+      ],
       "properties": {
-        "path": { "const": "site.profile.json" },
-        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        "path": {
+          "const": "site.profile.json"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
       }
     },
     "workflowRef": {
@@ -217,6 +225,108 @@
           },
           "schema_version": {
             "const": "1.0.0"
+          }
+        }
+      }
+    },
+    "productionSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "formats",
+        "defaultFormatId",
+        "products"
+      ],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "formats": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "name",
+              "pattern"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 60
+              },
+              "pattern": {
+                "type": "string",
+                "maxLength": 180
+              }
+            }
+          }
+        },
+        "defaultFormatId": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "products": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "name",
+              "formatId",
+              "formId",
+              "fieldId",
+              "lower",
+              "upper",
+              "unit"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "formatId": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "formId": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "fieldId": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "unit": {
+                "type": "string",
+                "maxLength": 20
+              },
+              "lower": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "upper": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            }
           }
         }
       }

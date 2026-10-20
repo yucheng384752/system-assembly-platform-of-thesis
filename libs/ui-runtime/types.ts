@@ -1,3 +1,4 @@
+import type { ProductionSettings } from './production';
 export type Value = string | number | boolean;
 export interface Option {
   id: string; displayName: string; type: 'text' | 'number' | 'boolean' | 'select';
@@ -24,6 +25,7 @@ export interface Definition { schema_version: '1.0.0'; kitId: string; components
 export type Overrides = Record<string, Record<string, Value>>;
 export type Versions = Record<string, { kitVersion: string; schema_version: string }>;
 export interface Recipe {
+  productionSettings?: ProductionSettings;
   clientName?: string;
   recipeVersion: string; name: string; sourceManifest: string; database: { engine: 'sqlite' | 'postgresql' | 'mysql' };
   enabledKits: string[]; selectedSubfeatures: Record<string, string[]>;

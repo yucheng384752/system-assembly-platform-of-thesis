@@ -1,3 +1,6 @@
+import { ProductionPage, productionBindings } from './ProductionPage';
+import { emptyProduction, productionErrors } from '../../../libs/ui-runtime/production';
+import { emptySimulation } from './simulation';
 import { useState } from 'react';
 import type { Recipe } from '../../../libs/ui-runtime/types';
 import { flows, selectKits } from './catalog';
@@ -10,7 +13,7 @@ import { siteError, type SiteSession } from './siteSession';
 import { AppShell, HomePage, PlaceholderPage, type PageId } from './AppShell';
 import './style.css';
 import { WorkflowCanvas } from './WorkflowCanvas';
-import { emptyGraph, graphActionIds, graphErrors, integrityErrors } from './workflowGraph';
+import { emptyGraph, graphPath, graphActionIds, graphErrors, integrityErrors } from './workflowGraph';
 import { deriveKits } from '../../../libs/ui-runtime/actions';
 import { registry } from './registryData';
 import { WorkflowTransfer } from './WorkflowTransfer';
@@ -25,6 +28,8 @@ export const initialRecipe = withSelection({
   enabledKits: [], selectedSubfeatures: {}, selectedSubfeatureOptions: {}, uiOverrides: {},
 }, selectKits(catalog.kits, []).enabledKits);
 export function App() {
+  const [simulation, setSimulation] = useState(emptySimulation);
+  const [locate, setLocate] = useState<{ nodeId: string; fieldId?: string; request: number }>();
   const [storedRecipe, setRecipe] = useState<Recipe>(initialRecipe);
   const [requested, setRequested] = useState<string[]>([]);
   const [manual, setManual] = useState<string[]>([]);
@@ -42,14 +47,15 @@ export function App() {
   const workflowProblems = [...integrityErrors(graph), ...graphErrors(graph)];
   const stepError = (step: number) => [
     workflowProblems[0], conflict,
-    conflict || (!recipe.clientName?.trim() ? '請填寫客戶代稱。' : workflowProblems.length ? `流程規格尚未完成：${workflowProblems[0]}` : ''),
+    [...productionErrors(recipe.productionSettings ?? emptyProduction), ...productionBindings(recipe.productionSettings ?? emptyProduction, graph)][0],
+    conflict || productionErrors(recipe.productionSettings ?? emptyProduction)[0] || productionBindings(recipe.productionSettings ?? emptyProduction, graph)[0] || (!recipe.clientName?.trim() ? '請填寫客戶代稱。' : workflowProblems.length ? `流程規格尚未完成：${workflowProblems[0]}` : ''),
   ][step] ?? '';
   // The step flow stays mounted (only hidden) so switching pages never loses the confirmed steps.
-  const steps = <StepShell stepError={stepError} renderStep={step => step === 0 ? <WorkflowCanvas resetKey={graphSession} value={graph} onChange={setGraph} path={canvasPath} onPathChange={setCanvasPath} toolbarExtra={<WorkflowTransfer onChange={next => { setGraph(next); setCanvasPath([]); setGraphSession(s => s + 1); }} />} />
-    : step === 1 ? <FlowPage graph={graph} derived={derived} site={site?.site} recipe={recipe} onChange={setRecipe} requested={requested} manual={manual} session={session} onSelect={(nextFlows, nextKits) => {
+  const steps = <StepShell stepError={stepError} renderStep={(step, navigate) => step === 0 ? <WorkflowCanvas locate={locate} resetKey={graphSession} value={graph} onChange={setGraph} path={canvasPath} onPathChange={setCanvasPath} toolbarExtra={<WorkflowTransfer onChange={next => { setGraph(next); setCanvasPath([]); setGraphSession(s => s + 1); }} />} />
+    : step === 1 ? <FlowPage simulation={simulation} onSimulationChange={setSimulation} graph={graph} derived={derived} site={site?.site} recipe={recipe} onChange={setRecipe} requested={requested} manual={manual} session={session} onSelect={(nextFlows, nextKits) => {
       setRequested(nextFlows); setManual(nextKits);
     }} />
-      : <OutputPage site={site} siteConflict={conflict} onSiteChange={next => {
+      : step === 2 ? <ProductionPage recipe={recipe} onChange={setRecipe} graph={graph} /> : <OutputPage onLocate={issue => { const g = graph.graphs.find(g => g.id === issue.graphId || g.nodes.some(n => n.id === issue.nodeId)); setCanvasPath(g ? graphPath(graph, g.id) : []); setLocate(issue.nodeId ? { nodeId: issue.nodeId, fieldId: issue.fieldId, request: Date.now() } : undefined); navigate(0); }} site={site} siteConflict={conflict} onSiteChange={next => {
         setSite(next);
         setRecipe(previous => { const { siteRef: _siteRef, ...rest } = previous; return next ? { ...rest, siteRef: { path: 'site.profile.json', sha256: next.sha256 } } : rest; });
       }} recipe={recipe} workflow={graph} selectedFlows={selection.selectedFlows} onChange={setRecipe} onImport={next => {

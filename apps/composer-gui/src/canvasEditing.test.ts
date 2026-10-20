@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { addCanvasNode, addChildGraph, addFactory, addLogic, connectCanvasNodes, deleteCanvasNode, deleteFactory, deleteLogic, patchCanvasNode, renameFactory, renameGraph } from './canvasEditing';
+import { addCanvasNode, addChildGraph, addFactory, addLogic, connectCanvasNodes, reconnectCanvasEdge, deleteCanvasNode, deleteFactory, deleteLogic, patchCanvasNode, renameFactory, renameGraph } from './canvasEditing';
 import { emptyGraph, integrityErrors, MAX_FACTORIES, MAX_GRAPHS, MAX_LOGICS, type AovGraphDocument } from './workflowGraph';
 
 const withLogic = (name = 'A 廠'): AovGraphDocument => addLogic(addFactory(emptyGraph, name)!.value, 'factory-1', '')!.value;
@@ -146,4 +146,26 @@ describe('sub-flows, factories and production logics', () => {
     expect(removed.value.forms).toEqual([]);
     expect(integrityErrors(removed.value)).toEqual([]);
   });
+});
+
+test('straight-edge reconnection preserves identity and leaves the input unchanged for rejected edits', () => {
+  let doc = addCanvasNode(addCanvasNode(withLogic(), 'graph-1', null), 'graph-1', null);
+  doc = connectCanvasNodes(doc, 'graph-1', 'node-1', 'node-2', true);
+  const id = doc.graphs[0].edges[0].id;
+  const moved = reconnectCanvasEdge(doc, 'graph-1', id, 'graph-1-start', 'node-2');
+  expect(moved.graphs[0].edges[0]).toEqual({id, from:'graph-1-start', to:'node-2'});
+  expect(integrityErrors(moved)).toEqual([]);
+  expect(integrityErrors(reconnectCanvasEdge(doc, 'graph-1', id, 'node-1', 'node-1')).length).toBeGreaterThan(0);
+  expect(lines(doc)).toEqual(['node-1>node-2']);
+});
+test('child creation guards system nodes, duplicate children and the depth limit', () => {
+  let doc = addCanvasNode(withLogic(), 'graph-1', null);
+  expect(addChildGraph(doc, 'graph-1-start')).toBe(doc);
+  expect(addChildGraph(doc, 'missing')).toBe(doc);
+  doc = addChildGraph(doc, 'node-1');
+  expect(addChildGraph(doc, 'node-1')).toBe(doc);
+  doc = addChildGraph(addCanvasNode(doc, 'graph-2', null), 'node-2');
+  doc = addCanvasNode(doc, 'graph-3', null);
+  expect(addChildGraph(doc, 'node-3')).toBe(doc);
+  expect(integrityErrors(doc)).toEqual([]);
 });
