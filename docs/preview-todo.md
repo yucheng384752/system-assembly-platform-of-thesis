@@ -33,3 +33,30 @@
 
 - T1 至 T8 每項都有「已完成」或「明確標示為不可用」的結論與測試或實測紀錄，才可把「模擬資料」標籤換成「真實預覽」。
 - 全量預覽成功與僅所選 Kit 的獨立部署驗證分開報告。
+
+## 4. WP4b 實測結果與新增缺口（2026-10-19，Docker 加 PostgreSQL，Claude 實測）
+
+實測環境：Windows 11、Docker 引擎 29.4.2（Linux 容器）、Compose v5.1.3；映像 `python:3.12.8-slim`、`postgres:16.6`。執行 `node services/preview/preview.mjs up` 後以 `node services/preview/smoke.mjs` 對容器內真實 API 發出請求並寫入資料。
+
+| 結果 | 內容 |
+|---|---|
+| 啟動 | 靜態檢查 72 個 Python 模組、`app.*` 匯入無缺口；兩個容器 healthy；`/healthz` 回傳 ok；啟動訊息 `PREVIEW_READY` |
+| 煙霧測試 | 17 項中 15 項通過、2 項已知缺口、0 項未預期失敗（見下表）；通過項包含真實寫入：建立表單、設定欄位、匯入 2 筆資料列並讀回、上傳檔案並查詢狀態、建立修正原因、訂閱同步（本機假服務） |
+| 資料重置 | `preview.mjs reset` 前 stations 有 3 筆，重置後 0 筆，服務仍 healthy |
+| 資料持久 | 容器重啟後資料表存在（具名 volume）；重置才清空 |
+
+### 實測中修正的 WP4a 問題（由 Claude 修正並記錄）
+
+| 編號 | 問題 | 修正 |
+|---|---|---|
+| F1 | Windows 保留部分埠段，原預設 PostgreSQL 埠 55432 無法綁定 | 後端預設埠改 18000，可用 `PREVIEW_API_PORT` 覆寫；PostgreSQL 不再發布到宿主 |
+| F2 | `networks: internal: true` 使容器的發布埠完全無效：容器 healthy 但宿主連不上 | 拆成內部網路 `data`（只有 PostgreSQL 與後端）與 `edge`（僅供後端發布 127.0.0.1 埠）。`edge` 不阻擋對外連線，隔離靠固定假值與不含外部服務設定（README 已寫明，D105 已更正措辭） |
+| F3 | 管理員與角色限定的端點（端點權限、稽核事件、修正原因）永遠回 403：預覽入口沒有基線的 API key 中介層，`request.state.is_admin` 不會被設定，連帶無法設定欄位、無法註冊資料表 | 預覽入口新增預覽專用的身分替身：固定假金鑰 `X-Admin-API-Key` 與 `X-Preview-Role` 標頭。這不是驗證機制，T6 維持「未涵蓋」 |
+
+### 新增缺口（必須完成或明確標示不可用）
+
+| 編號 | 缺口 | 證據 | 目前處理 |
+|---|---|---|---|
+| T9 | `import-pipeline-kit` 建立匯入工作需要 `table_registry` 有資料列，但沒有任何程式或來源會建立；通用表單存在 `stations`，兩者是不同登錄 | 資料庫 `table_registry` 為空；建立匯入工作回 400 `Invalid table code` | 煙霧測試列為 GAP。需決定：補一份通用的 table_registry 種子與對應資料表，或預覽標示匯入管線不可用 |
+| T10 | `logs-ops-kit` 的 `/api/logs/summary` 回 500：程式把 ISO 日期字串傳給 asyncpg 的 timestamp 參數 | 容器日誌 `expected a datetime.date or datetime.datetime instance, got 'str'`，位於 `routes_logs.py` 的 `log_summary`（`list` 端點回 200） | 煙霧測試列為 GAP。基線複製檔不修改；可在組裝階段以補丁修正，需 user 同意 |
+| T11 | 煙霧測試只驗證端點可呼叫與資料寫入，未驗證各 Kit 的商業語意（例如上傳的驗證規則需要環境設定的合法值，測試檔 2 列皆被判為無效） | 上傳回應 `valid_rows 0, invalid_rows 2` | 屬預期，不視為失敗；語意驗證另案 |

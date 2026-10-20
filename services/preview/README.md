@@ -1,0 +1,124 @@
+# WP4a 預覽後端組裝
+
+此目錄提供全量相容 Kit 的預覽後端。**尚未完成 Docker、PostgreSQL、真實 API 與重置實測**；WP4b 由 Claude 執行。Composer 畫面仍維持「模擬資料」，本批不修改 UI、Recipe 選配或部署流程。
+
+## 啟動與停止
+
+在專案根目錄執行，Windows 與 Linux 相同。需要 Node 22.12 以上，以及支援 `up --wait` 的 Docker Compose v2；Windows 使用 Linux containers。首次建置需由有網路權限的 Claude 下載映像及 Python 套件，執行中的預覽網路禁止連外。Codex 未執行以下 Docker 指令。
+
+```text
+node services/preview/preview.mjs up
+node services/preview/preview.mjs status
+node services/preview/preview.mjs down
+```
+
+所有操作都呼叫 `docker compose`，固定 project `composer-preview`，不讀宿主 `.env`、不掛載宿主原始碼，也不使用本機 Python 啟動服務。若只用 Compose，可直接執行：
+
+```text
+docker compose -p composer-preview -f services/preview/docker-compose.yml up --build -d --wait --wait-timeout 180
+docker compose -p composer-preview -f services/preview/docker-compose.yml logs backend
+```
+
+預期建置會印出 `assembly-report.json` 內容，納入 9 個 Kit、排除 4 個 Kit；靜態檢查印出 `STATIC_OK: ... Python modules; syntax and app imports closed`。啟動日誌預期出現：
+
+```text
+PREVIEW_READY: tables created; no seed data; authentication not covered
+```
+
+`status` 應顯示 postgres 與 backend 都 healthy。後端位於 `http://127.0.0.1:18000`（可用環境變數 `PREVIEW_API_PORT` 改埠），`GET /healthz` 會查詢資料庫，成功回傳：
+
+```json
+{"status":"ok","preview":true,"authentication":"not-covered"}
+```
+
+PostgreSQL **不發布到宿主埠**，只在內部網路 `data` 中供後端連線（該網路為 `internal: true`，沒有對外路由）；資料庫與使用者均為 `preview`、密碼為 `preview-local-only`，皆為固定本機假值。需要檢視資料時用 `docker compose -p composer-preview -f services/preview/docker-compose.yml exec postgres psql -U preview -d preview`。後端另接網路 `edge` 以便宿主連線，**宿主發布的埠只綁 `127.0.0.1`**：預設 `18000`（`PREVIEW_API_PORT` 可改；Windows 會保留部分埠段，原預設 55432 與 58000 曾因落在保留段而無法綁定）。注意：`edge` 不是隔離網路，後端容器理論上可以對外連線；預覽的隔離靠固定假值與不含任何外部服務設定，而不是網路層封鎖。不開放 CDN 文件頁；可讀取 `/openapi.json`。不可將這組設定用於正式部署。
+
+## 空資料庫與重置
+
+啟動以所有組裝模型的 `Base.metadata.create_all` 建表；logs-ops 的 `system_logs` 另使用該 Kit 自帶的 PostgreSQL DDL。啟動不種租戶或業務資料，租戶 API 在空資料庫會回傳 404；健康檢查不需要租戶。
+
+實測需要租戶時，明確執行下列預覽專用命令，只建立固定、合成的租戶，不產生來源案例資料：
+
+```text
+docker compose -p composer-preview -f services/preview/docker-compose.yml exec -T backend python -m app.preview_seed
+```
+
+預期輸出 `PREVIEW_TENANT: 00000000-0000-4000-8000-000000000001`；可重複執行。建立後可帶 `X-Tenant-Id` 同值，或利用唯一租戶解析測試一般 API。
+
+```text
+node services/preview/preview.mjs reset
+```
+
+這是預覽限定的重置指令，先 `down --volumes` 停掉後端與背景工作，再重建兩個具名 volume 與容器，等待健康。**會刪除此 project 的全部預覽 DB、上傳檔、日誌與權限設定**，不影響其他 Compose project。失敗即停止，不繼續下一步。完成輸出「預覽 volume 已重建；資料表為空，未建立租戶或業務資料。」重置後不要立即執行 seed，先驗證所有資料表空白。一般 `down` 保留 volume。沒有另開可由網頁呼叫的破壞性重置 API。
+
+## 組裝規則與納入清單
+
+選 Node `.mjs`，使用內建 fs/path/crypto，無 npm 新依賴。可在沒有 Docker／Python 套件的環境執行。產出為實體單一 `app/` 套件，每層補 `__init__.py`。只接受**尚不存在的輸出目錄**，不刪除或覆寫既有目錄。以固定排序產出檔案與含 SHA-256 的報告，不含時間或宿主路徑；同輸入逐位元組相同。Python 換行正規化為 LF。衝突不依複製順序覆蓋；未列明的衝突直接失敗。
+
+| Kit | 結果與路由 |
+| --- | --- |
+| platform-core-kit | 納入共用基底；broker `/api/kit`、權限設定 `/api/admin/endpoint-permissions` |
+| generic-forms-kit | 納入 `/api/forms` 與 `/api/dataflows/links` |
+| upload-validation-kit | 納入上傳與驗證，組裝前綴 `/api` |
+| import-pipeline-kit | 納入 `/api/v2/import`，P1/P2/P3 明確 501 |
+| query-traceability-kit | 納入 `/api/v2/query` |
+| analytics-kit | 納入 `/api/analytics` |
+| audit-edit-kit | 納入 `/api/edit` 與 `/api/audit/events` |
+| logs-ops-kit | 納入 `/api/logs`，本機持久化日誌 |
+| mod-subscription-kit | 納入實際 `/api/mod` 四個端點；同步只連容器內假服務 |
+| tenant-auth-kit | 排除，D03 已廢除 |
+| station-admin-kit | 排除，T2 缺少 routes_stations.py |
+| station-data-link-kit | 排除，T3 缺少 routes_import.py |
+| entry-permission-kit | 排除，僅契約／無 backend，身分授權未涵蓋 |
+
+以 reference 路由前綴為依據，實際共註冊 12 個現存 router；reference 沒列到的 generic-forms、mod-subscription、admin-permissions 依來源補列。reference 的 `routes_ut`、`traceability` 無來源，不虛構路由。自行提供 `/healthz`，不改 registry 的 `verified: false`。只複製納入 Kit 的契約到組裝根目錄供 broker 查詢；契約聲明不代表每個 capability 都能執行。backend 的管理 scripts 不作為 app 執行來源或容器入口。
+
+以下差異全部只在組裝產物，`kits/` 與 `reference/` 唯讀：
+
+- `core/monitoring.py` 明確採 logs-ops 版本，取代 platform-core 的 no-op，符合檔案自身說明；不啟動遠端 heartbeat。
+- 重建 `models/__init__.py`，載入現有模型，排除基線匯出但不存在的 analytics_mapping、validation_rule、tenant_user、tenant_api_key。為既有可空稽核外鍵建立只有 UUID 主鍵的 `tenant_api_keys` 空表；不製造驗證模型、使用者或金鑰，不宣稱授權有效。
+- 對組裝版 import 路由插入 table-code 檢查，涵蓋明確指定與 CSV fingerprint 解析的建立入口；提交路由在改狀態／排背景工作前查詢同租戶 job 並拒絕 P1/P2/P3。服務 `commit_job` 也在任何修改之前檢查，涵蓋內部呼叫。大小寫與空白正規化後皆回 HTTP 501，訊息含「等待使用者決定 T1」。這三個保留名稱即使建立同名通用表單，也暫不開放 import-pipeline 路徑。
+- 五個缺失的舊模型模組提供明確拒絕匯出的 fallback，不假裝存在可用模型。補丁定位與出現次數須吻合，來源變更即停止組裝，防止靜默漏套。
+- `app.main` 是新入口，不載入 baseline-main、不啟動正式授權或 bootstrap。啟動必須符合 `COMPOSER_PREVIEW=1`、固定預覽 DB、固定本機 MOD URL 及外部服務關閉條件。
+
+## Python 依賴
+
+Python 固定 `3.12.8`，PostgreSQL 固定 `16.6-bookworm`，Node 組裝階段固定 `22.14.0-bookworm-slim`。`requirements.txt` 固定直接與間接套件版本。相對基線：移除 SQLite 專用 aiosqlite；asyncpg、greenlet、cryptography 的下限改為固定版；uvicorn 不裝 standard extras（預覽無 reload、WebSocket 需求）；新增 `psycopg2-binary`，因 logs-ops 的同步 writer 將 asyncpg URL 轉成 PostgreSQL 預設同步 driver。其餘直接依賴沿用基線版本。
+
+這是離線撰寫的候選安裝組合，尚未執行 pip resolver、映像建置或安全更新審核；固定 tag 與版本不是 digest／hash 鎖定。安裝相容性由 Claude 實測記錄，不能以靜態檢查取代。
+
+## 不需 Docker／網路的檢查
+
+```text
+node --test services/preview/tests/preview.test.mjs
+node node_modules/typescript/bin/tsc --noEmit --allowJs --checkJs --strict --target es2022 --module nodenext --moduleResolution nodenext --types node --skipLibCheck services/preview/assemble.mjs services/preview/preview.mjs
+node services/preview/assemble.mjs services/preview/.assembled
+python -B services/preview/check_tree.py services/preview/.assembled
+python -B -m unittest discover -s services/preview/tests -p test_static.py
+npm.cmd run typecheck
+npm.cmd test
+npm.cmd run build
+```
+
+Linux 的 Python 命令可使用 `python3`，npm 使用 `npm`。`.assembled` 必須原本不存在；重跑請選另一個新目錄，避免誤刪資料。Node 測試自己使用可清理的專用暫存目錄。Python 檢查只用標準庫：逐檔 `compile`（不寫 pyc），AST 掃描絕對、相對、函式內延遲 `app.*` 匯入及路由登錄；不啟動 app、不連 DB。Node 的 import 掃描只是補充，不替代 Python 語法檢查。根目錄 typecheck／Vitest 原本不涵蓋此目錄，因此另列新檔 checkJs 與測試命令，沒有改 package 或 tsconfig。
+
+2026-10-19 Codex 結果：Node 5/5 通過、新檔 checkJs 通過、專案 typecheck／build 通過。全套 Vitest：453 passed、1 failed、1 skipped；失敗是 security CLI 讀取私鑰及 afterAll 清理的 EPERM，沒有為通過而改測試。Python 系統入口無法執行（logon session），既有 `.venv` 的 Python313 目標不可用，所以 Python 靜態檢查與 unittest **未執行**。Dockerfile 會執行靜態檢查；Claude 仍需先補跑 unittest。
+
+## Claude 的 WP4b 驗收
+
+1. 補跑上述 Python 檢查與 unittest，確認模型匯入／SQLAlchemy mapper、外鍵與 ENUM 的實際相容性，再用 Compose build/up。發生錯誤應保留完整日誌，不吞錯或臆測為已通過。
+2. 確認宿主只發布兩個 loopback 埠、容器不可連外、兩服務 healthy、healthz 查 DB 成功、初始業務表與租戶表空白。
+3. 執行 seed，對九個 Kit 逐個測實際端點與資料持久化。一般表單先 `POST /api/forms`、設定 schema、寫入合成資料再查詢。用同一租戶建立 import 工作，驗證 P1/P2/P3（含 fingerprint、既存 READY job）都是 501 且不新增工作／不改狀態；一般表單路徑不被拒絕。
+4. MOD 同步用任意合成 subscription id；假服務固定回 basic/active，回應含 `preview_fake: true`，不得作為真實訂閱證據。驗證本機 sync、query、entitlements、帶假 webhook secret 的 webhook。外部 PDF 轉換未提供，不連外。
+5. 寫入後執行 reset，確認租戶、所有業務表、system_logs、上傳檔與權限設定清空；再 seed／CRUD 確認可重新使用。具名 volume 會重新建立。
+6. 重跑 security 測試並處理 EPERM 暫存目錄。本次 `composer-security-73Ib7q` 未宣稱清除成功。
+
+權限設定與 audit/events 路由仍註冊，但原始碼的 system-admin 檢查保留，沒有身分提供者時預期 403；不偽造管理員或繞過檢查。角色授權、Recipe 啟停能力及直接 API 拒絕屬 WP5，授權測試標為「未涵蓋」。全量組裝成功不等於所選 Kit 獨立部署成功，兩者必須分開報告。
+
+## 煙霧測試與身分替身
+
+`node services/preview/smoke.mjs [baseUrl]` 對執行中的容器發出真實請求並寫入合成資料，輸出 PASS／GAP／FAIL；GAP 是登錄在 `docs/preview-todo.md` 的已知缺口，不算通過。測試前需先執行一次 `docker compose ... exec -T backend python -m app.preview_seed` 建立合成租戶。
+
+管理員與角色限定端點（端點權限、稽核事件、修正原因）需要身分：預覽入口以固定假金鑰 `X-Admin-API-Key: preview-fake-admin-key` 視為管理員，並以 `X-Preview-Role: manager|operator` 指定角色。**這只是測試用替身，不是驗證機制，授權測試仍標為「未涵蓋」。**
+
+靜態測試不需要 Docker：`node --test services/preview/tests/preview.test.mjs` 與 `python -I services/preview/tests/test_static.py`。
