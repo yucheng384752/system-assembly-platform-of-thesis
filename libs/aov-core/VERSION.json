@@ -1,0 +1,79 @@
+{
+  "note": "固定版本快照，請勿手動修改；以 scripts/sync-aov-core.mjs 重新同步（D103）。",
+  "source": "aov-project/packages/core/src",
+  "commit": "6a37dbba7dcf0563e60b1e2eb591966b09deb765",
+  "files": [
+    {
+      "path": "compile/compiler.ts",
+      "sha256": "ab708f8f95a285c8bd6275f10f046185be3a4cd5c2e4b4a6d464eacb952d4aef"
+    },
+    {
+      "path": "compile/subgraph.ts",
+      "sha256": "7d83f6121cde23f9ed4073ec88e68d0d7588d715cfea4776c16c35fb0e09edcd"
+    },
+    {
+      "path": "engine/engine.ts",
+      "sha256": "aa831159a32b96a3a735e2799f3173c40ffac6c4ce534ba031606a66bb742d13"
+    },
+    {
+      "path": "expr/checker.ts",
+      "sha256": "b2388e21e53dbd454eaa06d95a09d181a97a87aedafa2a9747fa835ad626cdef"
+    },
+    {
+      "path": "expr/evaluator.ts",
+      "sha256": "8d9a7307cfdb231df935597c92dc3d724d9fee835a0da76c7cf869e47a24c722"
+    },
+    {
+      "path": "expr/parser.ts",
+      "sha256": "9c321982934957139b458c48e12fce5f4fa318287bcd9c089ff19023d8b9c2aa"
+    },
+    {
+      "path": "index.ts",
+      "sha256": "6e31f04d74b2640cb917f4913542ab3163d873667a415a80f209d2a088b4fac2"
+    },
+    {
+      "path": "model/facets.ts",
+      "sha256": "ce35cc2b01eb055c540b8d556d76e7dd54aaf2646743714166521977943a9ddb"
+    },
+    {
+      "path": "model/factory.ts",
+      "sha256": "9a9231687ca0f202df8fff0249cd238c96812eb985dda464452ae3e58940551f"
+    },
+    {
+      "path": "model/library.ts",
+      "sha256": "e88b461be4f8cd2f48205d24a4bca42d0eb197daa2c827018fb03922af97ea6d"
+    },
+    {
+      "path": "model/shape.ts",
+      "sha256": "c4c9fedb8b2dcde118a67f2350e6767b247bdc4ec155533cc742cf60b8d21df8"
+    },
+    {
+      "path": "model/types.ts",
+      "sha256": "0d1d5c7b80cdf8d1d21d07914b7d402b90cd7ca32f1fd2559c7d3c834c06070a"
+    },
+    {
+      "path": "model/units.ts",
+      "sha256": "1e8980046a0b13eb16392ac94ad9b0a7593783c545b1e463a76257560b490a8f"
+    },
+    {
+      "path": "resolve/decision.ts",
+      "sha256": "7f84371b1a85d7d327dab15c252dce15bf01a7a7dddff5dded3bff4bd0dd6ff9"
+    },
+    {
+      "path": "resolve/formCsv.ts",
+      "sha256": "77103eca19c8e2f5dfa58fd86ed33fe5771ada129286485152613230468317d0"
+    },
+    {
+      "path": "resolve/resolve.ts",
+      "sha256": "07b06a9c43f8eae59cfa04fc864ff5e4d1e671f4badccf8289c5c5266e507d00"
+    },
+    {
+      "path": "resolve/rules.ts",
+      "sha256": "1ca4f4d7fa0d5f98c16b325b7329ceb0544821bc76c95caf19f5055d16e576b2"
+    },
+    {
+      "path": "validate/validator.ts",
+      "sha256": "146d38baafc977d3d8350c9446aa63d2e66e170f9584ca580020f45a33507763"
+    }
+  ]
+}
