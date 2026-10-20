@@ -2,7 +2,7 @@
 id: "20261016-kit-workflows-live-preview"
 title: "Kit AoV 彙整與真實選配預覽"
 status: "in_progress"
-owner: "claude"
+owner: "codex"
 reviewer: "claude"
 priority: "high"
 created_by: "codex"
@@ -266,3 +266,30 @@ WP4b（Claude）：以 Docker 實際啟動、驗證每個納入 Kit 的真實 AP
 | R05 | 低 | 預覽的測試不在 `npm test` 內 | 先寫入 README；是否納入 npm script 需改 `package.json`，另行決定 |
 
 結論：WP4a 的程式經修正後通過；WP4b 部分完成（啟動、真實寫入、重置已驗證；T9、T10 缺口待決）。WP5（依有效選配開放功能並拒絕直接呼叫）與 WP6（切換選配、獨立選配建置驗收）尚未開始。畫面上的「模擬資料」標籤維持不變。
+
+## 2026-10-20 WP4c 派工：T1 通用模型與 T9 種子（Claude）
+
+user 決定（D107）：T1 為 `import-pipeline-kit` 的 P1／P2／P3 分支建立通用紀錄模型；T9 補 `table_registry` 種子；T10 已由 Claude 完成（組裝補丁，煙霧測試 16/17）。
+
+**預計完成時間：2026-10-20 18:00。** 到期未完成由 Claude 接手。分支 `feature/preview-gaps`。Codex 只寫程式，容器實測由 Claude 執行。
+
+### T9 預覽種子（先做）
+
+1. 目標：讓 `POST /api/v2/import/jobs` 對一張合成的「通用表」能建立工作、查詢、查錯誤、提交，資料真的寫進資料庫並能讀回。基線的 `import_v2.py` 有 `schema_driven` 路徑會把資料列寫進通用紀錄（`generic_records`）；該路徑要求 `table_registry` 有資料列，且有對應 `schema_versions`（含 `header_fingerprint` 與 `schema_json`）。請讀 `kits/import-pipeline-kit/src/backend/app/services/import_v2.py`、`kits/platform-core-kit/src/backend/app/services/csv_field_mapper.py`、`models/core/schema_registry.py`、`models/generic_record.py`，確認需要哪些資料列與 fingerprint 計算方式。
+2. 種子放在 `services/preview/app/preview_seed.py`（擴充現有命令，或新增 `--tables` 選項，可重複執行、冪等）：建立一張合成通用表（名稱與欄位自訂，例如 `demo-lots`，欄位用通用名稱，不得出現任何來源案例的名稱、欄位語意或數值）及其 schema 版本。
+3. 更新 `services/preview/smoke.mjs`：把「建立匯入工作並查詢」由 GAP 改為真實流程（建立、查詢、查錯誤、提交、讀回資料列），並移除對應的 `knownGap`。
+
+### T1 通用 P1／P2／P3 模型
+
+1. 現況：`import_v2.py` 約 870 至 1100 行的 P1／P2／P3 分支延遲匯入 `app.models.p1_record`、`p2_record`、`p2_item_v2`、`p3_record`、`p3_item_v2`，這五個模組沒有來源，預覽目前以 `preview_support.reject_table_code` 回 501。
+2. 做法：依程式**實際使用**的屬性、建構參數與查詢條件推導欄位（掃描 `import_v2.py`、`routes_import_v2.py`、其他 kit 對這些類別的引用），在預覽覆蓋層建立這五個模組，模組路徑與類別名稱必須與匯入語句完全一致，並被 `Base.metadata.create_all` 註冊。欄位用通用型別與名稱，只含程式實際用到的欄位，每個欄位在 Codex Notes 列出依據的程式位置；程式沒用到的不要自創。
+3. 移除預覽對 P1／P2／P3 的 501 阻擋（`preview_support` 與 `assemble.mjs` 的對應補丁），但不得放寬其他安全檢查；`table_registry` 需有 `P1`、`P2`、`P3` 三列種子（同上，冪等）。
+4. 更新煙霧測試：P1／P2／P3 各以合成的最小 CSV 走建立工作與提交，驗證不再是 501；內容為通用合成資料。
+5. 若推導出的欄位只靠猜測才能完成（程式沒有足夠資訊），停止並在 Codex Notes 寫明哪些欄位缺依據，不得自創。
+
+### 限制與停止條件
+
+- 不修改 `kits/` 既有檔案（含基線複製檔）、`schemas/`、`config/`、`libs/`、`package*.json`；不新增 npm 依賴；Python 依賴不變（需要新增時停止並寫明）。
+- 不連網、不執行 Docker、不啟動伺服器、不執行 git 寫入。
+- 合成資料不得含來源案例的任何真實名稱、欄位語意或數值。
+- 驗證指令：`npm.cmd run typecheck`、`npm.cmd test`、`npm.cmd run build`，以及 `node --test services/preview/tests/preview.test.mjs`、`python -I services/preview/tests/test_static.py`；結果（含失敗與略過）如實記錄於 Codex Notes；thread status 維持 in_progress、owner 改 claude。
