@@ -24,11 +24,13 @@ def validate_recipe(recipe, catalog, schema):
         if not item["available"]:
             warnings.append(f"{kit}：預覽無來源")
         elif not item["assembled"]:
-            errors.append(f"{kit}：未納入此映像，請重新組裝")
+            warnings.append(f"{kit}：未納入此映像，請重新組裝")
         for dependency in item["dependencies"]:
             target = catalog["kits"].get(dependency)
             if target and not target["available"]:
                 warnings.append(f"{kit} 依賴 {dependency}：預覽無來源，依賴未滿足")
+            elif target and not target["assembled"]:
+                warnings.append(f"{kit} 依賴 {dependency}：未納入此映像，依賴未滿足")
             elif dependency not in enabled:
                 errors.append(f"{kit} 缺少依賴 {dependency}")
     for kit, selected in recipe.get("selectedSubfeatures", {}).items():
@@ -137,8 +139,9 @@ class Gate:
         return {"mode": "recipe" if self.recipe else "all", "enabledKits": enabled,
                 "selectedSubfeatures": self.recipe.get("selectedSubfeatures", {}) if self.recipe else {},
                 "allowed": allowed, "denied": denied,
-                "unavailable": [{"kit": kit, "reason": "預覽無來源"} for kit, item in self.catalog["kits"].items()
-                                if not item["available"]],
+                "unavailable": [{"kit": kit, "reason": "預覽無來源" if not item["available"] else "未納入此映像"}
+                                for kit, item in self.catalog["kits"].items()
+                                if not item["available"] or not item["assembled"]],
                 "warnings": self.warnings}
 
 

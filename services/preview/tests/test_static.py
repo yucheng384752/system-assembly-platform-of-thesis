@@ -127,8 +127,9 @@ class GateTests(unittest.TestCase):
         catalog = copy.deepcopy(self.catalog)
         catalog["kits"]["analytics-kit"]["assembled"] = False
         gate = policy.Gate(catalog, self.schema, self.state)
-        with self.assertRaisesRegex(ValueError, "未納入此映像"):
-            gate.replace(self.recipe)
+        gate.replace(self.recipe)
+        self.assertTrue(any("analytics-kit：未納入此映像" in w for w in gate.warnings))
+        self.assertIn({"kit": "analytics-kit", "reason": "未納入此映像"}, gate.snapshot()["unavailable"])
         self.assertEqual(gate.capability("analytics.trend")["detail"], "未納入此映像")
 
     def test_asgi_denies_before_handler_and_keeps_json_contract(self):

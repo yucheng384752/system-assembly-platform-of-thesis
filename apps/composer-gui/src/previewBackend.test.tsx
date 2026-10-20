@@ -33,6 +33,12 @@ describe('probeBackend', () => {
 
 // D116/D118: the badge says real preview only when every condition holds; removing any one falls back to mock data.
 describe('kitMode', () => {
+  it('marks only the kit left out of the image and keeps the others live (D120)', () => {
+    const state = live({ capabilities: caps({ unavailable: [{ kit: 'query-traceability-kit', reason: '未納入此映像' }] }) });
+    expect(kitMode(state, 'query-traceability-kit')).toMatchObject({ live: false, note: expect.stringContaining('未納入此映像') });
+    expect(kitMode(state, 'generic-forms-kit').live).toBe(true);
+    expect(kitMode(state, 'upload-validation-kit').live).toBe(true);
+  });
   it('is live for a first-batch kit when all four conditions hold', () => {
     for (const kit of ['generic-forms-kit', 'upload-validation-kit', 'query-traceability-kit']) expect(kitMode(live(), kit).live).toBe(true);
   });
