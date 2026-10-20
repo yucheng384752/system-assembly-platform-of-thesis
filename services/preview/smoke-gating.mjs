@@ -103,6 +103,15 @@ await check('預覽不可用的 Kit 可隨 Recipe 套用，但被標為不可用
   return [r.status === 200 && unavailable.includes('entry-permission-kit') && (s.warnings ?? []).length >= 0, `status ${r.status}; unavailable ${unavailable.join(', ')}; warnings ${(s.warnings ?? []).length}`];
 });
 
+await check('含生產設定（productionSettings，D111）的 Recipe 依目前 schema 通過，結構錯誤被拒絕', async () => {
+  const settings = { version: 1, formats: [{ id: 'f1', name: '標準', pattern: '{產品}-{日期}-{流水號}' }], defaultFormatId: 'f1',
+    products: [{ id: 'p1', name: '產品甲', formatId: 'f1', formId: 'form-1', fieldId: 'field-1', lower: 1, upper: 5, unit: 'mm' }] };
+  const ok = await call('PUT', '/_preview/recipe', { headers: admin, json: { ...recipe(back.kits), productionSettings: settings } });
+  const badVersion = await call('PUT', '/_preview/recipe', { headers: admin, json: { ...recipe(back.kits), productionSettings: { ...settings, version: 2 } } });
+  const extra = await call('PUT', '/_preview/recipe', { headers: admin, json: { ...recipe(back.kits), productionSettings: { ...settings, unknown: true } } });
+  return [ok.status === 200 && badVersion.status === 422 && extra.status === 422, `有效 ${ok.status}；版本錯誤 ${badVersion.status}；多餘欄位 ${extra.status}`];
+});
+
 await check('DELETE 回到 all 模式', async () => { const r = await call('DELETE', '/_preview/recipe', { headers: admin }); const f = await call('GET', '/api/forms'); return [r.body?.mode === 'all' && f.status === 200, `mode ${r.body?.mode}, forms ${f.status}`]; });
 
 const failed = rows.filter(r => !r.ok);
