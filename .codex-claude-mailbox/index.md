@@ -4,6 +4,7 @@
 
 | ID | Title | Status | Owner | Reviewer | Updated |
 | --- | --- | --- | --- | --- | --- |
+| [20261021-p2-executable-assembly](threads/20261021-p2-executable-assembly.md) | P2 可執行組裝：可啟動的系統包（後端、前端、安裝腳本）與設定交付包合併（D124） | in_progress | claude | user | 2026-10-21 |
 | [20261020-preview-wiring](threads/20261020-preview-wiring.md) | 畫面接上預覽後端：真實預覽偵測、Recipe 推送、第一批三個畫面（D116 至 D119） | completed | claude | claude | 2026-10-20 |
 | [20261020-canvas-production-review](threads/20261020-canvas-production-review.md) | AoV 正式畫布、參數設定、逐站模擬與產業範本：接手審查與合併（D110 至 D114） | completed | claude | claude | 2026-10-20 |
 | [20261016-kit-workflows-live-preview](threads/20261016-kit-workflows-live-preview.md) | Kit AoV 與真實預覽（WP5a／WP6a 因必要依賴與組裝排除矛盾停止，待 Claude 裁定） | in_progress | claude | claude | 2026-10-20 |
