@@ -30,3 +30,13 @@
 ## 共用後端基底補齊（2026-10-19，D104）
 
 為了讓全部相容 Kit 的後端能一起啟動，自基線版組裝輸出 `dist/generated-system/backend/app` 逐檔原樣複製 15 個共用檔案進 `platform-core-kit/src/backend/app/`（清單見 `docs/preview-todo.md` 第 1 節）。不修改內容。補不齊的項目（`app.models.p1_record` 等 5 個模型、`routes_stations.py`、`routes_import.py` 等）列在 `docs/preview-todo.md` 第 2 節，必須完成或明確標示不可用。
+
+## 身分資料表與 station-data-link 來源補齊（2026-10-21，D125）
+
+user 於 2026-10-21 核准，自基線版逐檔原樣複製（內容未修改，`cmp` 與來源一致）。基線路徑相對 `C:\Users\gslab\Documents\New project\form-system-kit-composer`。
+
+- `platform-core-kit/src/backend/app/models/core/tenant_user.py`、`tenant_api_key.py`：來自 `generated/mvp-import-flow/form-analysis-server/backend/app/models/core/`（與 `build/station-data-link-genericization/assembled-legacy` 版本位元組相同）。只是資料表模型；不含身分驗證實作，不代表授權已涵蓋。補齊原因：`audit_event`、`upload_job`、`pdf_upload`、`pdf_conversion_job`、`import_job` 皆有 `ForeignKey("tenant_api_keys.id")`，`platform-core-kit` 的 `models/__init__.py` 也已引用這兩個模組。
+- `station-data-link-kit/src/backend/app/`（P1/P2/P3 相容轉接器，推翻 preview-todo T3「無來源」的前提）：
+  - 來自 `generated/.../app/`：`api/routes_import.py`、`models/{p1_record,p2_record,p2_item_v2,p3_record,p3_item_v2,base_record}.py`、`services/production_date_extractor.py`。
+  - 來自 `build/station-data-link-genericization/assembled-legacy/backend/app/`：`models/{record,p2_item,p3_item}.py`、`schemas/import_data.py`（`dist/generated-system` 版本相同）。
+- 仍補不齊：`station-admin-kit` 的 `routes_stations.py`（基線任何位置都不存在）；`entry-permission-kit` 無基線後端。兩者維持排除。
