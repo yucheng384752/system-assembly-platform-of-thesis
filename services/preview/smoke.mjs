@@ -111,14 +111,25 @@ async function importAndCommit(tableCode, header, lines, filename) {
 await check('import-pipeline-kit', '建立匯入工作並查詢', async () => {
   // Omit table_code to exercise the seeded header fingerprint, not only explicit lookup.
   const job = await importAndCommit(null, 'entry_key,value', ['preview-entry,synthetic-value'], 'entries.csv');
-  // Read back through query-traceability (a different kit). The generic-forms listing cannot be used here: a code that
-  // is both a station and a table_registry entry is treated by the baseline as a domain-backed table (T12).
+  // Read back through query-traceability (a different kit).
   const r = await call('GET', '/api/v2/query/lot/preview-entry');
   const found = Array.isArray(r.body) && r.body.some(group => group.station_code === 'preview_entries'
     && group.records?.some(row => row.lot_no_raw === 'preview-entry' && row.data?.entry_key === 'preview-entry'
       && row.data?.value === 'synthetic-value'));
   return [job.table_code === 'preview_entries' && r.status === 200 && found,
     `工作 ${job.status}, 讀回 ${r.status}, 合成列 ${!!found}`];
+});
+// T12 (D123): the same code is a station and a table_registry entry with no physical table, so the form listing and the
+// trend must read generic_records instead of a table that does not exist.
+await check('generic-forms-kit', '已登記但無實體表的代碼仍能列出匯入的資料列（T12）', async () => {
+  const r = await call('GET', '/api/forms/preview_entries/records');
+  const row = r.body?.records?.find(item => item.lot_no_raw === 'preview-entry');
+  return [r.status === 200 && r.body?.total >= 1 && row?.data?.entry_key === 'preview-entry' && row?.data?.value === 'synthetic-value',
+    `status ${r.status}, total ${r.body?.total}, 讀回 ${!!row}`];
+});
+await check('analytics-kit', '已登記但無實體表的代碼趨勢分析不崩潰（T12）', async () => {
+  const r = await call('GET', '/api/analytics/trend?code=preview_entries');
+  return [r.status === 200, `status ${r.status}`];
 });
 for (const tableCode of ['P1', 'P2', 'P3']) {
   await check('import-pipeline-kit', `${tableCode} 建立與提交（T1）`, async () => {

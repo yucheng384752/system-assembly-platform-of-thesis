@@ -51,6 +51,20 @@ export function adapt(name, text) {
     text = replaceExact(text, '        params["until"] = until', '        params["until"] = datetime.fromisoformat(until.replace("Z", "+00:00"))', 1);
     text = replaceExact(text, '            {"since": since, "tenant_id": str(tenant.id)},', '            {"since": datetime.fromisoformat(since), "tenant_id": str(tenant.id)},', 1);
   }
+  // T12 (D123): the baseline treats any code registered in table_registry as a physical domain table, so a form whose
+  // imported rows live in generic_records (registered for the import pipeline) reads as empty and breaks the trend.
+  // A code now counts as domain-backed only when its physical table also exists; real domain tables behave as before.
+  const physical = variable => `func.to_regclass('"' + ${variable} + '"').isnot(None)`;
+  if (name === 'app/api/routes_generic_forms.py') {
+    text = replaceExact(text, 'select(TableRegistry.id).where(TableRegistry.table_code == code).limit(1)',
+      `select(TableRegistry.id).where(TableRegistry.table_code == code, ${physical('code')}).limit(1)`, 1);
+  }
+  if (name === 'app/core/db_capabilities.py') {
+    text = replaceExact(text, 'select(TableRegistry.table_code).where(TableRegistry.table_code == station_code)',
+      `select(TableRegistry.table_code).where(TableRegistry.table_code == station_code, ${physical('station_code')})`, 1);
+    text = replaceExact(text, 'select(TableRegistry.id).where(TableRegistry.table_code == station_code)',
+      `select(TableRegistry.id).where(TableRegistry.table_code == station_code, ${physical('station_code')})`, 1);
+  }
   const checks = {
     'app/core/kit_broker.py': [
       ['    payload = payload or {}', '    require_access("platform-core-kit", capability)'],

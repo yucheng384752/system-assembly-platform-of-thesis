@@ -61,6 +61,22 @@ test('T10: log timestamps are bound as datetimes while the response keeps its IS
   assert.throws(() => adapt('app/api/routes_logs.py', ''), /來源已變更/);
 });
 
+test('T12: a registered code is domain-backed only when its physical table exists, and drifted sources fail closed', async () => {
+  const sources = {
+    'app/api/routes_generic_forms.py': 'kits/generic-forms-kit/src/backend/app/api/routes_generic_forms.py',
+    'app/core/db_capabilities.py': 'kits/platform-core-kit/src/backend/app/core/db_capabilities.py',
+  };
+  const expected = { 'app/api/routes_generic_forms.py': 1, 'app/core/db_capabilities.py': 2 };
+  for (const [name, source] of Object.entries(sources)) {
+    const original = (await readFile(path.join(repository, source), 'utf8')).replaceAll('\r\n', '\n');
+    const patched = adapt(name, original);
+    assert.equal(patched.split('func.to_regclass(\'"\' + ').length - 1, expected[name], name);
+    // The bare registry lookup is gone everywhere, so a registered code without a physical table cannot be domain-backed.
+    assert.ok(!/select\(TableRegistry\.(id|table_code)\)\.where\(TableRegistry\.table_code == (code|station_code)\)/.test(patched), name);
+    assert.throws(() => adapt(name, ''), /來源已變更/, name);
+  }
+});
+
 test('T1 removes only preview rejection and registers all compatibility models', async () => {
   for (const name of ['api/routes_import_v2.py', 'services/import_v2.py']) {
     const original = await readFile(path.join(repository, 'kits/import-pipeline-kit/src/backend/app', name), 'utf8');
