@@ -156,6 +156,11 @@ test('policy metadata uses catalog replacements, unavailable kits and workflow b
   assert.deepEqual(policy.capabilities['db.edit-reasons.validate'].subfeatures,
     [{ kit: 'audit-edit-kit', feature: 'edit-reason' }]);
   assert.equal(policy.capabilities['stations.manage'].kit, 'station-admin-kit');
+  // D121: declared-only endpoints stay closed; the preview's own /healthz is not one of them.
+  assert.equal(policy.capabilities['subscriptions.manage'].unverified, true);
+  assert.equal(policy.capabilities['query.records.search'].unverified, true);
+  assert.equal(policy.capabilities['platform.health'].unverified, undefined);
+  assert.equal(policy.capabilities['subscriptions.sync'].unverified, undefined);
 });
 
 test('recipe assembly only copies selected backends, invokes Python validation and closure, and stays deterministic', async () => {

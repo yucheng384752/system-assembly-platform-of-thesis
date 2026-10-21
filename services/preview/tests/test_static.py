@@ -123,6 +123,17 @@ class GateTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             policy.Gate(self.catalog, self.schema, self.state)
 
+    def test_declared_but_unverified_endpoint_stays_closed(self):
+        catalog = copy.deepcopy(self.catalog)
+        self.assertTrue(catalog["capabilities"]["subscriptions.manage"]["unverified"])
+        catalog["kits"]["mod-subscription-kit"]["assembled"] = True
+        gate = policy.Gate(catalog, self.schema, self.state)
+        self.assertEqual(gate.capability("subscriptions.manage")["detail"], "契約已宣告但原始碼沒有對應實作")
+        self.assertEqual(gate.request("GET", "/api/mod-subscription")["detail"], "契約已宣告但原始碼沒有對應實作")
+        # The verified sibling endpoint of the same kit is unaffected.
+        self.assertIsNone(gate.capability("subscriptions.sync"))
+        self.assertIn("subscriptions.manage", [d["capability"] for d in gate.snapshot()["denied"]])
+
     def test_image_cannot_enable_omitted_executable_kit(self):
         catalog = copy.deepcopy(self.catalog)
         catalog["kits"]["analytics-kit"]["assembled"] = False

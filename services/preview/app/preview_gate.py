@@ -91,6 +91,8 @@ class Gate:
             reason = "預覽無來源"
         elif not item["assembled"]:
             reason = "未納入此映像"
+        elif capability and self.catalog["capabilities"].get(capability, {}).get("unverified"):
+            reason = "契約已宣告但原始碼沒有對應實作"
         elif self.recipe is not None:
             if kit not in self.recipe["enabledKits"]:
                 reason = "Kit 未開放"
