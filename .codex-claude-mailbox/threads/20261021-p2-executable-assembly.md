@@ -42,7 +42,7 @@ Composer 依 Recipe 產出一份可交付給 client 的壓縮檔，解壓後以�
 
 | 編號 | 假設 | 依據 | 狀態 |
 |---|---|---|---|
-| A1 | 「所有已紀錄 Kit」= 13 個 Kit 中有可執行來源者共 9 個。排除 4 個：`tenant-auth-kit`（D03 已廢除）、`station-admin-kit`（T2，基線任何位置都沒有 `routes_stations.py`）、`station-data-link-kit`（T3，缺 `routes_import.py`）、`entry-permission-kit`（僅契約，無 backend）。這 4 個列入系統包 manifest 的 `notIncluded` 並逐項寫原因，不虛構程式碼 | `docs/preview-todo.md` T2/T3、`kits/BASELINE.md`、預覽 README 納入清單 | 待確認 |
+| A1 | 「所有已紀錄 Kit」= 13 個 Kit 中有可執行來源者共 9 個（D125 補上 station-data-link 後為 10 個，見 Claude Notes）。排除 4 個：`tenant-auth-kit`（D03 已廢除）、`station-admin-kit`（T2，基線任何位置都沒有 `routes_stations.py`）、`station-data-link-kit`（T3，缺 `routes_import.py`）、`entry-permission-kit`（僅契約，無 backend）。這 4 個列入系統包 manifest 的 `notIncluded` 並逐項寫原因，不虛構程式碼 | `docs/preview-todo.md` T2/T3、`kits/BASELINE.md`、預覽 README 納入清單 | 已更新：D125 後納入 10 個，排除 3 個（tenant-auth、station-admin、entry-permission） |
 | A2 | 安裝形式為命令列安裝腳本（`install.ps1`／`install.sh`，互動詢問必要參數），不做圖形安裝精靈。執行環境為 Docker Compose（預覽已驗證的 Dockerfile、PostgreSQL 16、固定版本），由反向代理容器提供前端並轉送 API；資料庫不發布到宿主埠 | 預覽已有可運作的容器組態；spec D45 要求後端只經反向代理、不直接對外 | 已確認（2026-10-21 user：Docker 可用） |
 | A3 | 授權與簽章沿用既有 `scripts/security/*`（D37–D45）；系統包內含 `verify-package` 的等價檢查，安裝前必須通過 | spec 12.2 | 沿用 |
 | A4 | 預覽專用項目不進系統包：`COMPOSER_PREVIEW=1`、固定預覽 DB 密碼、`preview_seed`、假外部服務、閘門的預覽模式。正式包的外部服務與秘密值一律走 `.env` 外部來源（`secret_ref`），不寫進包內 | CLAUDE.md 安全基準線 | 沿用 |
@@ -328,3 +328,23 @@ Codex 在 2 分鐘內依停止條件停止，未寫任何程式；完成通知�
 結論：除廢除者外的 3 個 Kit，**station-data-link 可補上來源（T3）；station-admin 只能重新實作；entry-permission 只能新設計**。另外 T1 的前提錯誤使 D107 的自建模型可由真實模型取代。以上補檔會修改 `kits/`，需 user 決定（見回報）。
 
 環境：Codex 沙箱內 `python` 是 WindowsApps 別名無法執行；Claude 的 shell 有 Python 3.13，Python 檢查與 Docker 驗證由 Claude 執行。
+
+## 2026-10-21 user 決議與前置處理（Claude，commit c500001、84a07cd、d5eeeef）
+
+user 三項皆同意並核准前端依賴：
+
+1. 補 `tenant_user.py`、`tenant_api_key.py` 進 `kits/platform-core-kit`（commit c500001）。
+2. 補 `station-data-link-kit` 原始碼，並以基線真實 P1/P2/P3 模型取代 D107 自建模型（commit 84a07cd、d5eeeef）。
+3. `station-admin-kit`、`entry-permission-kit` 維持排除。
+4. 前端新增依賴核准：`react-i18next` 15.0.2、`i18next` 23.15.2、`i18next-browser-languagedetector` 8.0.0、`lucide-react` 0.460.0、`@vitejs/plugin-react` 4.4.1，另系統前端獨立 package/lock 採 `vite` 6.0.5、`typescript` 5.7.2、`@types/react` 18.3.12、`@types/react-dom` 18.3.1（以基線 `dist/generated-system/frontend` 的 package.json 與 lock 為準，不動 Composer 根目錄 lock）。
+
+**驗證（Claude 實測）：** `kits/` 的檔案逐檔取自基線；預覽組裝 82 個 Python 模組閉包通過；Docker 全量映像煙霧 24/24（新增 `POST /api/import` 轉接器實測）、領域表回歸 2/2、選配閘門 13/13；Python 靜態 19 項、Node 12 項、`npm test` 498 通過 1 略過、typecheck 通過。
+
+**與計畫的差異（規則 7、12）：**
+
+- 最小可獨立集合：station-data-link 成為可用 Kit 後，Recipe 驗證器要求依賴閉包，由 D122 的 3 個變為 6 個（platform-core、generic-forms、audit-edit、station-data-link、upload-validation、import-pipeline），且沒有任何可選匯入缺口。WP1 的「最小案例」改用這 6 個。
+- 基線行為記錄：`POST /api/import` 會匯入驗證工作的全部列，不剔除驗證器標為無效的列，未修改。
+- 刪除了預覽的 5 個相容模型檔與 `tenant_api_keys` 空表（git 可還原）。
+- 預覽 `app.models` 不再有預覽覆蓋層；WP1 輸出不得再引用 `services/preview/app/models/`。
+
+WP1 的停止條件已解除，重新派工。
