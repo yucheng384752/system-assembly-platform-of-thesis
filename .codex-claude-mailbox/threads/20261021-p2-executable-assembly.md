@@ -43,7 +43,7 @@ Composer 依 Recipe 產出一份可交付給 client 的壓縮檔，解壓後以�
 | 編號 | 假設 | 依據 | 狀態 |
 |---|---|---|---|
 | A1 | 「所有已紀錄 Kit」= 13 個 Kit 中有可執行來源者共 9 個。排除 4 個：`tenant-auth-kit`（D03 已廢除）、`station-admin-kit`（T2，基線任何位置都沒有 `routes_stations.py`）、`station-data-link-kit`（T3，缺 `routes_import.py`）、`entry-permission-kit`（僅契約，無 backend）。這 4 個列入系統包 manifest 的 `notIncluded` 並逐項寫原因，不虛構程式碼 | `docs/preview-todo.md` T2/T3、`kits/BASELINE.md`、預覽 README 納入清單 | 待確認 |
-| A2 | 安裝形式為命令列安裝腳本（`install.ps1`／`install.sh`，互動詢問必要參數），不做圖形安裝精靈。執行環境為 Docker Compose（預覽已驗證的 Dockerfile、PostgreSQL 16、固定版本），由反向代理容器提供前端並轉送 API；資料庫不發布到宿主埠 | 預覽已有可運作的容器組態；spec D45 要求後端只經反向代理、不直接對外 | 待確認：client 現場是否允許 Docker |
+| A2 | 安裝形式為命令列安裝腳本（`install.ps1`／`install.sh`，互動詢問必要參數），不做圖形安裝精靈。執行環境為 Docker Compose（預覽已驗證的 Dockerfile、PostgreSQL 16、固定版本），由反向代理容器提供前端並轉送 API；資料庫不發布到宿主埠 | 預覽已有可運作的容器組態；spec D45 要求後端只經反向代理、不直接對外 | 已確認（2026-10-21 user：Docker 可用） |
 | A3 | 授權與簽章沿用既有 `scripts/security/*`（D37–D45）；系統包內含 `verify-package` 的等價檢查，安裝前必須通過 | spec 12.2 | 沿用 |
 | A4 | 預覽專用項目不進系統包：`COMPOSER_PREVIEW=1`、固定預覽 DB 密碼、`preview_seed`、假外部服務、閘門的預覽模式。正式包的外部服務與秘密值一律走 `.env` 外部來源（`secret_ref`），不寫進包內 | CLAUDE.md 安全基準線 | 沿用 |
 | A5 | T12 補丁（已登記且實體資料表存在）與 T13 外鍵閉包／可選匯入檢查，必須在系統包組裝帶入並有測試 | D122、D123 | 沿用 |
@@ -93,8 +93,50 @@ Composer 依 Recipe 產出一份可交付給 client 的壓縮檔，解壓後以�
 
 # Codex Notes
 
-（待 Codex 填寫）
+## 2026-10-21 WP1：停止條件回報，未完成實作
+
+- 已完整閱讀本 thread、spec 第 12 節、預覽組裝及檢查器；依 WP1「某個 Kit 的正式（非預覽）啟動必須依賴被排除的預覽項目」停止實作。未自行把預覽相容空表升格為正式資料模型。
+- 具體依賴：`upload-validation-kit` 的 `upload_job.py:72,89`、`pdf_upload.py:56`、`pdf_conversion_job.py:116`，`audit-edit-kit` 的 `models/core/audit_event.py:30`，以及 `import-pipeline-kit` 的 `import_job.py:66,80`，均有 `ForeignKey("tenant_api_keys.id")`。搜尋 kits 的 Python 來源沒有找到此表的實作；platform-core 的 models/__init__.py 仍引用缺失的 core.tenant_api_key。
+- 現行組裝唯一補足來源為 `services/preview/app/preview_support.py:22` 的單欄空表。該檔明示 preview-only、待正式 identity 核准後替換；同檔 require_preview 綁定 COMPOSER_PREVIEW、固定 DB 密碼與假 MOD 服務。`services/preview/README.md:81` 也明示此表不代表驗證模型或授權有效。直接複製違反 A4；移除空表則依 check_tree.py 的 T13 規則產生缺失外鍵目標。抽出並正式採用該相容表需要明確決策，不能靠改名自行視為已解決。
+
+### 變更摘要與檔案清單
+
+- 只更新本 thread 的 Codex Notes；沒有新增 services/package，也沒有修改 services/preview/assemble.mjs。
+- 未修改 kits、schemas、libs、apps、規格、決議或 TODO；開始時即存在的 TODO.md 修改保留。未寫入 .git、未 add/commit，未使用 Docker、網路或安裝依賴。
+- 暫存診斷樹建立於 services/preview/.wp1-stop-*，finally 已清除；既有測試建立的暫存樹亦由測試清除。未更改 thread 狀態與 mailbox index（依本次路徑限制）。
+
+### 驗證方式與實際結果（含失敗）
+
+- `node --test services/preview/tests/preview.test.mjs`：退出碼 0，12/12 通過（含既有 T12、來源錨點拒絕與預覽組裝回歸）。測試中的 Docker 呼叫是 stub，未執行 Docker。
+- `npm.cmd run typecheck`：退出碼 0，兩份 tsconfig 檢查通過。
+- `python -B -m unittest discover -s services/preview/tests -p test_static.py`：退出碼 1，Python 尚未啟動，WindowsApps/python.exe 回報「指定的登入工作階段不存在。可能已被終止」。不是 Python 測試斷言失敗，不宣稱通過。
+- `node --test services/package/tests`：退出碼 1，Could not find services/package/tests；觸及停止條件後未建立套件實作或測試，不宣稱 WP1 驗收通過。
+- 診斷腳本以現有 assemble 建立全量暫存副本，原計畫先跑 check_tree.py，再刪去副本中 tenant_api_keys 的 Table 宣告重跑：第一次 Python 呼叫即失敗 `spawnSync python UNKNOWN`，退出碼 1；因此未到達刪除宣告的變異步驟，也沒有取得 T13 動態失敗結果。此處結論依據來源與檢查器規則，並非已成功執行的變異測試。
+- 環境探查：python、python3、py 均解析至 WindowsApps alias，未找到 Local/Programs/Python 安裝可供替代。本輪不安裝新 runtime。
+- 初次 PowerShell Get-Content 使用預設編碼導致中文顯示亂碼，已改 UTF-8 重新完整讀取；兩次探查不存在的 preview/app/models/preview_support.py、subscription.py 回報路徑不存在，後續以實際檔案清單定位 preview/app/preview_support.py。這些讀取未修改檔案。
+
+### 變異與未涵蓋
+
+- 本輪沒有完成任何 WP1 變異；T12／預覽排除／notIncluded 的移除變異均未執行。既有 Node 測試中的錨點錯誤案例通過，但不等同新系統包的變異驗證。
+- 尚未實作或驗證系統包目錄樹、manifest 契約／版本／checksum、全量與最小 Recipe、輸出可重現、排除掃描與正式啟動；WP2–WP5 未執行。Python 靜態回歸亦受環境阻擋。
+- 待 user／Claude 決定：tenant_api_keys 的正式來源與資料契約，或是否明確核准將預覽空表相容層轉為正式組裝支援；若需修改 kits/schema，需另行調整派工範圍。取得決策前 WP1 維持停止，不宣稱達成 22:30 完成目標。
 
 # Claude Notes
 
 - 2026-10-21 18:40 建立分支與本計畫，派 WP1。WP2 的調查等 WP1 結束後再派，避免兩個任務同時寫本 thread。
+
+## 2026-10-21 WP1 停止後的核對（Claude）
+
+Codex 在 2 分鐘內依停止條件停止，未寫任何程式；完成通知只代表轉發結束，實際狀態以 codex-companion 為準（completed，摘要「WP1 尚未實作」）。停止理由成立，且核對基線後發現比 Codex 回報更大的事實：
+
+| 發現 | 證據（基線 `C:UsersgslabDocumentsNew projectorm-system-kit-composer`，唯讀） | 影響 |
+|---|---|---|
+| `tenant_api_keys` 的正式模型存在 | `generated/mvp-import-flow/.../app/models/core/tenant_api_key.py`（含 `tenant_user.py`、`tenant.py`、`schema_registry.py`） | WP1 阻擋可解：把真實模型補進 `kits/platform-core-kit`（比照 D104 補齊共用基底），取代預覽的單欄空表。僅是資料表，不含身分驗證實作；`tenant_users` 一併需要 |
+| P1/P2/P3 模型在基線存在 | `generated/.../app/models/{p1_record,p2_record,p2_item_v2,p3_record,p3_item_v2}.py` | **與 preview-todo T1 的前提矛盾**：T1 寫「基線任何 .py 都沒有這些模組」，D107 因此自建相容模型。需要審視 D107；系統包應使用基線真實模型 |
+| `routes_import.py`（station-data-link 的 p123 相容轉接器）存在 | `generated/.../app/api/routes_import.py`（1674 行）；`build/station-data-link-genericization/assembled-legacy` 另有 `record.py`、`p3_item.py`、`p2_item.py` | T3 的「無來源」前提不成立，可補。依賴 `services/{csv_field_mapper,production_date_extractor,product_id_generator,generic_validator}.py`、`utils/normalization.py`，generated 樹有這些檔 |
+| `routes_stations.py`（station-admin）不存在 | 全基線搜尋無此檔；`main.py` 仍 import `routes_stations` 與 `app.core.seed_stations` | T2 無法回收。可行的只有依契約（`GET /api/stations`）與 `models/station.py`（138 行）重新實作，屬新增功能，非補上來源 |
+| `entry-permission-kit` 本來就無後端 | 基線 kits 目錄沒有此 Kit，是 D03 的新 Kit | 需要新設計，不是補檔 |
+
+結論：除廢除者外的 3 個 Kit，**station-data-link 可補上來源（T3）；station-admin 只能重新實作；entry-permission 只能新設計**。另外 T1 的前提錯誤使 D107 的自建模型可由真實模型取代。以上補檔會修改 `kits/`，需 user 決定（見回報）。
+
+環境：Codex 沙箱內 `python` 是 WindowsApps 別名無法執行；Claude 的 shell 有 Python 3.13，Python 檢查與 Docker 驗證由 Claude 執行。
