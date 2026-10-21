@@ -19,7 +19,7 @@ docker compose -p composer-preview -f services/preview/docker-compose.yml up --b
 docker compose -p composer-preview -f services/preview/docker-compose.yml logs backend
 ```
 
-預期建置會印出 `assembly-report.json` 內容，納入 9 個 Kit、排除 4 個 Kit；靜態檢查印出 `STATIC_OK: ... Python modules; syntax and app imports closed`。啟動日誌預期出現：
+預期建置會印出 `assembly-report.json` 內容，納入 10 個 Kit、排除 3 個 Kit；靜態檢查印出 `STATIC_OK: ... Python modules; syntax and app imports closed`。啟動日誌預期出現：
 
 ```text
 PREVIEW_READY: tables created; no seed data; authentication not covered
@@ -62,7 +62,7 @@ node services/preview/preview.mjs reset
 | platform-core-kit | 納入共用基底；broker `/api/kit`、權限設定 `/api/admin/endpoint-permissions` |
 | generic-forms-kit | 納入 `/api/forms` 與 `/api/dataflows/links` |
 | upload-validation-kit | 納入上傳與驗證，組裝前綴 `/api` |
-| import-pipeline-kit | 納入 `/api/v2/import`，P1/P2/P3 使用預覽相容模型（待容器實測） |
+| import-pipeline-kit | 納入 `/api/v2/import`，P1/P2/P3 使用基線真實模型（D125，容器實測通過） |
 | query-traceability-kit | 納入 `/api/v2/query` |
 | analytics-kit | 納入 `/api/analytics` |
 | audit-edit-kit | 納入 `/api/edit` 與 `/api/audit/events` |
@@ -70,7 +70,7 @@ node services/preview/preview.mjs reset
 | mod-subscription-kit | 納入實際 `/api/mod` 四個端點；同步只連容器內假服務 |
 | tenant-auth-kit | 排除，D03 已廢除 |
 | station-admin-kit | 排除，T2 缺少 routes_stations.py |
-| station-data-link-kit | 排除，T3 缺少 routes_import.py |
+| station-data-link-kit | 納入 `/api` 的 P1/P2/P3 相容轉接器 `POST /api/import`（D125 自基線補齊 `routes_import.py` 與模型）。基線行為：重新讀取已存檔案並匯入驗證工作的全部列，不剔除驗證器標為無效的列 |
 | entry-permission-kit | 排除，僅契約／無 backend，身分授權未涵蓋 |
 
 以 reference 路由前綴為依據，實際共註冊 12 個現存 router；reference 沒列到的 generic-forms、mod-subscription、admin-permissions 依來源補列。reference 的 `routes_ut`、`traceability` 無來源，不虛構路由。自行提供 `/healthz`，不改 registry 的 `verified: false`。只複製納入 Kit 的契約到組裝根目錄供 broker 查詢；契約聲明不代表每個 capability 都能執行。backend 的管理 scripts 不作為 app 執行來源或容器入口。
@@ -78,8 +78,8 @@ node services/preview/preview.mjs reset
 以下差異全部只在組裝產物，`kits/` 與 `reference/` 唯讀：
 
 - `core/monitoring.py` 明確採 logs-ops 版本，取代 platform-core 的 no-op，符合檔案自身說明；不啟動遠端 heartbeat。
-- 重建 `models/__init__.py`，載入現有模型，排除基線匯出但不存在的 analytics_mapping、validation_rule、tenant_user、tenant_api_key。為既有可空稽核外鍵建立只有 UUID 主鍵的 `tenant_api_keys` 空表；不製造驗證模型、使用者或金鑰，不宣稱授權有效。
-- D107：五個 P1/P2/P3 相容模型放在預覽覆蓋層，依基線實際使用的屬性建欄位並全部註冊至 models/__init__.py。逐欄依據見 mailbox thread 的 WP4c Codex Notes。
+- 重建 `models/__init__.py`，載入現有模型，排除基線匯出但不存在的 analytics_mapping、validation_rule。D125 起 `tenant_users`、`tenant_api_keys` 使用基線真實模型（自 `kits/platform-core-kit`），不再有預覽空表；只有資料表，沒有身分驗證實作，不製造使用者或金鑰，不宣稱授權有效。
+- D107 的 P1/P2/P3 預覽相容模型已於 D125 移除，改用基線真實模型（`kits/station-data-link-kit`）；D107 當時的前提「基線沒有這些模組」不成立。
 - 移除 T1 專用 501 補丁及 fallback；組裝後 import 路由與服務保持基線內容，其他檢查不變。T10 日期補丁仍要求錨點吻合，來源漂移即停止。
 - `app.main` 是新入口，不載入 baseline-main、不啟動正式授權或 bootstrap。啟動必須符合 `COMPOSER_PREVIEW=1`、固定預覽 DB、固定本機 MOD URL 及外部服務關閉條件。
 

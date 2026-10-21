@@ -9,7 +9,6 @@ export const repository = path.resolve(directory, '../..');
 const excluded = new Map([
   ['tenant-auth-kit', 'D03：已廢除，不納入身分驗證'],
   ['station-admin-kit', 'T2：缺少 routes_stations.py，無可啟動來源'],
-  ['station-data-link-kit', 'T3：缺少 routes_import.py，無可啟動來源'],
 ]);
 // Reference registry prefixes, plus three routers present only in the actual kits.
 const prefixes = new Map([
@@ -19,6 +18,7 @@ const prefixes = new Map([
   ['routes_edit', '/api/edit'], ['routes_audit_events', ''],
   ['routes_logs', '/api/logs'], ['routes_generic_forms', '/api'],
   ['routes_mod_subscription', ''], ['routes_admin_permissions', ''],
+  ['routes_import', '/api'],
 ]);
 
 /** @param {string} root @returns {Promise<string[]>} */
@@ -212,7 +212,6 @@ export async function assemble(output, kits = path.join(repository, 'kits'), opt
     }
   }
   for (const name of await files(path.join(directory, 'app'))) {
-    if (recipe && name.startsWith('models/') && !plan.included.includes('import-pipeline-kit')) continue;
     if (recipe && name === 'preview_seed.py' && !plan.included.includes('generic-forms-kit')) continue;
     if (tree.has(`app/${name}`)) throw new Error(`預覽檔案意外覆蓋 Kit：app/${name}`);
     tree.set(`app/${name}`, await readFile(path.join(directory, 'app', name)));
@@ -235,8 +234,7 @@ export async function assemble(output, kits = path.join(repository, 'kits'), opt
   }
   const report = { included: plan.included.map(kit => ({ kit, reason: '具有後端 app 來源' })),
     excluded: plan.excluded, overrides: plan.overrides,
-    adaptations: ['重建 models/__init__.py，僅載入現有模型', 'P1/P2/P3 由預覽相容模型提供，保留基線匯入檢查',
-      'preview_support 提供空 tenant_api_keys 外鍵目標，非驗證模型'],
+    adaptations: ['重建 models/__init__.py，僅載入現有模型', 'P1/P2/P3 與身分資料表使用基線真實模型（D125），不再由預覽相容層提供'],
     unavailableRoutes: ['platform.health 由預覽 /healthz 提供；registry verified 不變',
       'reference 的 routes_ut、traceability 無來源，不註冊'],
     files: [...tree].sort(([a], [b]) => a < b ? -1 : 1).map(([name, data]) => ({ path: name,

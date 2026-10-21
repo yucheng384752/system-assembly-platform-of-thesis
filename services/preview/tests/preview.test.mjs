@@ -12,8 +12,8 @@ test('actual kit inventory, deterministic assembly, closed imports and source pr
     const first = await assemble(path.join(temp, 'one'));
     const second = await assemble(path.join(temp, 'two'));
     assert.deepEqual(first, second);
-    assert.equal(first.included.length, 9);
-    assert.deepEqual(first.excluded.map(k => k.kit), ['entry-permission-kit', 'station-admin-kit', 'station-data-link-kit', 'tenant-auth-kit']);
+    assert.equal(first.included.length, 10);
+    assert.deepEqual(first.excluded.map(k => k.kit), ['entry-permission-kit', 'station-admin-kit', 'tenant-auth-kit']);
     assert.ok(first.excluded.every(k => k.reason));
     assert.equal(first.overrides.length, 1);
     const after = await inventory(path.join(repository, 'kits'));
@@ -30,7 +30,7 @@ test('actual kit inventory, deterministic assembly, closed imports and source pr
       }
     }
     const routes = JSON.parse(await readFile(path.join(temp, 'one/app/preview_registry.json'), 'utf8'));
-    assert.equal(routes.length, 12);
+    assert.equal(routes.length, 13);
     for (const item of routes) assert.ok(modules.has(item.module));
     assert.equal(routes.find(r => r.module.endsWith('routes_generic_forms')).prefix, '/api');
     assert.equal(routes.find(r => r.module.endsWith('routes_mod_subscription')).prefix, '');
@@ -91,7 +91,7 @@ test('T1 removes only preview rejection and registers all compatibility models',
     for (const model of ['p1_record', 'p2_record', 'p2_item_v2', 'p3_record', 'p3_item_v2']) {
       assert.ok(imports.includes('import app.models.' + model));
       const source = await readFile(path.join(temp, 'assembled/app/models', model + '.py'), 'utf8');
-      assert.ok(source.includes('(Base):'));
+      assert.match(source, /Base\)\s*:/);
       assert.ok(!source.includes('__getattr__'));
     }
   } finally { await rm(temp, { recursive: true, force: true }); }
@@ -162,7 +162,7 @@ test('policy metadata uses catalog replacements, unavailable kits and workflow b
   const policy = await policyData(await inventory(path.join(repository, 'kits')));
   assert.equal(Object.keys(policy.kits).length, 12);
   assert.equal(policy.kits['tenant-auth-kit'], undefined);
-  for (const kit of ['entry-permission-kit', 'station-admin-kit', 'station-data-link-kit']) {
+  for (const kit of ['entry-permission-kit', 'station-admin-kit']) {
     assert.equal(policy.kits[kit].available, false);
   }
   assert.ok(policy.kits['import-pipeline-kit'].dependencies.includes('entry-permission-kit'));

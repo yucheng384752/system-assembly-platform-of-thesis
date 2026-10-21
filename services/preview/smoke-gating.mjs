@@ -96,7 +96,7 @@ await check('切回通用表單：先前寫入的資料仍在（切換不刪資�
 });
 
 await check('預覽不可用的 Kit 可隨 Recipe 套用，但被標為不可用並回 403', async () => {
-  const kits = [...back.kits, 'entry-permission-kit', 'station-data-link-kit'];
+  const kits = [...back.kits, 'entry-permission-kit', 'station-admin-kit'];
   const r = await call('PUT', '/_preview/recipe', { headers: admin, json: recipe(kits) });
   const s = await snapshot();
   const unavailable = (s.unavailable ?? []).map(u => u.kit);

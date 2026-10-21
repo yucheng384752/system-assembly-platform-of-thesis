@@ -76,6 +76,17 @@ await check('upload-validation-kit', '批號規則：合法一列、非法一列
   return [ok, `valid ${r.body?.valid_rows}, invalid ${r.body?.invalid_rows}, error ${error?.error_code}/${error?.field}, status ${status?.body?.status}`];
 });
 
+// D125: the P1/P2/P3 compatibility adapter runs from the baseline source. The baseline re-reads the stored file and
+// imports every row of a validated job (it does not drop rows the validator flagged), so only a fully valid file is used here.
+await check('station-data-link-kit', 'P1/P2/P3 相容匯入 POST /api/import：驗證通過的檔案全數匯入（D125）', async () => {
+  const f = new FormData(); f.append('file', csv('lot_no,quantity', ['1234567_02,5']), 'adapter.csv');
+  const uploaded = await call('POST', '/api/upload', { form: f });
+  const id = uploaded.body?.process_id;
+  if (!id || uploaded.body?.valid_rows !== 1) return [false, `上傳 ${uploaded.status} ${JSON.stringify(uploaded.body).slice(0, 100)}`];
+  const r = await call('POST', '/api/import', { json: { process_id: id } });
+  return [r.status === 200 && r.body?.imported_rows === 1, `status ${r.status}, imported ${r.body?.imported_rows}, skipped ${r.body?.skipped_rows}`];
+});
+
 knownGap('系統日誌清單與摘要', 'T10 asyncpg 與日期字串');
 async function waitForJob(id, expected) {
   for (let attempt = 0; attempt < 60; attempt++) {

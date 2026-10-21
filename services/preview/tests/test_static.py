@@ -67,13 +67,11 @@ class GateTests(unittest.TestCase):
     def test_d109_typical_recipe_unavailable_and_missing_executable_dependency(self):
         self.gate.replace(self.recipe)
         snapshot = self.gate.snapshot()
-        self.assertEqual(len(snapshot["unavailable"]), 3)
+        self.assertEqual(len(snapshot["unavailable"]), 2)
         self.assertTrue(any("依賴未滿足" in w for w in snapshot["warnings"]))
         self.assertEqual(self.gate.request("GET", "/api/stations")["detail"], "預覽無來源")
         self.assertEqual(self.gate.deny("entry-permission-kit")["detail"], "預覽無來源")
-        self.assertEqual(self.gate.deny("station-data-link-kit")["detail"], "預覽無來源")
         self.recipe["enabledKits"].remove("entry-permission-kit")
-        self.recipe["enabledKits"].remove("station-data-link-kit")
         self.gate.replace(self.recipe)  # Missing unavailable dependencies warn, never block.
         self.recipe["enabledKits"].remove("upload-validation-kit")
         with self.assertRaisesRegex(ValueError, "analytics-kit 缺少依賴 upload-validation-kit"):
@@ -174,19 +172,22 @@ class GateTests(unittest.TestCase):
                                     capture_output=True, text=True, encoding="utf-8")
             return result, output
 
-        # T13: the baseline marks these imports optional and raises 501 when absent, so assembly succeeds and
-        # lists every such gap in the report instead of hiding it. Unguarded gaps still fail (GuardedImportTests).
-        result, output = assemble("minimal", ["platform-core-kit", "generic-forms-kit", "audit-edit-kit"])
+        # T13: guarded optional imports are listed in the report instead of hidden (GuardedImportTests). D125 supplied
+        # station-data-link, so the smallest dependency-closed set (audit-edit needs station-data-link, which needs
+        # upload-validation and import-pipeline) leaves no gap at all; an unreported gap would mean a silent drop.
+        result, output = assemble("minimal", ["platform-core-kit", "generic-forms-kit", "audit-edit-kit", "station-data-link-kit", "upload-validation-kit", "import-pipeline-kit"])
         self.assertEqual(result.returncode, 0, result.stderr)
         report = json.loads((output / "assembly-report.json").read_text(encoding="utf-8"))
-        self.assertTrue(any(item.endswith("optional app.models.import_job") for item in report["optionalImports"]))
+        self.assertEqual(report.get("optionalImports", []), [])
         # The core's own models reference the forms tables, and the forms tables reference the audit table.
         result, _ = assemble("core-only", ["platform-core-kit"])
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("foreign key to missing table station_schemas", result.stderr)
         result, _ = assemble("core-forms", ["platform-core-kit", "generic-forms-kit"])
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("foreign key to missing table edit_reasons", result.stderr)
+        # With station-data-link supplied (D125) the Recipe validator now reports the unmet dependency first; the
+        # foreign-key closure itself is exercised by GuardedImportTests.
+        self.assertIn("station-data-link-kit", result.stderr)
 
     def test_management_endpoints_admin_and_invalid_payload(self):
         # Exercise the real endpoint functions without importing SQLAlchemy or opening a port.
@@ -261,25 +262,6 @@ class StaticTests(unittest.TestCase):
                 del env[key]
             else:
                 env[key] = old
-
-    def test_model_fields_match_actual_callers(self):
-        source = ROOT.parents[1] / "kits/import-pipeline-kit/src/backend/app/services/import_v2.py"
-        service = ast.parse(source.read_text(encoding="utf-8"))
-        models = {"P1Record": "p1_record", "P2Record": "p2_record",
-                  "P3Record": "p3_record", "P2ItemV2": "p2_item_v2", "P3ItemV2": "p3_item_v2"}
-        for name, module in models.items():
-            tree = ast.parse((ROOT / "app/models" / (module + ".py")).read_text(encoding="utf-8"))
-            compile(tree, module, "exec")
-            cls = next(n for n in tree.body if isinstance(n, ast.ClassDef))
-            fields = {n.targets[0].id for n in cls.body if isinstance(n, ast.Assign)} - {"__tablename__"}
-            used = {kw.arg for n in ast.walk(service) if isinstance(n, ast.Call)
-                    and isinstance(n.func, ast.Name) and n.func.id == name for kw in n.keywords}
-            if name.endswith("Record"):
-                used.add("updated_at")
-            if name == "P2ItemV2":
-                used.update(["slitting_result", "sheet_width", "appearance", "rough_edge"])
-                used.update("thickness" + str(i) for i in range(1, 8))
-            self.assertEqual(fields, used, name)
 
     def test_seed_is_idempotent_and_rejects_schema_drift(self):
         # Execute the actual seed against an in-memory query seam; no DB/third-party imports.
