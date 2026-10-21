@@ -114,7 +114,9 @@ export async function policyData(plan, kits = path.join(repository, 'kits')) {
       const owner = c.implementedBy?.kitId ?? item.id;
       const previous = catalog.capabilities[c.id];
       if (previous && previous.kit !== owner) throw new Error(`能力歸屬衝突：${c.id}`);
-      catalog.capabilities[c.id] = { kit: owner, ...(c.method ? { method: c.method, path: c.path } : {}),
+      // D121: a declared endpoint with no verified implementation stays closed; /healthz is served by the preview itself.
+      const unverified = c.verified === false && c.path !== '/healthz';
+      catalog.capabilities[c.id] = { kit: owner, ...(c.method ? { method: c.method, path: c.path } : {}), ...(unverified ? { unverified: true } : {}),
         subfeatures: [...(previous?.subfeatures ?? []),
           ...(workflow?.nodes ?? []).filter(n => n.capabilityIds?.includes(c.id) && n.subfeatureId)
             .map(n => ({ kit: item.id, feature: n.subfeatureId }))] };
