@@ -121,6 +121,194 @@ Composer 依 Recipe 產出一份可交付給 client 的壓縮檔，解壓後以�
 - 尚未實作或驗證系統包目錄樹、manifest 契約／版本／checksum、全量與最小 Recipe、輸出可重現、排除掃描與正式啟動；WP2–WP5 未執行。Python 靜態回歸亦受環境阻擋。
 - 待 user／Claude 決定：tenant_api_keys 的正式來源與資料契約，或是否明確核准將預覽空表相容層轉為正式組裝支援；若需修改 kits/schema，需另行調整派工範圍。取得決策前 WP1 維持停止，不宣稱達成 22:30 完成目標。
 
+## WP2 前端調查
+
+2026-10-21，已核對分支 `feature/p2-executable-assembly`。已完整閱讀本 thread 與 Claude Notes；station-data-link 的後端來源應依 Claude 後續核對，不沿用 A1「無來源」的舊假設。本輪只寫調查，不實作。
+
+路徑縮寫：`B/` = 唯讀基線 `C:/Users/gslab/Documents/New project/form-system-kit-composer/`；`D/` = `B/dist/generated-system/frontend/`；`G/` = `B/build/station-data-link-genericization/assembled-generic/frontend/`。以下路徑均可依此還原。
+
+### 1. Kit 前端現況與完整檔案清單
+
+以下清單相對於本專案根目錄，來自實際列舉。各 frontend 均沒有 package.json、lockfile、Vite 或 tsconfig。station-admin-kit 與 upload-validation-kit 都只有 CSS；entry-permission-kit、import-pipeline-kit、mod-subscription-kit、station-data-link-kit 沒有 frontend 檔案。其他具有 TSX 原始碼，platform-core 另有 TS 共用服務。
+
+```text
+kits/analytics-kit/src/frontend/src/pages/AnalyticsPage.tsx
+kits/analytics-kit/src/frontend/src/styles/analytics-page.css
+kits/audit-edit-kit/src/frontend/src/components/EditRecordModal.tsx
+kits/audit-edit-kit/src/frontend/src/pages/EditReasonsPage.tsx
+kits/generic-forms-kit/src/frontend/src/App.tsx
+kits/generic-forms-kit/src/frontend/src/pages/DataflowPage.tsx
+kits/generic-forms-kit/src/frontend/src/pages/FormsPage.tsx
+kits/logs-ops-kit/src/frontend/src/pages/DeveloperLogsPage.tsx
+kits/platform-core-kit/src/frontend/src/components/common/Modal.tsx
+kits/platform-core-kit/src/frontend/src/components/common/ProgressBar.tsx
+kits/platform-core-kit/src/frontend/src/components/common/ToastContainer.tsx
+kits/platform-core-kit/src/frontend/src/components/common/ToastContext.tsx
+kits/platform-core-kit/src/frontend/src/components/SimpleLogViewer.tsx
+kits/platform-core-kit/src/frontend/src/components/ui/alert-dialog.tsx
+kits/platform-core-kit/src/frontend/src/components/ui/button.tsx
+kits/platform-core-kit/src/frontend/src/components/ui/input.tsx
+kits/platform-core-kit/src/frontend/src/components/ui/progress.tsx
+kits/platform-core-kit/src/frontend/src/components/ui/table.tsx
+kits/platform-core-kit/src/frontend/src/services/kitClient.ts
+kits/platform-core-kit/src/frontend/src/styles/app.css
+kits/platform-core-kit/src/frontend/src/styles/figma.css
+kits/platform-core-kit/src/frontend/src/styles/globals.css
+kits/query-traceability-kit/src/frontend/src/pages/QueryPage.tsx
+kits/query-traceability-kit/src/frontend/src/styles/query-page.css
+kits/query-traceability-kit/src/frontend/src/styles/traceability-flow.css
+kits/station-admin-kit/src/frontend/src/styles/admin-page.css
+kits/station-admin-kit/src/frontend/src/styles/manager-page.css
+kits/tenant-auth-kit/src/frontend/src/pages/ManagerPage.tsx
+kits/tenant-auth-kit/src/frontend/src/pages/RegisterPage.tsx
+kits/tenant-auth-kit/src/frontend/src/styles/manager-page.css
+kits/tenant-auth-kit/src/frontend/src/styles/register-page.css
+kits/upload-validation-kit/src/frontend/src/styles/upload-page.css
+```
+
+匯入關係（證據均為上列檔案 import）：
+
+- 不是各 Kit 作為 npm 套件互相匯入，而是預期覆蓋合併為同一 frontend/src，相對路徑才會成立。
+- generic-forms 的 App.tsx 固定匯入 UploadPage、QueryPage、RegisterPage、AdminPage、ManagerPage、AnalyticsPage、FormsPage、DataflowPage、DeveloperLogsPage、EditReasonsPage。其中 UploadPage/AdminPage 不在 kits；其他頁面分屬 query、tenant-auth、analytics、generic、logs、audit。App 同時匯入 core 的 ToastContainer/app.css，及缺失的 services/adminAuth、a11y。
+- FormsPage 執行期匯入 audit-edit 的 EditRecordModal；後者反向以 import type 引用 FormsPage 的 FieldDef/RecordRow。不能任意單獨納入其中一個 Kit。
+- audit-edit 兩個 TSX 與 tenant-auth 兩個頁面使用 core 的 ToastContext；core ToastContainer 匯入同目錄 ToastContext。EditReasonsPage 使用 manager-page.css；station-admin 與 tenant-auth 提供同名不同內容 CSS，存在覆蓋衝突。
+- AnalyticsPage、FormsPage、DataflowPage、EditRecordModal、EditReasonsPage 使用 kits 缺失的 services/auth 與 tenant；DeveloperLogsPage、ManagerPage 使用 auth；RegisterPage 另用 tenant、tenantMap、adminAuth。core 的 kitClient.ts 也匯入缺失的 ./api，因此 core 不是獨立閉包。
+- QueryPage 靜態匯入 React、react-i18next 與 query-page.css，沒有直接匯入 core 元件。tenant-auth 已廢除，保留副本不代表可恢復選用（kits/BASELINE.md）。
+
+### 2. 基線完整來源及建置方式
+
+| 位置（相對 B） | 實際現況 |
+|---|---|
+| build/station-data-link-genericization/assembled-generic/frontend | 83 檔；有 package.json、package-lock.json、index.html、vite.config.ts、tsconfig.json/app/node 三份設定；build 為 vite build |
+| dist/generated-system/frontend | 90 檔，包括 3 個 dist 產物；上述設定齊全；build 為 vite build |
+| dist/client-deploy-gui-selected-form-system/system/frontend | 與上一列 90 個檔案集合及位元組完全相同 |
+| generated/mvp-import-flow/form-analysis-server/frontend | 45 檔，只有 src；無 package.json、lockfile、index.html、Vite、tsconfig，不能獨立 npm ci/build |
+| dist/client-deploy-mvp-import-flow/system/frontend | 44 檔；有 package.json，但無 lockfile、index.html、Vite、tsconfig；宣告 build=tsc -b && vite build，設定不齊；plugin-react 為 4.3.3，其餘直接依賴版本同下表 |
+| dist/form-system-generated-package/generated/mvp-import-flow/form-analysis-server/frontend | 45 檔，同樣沒有上述建置設定 |
+| dist/form-system-generated-package/templates/frontend | 只有 package-lock.json，不是完整來源 |
+
+另有 dist/**/kits/*/src/frontend 的 Kit 片段，不等同外層 system/frontend。數量排除 node_modules/.git，列舉涵蓋 ignored/hidden 內容。
+
+依檔案完整度，兩份 D 系統前端並列最完整；建議以 D 的 87 個非 dist 檔案作為來源候選，不採舊 bundle。這是來源建議，不是已可交付或已驗證啟動的結論。
+
+G 與兩份 D 的 package.json、package-lock.json、vite.config.ts、三份 tsconfig 逐位元組相同：
+
+- scripts：dev=「vite」、build=「vite build」、preview=「vite preview」。build 沒有執行 tsc，既有 dist 不證明型別檢查通過。
+- Vite 使用 @vitejs/plugin-react；server.proxy 的 /api 指向 VITE_PROXY_TARGET 或 http://localhost:8000；build.outDir=dist，沒有指定 base。此 proxy 僅為開發設定。
+- tsconfig.json references app/node。app include src、target ES2020、lib ES2020/DOM/DOM.Iterable、module ESNext、moduleResolution bundler、jsx react-jsx、strict/noEmit/isolatedModules；node include vite.config.ts、target ES2022、lib ES2023，亦 strict/noEmit。兩者 tsBuildInfoFile 在 node_modules/.tmp；未宣告 resolveJsonModule，package 也未直接宣告 @types/node。獨立 typecheck 結果未知，不能自行認定通過或增補依賴。
+- D/src/main.tsx 建立 React root、包 ToastProvider、載入 i18n/index.css/styles/figma.css，安裝 fetchWrapper 並初始化 a11y；只複製 Kit 片段缺這些入口與共用服務。
+
+G 相對 D 缺 src/components/EditRecordModal.tsx、src/pages/FormsPage.tsx、DataflowPage.tsx、EditReasonsPage.tsx（後兩者同 pages）。六個共同檔在排除 CRLF/LF 差異後仍不同：src/App.tsx、src/pages/AnalyticsPage.tsx、src/pages/QueryPage.tsx、src/pages/upload/uploadFileAddWorkflow.ts、uploadFileUtils.ts、useUploadApi.ts（後兩者同 upload）。沒有證據判定哪份業務行為較新，不混搭猜測。
+
+本專案 Kit 前端對照 D，統一換行後只有 tenant-auth-kit 的 styles/manager-page.css 不同，其餘全部一致；D 的 manager CSS 與 station-admin 版本一致。G 的 App 只有 upload/query/analysis/register/manager/admin/logs 七個 tab；D 加 forms/dataflows/editReasons。
+
+Kit 聯集合併後，仍缺 D 以下檔案（相對 D，排除既有 dist 產物）：
+
+```text
+index.html
+package.json
+package-lock.json
+src/components/admin/AnalyticsMappingManager.tsx
+src/components/admin/StationLinkManager.tsx
+src/components/admin/StationManager.tsx
+src/components/admin/ValidationRuleManager.tsx
+src/components/CSVEditor.tsx
+src/components/FileUpload.tsx
+src/hooks/useUpload.ts
+src/i18n.ts
+src/index.css
+src/locales/en/common.json
+src/locales/zh-TW/common.json
+src/main.tsx
+src/pages/AdminPage.tsx
+src/pages/upload/BatchActionBar.tsx
+src/pages/upload/BatchImportConfirmModal.tsx
+src/pages/upload/FileDropArea.tsx
+src/pages/upload/uploadApiClient.ts
+src/pages/upload/uploadAsyncUtils.ts
+src/pages/upload/uploadBatchOrchestrator.ts
+src/pages/upload/uploadCsvEditToastUtils.ts
+src/pages/upload/uploadCsvEditUtils.ts
+src/pages/upload/uploadCsvEditWorkflow.ts
+src/pages/upload/UploadedFileCard.tsx
+src/pages/upload/uploadEligibility.ts
+src/pages/upload/uploadFileAddToastUtils.ts
+src/pages/upload/uploadFileAddUtils.ts
+src/pages/upload/uploadFileAddWorkflow.ts
+src/pages/upload/uploadFileUtils.ts
+src/pages/upload/uploadImportCleanupUtils.ts
+src/pages/upload/uploadImportToastUtils.ts
+src/pages/upload/uploadPdfConversionOrchestrator.ts
+src/pages/upload/uploadPdfConvertToastUtils.ts
+src/pages/upload/uploadProgress.ts
+src/pages/upload/uploadTypes.ts
+src/pages/upload/uploadValidationErrorUtils.ts
+src/pages/upload/uploadValidationOrchestrator.ts
+src/pages/upload/uploadValidationToastUtils.ts
+src/pages/upload/useUploadApi.ts
+src/pages/upload/useUploadWorkflow.ts
+src/pages/UploadPage.tsx
+src/services/a11y.ts
+src/services/adminAuth.ts
+src/services/api.ts
+src/services/auth.ts
+src/services/fetchWrapper.ts
+src/services/tenant.ts
+src/services/tenantMap.ts
+src/types/api.ts
+src/vite-env.d.ts
+tsconfig.app.json
+tsconfig.json
+tsconfig.node.json
+vite.config.ts
+```
+
+D/App（實際為 D/src/App.tsx）與 kits/generic-forms-kit/src/frontend/src/App.tsx 統一換行後相同：靜態匯入所有頁面，useState 預設 register，以條件運算子掛載，不用 React Router。manager 角色控制 manager/editReasons/dataflows；adminUnlocked 控制 admin；兩者任一可見 logs。最後 fallback 是 DeveloperLogsPage。只隱藏 tab 仍保留 import，刪掉未選 Kit 檔案會破壞建置；畫面控制不是後端授權驗證。
+
+### 3. 建置所需 npm 直接依賴（供核准，不安裝）
+
+基線版本經 D/package.json 與 D/package-lock.json 對照一致；本專案版本以根 package-lock.json 核對。已有不同版本不代表相容，也不建議因此降級 Composer。
+
+| 名稱 | 基線版本 | 本專案 lock | 用途與檔案證據 |
+|---|---|---|---|
+| react | 18.3.1 | 已有同版 | 各 TSX 的元件與 hooks |
+| react-dom | 18.3.1 | 已有同版 | D/src/main.tsx createRoot |
+| react-i18next | 15.0.2 | 新增，未存在 | App/QueryPage useTranslation、D/src/i18n.ts |
+| i18next | 23.15.2 | 新增，未存在 | D/src/i18n.ts 翻譯引擎 |
+| i18next-browser-languagedetector | 8.0.0 | 新增，未存在 | D/src/i18n.ts 語言偵測 |
+| lucide-react | 0.460.0 | 新增，未存在 | D/src/components/CSVEditor.tsx 圖示 |
+| @vitejs/plugin-react | 4.4.1 | 新增，未存在 | D/vite.config.ts 的 react() |
+| vite | 6.0.5 | 已有 7.3.6，不同版 | D/package.json 與 vite.config.ts 的建置工具 |
+| typescript | 5.7.2 | 已有 5.9.3，不同版 | TS 工具；D 的 build 未執行 tsc |
+| @types/react | 18.3.12 | 已有 18.3.18，不同版 | React TSX 型別 |
+| @types/react-dom | 18.3.1 | 已有 18.3.5，不同版 | React DOM 型別 |
+
+前六項為 dependencies，後五項為 devDependencies。這是完整直接依賴清單；傳遞依賴由經核准的獨立 D/package-lock.json 固定，不手動逐項安裝。TypeScript AST 檢查 D/src 的靜態 import/export，外部套件僅前六項；沒有 React Router、Axios、Tailwind 或 Radix 的靜態套件匯入，不能由 ui 檔名推定需安裝 Radix。本專案 Ajv、@xyflow/react、Vitest 不在 D 的直接依賴（兩邊 package.json）。
+
+需核准五個新增套件，以及獨立系統前端採用四個不同於 Composer lock 的基線版本；根 lock 不能直接替代 D 的 npm ci 輸入。本專案 @types/node 已有 22.20.4，但 D 未直接宣告；是否需補列以支援獨立型別檢查尚未判定，不自行新增。未使用網路，不提供版本安全性或升級相容性結論。
+
+### 4. 建議納入方式、風險與停止點
+
+以下為提案，尚未實作：
+
+1. 核准後將 D 的入口、共用來源及建置設定納入版本控制，再按 Recipe 組合 Kit，不讓交付建置依賴開發者本機 B 絕對路徑。缺失來源應歸屬哪個 Kit 需另定，不直接修改 kits。依據：上述缺檔清單、kits/BASELINE.md。
+2. 系統 frontend 採獨立 package/lock，避免干擾 Composer Vite 7。Docker builder 先複製 package/lock，再 npm ci（包含 devDependencies）、複製來源、npm run build；最終反向代理容器僅提供 frontend/dist，將 API 轉送內部後端，符合本 thread A2/A4。Node／代理映像精確版本及離線安裝資產未決定，不猜測。本輪未執行這些指令。
+3. 組裝時依已選 Kit 產生明確 import、tab 描述與掛載清單，決定有效預設頁與 fallback；缺檔或依賴不足即拒絕組裝。不能只隱藏分頁或改用任意動態 import 字串。FormsPage→EditRecordModal 執行期依賴、反向型別依賴與 manager CSS 衝突仍須解決（第 1 節檔案）。
+4. tenant-auth 已廢除，但 D 的 register/manager 與 App 權限狀態仍依賴它；entry-permission 沒有前端來源。替代入口／身分流程無法從目前檔案決定，不恢復廢除 Kit、不宣稱已有授權（kits/BASELINE.md、App、本 thread Claude Notes）。
+5. 正式 API 位址不能只套開發 proxy：D/src/services/api.ts:21 的空 VITE_API_URL 會 fallback 至 localhost:8000；services/tenant.ts 空值則採同源。照搬可能使 client 瀏覽器打到 client 本機，正式同源策略待處理。services/auth.ts 讀 VITE_API_KEY，禁止把秘密注入靜態 bundle（CLAUDE.md、thread A4）。
+6. D 的 AdminPage、components/admin/StationManager 等存在，不代表後端可用；Claude Notes 已核對 routes_stations.py 缺失。station-data-link 後端來源可補，但需另案對齊，不能把 A1 舊假設當定案。
+7. 本專案 vite.config.ts root 為 apps/composer-gui；tsconfig.json include apps/libs，不含 kits。現有 build/typecheck 不能代替系統前端驗證。核准後需驗證全量／最小 Recipe、排除 Kit 的來源閉包、獨立型別檢查與 build、API／身分流程及後端契約；UI 實作遵守 DESIGN.md，本輪未做視覺合規驗收。
+
+無法判定處已記錄並停止於調查：正式身分入口、跨 Kit 依賴拆分與 CSS 衝突政策、六個 G/D 差異檔的業務版本取捨、獨立型別檢查結果與正式映像版本皆未定。來源候選較完整不等於可直接交付。不猜測、不安裝、不繼續實作；新增依賴須依 CLAUDE.md 取得 user 核准。
+
+### 5. 修改與驗證紀錄
+
+只在本 thread 的 Codex Notes 新增本節，不改既有 WP1、Claude Notes、frontmatter 或 index。起始 TODO.md 已修改，保留原狀。
+
+唯讀檢查包含檔案列舉、設定／匯入閱讀、Node 位元組與換行正規化比較、現有 TypeScript AST 靜態 import/export 解析、package/lock 版本核對。D/src 靜態相對匯入均找到對應檔案；不涵蓋動態載入、API 執行或型別正確性。早期 regex 誤把一般字串當 import，已以 AST 修正核對。初次 Get-Content 編碼亂碼已以 UTF-8 重讀；一次 Node 診斷與一次報告組裝指令有語法錯誤，修正後重跑，失敗指令未寫檔。
+
+未執行 npm install/npm ci、build、typecheck、測試、Docker、伺服器或網路操作；未修改其他檔案，未 git add/commit。既有 dist 僅證明產物存在，不是本輪驗證結果。
+
 # Claude Notes
 
 - 2026-10-21 18:40 建立分支與本計畫，派 WP1。WP2 的調查等 WP1 結束後再派，避免兩個任務同時寫本 thread。
