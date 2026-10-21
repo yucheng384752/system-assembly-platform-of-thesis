@@ -63,6 +63,19 @@ await check('upload-validation-kit', '上傳檔案 POST /api/upload', async () =
 });
 await check('upload-validation-kit', '查詢上傳狀態', async () => { if (!processId) return [false, '缺少 process_id']; const r = await call('GET', `/api/upload/${processId}/status`); return [r.status === 200, `status ${r.status}`]; });
 
+// T11: the validation verdict, not only the wire call. A lot number is seven digits, a separator and one or two digits.
+await check('upload-validation-kit', '批號規則：合法一列、非法一列，判定與錯誤欄位正確（T11）', async () => {
+  const f = new FormData(); f.append('file', csv('lot_no,quantity', ['1234567_01,5', 'BAD-LOT,3']), 'semantic.csv');
+  const r = await call('POST', '/api/upload', { form: f });
+  const error = r.body?.sample_errors?.[0];
+  const id = r.body?.process_id;
+  const status = id ? await call('GET', `/api/upload/${id}/status`) : undefined;
+  const ok = r.status < 300 && r.body?.total_rows === 2 && r.body?.valid_rows === 1 && r.body?.invalid_rows === 1
+    && error?.field === 'lot_no' && error?.error_code === 'INVALID_FORMAT'
+    && status?.body?.valid_rows === 1 && status?.body?.invalid_rows === 1;
+  return [ok, `valid ${r.body?.valid_rows}, invalid ${r.body?.invalid_rows}, error ${error?.error_code}/${error?.field}, status ${status?.body?.status}`];
+});
+
 knownGap('系統日誌清單與摘要', 'T10 asyncpg 與日期字串');
 async function waitForJob(id, expected) {
   for (let attempt = 0; attempt < 60; attempt++) {

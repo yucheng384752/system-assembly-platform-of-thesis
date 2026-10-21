@@ -59,7 +59,7 @@
 |---|---|---|---|
 | T9（已完成 2026-10-20，D107） | `import-pipeline-kit` 建立匯入工作需要 `table_registry` 有資料列，但沒有任何程式或來源會建立；通用表單存在 `stations`，兩者是不同登錄 | 資料庫 `table_registry` 為空；建立匯入工作回 400 `Invalid table code` | 煙霧測試列為 GAP。需決定：補一份通用的 table_registry 種子與對應資料表，或預覽標示匯入管線不可用 |
 | T10（已完成 2026-10-20，D107） | `logs-ops-kit` 的 `/api/logs/summary` 回 500：程式把 ISO 日期字串傳給 asyncpg 的 timestamp 參數 | 容器日誌 `expected a datetime.date or datetime.datetime instance, got 'str'`，位於 `routes_logs.py` 的 `log_summary`（`list` 端點回 200） | 煙霧測試列為 GAP。基線複製檔不修改；可在組裝階段以補丁修正，需 user 同意 |
-| T11 | 煙霧測試只驗證端點可呼叫與資料寫入，未驗證各 Kit 的商業語意（例如上傳的驗證規則需要環境設定的合法值，測試檔 2 列皆被判為無效） | 上傳回應 `valid_rows 0, invalid_rows 2` | 屬預期，不視為失敗；語意驗證另案 |
+| T11（已完成 2026-10-21） | 煙霧測試只驗證端點可呼叫與資料寫入，未驗證各 Kit 的商業語意（例如上傳的驗證規則需要環境設定的合法值，測試檔 2 列皆被判為無效） | 上傳回應 `valid_rows 0, invalid_rows 2` | 屬預期，不視為失敗；語意驗證另案 |
 
 ### T10 完成紀錄（2026-10-20）
 
@@ -121,3 +121,7 @@
 ### T4 完成紀錄（2026-10-21）
 
 `subscriptions.manage` 與 `query.records.search` 屬契約宣告但原始碼無實作（registry `verified: false`），先前閘門會放行再由應用回 404；現在閘門直接回 403 並說明原因。`platform.health` 由預覽 `/healthz` 提供，不受影響。實測（全量映像，Docker）：煙霧測試 20/20、選配閘門 13/13；`GET /api/mod-subscription` 與 `GET /api/v2/query/records` 皆 403；已驗證的 `subscriptions.sync` 仍經本機假服務回 200。靜態測試：Node 11 項、Python 14 項通過。
+
+### T11 完成紀錄（2026-10-21）
+
+`smoke.mjs` 新增「批號規則」檢查：上傳一列合法批號（`1234567_01`）與一列非法批號（`BAD-LOT`），斷言總列數 2、合法 1、非法 1、第一筆錯誤的欄位為 `lot_no`、錯誤碼為 `INVALID_FORMAT`，且狀態查詢回傳相同的列數。實測（全量映像）21/21 通過；把期望值改錯的變異版本會失敗（20/21），確認此檢查能失敗。原有的連線層上傳檢查保留，其測試檔仍判為兩列無效，屬預期。其他 Kit 的商業語意驗證仍未涵蓋。
