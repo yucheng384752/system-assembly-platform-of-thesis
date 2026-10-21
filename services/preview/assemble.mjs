@@ -51,6 +51,20 @@ export function adapt(name, text) {
     text = replaceExact(text, '        params["until"] = until', '        params["until"] = datetime.fromisoformat(until.replace("Z", "+00:00"))', 1);
     text = replaceExact(text, '            {"since": since, "tenant_id": str(tenant.id)},', '            {"since": datetime.fromisoformat(since), "tenant_id": str(tenant.id)},', 1);
   }
+  // T12 (D123): the baseline treats any code registered in table_registry as a physical domain table, so a form whose
+  // imported rows live in generic_records (registered for the import pipeline) reads as empty and breaks the trend.
+  // A code now counts as domain-backed only when its physical table also exists; real domain tables behave as before.
+  const physical = variable => `func.to_regclass('"' + ${variable} + '"').isnot(None)`;
+  if (name === 'app/api/routes_generic_forms.py') {
+    text = replaceExact(text, 'select(TableRegistry.id).where(TableRegistry.table_code == code).limit(1)',
+      `select(TableRegistry.id).where(TableRegistry.table_code == code, ${physical('code')}).limit(1)`, 1);
+  }
+  if (name === 'app/core/db_capabilities.py') {
+    text = replaceExact(text, 'select(TableRegistry.table_code).where(TableRegistry.table_code == station_code)',
+      `select(TableRegistry.table_code).where(TableRegistry.table_code == station_code, ${physical('station_code')})`, 1);
+    text = replaceExact(text, 'select(TableRegistry.id).where(TableRegistry.table_code == station_code)',
+      `select(TableRegistry.id).where(TableRegistry.table_code == station_code, ${physical('station_code')})`, 1);
+  }
   const checks = {
     'app/core/kit_broker.py': [
       ['    payload = payload or {}', '    require_access("platform-core-kit", capability)'],
@@ -131,6 +145,7 @@ export function pythonCheck(args, input, run = spawnSync) {
   if (result.error || result.status !== 0) {
     throw new Error(`Python 預覽驗證失敗：${result.error?.message ?? result.stderr ?? result.stdout}`);
   }
+  return typeof result.stdout === 'string' ? result.stdout : '';
 }
 
 /** @param {string} kits @returns {Promise<{included: string[], excluded: {kit: string, reason: string}[], sources: Map<string, {kit: string, data: Buffer}>, overrides: string[]}>} */
@@ -232,7 +247,15 @@ export async function assemble(output, kits = path.join(repository, 'kits'), opt
     await writeFile(path.join(output, name), data);
   }
   await writeFile(path.join(output, 'assembly-report.json'), JSON.stringify(report, null, 2) + '\n');
-  if (recipe) pythonCheck([path.join(directory, 'check_tree.py'), output], undefined, options.run);
+  if (recipe) {
+    const out = pythonCheck([path.join(directory, 'check_tree.py'), output], undefined, options.run);
+    // T13: guarded imports whose target is not in the image are listed, never dropped silently.
+    const line = out.split(/\r?\n/).find(l => l.startsWith('OPTIONAL_IMPORTS: '));
+    if (line) {
+      report.optionalImports = JSON.parse(line.slice('OPTIONAL_IMPORTS: '.length));
+      await writeFile(path.join(output, 'assembly-report.json'), JSON.stringify(report, null, 2) + '\n');
+    }
+  }
   return report;
 }
 

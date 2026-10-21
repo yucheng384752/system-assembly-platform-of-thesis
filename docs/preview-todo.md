@@ -82,7 +82,7 @@
 
 | 編號 | 缺口 | 說明 |
 |---|---|---|
-| T12 | 一個代碼若同時是 station 與 `table_registry` 項目，基線把它視為「以實體資料表儲存」的領域表：通用表單的 `/api/forms/{code}/records` 查不到資料，`/api/analytics/trend?code=` 回 500（找不到同名實體資料表） | 這是種子選用同一個代碼所致，符合基線語意，不是基線缺陷。影響範圍只有這張合成表的兩個端點；讀回改走 query-traceability。若要完整支援，需為合成表建立實體資料表，另案 |
+| T12（已完成 2026-10-21，D123） | 一個代碼若同時是 station 與 `table_registry` 項目，基線把它視為「以實體資料表儲存」的領域表：通用表單的 `/api/forms/{code}/records` 查不到資料，`/api/analytics/trend?code=` 回 500（找不到同名實體資料表） | 這是種子選用同一個代碼所致，符合基線語意，不是基線缺陷。影響範圍只有這張合成表的兩個端點；讀回改走 query-traceability。若要完整支援，需為合成表建立實體資料表，另案 |
 
 ## 5. Linux 主機實測（2026-10-20，Claude 實測）
 
@@ -112,7 +112,7 @@
 
 | 編號 | 缺口 | 說明 |
 |---|---|---|
-| T13 | `platform-core-kit` 的資料庫能力延遲匯入 audit-edit-kit 與 import-pipeline-kit 的模型 | 只選「核心加通用表單」無法獨立部署；組裝階段 fail-closed 報告。最小可獨立集合含 platform-core、generic-forms、audit-edit、import-pipeline、upload-validation。若要縮小集合，需以組裝補丁處理這些延遲匯入，另案決定 |
+| T13（已完成 2026-10-21，D122） | `platform-core-kit` 的資料庫能力延遲匯入 audit-edit-kit 與 import-pipeline-kit 的模型 | 只選「核心加通用表單」無法獨立部署；組裝階段 fail-closed 報告。最小可獨立集合含 platform-core、generic-forms、audit-edit、import-pipeline、upload-validation。若要縮小集合，需以組裝補丁處理這些延遲匯入，另案決定 |
 
 ### 新 schema 重新驗證（2026-10-20）
 
@@ -125,3 +125,27 @@
 ### T11 完成紀錄（2026-10-21）
 
 `smoke.mjs` 新增「批號規則」檢查：上傳一列合法批號（`1234567_01`）與一列非法批號（`BAD-LOT`），斷言總列數 2、合法 1、非法 1、第一筆錯誤的欄位為 `lot_no`、錯誤碼為 `INVALID_FORMAT`，且狀態查詢回傳相同的列數。實測（全量映像）21/21 通過；把期望值改錯的變異版本會失敗（20/21），確認此檢查能失敗。原有的連線層上傳檢查保留，其測試檔仍判為兩列無效，屬預期。其他 Kit 的商業語意驗證仍未涵蓋。
+
+### T13 完成紀錄（2026-10-21，D122）
+
+**原判斷修正：** T13 原先寫「最小可獨立集合為 5 個 Kit」，原因是檢查器把基線標為可選的匯入也當成缺口。基線在 `db_capabilities.py` 的這些匯入都是 `try` 加 `except Exception` 加 `raise HTTPException(501)`，註解為 optional kit source。檢查器現在只放行這種形式（匯入在 `try` 主體、`except` 只捕捉 `Exception`、`ImportError`、`ModuleNotFoundError` 且最後一個敘述是 `raise`），被放行的缺口逐項列入 `assembly-report.json` 的 `optionalImports`。`except: pass`、只捕捉其他例外、無 `try`、匯入放在 `except` 或 `else` 內，仍然拒絕。
+
+**實測發現新的硬相依（字串外鍵）：** 檢查器看不到 `ForeignKey("table.column")`，所以只選核心或核心加通用表單時，組裝通過、容器啟動才以 `NoReferencedTableError` 崩潰。實測邊界：
+
+| 集合 | 結果 |
+|---|---|
+| 只選 platform-core | 失敗：`generic_records` 的外鍵指向 `stations`、`station_schemas`（通用表單） |
+| platform-core、generic-forms | 失敗：`station_schemas.reason_id` 指向 `edit_reasons`（稽核） |
+| platform-core、generic-forms、audit-edit | 啟動成功 |
+
+檢查器新增外鍵閉包：字串外鍵指向未納入的資料表時，在組裝階段拒絕並指出行號與表名。最小可獨立集合因此由 5 個降為 3 個（platform-core、generic-forms、audit-edit）。
+
+**3 個 Kit 的映像實測（Docker）：** 兩個容器 healthy；建立表單與讀回列表回 200；未納入 Kit 的路由（匯入、上傳、分析）在閘門回 403；在容器內繞過閘門直接呼叫 `list_upload_jobs`，回 501「upload jobs DB capability is not installed」，兩層保護都有效。靜態測試：Python 20 項、Node 11 項通過；變異（拿掉「必須 raise」條件）使測試失敗。
+
+### T12 完成紀錄（2026-10-21，D123）
+
+**做法（user 選 C）：** 基線以「代碼登記在 `table_registry`」判定為實體資料表，有三個判斷點：通用表單列出資料列、核心的紀錄搜尋、核心的趨勢（analytics-kit 的趨勢使用）。組裝補丁把判斷改為「已登記且實體資料表存在」（PostgreSQL `to_regclass`）。真正的領域表（有實體表）行為不變；只登記、沒有實體表者落回通用路徑，所以匯入進通用表單的資料列可從表單列表讀回，趨勢也不再查不存在的表。三處錨點不符即拒絕套用；只改預覽組裝複本，`kits/` 與設定交付包不變（P2 的可執行組裝需要同樣處理）。
+
+**實測（Docker，全量映像）：** 煙霧測試 23/23（新增兩項：`preview_entries` 的表單列表讀回匯入的資料列、趨勢回 200）；選配閘門 13/13；新增 `smoke-domain.mjs` 回歸：建立一張有實體表的登記代碼，列表與趨勢仍走實體路徑，2/2。**變異驗證：** 把補丁弱化為舊行為，T12 兩項檢查如實失敗（列表 `total 0`、趨勢 500），領域表回歸仍通過，確認檢查能抓到原問題且不誤傷領域表。3 個 Kit 的最小映像同樣啟動、建立與列出表單正常。靜態測試：Node 12 項、Python 20 項。
+
+**未涵蓋：** `to_regclass` 僅適用 PostgreSQL；`smoke-domain.mjs` 的趨勢檢查需要 analytics-kit，只在全量映像執行；P2 的可執行組裝尚未實作。
