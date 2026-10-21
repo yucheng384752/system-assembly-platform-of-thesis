@@ -112,7 +112,7 @@
 
 | 編號 | 缺口 | 說明 |
 |---|---|---|
-| T13 | `platform-core-kit` 的資料庫能力延遲匯入 audit-edit-kit 與 import-pipeline-kit 的模型 | 只選「核心加通用表單」無法獨立部署；組裝階段 fail-closed 報告。最小可獨立集合含 platform-core、generic-forms、audit-edit、import-pipeline、upload-validation。若要縮小集合，需以組裝補丁處理這些延遲匯入，另案決定 |
+| T13（已完成 2026-10-21，D122） | `platform-core-kit` 的資料庫能力延遲匯入 audit-edit-kit 與 import-pipeline-kit 的模型 | 只選「核心加通用表單」無法獨立部署；組裝階段 fail-closed 報告。最小可獨立集合含 platform-core、generic-forms、audit-edit、import-pipeline、upload-validation。若要縮小集合，需以組裝補丁處理這些延遲匯入，另案決定 |
 
 ### 新 schema 重新驗證（2026-10-20）
 
@@ -125,3 +125,19 @@
 ### T11 完成紀錄（2026-10-21）
 
 `smoke.mjs` 新增「批號規則」檢查：上傳一列合法批號（`1234567_01`）與一列非法批號（`BAD-LOT`），斷言總列數 2、合法 1、非法 1、第一筆錯誤的欄位為 `lot_no`、錯誤碼為 `INVALID_FORMAT`，且狀態查詢回傳相同的列數。實測（全量映像）21/21 通過；把期望值改錯的變異版本會失敗（20/21），確認此檢查能失敗。原有的連線層上傳檢查保留，其測試檔仍判為兩列無效，屬預期。其他 Kit 的商業語意驗證仍未涵蓋。
+
+### T13 完成紀錄（2026-10-21，D122）
+
+**原判斷修正：** T13 原先寫「最小可獨立集合為 5 個 Kit」，原因是檢查器把基線標為可選的匯入也當成缺口。基線在 `db_capabilities.py` 的這些匯入都是 `try` 加 `except Exception` 加 `raise HTTPException(501)`，註解為 optional kit source。檢查器現在只放行這種形式（匯入在 `try` 主體、`except` 只捕捉 `Exception`、`ImportError`、`ModuleNotFoundError` 且最後一個敘述是 `raise`），被放行的缺口逐項列入 `assembly-report.json` 的 `optionalImports`。`except: pass`、只捕捉其他例外、無 `try`、匯入放在 `except` 或 `else` 內，仍然拒絕。
+
+**實測發現新的硬相依（字串外鍵）：** 檢查器看不到 `ForeignKey("table.column")`，所以只選核心或核心加通用表單時，組裝通過、容器啟動才以 `NoReferencedTableError` 崩潰。實測邊界：
+
+| 集合 | 結果 |
+|---|---|
+| 只選 platform-core | 失敗：`generic_records` 的外鍵指向 `stations`、`station_schemas`（通用表單） |
+| platform-core、generic-forms | 失敗：`station_schemas.reason_id` 指向 `edit_reasons`（稽核） |
+| platform-core、generic-forms、audit-edit | 啟動成功 |
+
+檢查器新增外鍵閉包：字串外鍵指向未納入的資料表時，在組裝階段拒絕並指出行號與表名。最小可獨立集合因此由 5 個降為 3 個（platform-core、generic-forms、audit-edit）。
+
+**3 個 Kit 的映像實測（Docker）：** 兩個容器 healthy；建立表單與讀回列表回 200；未納入 Kit 的路由（匯入、上傳、分析）在閘門回 403；在容器內繞過閘門直接呼叫 `list_upload_jobs`，回 501「upload jobs DB capability is not installed」，兩層保護都有效。靜態測試：Python 20 項、Node 11 項通過；變異（拿掉「必須 raise」條件）使測試失敗。

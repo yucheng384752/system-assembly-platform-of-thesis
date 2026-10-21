@@ -163,17 +163,30 @@ class GateTests(unittest.TestCase):
         asyncio.run(middleware({"type": "http", "method": "GET", "path": "/healthz"}, receive, send))
         self.assertEqual(called, ["/healthz"])
 
-    def test_recipe_assembly_runs_real_validator_and_reports_import_gap(self):
-        source = Path(self.tempdir.name) / "input.json"
-        self.recipe["enabledKits"] = ["platform-core-kit"]
-        source.write_text(json.dumps(self.recipe))
-        output = Path(self.tempdir.name) / "output"
-        result = subprocess.run(["node", str(ROOT / "assemble.mjs"), str(output), "--recipe", str(source)],
-                                env={**os.environ, "PREVIEW_PYTHON": sys.executable},
-                                capture_output=True, text=True, encoding="utf-8")
+    def test_recipe_assembly_runs_real_validator_and_lists_guarded_optional_imports(self):
+        def assemble(name, kits):
+            source = Path(self.tempdir.name) / f"{name}.json"
+            self.recipe["enabledKits"] = kits
+            source.write_text(json.dumps(self.recipe))
+            output = Path(self.tempdir.name) / f"output-{name}"
+            result = subprocess.run(["node", str(ROOT / "assemble.mjs"), str(output), "--recipe", str(source)],
+                                    env={**os.environ, "PREVIEW_PYTHON": sys.executable},
+                                    capture_output=True, text=True, encoding="utf-8")
+            return result, output
+
+        # T13: the baseline marks these imports optional and raises 501 when absent, so assembly succeeds and
+        # lists every such gap in the report instead of hiding it. Unguarded gaps still fail (GuardedImportTests).
+        result, output = assemble("minimal", ["platform-core-kit", "generic-forms-kit", "audit-edit-kit"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads((output / "assembly-report.json").read_text(encoding="utf-8"))
+        self.assertTrue(any(item.endswith("optional app.models.import_job") for item in report["optionalImports"]))
+        # The core's own models reference the forms tables, and the forms tables reference the audit table.
+        result, _ = assemble("core-only", ["platform-core-kit"])
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("missing app.models.station", result.stderr)
-        self.assertTrue((output / "assembly-report.json").exists())
+        self.assertIn("foreign key to missing table station_schemas", result.stderr)
+        result, _ = assemble("core-forms", ["platform-core-kit", "generic-forms-kit"])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("foreign key to missing table edit_reasons", result.stderr)
 
     def test_management_endpoints_admin_and_invalid_payload(self):
         # Exercise the real endpoint functions without importing SQLAlchemy or opening a port.
@@ -327,6 +340,78 @@ class StaticTests(unittest.TestCase):
         version.schema_json = {"fields": []}
         with self.assertRaisesRegex(ValueError, "differs"):
             asyncio.run(seed(session, "synthetic-tenant"))
+
+
+class GuardedImportTests(unittest.TestCase):
+    """T13: only an import in a try whose handlers all raise on an import-style error may be missing."""
+
+    @staticmethod
+    def source(*lines):
+        return "\n".join(lines) + "\n"
+
+    def check(self, body):
+        with tempfile.TemporaryDirectory(dir=ROOT) as temp:
+            app = Path(temp) / "app"
+            app.mkdir()
+            (app / "__init__.py").write_text("")
+            (app / "present.py").write_text("")
+            (app / "caller.py").write_text(body, encoding="utf-8")
+            optional = []
+            checker.check(temp, optional)
+            return optional
+
+    def assertRejected(self, body):
+        with self.assertRaisesRegex(ValueError, "missing app.absent"):
+            self.check(body)
+
+    def guarded(self, caught, target="app.absent", handler=("raise RuntimeError('not installed')",)):
+        return self.source("def f():", "    try:", f"        from {target} import X",
+                           f"    except {caught} as exc:", *[f"        {line}" for line in handler])
+
+    def test_guarded_missing_import_is_allowed_and_listed(self):
+        for caught in ("Exception", "ImportError", "ModuleNotFoundError", "(ImportError, ModuleNotFoundError)"):
+            with self.subTest(caught=caught):
+                self.assertEqual(self.check(self.guarded(caught)), ["app.caller:3: optional app.absent"])
+
+    def test_present_import_is_not_reported(self):
+        self.assertEqual(self.check(self.guarded("Exception", target="app.present")), [])
+
+    def test_unguarded_or_silent_shapes_still_fail(self):
+        self.assertRejected(self.source("def f():", "    from app.absent import X"))
+        self.assertRejected(self.guarded("Exception", handler=("pass",)))
+        self.assertRejected(self.guarded("Exception", handler=("X = None",)))
+        self.assertRejected(self.source(
+            "def f():", "    try:", "        from app.absent import X", "    except Exception:", "        raise",
+            "    except ImportError:", "        pass"))
+
+    def test_wrong_or_broad_exception_types_still_fail(self):
+        self.assertRejected(self.guarded("ValueError"))
+        self.assertRejected(self.guarded("(ImportError, ValueError)"))
+        self.assertRejected(self.source(
+            "def f():", "    try:", "        from app.absent import X", "    except:", "        raise"))
+
+    def test_string_foreign_key_needs_a_declared_table(self):
+        model = self.source("class A:", "    __tablename__ = 'alpha'", "    x = ForeignKey('beta.id')")
+        with self.assertRaisesRegex(ValueError, "foreign key to missing table beta"):
+            self.check(model)
+        declared = self.source("class B:", "    __tablename__ = 'beta'")
+        with tempfile.TemporaryDirectory(dir=ROOT) as temp:
+            app = Path(temp) / "app"
+            app.mkdir()
+            (app / "__init__.py").write_text("")
+            (app / "a.py").write_text(model, encoding="utf-8")
+            (app / "b.py").write_text(declared, encoding="utf-8")
+            checker.check(temp)
+            (app / "b.py").write_text("Table('beta', metadata)\n", encoding="utf-8")
+            checker.check(temp)
+
+    def test_only_the_try_body_is_guarded(self):
+        self.assertRejected(self.source(
+            "def f():", "    try:", "        pass", "    except Exception:",
+            "        from app.absent import X", "        raise"))
+        self.assertRejected(self.source(
+            "def f():", "    try:", "        pass", "    except Exception:", "        raise", "    else:",
+            "        from app.absent import X"))
 
 
 if __name__ == "__main__":
