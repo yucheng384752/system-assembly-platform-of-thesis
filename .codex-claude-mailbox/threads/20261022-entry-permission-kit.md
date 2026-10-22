@@ -1,7 +1,7 @@
 ---
 id: "20261022-entry-permission-kit"
 title: "entry-permission-kit：由 daihui_project 抽離入口權限，取代 tenant-auth-kit（D03、spec 第 8 節）"
-status: "waiting_for_user"
+status: "in_progress"
 owner: "claude"
 reviewer: "user"
 priority: "high"
@@ -91,4 +91,7 @@ artifacts:
 
 # Claude Notes
 
-- 2026-10-22：完成盤點，未改任何程式。等 user 回答上列八項。
+- 2026-10-22：完成盤點，未改任何程式。
+- 2026-10-22：user 八項皆採建議，租戶固定單一，install-engine 契約升為正式決議。記錄為 D126（安裝引擎，改 Docker Compose）與 D127（入口權限設計）；設計寫在 `docs/entry-permission-design.md`（EP1），新增 `schemas/entry-points.schema.json`；spec 第 8 節加上決議段落。
+- 依賴 `PyJWT==2.15.1`、`bcrypt==5.0.0` 是 `pip index versions` 查到的最新版（2026-10-22）；user 核准套件選擇，版本由 user 可更換。bcrypt 5 對超過 72 位元組的密碼會拒絕，設計已納入。
+- 限制：Codex 沙箱沒有可用 Python，EP2 的 Python 只能寫、不能跑。純邏輯（判定、入口比對、密碼原則）用標準庫 `unittest` 寫成可在無第三方套件下執行的測試；需要資料庫與 FastAPI 的整合測試由 Claude 在 Docker 內執行並回填結果。

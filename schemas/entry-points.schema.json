@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Composer assembled entry-point directory",
+  "description": "permissions/entry_points.json of a system package (D127, docs/entry-permission-design.md). Assembled from each selected Kit's kit.contract.json entryPoints; capabilities are resolved to method and path pattern so the runtime never re-reads Kit contracts.",
+  "type": "object", "additionalProperties": false,
+  "required": ["format", "version", "entryPoints", "publicPaths"],
+  "properties": {
+    "format": { "const": "composer-entry-points" },
+    "version": { "const": 1 },
+    "publicPaths": {
+      "type": "array", "maxItems": 20, "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^/[A-Za-z0-9._/{}-]*$", "maxLength": 200 }
+    },
+    "entryPoints": {
+      "type": "array", "maxItems": 300,
+      "items": { "$ref": "#/$defs/entryPoint" }
+    }
+  },
+  "$defs": {
+    "key": { "type": "string", "pattern": "^[a-z][a-z0-9_]*[.][a-z][a-z0-9_]*$", "maxLength": 100 },
+    "roleName": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$", "maxLength": 50 },
+    "entryPoint": {
+      "type": "object", "additionalProperties": false,
+      "required": ["key", "label", "access", "defaultRoles", "kitId", "routes"],
+      "properties": {
+        "key": { "$ref": "#/$defs/key" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "access": { "enum": ["read", "write"] },
+        "defaultRoles": { "type": "array", "maxItems": 50, "uniqueItems": true, "items": { "$ref": "#/$defs/roleName" } },
+        "kitId": { "type": "string", "pattern": "^[a-z0-9-]+$", "maxLength": 100 },
+        "routes": {
+          "type": "array", "minItems": 1, "maxItems": 50,
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["capability", "method", "path"],
+            "properties": {
+              "capability": { "type": "string", "pattern": "^[a-z0-9._-]+$", "maxLength": 100 },
+              "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+              "path": { "type": "string", "pattern": "^/[A-Za-z0-9._/{}-]*$", "maxLength": 200 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

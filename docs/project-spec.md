@@ -294,6 +294,8 @@ Metadata 建議包含 migration id、來源 Kit/version、DB 方言/version、�
 
 **需求（2026-09-24 決議）：**`entry-permission-kit` 取代基線版的 `tenant-auth-kit`，後者廢除。權限模型為**單租戶、多使用者**：隔離單位是使用者／角色對資源與操作的存取權，不再有租戶間資料隔離。
 
+**決議（2026-10-22，D127，設計見 `docs/entry-permission-design.md`）：**租戶固定為單一預設租戶；角色為資料表可設定；入口目錄由各 Kit 宣告並於組裝時彙整；以共用中介層取代對終端使用者的 API key 驗證；SSO、MFA 不做。下列原待確認項目除上述外仍需在實作中逐項核對。
+
 **待確認（廢除 tenant 的連帶影響）：**基線版的 tenant key（StationSchema 的 tenant／business key 規則）、multi-tenant API key auth、`/api/auth/*` 現有端點、其他 Kit 對 tenant-auth-kit capability 的 consumes 宣告，以及既有資料的 tenant 欄位要移除或固定為單一值。
 
 先盤點現有 login、session、入口／路由／API permission 及角色模型，建立相容契約後抽離，避免直接複製專案耦合。RBAC、audit 等為候選範圍；SSO、MFA 是擴充建議，非已確認需求。
