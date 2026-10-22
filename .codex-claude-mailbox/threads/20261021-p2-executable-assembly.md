@@ -350,6 +350,35 @@ D/App（實際為 D/src/App.tsx）與 kits/generic-forms-kit/src/frontend/src/Ap
 - 目前 permissions 是原始宣告，AoV 是每 Kit 原始工作流程，不宣稱已完成正式權限驗證或最終交付 Workflow 合併。正式驗收前維持 installable:false。
 - 本輪未觸發新的派工停止條件；沒有擴大實作到後續 WP。預計完成時間依派工為 2026-10-21 22:30，實際工作及測試結果如上，未以尚待 Claude 的 Python 驗證宣稱完整部署驗收。
 
+## WP3a：2026-10-22 停止條件回報
+
+### 變更摘要
+
+已完整閱讀本 thread（含最後 user 決議與 WP3a 派工）、services/package/README.md、assemble-system.mjs、預覽 Dockerfile／Compose／reference 全部檔案，以及 spec 第 12 節與 D45。確認分支 feature/p2-executable-assembly。正式認證來源閉包缺失，依派工「若該機制無法在不改 Kit 的情況下組出可啟動系統，停止並回報，不自行設計身分驗證」停止，未實作部署產物，不宣稱 WP3a 完成。
+
+具體證據：
+
+- platform-core 的 app/core/config.py:151–192 提供 AUTH_MODE、API key header、ADMIN_API_KEYS 設定，但不是驗證實作。
+- app/api/deps.py:29–58 讀取 request.state.auth_tenant_id；AUTH_MODE=api_key 且未綁定驗證租戶時回傳 401。搜尋所有 kits 的 Python 原始碼，沒有 hash_api_key 定義、api_key_auth_middleware 實作或 request.state.auth_tenant_id 賦值。
+- services/preview/reference/baseline-main.py 的 api_key_auth_middleware 包含基線驗證流程，但直接 import app.core.auth.hash_api_key；kits/platform-core-kit/src/backend/app/core/ 下沒有 auth.py，其他 Kit 亦未提供此函式。即使抽取該 middleware，來源閉包仍不成立。tenant_api_key.py／tenant_user.py 是模型，不補足此缺口。
+- 未以 AUTH_MODE=off、假驗證、改寫雜湊演算法或預覽閘門繞過缺口。需 Claude/user 先確認並補齊既有正式認證來源或調整派工；本輪不修改 Kit，也不自行設計認證。
+
+### 檔案清單
+
+只在本檔 Codex Notes 新增本 WP3a 小節，保留既有內容、frontmatter、Claude Notes 與 index。services/package/、services/preview/assemble.mjs 均未修改。開始時已有 TODO.md 修改，保留。未 git add/commit；未使用 Docker、網路或新 npm 依賴。
+
+### 驗證方式與實際結果（含失敗項）
+
+- npm.cmd run typecheck：退出碼 0；現有兩份 tsconfig 通過，不代表 Python 或新增部署產物已驗證。
+- npm.cmd test：退出碼 1；Vitest 39 個檔案通過、1 個失敗；497 tests 通過、1 失敗、1 略過。security.test.mjs:128 的簽章 CLI 無法開啟暫存 signing-private-key.pem（EPERM），afterAll 在 :107 清理同一暫存目錄亦 EPERM。暫存位置為 C:/Users/gslab/AppData/Local/Temp/composer-security-rJQsa2；未宣稱清理成功。因命令以 && 串接，後續 preview Node 測試未執行。未修改越界測試或安全腳本以消除失敗。
+- node --test services/package/tests：退出碼 0，既有 WP1 測試 7/7；使用 Python subprocess stub，不是正式 Python 驗證。
+- node services/package/tests/mutations.mjs：退出碼 0；既有三個 WP1 變異子程序均退出碼 1：移除預覽排除使 5 項失敗、移除 T12 使 3 項失敗、移除 notIncluded 使 2 項失敗。這是既有測試可失敗的驗證，不是 WP3a mutation 成果。
+- 初次 PowerShell 讀取中文為亂碼，已設定 UTF-8 分段完整重讀。上述認證缺口依原始碼與檔案清單核對，沒有執行 Python import 的實測結果。
+
+### 未涵蓋
+
+WP3a 的 deployment/、正式 main.py、環境秘密值檢查、首次建表步驟、manifest/notProvided 更新均未實作；因此全量／最小部署輸出、可重現性及 WP3a 三項變異（秘密值檢查、預覽排除、notProvided 更新）未驗證。Python 語法／匯入／FK／啟動檢查：由 Claude 執行（to be run by Claude）；Docker 實測亦由 Claude 執行。須先解除認證來源停止條件才能續作，未以預計 2026-10-22 17:00 完成時間宣稱達標。
+
 # Claude Notes
 
 - 2026-10-21 18:40 建立分支與本計畫，派 WP1。WP2 的調查等 WP1 結束後再派，避免兩個任務同時寫本 thread。
@@ -442,3 +471,15 @@ user 決議：
 **停止條件：** 需要修改 `kits/` 或既有 schema；Kit 的正式啟動必須依賴預覽項目；入口權限（entry-permission）尚無實作，所以認證只能沿用 `platform-core-kit` 現有 `AUTH_MODE`／API key 機制，若該機制無法在不改 Kit 的情況下組出可啟動系統，停止並回報，不自行設計身分驗證。
 
 **回報格式：** 變更摘要、檔案清單、驗證方式與實際結果（含失敗項）、未涵蓋。
+
+## 2026-10-22 WP3a 停止後的核對與順序調整（Claude）
+
+Codex 在 WP3a 依停止條件停止（`codex-companion status`：completed，無檔案變更，只寫了 Notes）。停止理由成立並已核對：
+
+- `platform-core-kit` 的 `api/deps.py` 在 `AUTH_MODE=api_key` 時要求 `request.state.auth_tenant_id`，沒有就回 401；但所有 `kits/` 都沒有設定它的程式（基線在 `main.py` 的 `api_key_auth_middleware`，且它 import `app.core.auth.hash_api_key`，`kits/` 沒有 `core/auth.py`）。預覽靠自己的入口與閘門繞過，正式系統包不能。
+- 基線其實有 `core/auth.py`（`build/station-data-link-genericization/...`、`dist/client-deploy-gui-selected-form-system/...`），可作為「沿用 API key」替代方案的補檔來源，但需 user 核准；暫不補。
+- 使用者認證在正式系統由 `entry-permission-kit`（D127）的中介層設定 `auth_tenant_id`、`actor_role`、`is_admin`，所以正式 `main.py` 依賴它。
+
+**順序調整：** EP2（入口權限後端）→ EP4 的契約與 manifest（讓組裝器認得此 Kit）→ 重派 WP3a（Recipe 必須選入口權限 Kit，或明確採 API key 替代並補 `core/auth.py`）。EP2 與 WP3a 不共用檔案，但 WP3a 要等 EP2 才有可組裝的認證。
+
+另：Codex 回報 `npm.cmd test` 在其沙箱有 1 個失敗（security.test.mjs 暫存私鑰 EPERM），屬沙箱檔案權限問題；Claude 環境實測 498 通過 1 略過，不是回歸。
