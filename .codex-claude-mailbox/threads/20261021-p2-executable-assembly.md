@@ -309,6 +309,47 @@ D/App（實際為 D/src/App.tsx）與 kits/generic-forms-kit/src/frontend/src/Ap
 
 未執行 npm install/npm ci、build、typecheck、測試、Docker、伺服器或網路操作；未修改其他檔案，未 git add/commit。既有 dist 僅證明產物存在，不是本輪驗證結果。
 
+## WP1 第二次
+
+2026-10-21，分支 `feature/p2-executable-assembly`。已完整重讀 thread（含第一次停止回報、WP2 調查、user 決議與前置處理）、spec 第 12 節及現有組裝／驗證程式。依最新派工採全量 10 Kits、最小 6 Kits；舊 tenant_api_keys／station-data-link 來源缺口已解除。本輪完成 WP1 的 Node 組裝核心與測試，Python 真實驗收仍待 Claude；不宣稱系統可啟動或可安裝。
+
+### 變更摘要與檔案清單
+
+- 新增 `services/package/assemble-system.mjs`：輸入 Recipe，重用 preview 的 inventory、衝突處理、policyData、adapt、pythonCheck，以及既有 `check_tree.py`；既有函式皆已 export，故完全沒有修改 `services/preview/assemble.mjs`。
+- `systemSource` 先套用共用 adapt（保留 T10/T12 與錨點拒絕），再移除 adapt 新增的 require_access 呼叫與 preview_gate import。Kit 原有授權程式不改；拒絕來源本身已帶同名預覽依賴。完全不複製 preview/app，因此 main.py、gate、support、seed、registry 與假外部服務均不進輸出；不引用已刪除的 preview/app/models。
+- 產出 `backend/app/`、`kits/<id>/{manifest,kit.contract}.json`、`config/system.recipe.json`、`aov/<id>/workflow.aov.json`、`permissions/endpoint_permissions.json`、`database/migrations/plan.json`、`validation/report.json` 及 `system-manifest.json`。重建 models/__init__.py 載入真正模型，包含 tenant_api_key 與 P1/P2/P3。
+- 新 manifest 採獨立 `format: composer-system-assembly`、`schemaVersion: 1.0.0`、`installable: false`；不改舊 schema。列 recipeVersion、kitManifestVersion、Kit version／versionSource／sourceSha256、每個產物 path／sha256／bytes／role。Kit 版本沿用 catalog 規則：自有 version 優先，否則 overlay.version（現為 c4b2b7b-ui.1）；sourceSha256 額外識別合併後該 Kit 實際供應的原始後端來源，不把 catalog 標籤誤當新補檔的 git commit。
+- `notIncluded` 固定列 entry-permission-kit（只有契約）、station-admin-kit（缺 routes_stations.py）、tenant-auth-kit（D03 廢除）及原因；`notSelected` 另列 Recipe 未選的可用 Kit。正式入口列 `formal entry file (WP3)` 於 `notProvided`，不生成替代 main.py。migration plan 明示未提供 executable migration，沒有假 migration 或 create_all；不執行資料庫操作。
+- Manifest 不含時間戳或輸出絕對路徑，固定檔案排序；manifest 自身不能自我雜湊，待 WP3/WP4 簽章封裝涵蓋其 bytes。輸出必須是新目錄；後續檢查失敗清除本次新建目錄，既有目錄原封保留。
+- 新增 `services/package/tests/package.test.mjs`（7 個測試）、`tests/index.js`（指定目錄指令入口）、`tests/mutations.mjs`（三項變異副本驗證），以及 `services/package/README.md`（介面、格式、範圍與驗證限制）。
+- 除本節外未修改 thread 既有內容／狀態／index。沒有改 kits、schemas、libs、apps、docs、其他 preview 檔案、TODO.md 或設定。起始已存在的 TODO.md 修改保留。沒有 git add/commit、Docker、網路或新 npm 依賴。
+
+### 驗證方式與實際結果（含失敗）
+
+- `node --test services/package/tests`：最終退出碼 0，7/7 通過。全量 10 Kits 與最小 6 Kits（platform-core、generic-forms、audit-edit、station-data-link、upload-validation、import-pipeline）各組裝兩次，逐檔 bytes、checksum、manifest、目錄結構與來源未變更皆通過；驗證預覽字串／檔案排除、T12 數量、模型註冊、既有目錄拒絕、未知／排除／重複 Kit、可執行依賴缺失、驗證失敗清理與 optional imports 保留。
+- 第一次同指令退出碼 1：Node 24 把目錄視為模組入口，無 index 時回報 Cannot find module services/package/tests。已在允許的 tests/ 內新增 index.js，後續相同指令通過；不是忽略該失敗或改用另一條驗收指令。
+- `node --test services/preview/tests/preview.test.mjs`：退出碼 0，12/12 通過。現有測試的 Docker 呼叫使用 stub，未啟動 Docker。
+- `npm.cmd run typecheck`：退出碼 0，現有兩份 tsconfig 通過。但 tsconfig.node.json include 只有 scripts 與既有 GUI security test，**不涵蓋新增 package 程式**。建議 Claude 後續把 `services/package/**/*.mjs` 與 `services/package/tests/index.js` 納入 include，屆時補足 checkJs 所需型別並實跑；本輪依限制未修改 config，也不宣稱新增 mjs 已通過 TypeScript 檢查。
+- 所有 package 測試只在同步 run 邊界注入 stub，並斷言 Recipe 驗證器／check_tree.py 的參數、backend 根目錄與 shell:false，以及非零退出碼／spawn error 傳播。**check_tree.py、T13 真實 AST／外鍵閉包驗證、Python tests：by Claude，本輪完全未執行。** 模擬 foreign-key failure 只驗證錯誤處理，並非真實刪模型的 Python 變異。
+- 輸出 validation/report.json 使用 `accepted-by-run-interface`，不把測試 stub 成功寫成 Python 實測通過；runtime／fieldVerification 明示 not-run。
+
+### 變異驗證
+
+`node services/package/tests/mutations.mjs`：退出碼 0。每項在 tests/ 下建立獨立實作與測試副本，使用同一套斷言，不改正式實作；結束清除副本。三個子程序皆退出碼 1，符合預期：
+
+1. 移除 preview_gate import 排除：5 項失敗，組裝掃描發現 `backend/app/api/routes_generic_forms.py` 殘留預覽項目，全量／最小皆拒絕輸出。
+2. 移除 db_capabilities.py 的 T12（改回原始內容）：3 項失敗，全量／最小的 to_regclass 數量斷言失敗，來源錨點拒絕斷言亦失敗。
+3. 移除 manifest.notIncluded：2 項失敗，全量／最小 manifest 斷言皆失敗。
+
+變異後再次執行正式 package 7/7、preview 12/12 及 typecheck 均通過，沒有留下變異或測試暫存樹。
+
+### 未涵蓋與 Claude 交接
+
+- 請 Claude 用可用 Python 對全量與最小案例跑正式 assembleSystem（不注入 run），以及既有 Python 靜態測試，確認真實語法／匯入／FK 閉包。Node 結果不取代這一步。
+- 正式 main entry、router 掛載、啟動／授權整合、環境秘密值配置、可執行 migration、部署／簽章驗證屬 WP3；前端屬 WP2，合併 Workflow／手冊與下載屬 WP4，實機驗證屬 WP5。Kit 既有設定中的預設值未在此階段改寫，正式入口與環境設定仍需 WP3 審核。沒有把 preview 入口改名當正式入口。
+- 目前 permissions 是原始宣告，AoV 是每 Kit 原始工作流程，不宣稱已完成正式權限驗證或最終交付 Workflow 合併。正式驗收前維持 installable:false。
+- 本輪未觸發新的派工停止條件；沒有擴大實作到後續 WP。預計完成時間依派工為 2026-10-21 22:30，實際工作及測試結果如上，未以尚待 Claude 的 Python 驗證宣稱完整部署驗收。
+
 # Claude Notes
 
 - 2026-10-21 18:40 建立分支與本計畫，派 WP1。WP2 的調查等 WP1 結束後再派，避免兩個任務同時寫本 thread。
@@ -348,3 +389,17 @@ user 三項皆同意並核准前端依賴：
 - 預覽 `app.models` 不再有預覽覆蓋層；WP1 輸出不得再引用 `services/preview/app/models/`。
 
 WP1 的停止條件已解除，重新派工。
+
+## 2026-10-22 WP1 驗收（Claude）
+
+Codex 狀態以 `codex-companion status` 確認為 completed（5 分 19 秒，早於預計 22:30）。Codex 的自述逐項重新驗證如下，未照單全收：
+
+- Node：`node --test services/package/tests` 7/7；`mutations.mjs` 三項變異皆被攔到；`preview.test.mjs` 12/12。
+- **Codex 無法跑的真實 Python 驗證，由 Claude 補跑（使用 `services/preview/.test-venv`）：** 全量 10 Kit 與最小 6 Kit 以不注入 `run` 的正式 `assembleSystem` 組裝，Recipe 驗證器與 `check_tree.py`（語法、匯入、外鍵閉包）皆通過，退出碼 0。
+- 全量輸出組裝兩次，`diff -r` 無差異（可重現）。輸出內以 `COMPOSER_PREVIEW|preview-local-only|preview_seed|preview_gate|preview_registry|_preview/mod` 掃描，零命中。manifest：10 個 Kit、113 個檔案、`notIncluded` 為 3 個 Kit 加原因、`installable: false`、`notProvided` 列出後續 WP。
+- Python 靜態測試 19 項通過（預覽測試未受影響）。
+- 型別：Codex 指出新檔未納入 typecheck。依 README 慣例（預覽 .mjs 以獨立 tsc 指令檢查，不在 `tsconfig.node.json`）補了 JSDoc 型別，新檔在 `--strict --checkJs` 下零錯誤；`services/preview/assemble.mjs` 在同設定下本來就有 28 行錯誤（對照 4978c10 版本），不屬本功能，未處理。補型別只加註解與型別轉換，未改行為，之後測試與變異再跑一次皆通過。
+
+**已知限制：** `validation/report.json` 的 `recipeValidation`、`backendClosure` 寫 `accepted-by-run-interface`，即使真實執行 Python 也是同字串，無法區分實跑與 stub。WP4 產生正式報告時需改成可區分（列入 WP3/WP4 輸入）。權限檔與 AoV 是各 Kit 原始宣告，尚未合併。
+
+WP1 完成。下一步 WP3（部署：正式入口、compose、反向代理、安裝腳本、簽章驗證）與前端 WP2b（依 WP2 調查實作，依賴已核准）。
