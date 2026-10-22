@@ -245,3 +245,52 @@ artifacts:
 - 未驗證：多 worker 並發下的跨行程鎖定（只驗了資料庫保存鎖定狀態，單行程）、bcrypt 72 位元組的 HTTP 邊界（單元測試已覆蓋）、`PATCH /api/auth/me`、使用者／角色的 PATCH 與 DELETE、重設密碼後的強制改密碼、`GET /api/entry-points` 完整目錄、OpenAPI 產生。
 - 測試目錄只有 4 個入口；Kit 實際的 `entryPoints` 宣告與組裝彙整（EP4、EP5）尚未做，所以「未宣告的現有 Kit 端點只有 admin 可通過」目前只靠 `uncatalogued` 規則，真實 12 個 Kit 的端點對照未驗證。
 - 日誌中 token 與租戶值是否外洩未做專項檢查（只確認密碼不在輸出與日誌）。
+
+## 2026-10-22 EP4 入口清單草案（Claude，待 user 審閱；尚未修改任何 `kits/`）
+
+方法：用 AST 掃描 9 個有後端的 Kit 的 `routes_*.py`（含組裝前綴），得到 **52 條真實路由**（不含入口權限自己的 17 條，與 `/healthz`）。各 Kit 的 `kit.contract.json` 只宣告其中一部分（例如 generic-forms 契約只列 2 條、實際有 14 條），所以入口不能只靠契約的能力編號。
+
+**對設計的三項修正建議（需 user 同意後才改設計與 schema）：**
+
+1. **路由明確列出：** `kit.contract.json` 的 `entryPoints[].routes` 直接寫 `{capability, method, path}`（schema 已是這個形狀），契約未宣告的路由用新的能力編號（例如 `forms.create`）。新增一個測試：掃描 Kit 的真實路由，每一條都必須被某個入口涵蓋，漏列或多列都失敗，避免日後新增路由時默默落入「僅 admin」。
+2. **`POST /api/kit/call/{capability}` 是繞過點：** 這個通用代理會執行 6 個資料庫讀取能力（`db.forms.list`、`db.tables.resolve`、`db.records.search`、`db.records.trend`、`db.edit-reasons.validate`、`db.upload.jobs.list`），不經各自的入口。已核對 `db_capabilities.py`，全部是讀取，沒有寫入。預設角色因此取較窄的 `admin`、`manager`，否則 operator 可以用它讀到被其他入口拒絕的資料。
+3. **MOD webhook 會被擋：** `POST /api/mod/subscriptions/webhook` 由外部 MOD 服務呼叫，沒有使用者 token，現行中介層會回 401，訂閱同步在正式系統會失效。該端點自己用 `X-Mod-Webhook-Secret` 驗證，**但程式是「`MOD_WEBHOOK_SECRET` 有設才檢查」**，未設定時等於不驗證（基線行為，預覽有假值所以沒碰到）。建議：把這條加進入口權限的公開例外（目前只有 `/healthz` 與登入），同時系統包在選入 mod-subscription-kit 時要求 `MOD_WEBHOOK_SECRET` 必須存在，缺少就啟動失敗。這會修改 EP 程式的 `PUBLIC` 與測試。
+
+**角色原則：** 預設保守，只用內建角色 admin、manager、operator、audit。讀取類給四種角色；現場作業（上傳、驗證、匯入）加上 operator；改設計、改資料、刪除、設定類只給 admin、manager，平台設定與訂閱同步只給 admin。audit 是唯讀，只會出現在 `access: read` 的入口。
+
+| # | Kit | 入口鍵 | 存取 | 預設角色 | 路由 |
+|---|---|---|---|---|---|
+| 1 | platform-core | `platform.contracts_read` | read | admin, manager, operator, audit | GET `/api/kit/contracts` |
+| 2 | platform-core | `platform.kit_call` | read | admin, manager | POST `/api/kit/call/{capability}` |
+| 3 | platform-core | `platform.endpoint_permissions` | write | admin | GET、PUT `/api/admin/endpoint-permissions` |
+| 4 | entry-permission | `entry_permission.user_manage` | write | admin, manager | GET、POST `/api/users`；PATCH `/api/users/{user_id}`；POST `/api/users/{user_id}/reset-password` |
+| 5 | generic-forms | `forms.read` | read | admin, manager, operator, audit | GET `/api/forms`、`/api/forms/{code}/records`、`/api/forms/{code}/import-jobs/{job_id}`、`/api/dataflows/links` |
+| 6 | generic-forms | `forms.import` | write | admin, manager, operator | POST `/api/forms/{code}/upload`、`/import/preview`、`/import/commit` |
+| 7 | generic-forms | `forms.design` | write | admin, manager | POST `/api/forms`；DELETE `/api/forms/{code}`；PUT `/api/forms/{code}/schema`；POST、PUT `/api/dataflows/links`；DELETE `/api/dataflows/links/{from_code}/{to_code}` |
+| 8 | generic-forms | `forms.record_delete` | write | admin | DELETE `/api/forms/{code}/records/{record_id}` |
+| 9 | audit-edit | `audit.events_read` | read | admin, manager, audit | GET `/api/audit/events` |
+| 10 | audit-edit | `edit.reasons_read` | read | admin, manager, operator, audit | GET `/api/edit/reasons` |
+| 11 | audit-edit | `edit.reasons_manage` | write | admin, manager | POST `/api/edit/reasons`；PATCH `/api/edit/reasons/{reason_id}` |
+| 12 | audit-edit | `edit.record_edit` | write | admin, manager | PATCH `/api/edit/records/{table_code}/{record_id}` |
+| 13 | import-pipeline | `import.job_read` | read | admin, manager, operator, audit | GET `/api/v2/import/jobs/{job_id}`、`/errors` |
+| 14 | import-pipeline | `import.job_run` | write | admin, manager, operator | POST `/api/v2/import/jobs`、`/jobs/from-upload-job`、`/jobs/{job_id}/commit`、`/jobs/{job_id}/cancel` |
+| 15 | station-data-link | `import.legacy_p123` | write | admin, manager, operator | POST `/api/import` |
+| 16 | upload-validation | `upload.read` | read | admin, manager, operator, audit | GET `/api/upload/{process_id}/status`、`/edits`、`/api/upload/pdf/service-status`、`/pdf/{process_id}/convert/status`、`/convert/outputs`、`/api/validate` |
+| 17 | upload-validation | `upload.run` | write | admin, manager, operator | POST `/api/upload`、`/api/upload/pdf`、`/{process_id}/validate`；PUT `/{process_id}/content`；POST `/pdf/{process_id}/convert`、`/convert/ingest` |
+| 18 | query-traceability | `query.read` | read | admin, manager, operator, audit | GET `/api/v2/query/lot/{lot_no}`、`/trace/{lot_no}` |
+| 19 | analytics | `analytics.read` | read | admin, manager, audit | GET `/api/analytics/trend`、`/upload-history`、`/upload-history/export` |
+| 20 | logs-ops | `logs.read` | read | admin, manager, audit | GET `/api/logs/`、`/api/logs/summary` |
+| 21 | mod-subscription | `subscription.read` | read | admin, manager | GET `/api/mod/subscriptions/{external_subscription_id}`、`/entitlements` |
+| 22 | mod-subscription | `subscription.sync` | write | admin | POST `/api/mod/subscriptions/sync` |
+| 23 | mod-subscription | （公開例外，非入口） | - | - | POST `/api/mod/subscriptions/webhook`（需 user 決定，見上第 3 項） |
+
+合計 22 個入口、加 1 條公開例外，涵蓋 52 條路由。入口權限自己的路由：登入公開；`/api/auth/me`、`/api/auth/change-password`、`/api/entry-points`、`/api/entry-points/me` 屬已登入即可；`/api/roles*`、覆寫端點固定 admin（程式寫死）；使用者管理走第 4 個入口。
+
+**legacy 層會進一步縮小的地方（已核對原始碼）：** audit-edit 的 `/api/edit/*` 寫入要求 `is_admin` 或角色名 `manager`；`/api/audit/events` 要求 `is_admin` 或其自己的規則；`/api/admin/endpoint-permissions` 要求 `is_admin`。其餘 Kit 沒有自己的角色檢查，入口層是唯一一道門。
+
+**需要 user 決定的選擇（我的預設在括號內）：**
+
+- (a) `forms.record_delete` 只給 admin 還是也給 manager？（admin）
+- (b) operator 能否在 `import.job_run` 提交（commit）匯入？（可以；現場作業）
+- (c) `analytics.read`、`logs.read` 是否要開給 operator？（不開）
+- (d) 上述三項設計修正是否同意？（建議同意）
