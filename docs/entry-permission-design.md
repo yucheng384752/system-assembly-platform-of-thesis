@@ -29,6 +29,8 @@ status: 設計草稿，依 D127 實作；實作前以本文為資料與介面定
 2. 其後的入口授權：以請求的方法與路徑找到入口，依「個別覆寫 > 角色授權 > 入口預設角色」判定。
 3. 現有 Kit 一行都不用改。限制（要寫進手冊）：現有 Kit 內寫死的 `actor_role == "manager"` 只認角色名稱 `manager`；自訂角色要能通過這類檢查，只能靠入口授權與 `is_admin`，不能靠名稱。
 4. 機器對機器：`X-Admin-API-Key` 路徑維持基線行為，不經使用者登入。
+5. **固定租戶（2026-10-22 釐清）：** `platform-core-kit` 的 `get_current_tenant` 在 `is_admin` 時會採用請求標頭 `X-Tenant-Id`，只設定 `auth_tenant_id` 不足以固定租戶。中介層因此在通過認證後檢查 `X-Tenant-Id`：未提供，或等於 `DEFAULT_TENANT_ID`，放行；其他值一律回 403（`{"detail": "Forbidden"}`，不洩漏預設租戶值），並記錄日誌。不修改基線依賴。
+6. **與舊的端點權限層的交集（2026-10-22 釐清）：** `endpoint_permission_middleware` 依 `endpoint_permissions.json`（預設為空物件）對最長路徑前綴要求角色，失敗回 403，實際上是強制而不是提示。決定：保留它作為額外否決，不繞過。入口授權先判定，放行後舊層仍可能否決，所以「放行」的語意是「入口層允許」；`GET /api/entry-points/me` 只反映入口層，手冊與 API 說明須註明，若部署設定了 `endpoint_permissions.json`，實際結果是兩層的交集。組裝器在輸出時若 `endpoint_permissions.json` 非空，於 `validation/report.json` 以警告列出。
 
 ## 3. 資料模型（非同步 SQLAlchemy、UUID 主鍵、PostgreSQL）
 
