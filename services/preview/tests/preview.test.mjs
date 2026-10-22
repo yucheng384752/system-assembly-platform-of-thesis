@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { assemble, inventory, adapt, directory, repository, policyData, pythonCheck } from '../assemble.mjs';
+import { assemble, inventory, adapt, directory, repository, policyData, pythonCheck, prefixes, tenantFree } from '../assemble.mjs';
 import { commands, execute } from '../preview.mjs';
 
 test('actual kit inventory, deterministic assembly, closed imports and source preservation', async () => {
@@ -255,5 +255,28 @@ test('all service and background guard patches fail closed on source drift', asy
     assert.ok(patched.includes('from app.preview_gate import require_access'), name);
     assert.ok(patched.includes('require_access('), name);
     assert.throws(() => adapt(name, ''), /來源已變更/, name);
+  }
+});
+
+test('every router file of every kit, including kits the preview excludes, has an explicit registration rule', async () => {
+  // D127: a new kit with a backend must not break assembly; excluded kits still need a rule so a system package can mount them.
+  const kits = path.join(repository, 'kits');
+  const { readdir } = await import('node:fs/promises');
+  const stems = [];
+  for (const kit of await readdir(kits, { withFileTypes: true })) {
+    if (!kit.isDirectory()) continue;
+    const api = path.join(kits, kit.name, 'src/backend/app/api');
+    let names = [];
+    try { names = await readdir(api); } catch (error) { if (/** @type {NodeJS.ErrnoException} */ (error).code !== 'ENOENT') throw error; }
+    for (const name of names.filter(n => /^routes_.*\.py$/.test(n))) stems.push({ kit: kit.name, stem: name.slice(0, -3), file: path.join(api, name) });
+  }
+  assert.ok(stems.some(s => s.kit === 'entry-permission-kit'), 'entry-permission-kit routers must be discovered');
+  for (const { kit, stem, file } of stems) {
+    assert.ok(prefixes.has(stem), `${kit}/${stem} has no registration rule`);
+    // An empty registration prefix is only valid when the router carries its own /api prefix.
+    if (prefixes.get(stem) === '' && kit === 'entry-permission-kit') {
+      assert.match(await readFile(file, 'utf8'), /APIRouter\(\s*prefix="\/api\//, `${stem} must declare its own /api prefix`);
+      assert.ok(tenantFree.has(stem), `${stem} must not resolve a tenant`);
+    }
   }
 });

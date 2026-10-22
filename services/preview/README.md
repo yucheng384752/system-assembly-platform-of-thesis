@@ -71,7 +71,7 @@ node services/preview/preview.mjs reset
 | tenant-auth-kit | 排除，D03 已廢除 |
 | station-admin-kit | 排除，T2 缺少 routes_stations.py |
 | station-data-link-kit | 納入 `/api` 的 P1/P2/P3 相容轉接器 `POST /api/import`（D125 自基線補齊 `routes_import.py` 與模型）。基線行為：重新讀取已存檔案並匯入驗證工作的全部列，不剔除驗證器標為無效的列 |
-| entry-permission-kit | 排除，僅契約／無 backend，身分授權未涵蓋 |
+| entry-permission-kit | 排除，預覽以自己的閘門取代身分驗證（D127）；其四個路由檔已有註冊規則（前綴空字串、不解析租戶），由測試檢查所有 Kit 的路由檔都有規則，正式系統包才納入 |
 
 以 reference 路由前綴為依據，實際共註冊 12 個現存 router；reference 沒列到的 generic-forms、mod-subscription、admin-permissions 依來源補列。reference 的 `routes_ut`、`traceability` 無來源，不虛構路由。自行提供 `/healthz`，不改 registry 的 `verified: false`。只複製納入 Kit 的契約到組裝根目錄供 broker 查詢；契約聲明不代表每個 capability 都能執行。backend 的管理 scripts 不作為 app 執行來源或容器入口。
 

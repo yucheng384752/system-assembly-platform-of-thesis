@@ -208,3 +208,15 @@ artifacts:
 **預覽影響：** 新 Kit 有後端後，預覽組裝器掃到它並因路由沒有註冊規則而整個失敗。預覽沒有身分驗證，已在 `services/preview/assemble.mjs` 明確排除（原因 D127），預覽 Node 測試 12/12。系統包要納入它，組裝器需改為可自訂排除清單（`inventory` 目前共用預覽的排除表）；列入 EP5。
 
 **尚未驗證：** 真實 PostgreSQL（建表、約束、並發建立管理員、跨 session 鎖定）、HTTP 端到端、現有 Kit 端點在各角色下的實際結果、`GET /api/entry-points/me`；`tests/README.md` 列的 8 項實機檢查與 5 項剩餘變異。不宣稱安全拒絕路徑已通過。
+
+## 2026-10-22 套件雜湊不符的查證與路由註冊規則（Claude）
+
+**1. 雜湊不符是哪個套件、原因：**
+
+- 錯誤訊息的 `Expected sha256 c2e6fc39…4405`，用 PyPI JSON API 對照需求檔的 41 個固定版本，唯一吻合的是 `cryptography-43.0.3-cp39-abi3-manylinux_2_28_x86_64.whl`，也就是預覽 `requirements.txt` 固定的 `cryptography==43.0.3`。`Got e5da4bf7…0457` 不是這 41 個版本在 PyPI 上任何一個發佈檔的雜湊，所以是「下載到的位元組」與官方發佈檔不一致。pip 對來自索引的檔案一律用索引提供的 sha256 驗證，所以才在需求檔沒有 `--hash` 時出現這個訊息；`unknown package` 是 pip 在這種情況下無法標示來源需求時的固定字樣。
+- 無法重現：相同需求檔在同一個映像內第二次、第三次完整安裝（含 `-r req.txt -r ep-req.txt`，`--no-cache-dir`，exit=0）都通過，所有檔案雜湊皆與官方相符。
+- 結論：最可能是單次下載傳輸損毀（網路或快取節點），**未證實**；沒有發現竄改的證據（預期雜湊等於官方雜湊、重試取得的是官方檔案），但也不能排除。處置：不降低驗證（不加 `--no-deps`、不關雜湊檢查）；系統包的映像建置應失敗即中止，並建議之後把依賴改為帶 `--hash` 的鎖定檔（`pip install --require-hashes`）以便在建置時被明確攔下。這是 WP3a 的輸入。
+
+**2. 路由註冊規則：** `services/preview/assemble.mjs` 新增 `routes_ep_auth`、`routes_ep_users`、`routes_ep_roles`、`routes_ep_entry_points` 的規則（前綴空字串，因為四個路由自帶 `/api/...` 前綴；不解析租戶，列入新匯出的 `tenantFree`），並匯出 `prefixes`、`tenantFree`。新增測試：掃描所有 Kit 的 `routes_*.py`（含預覽排除的 Kit），每一個都必須有規則，入口權限的路由必須自帶 `/api/` 前綴且為免租戶；拿掉 `routes_ep_roles` 規則時該測試失敗（變異驗證）。入口權限 Kit 仍在預覽排除（預覽以閘門取代身分驗證），README 已更新。
+
+**再次驗證：** 預覽 Node 13/13、Python 靜態 19、`npm run typecheck` 通過、`npm test` 通過；Docker 全量映像 STATIC_OK 82 個模組，煙霧 24/24、領域表回歸 2/2、選配閘門 13/13。

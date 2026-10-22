@@ -12,7 +12,8 @@ const excluded = new Map([
   ['entry-permission-kit', 'D127：預覽不含身分驗證，由預覽閘門取代；正式系統包才納入'],
 ]);
 // Reference registry prefixes, plus three routers present only in the actual kits.
-const prefixes = new Map([
+// D127: the entry-permission routers declare their own /api/... prefix, so the registration prefix is empty.
+export const prefixes = new Map([
   ['routes_kit_broker', '/api/kit'], ['routes_upload', '/api'],
   ['routes_validate', '/api'], ['routes_import_v2', '/api/v2/import'],
   ['routes_query_v2', '/api/v2/query'], ['routes_analytics', ''],
@@ -20,7 +21,11 @@ const prefixes = new Map([
   ['routes_logs', '/api/logs'], ['routes_generic_forms', '/api'],
   ['routes_mod_subscription', ''], ['routes_admin_permissions', ''],
   ['routes_import', '/api'],
+  ['routes_ep_auth', ''], ['routes_ep_users', ''], ['routes_ep_roles', ''], ['routes_ep_entry_points', ''],
 ]);
+// Routers that never resolve a tenant: the broker and permission admin, plus the entry-permission routers (one fixed tenant, D127).
+export const tenantFree = new Set(['routes_kit_broker', 'routes_admin_permissions', 'routes_audit_events', 'routes_mod_subscription',
+  'routes_ep_auth', 'routes_ep_users', 'routes_ep_roles', 'routes_ep_entry_points']);
 
 /** @param {string} root @returns {Promise<string[]>} */
 export async function files(root) {
@@ -209,7 +214,7 @@ export async function assemble(output, kits = path.join(repository, 'kits'), opt
       const stem = path.posix.basename(name, '.py');
       if (!prefixes.has(stem)) throw new Error(`路由缺少明確註冊規則：${name}`);
       routers.push({ module: `app.api.${stem}`, kit: source.kit, prefix: prefixes.get(stem) ?? '',
-        tenant: !['routes_kit_broker', 'routes_admin_permissions', 'routes_audit_events', 'routes_mod_subscription'].includes(stem) });
+        tenant: !tenantFree.has(stem) });
     }
   }
   for (const name of await files(path.join(directory, 'app'))) {
