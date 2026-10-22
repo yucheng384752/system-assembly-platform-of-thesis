@@ -9,6 +9,7 @@ export const repository = path.resolve(directory, '../..');
 const excluded = new Map([
   ['tenant-auth-kit', 'D03：已廢除，不納入身分驗證'],
   ['station-admin-kit', 'T2：缺少 routes_stations.py，無可啟動來源'],
+  ['entry-permission-kit', 'D127：預覽不含身分驗證，由預覽閘門取代；正式系統包才納入'],
 ]);
 // Reference registry prefixes, plus three routers present only in the actual kits.
 const prefixes = new Map([

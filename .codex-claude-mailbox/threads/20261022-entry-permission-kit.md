@@ -121,6 +121,69 @@ artifacts:
 - 未涵蓋：本次未實作 EP2 全部模型、純邏輯、安全、API、中介層、初始 admin 與測試；所有設計第 7 節拒絕路徑及跨 worker 鎖定均未驗證。
 - 原預計完成時間為 2026-10-22 17:00；目前因上述介面決策阻塞，不宣稱完成或驗收通過。
 
+## EP2 第二次
+
+### 變更摘要
+
+- 2026-10-22：依 D127、`docs/entry-permission-design.md` 與入口目錄 schema 新增 EP2 後端來源及測試。前次 EP2 記錄完整保留。原預計完成時間為 **2026-10-22 17:00**；本次交付為程式與待執行測試，不代表驗收通過。
+- 落實第 2 節第 5 點：使用者 JWT 認證成功後檢查 `X-Tenant-Id`；缺少或精確等於設定的 `DEFAULT_TENANT_ID` 才允許，空值／不同值／重複標頭拒絕，回 `403 {"detail":"Forbidden"}`，日誌不含預設租戶值。機器認證的後續 continuation 也套用標頭檢查。
+- 落實第 2 節第 6 點：入口授權成功後呼叫原有下游，不提升角色、不改寫下游回應；舊 `endpoint_permission_middleware` 保留額外否決。`GET /api/entry-points/me` 的 OpenAPI 說明明載僅代表入口層，測試加入 EP allow／舊層 deny、兩層 allow、EP deny 及 me 可見性案例。
+- 四張 `ep_` 表、非同步 API、HS256／8 小時 JWT、密碼 >8 字元且 <=72 UTF-8 bytes、資料庫行鎖與 5 次／15 分鐘鎖定、強制改密碼、雙向個別覆寫、角色授權、唯讀先拒絕、未知 API 僅內建 admin、stdin JSON 一次性 admin 建立均已寫入。
+- `policy.py`、`directory.py`、`passwords.py`、`lockout.py` 無 sqlalchemy/jwt/bcrypt/fastapi import；security 的加密依賴延遲載入，金鑰檢查本身可用標準庫測試。requirements 僅兩個核准版本。
+
+### 檔案清單
+
+新增 23 個檔案（以下除 requirements/tests 外皆相對 `kits/entry-permission-kit/src/backend/app/`）：
+
+- `models/ep_role.py`
+- `models/ep_user.py`
+- `models/ep_role_entry_point.py`
+- `models/ep_user_entry_point_override.py`
+- `entry_permission/policy.py`
+- `entry_permission/directory.py`
+- `entry_permission/passwords.py`
+- `entry_permission/lockout.py`
+- `entry_permission/security.py`
+- `entry_permission/middleware.py`
+- `entry_permission/create_admin.py`
+- `api/routes_ep_auth.py`
+- `api/routes_ep_users.py`
+- `api/routes_ep_roles.py`
+- `api/routes_ep_entry_points.py`
+- `schemas/ep_auth.py`
+- `schemas/ep_users.py`
+- `schemas/ep_roles.py`
+- `schemas/ep_entry_points.py`
+- `kits/entry-permission-kit/requirements.txt`
+- `kits/entry-permission-kit/tests/test_logic.py`
+- `kits/entry-permission-kit/tests/test_middleware_integration.py`
+- `kits/entry-permission-kit/tests/README.md`
+
+另依明確授權僅追加本 thread 的 Codex Notes。未修改其他 Kit、docs、schemas、libs、apps、services、scripts、TODO.md；未建立契約、manifest、workflow 或 install 腳本；未 git add/commit。起始已有的 TODO.md 修改保留。依本次範圍限制，不更新 mailbox index。
+
+### 驗證方式與實際結果（含未執行項）
+
+- 已執行：PowerShell／rg 靜態閱讀、規格及基線介面核對、檔案清單與第三方 import 檢索、行尾空白掃描、`git diff --check` 與工作區狀態檢查。新增 23 檔行尾空白掃描為 0；這不是 Python 語法或行為驗證。Git 顯示使用者全域 ignore 檔無讀取權限警告，但狀態與 diff 命令有回傳結果。
+- `test_logic.py`：22 個標準庫 unittest 方法，涵蓋判定順序、覆寫雙向／唯讀不可提權、manager 目標角色限制、入口 method/path、未知 API 預設拒絕、入口重複鍵與 JSON 重複成員、密碼字元與 72-byte 邊界、鎖定第五次及到期邊界、金鑰缺少／31／32 字元、固定租戶純函式、stdin 格式。
+- `test_middleware_integration.py`：13 個 unittest 方法，使用實際 EP 與未修改的舊中介層，mock 資料庫讀取及舊端點設定；涵蓋兩層交集、admin 租戶拒絕、停用／唯讀／強制改密碼、JWT 過期與錯誤簽章、固定 admin dependency、啟動金鑰檢查、機器標頭不能自行認證及 me 僅回入口層。此套件不是 PostgreSQL／跨 worker／實機 HTTP 測試。
+- **任何 Python（包含 compile/import/unittest）、依賴安裝、網路、Docker 均未執行。所有 Python、測試與整合結果一律：由 Claude 執行；目前沒有通過／失敗的執行結果。**
+- 純邏輯待執行命令：`python -m unittest discover -s kits/entry-permission-kit/tests -p test_logic.py -v`。
+- 中介層待執行命令：於 Claude Docker 中將組裝後 backend 放入 `PYTHONPATH`，執行 `python -m unittest discover -s kits/entry-permission-kit/tests -p test_middleware_integration.py -v`。不得以單獨 Kit 的片段 app 冒充已組裝後端。
+
+### 變異
+
+- **由 Claude 執行，尚未執行任何變異。** `tests/README.md` 列出逐一變異與預期失敗案例：移除唯讀拒絕、交換覆寫／角色優先序、放行未知入口、改成路徑前綴比對、移除重複鍵檢查、改密碼 byte／鎖定邊界、接受 31 字元金鑰、跳過租戶檢查，以及提升角色／繞過舊層。
+- 租戶檢查變異必須使純函式與 admin 中介層案例失敗；舊層繞過變異必須使 `test_override_allow_does_not_bypass_old_role_veto` 失敗。不宣稱已有變異偵測結果。
+
+### 未涵蓋與交接
+
+- **由 Claude 執行：** PostgreSQL 真實建表／FK／unique、API response serialization、登入與重設密碼完整 HTTP 流程、跨 worker 同帳號失敗競爭與到期解鎖、初始 admin 並行建立、manager 管理 API 的真實拒絕、覆寫／角色修改資料庫結果、真實 bcrypt、既有 Kit（如 audit-edit）的實際授權結果。詳細案例在 `tests/README.md`。
+- EP4／EP5 必須在啟動階段呼叫 `configure_entry_permission(app, directory_path=..., default_tenant_id=DEFAULT_TENANT_ID, machine_auth=原API-key中介層)`，註冊四個已含 `/api` prefix 的 routers、四個 models，並讓 EP 取代外層終端使用者 API-key gate，舊端點層保留在下游。僅把 EP 加在舊 API-key gate 內側會使 Bearer 請求先被拒絕。原機器 validator 必須保持其 `AUTH_MODE=api_key` 行為；本次只提供介面與交接，未修改組裝器或 platform-core。
+- 非空 `endpoint_permissions.json` 的組裝警告、啟動入口接線、migration、手冊及 Docker 驗收仍交由 Claude 的 EP4／EP5；不能把本次來源交付視為已部署可用。
+- 實作細節明載於 tests/README：grant PUT 使用 `entries` map，true/false 設定、null 清除、未提供鍵保留；多個路徑宣告同時匹配時全部需允許；僅內建 admin 有未知 API 例外，已宣告入口仍遵守覆寫／角色／預設順序。角色名稱建立後固定。
+- 未存在帳號沒有 ep_users 資料列可儲存鎖定計數，回應仍統一 401；未額外新增追蹤表或行程記憶體計數。已存在帳號用 PostgreSQL 行鎖序列化計數。
+- 無 JWT 撤銷；改密碼／重設不撤銷已發 token，但每次請求重新讀取帳號停用、角色與 must_change_password。此為規格既定限制。
+
 # Claude Notes
 
 - 2026-10-22：完成盤點，未改任何程式。
@@ -131,3 +194,17 @@ artifacts:
 # Claude Notes（續）
 
 - 2026-10-22 EP2 第一次執行在介面核對階段依停止條件停止（`codex-companion status`：completed，1 分 31 秒，無程式變更）。兩項阻塞經核對屬實，由 Claude 依設計權責裁定並寫入 `docs/entry-permission-design.md` 第 2 節第 5、6 點：（1）固定租戶：中介層拒絕不等於 `DEFAULT_TENANT_ID` 的 `X-Tenant-Id`（403），不修改基線依賴；（2）舊的 `endpoint_permission_middleware` 保留為額外否決，入口層與舊層取交集，`/api/entry-points/me` 只反映入口層，組裝器遇非空的 `endpoint_permissions.json` 在驗證報告列警告。兩項皆不需要修改 `kits/` 既有 Kit。重新派工 EP2。
+
+## 2026-10-22 EP2 驗收（Claude，第一階段）
+
+`codex-companion status`：`task-mvj4du19-kg6zbi` completed（18 分 6 秒）；工作樹確有 19 個後端檔、`requirements.txt`、測試。Codex 自述逐項重新驗證：
+
+- 語法：19 個檔通過 `ast.parse`。
+- 純邏輯 `unittest`：22 項通過（Windows Python 3.13，僅標準庫）。
+- 中介層整合測試：在 Docker `python:3.12.8-slim-bookworm`，依預覽相同固定版本安裝 fastapi、sqlalchemy 等加 `PyJWT==2.15.1`、`bcrypt==5.0.0`、組裝預覽後端後覆蓋 EP 檔，全部 35 項（22 純邏輯加 13 整合）通過。整合測試使用真實 EP 中介層與未修改的 `endpoint_permission_middleware`，資料庫查詢為替身；**不是** PostgreSQL 或部署後 HTTP 驗證。
+- 變異驗證（一次一個，皆被測試攔到）：拿掉唯讀寫入拒絕、覆寫被忽略、JWT 金鑰門檻 32 改 31、密碼下限、密碼 72 位元組上限改 73、鎖定改第 6 次、鎖定時間改 1 分鐘、唯讀目標可被設覆寫，共 8 項。Codex 列的 9 項中，路徑前綴比對、重複鍵拒絕、租戶驗證略過、EP 放行後繞過 `call_next` 尚未做。
+- 一次 `pip install -r services/preview/requirements.txt` 在容器內出現 `THESE PACKAGES DO NOT MATCH THE HASHES` 錯誤（未指名套件，發生在下載，檔案本身沒有 hash 鎖定）。改成只安裝需要的套件後成功。**原因未查明**（推測為下載損毀，但未證實）；若系統包安裝時再出現，視為需要調查的供應鏈訊號，不要忽略。
+
+**預覽影響：** 新 Kit 有後端後，預覽組裝器掃到它並因路由沒有註冊規則而整個失敗。預覽沒有身分驗證，已在 `services/preview/assemble.mjs` 明確排除（原因 D127），預覽 Node 測試 12/12。系統包要納入它，組裝器需改為可自訂排除清單（`inventory` 目前共用預覽的排除表）；列入 EP5。
+
+**尚未驗證：** 真實 PostgreSQL（建表、約束、並發建立管理員、跨 session 鎖定）、HTTP 端到端、現有 Kit 端點在各角色下的實際結果、`GET /api/entry-points/me`；`tests/README.md` 列的 8 項實機檢查與 5 項剩餘變異。不宣稱安全拒絕路徑已通過。
