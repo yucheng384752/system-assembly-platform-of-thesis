@@ -403,3 +403,42 @@ Codex 狀態以 `codex-companion status` 確認為 completed（5 分 19 秒，�
 **已知限制：** `validation/report.json` 的 `recipeValidation`、`backendClosure` 寫 `accepted-by-run-interface`，即使真實執行 Python 也是同字串，無法區分實跑與 stub。WP4 產生正式報告時需改成可區分（列入 WP3/WP4 輸入）。權限檔與 AoV 是各 Kit 原始宣告，尚未合併。
 
 WP1 完成。下一步 WP3（部署：正式入口、compose、反向代理、安裝腳本、簽章驗證）與前端 WP2b（依 WP2 調查實作，依賴已核准）。
+
+## 2026-10-22 user 決議與 WP3 設計（Claude）
+
+user 決議：
+
+1. 走方案 A：Docker Compose 跑在客機 Ubuntu 22.04 LTS，客機可安裝 Docker（取代 D124 對「Docker 前提」的假設，A2 改為已確認）。
+2. daihui_project 位於 `C:\Users\gslab\Desktop\daihui_project`（唯讀來源）。
+3. 完成 `entry-permission-kit` 後替代 tenant-auth；另開 thread `20261022-entry-permission-kit`，不在本 thread 處理。
+
+**未回答、暫作工作假設：** `docs/install-engine-contract.md` 是否升為正式決議。WP3 以該契約為設計依據（子命令、`plan.json`、輸入通道、事件與狀態、退出碼、還原語意），但把「apt 安裝 PostgreSQL、systemd、虛擬環境」改為「Docker Compose 容器」；契約本身仍標草稿，待 user 確認後才改狀態。
+
+**WP3 拆分（Claude 規劃）：**
+
+| WP | 內容 | 負責 | 驗收 |
+|---|---|---|---|
+| WP3a | 部署產物：正式後端入口（不含預覽）、後端 Dockerfile、`docker-compose.yml`（PostgreSQL 16 與後端只綁 127.0.0.1，反向代理容器對外）、反向代理設定、`.env.example`（只含 `secret_ref` 與欄位說明，無秘密值）、首次安裝的資料表建立步驟（明確執行，不是默默執行；不宣稱升級遷移）；由 `services/package/assemble-system.mjs` 產出到 `deployment/` 並納入 manifest | Codex | 靜態與單元測試；Docker 實測由 Claude |
+| WP3b | 安裝引擎（Python 標準庫為主，POSIX sh 入口）：`detect`、`verify`、`plan`、`apply`、`status`、`cancel`、`rollback`，`plan.json` 綁定 `planSha256`，秘密值只走標準輸入或 0600 暫存檔，事件 JSON Lines，退出碼依契約第 6 節；安裝前驗證沿用 `scripts/security`（簽章、授權、sha256）的語意 | Codex | 單元測試（假 Docker 邊界）；實機由 Claude 在 192.168.200.63 驗證 |
+| WP3c | 網頁精靈（契約第 7 節）。依賴先調查，不新增套件 | Codex | WP3b 之後再派 |
+
+順序：WP3a、WP3b、WP3c；每個 WP 驗收後才派下一個。
+
+### WP3a 派工
+
+**預計完成時間：2026-10-22 17:00。** 到期未完成由 Claude 接手（先以 `codex-companion status` 確認狀態）。
+
+**範圍（只可新增或修改）：** `services/package/` 內檔案（擴充組裝輸出 `deployment/`）、本 thread 的 Codex Notes。允許對 `services/preview/assemble.mjs` 只加 `export`。不得修改 `kits/`、`schemas/`、`libs/`、`apps/`、`docs/`、`scripts/`、預覽其他檔案、`TODO.md`。需要新 schema 時，把草案放 `services/package/` 並在 Notes 說明。
+
+**成功條件：**
+
+1. 全量與最小案例的輸出多出 `deployment/`：`docker-compose.yml`、後端 `Dockerfile`、反向代理設定、`.env.example`、`README.md`（只描述實際存在的行為）；全部列入 `system-manifest.json` 的 `files`，並從 `notProvided` 移除「formal entry file」與「deployment」中已完成的項目，其餘仍列出。
+2. 正式後端入口 `backend/app/main.py`：路由由所選 Kit 的實際來源決定（參考 `services/preview/reference/backend_router_registry.py` 與 `baseline-main.py`），不含預覽閘門、預覽種子、預覽重置、假外部服務、`COMPOSER_PREVIEW`；啟動時不使用預覽固定密碼，資料庫位址與金鑰一律來自環境變數；未提供必要環境變數時啟動失敗並說明缺哪一項，不使用預設弱值。
+3. 資料庫只在內部網路，不發布到宿主埠；後端只綁 127.0.0.1 或內部網路，對外只經反向代理（spec D45）；映像與套件版本固定，沿用預覽已驗證的組合（Python 3.12.8、PostgreSQL 16.6-bookworm）。
+4. 首次安裝的資料表建立是獨立的、明確的一步（例如一個只執行一次的容器命令），其內容與模型集合一致；可執行升級遷移仍列入 `notProvided`。
+5. 輸出可重現（相同輸入相同位元組），掃描預覽項目零命中；測試要能失敗：移除秘密值檢查、移除預覽排除、移除 `notProvided` 更新時對應測試失敗，並在 Notes 記錄變異。
+6. 不使用 Docker、網路、新 npm 依賴；沙箱沒有 Python，Python 類檢查標「由 Claude 執行」。
+
+**停止條件：** 需要修改 `kits/` 或既有 schema；Kit 的正式啟動必須依賴預覽項目；入口權限（entry-permission）尚無實作，所以認證只能沿用 `platform-core-kit` 現有 `AUTH_MODE`／API key 機制，若該機制無法在不改 Kit 的情況下組出可啟動系統，停止並回報，不自行設計身分驗證。
+
+**回報格式：** 變更摘要、檔案清單、驗證方式與實際結果（含失敗項）、未涵蓋。
