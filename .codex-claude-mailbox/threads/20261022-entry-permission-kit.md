@@ -220,3 +220,28 @@ artifacts:
 **2. 路由註冊規則：** `services/preview/assemble.mjs` 新增 `routes_ep_auth`、`routes_ep_users`、`routes_ep_roles`、`routes_ep_entry_points` 的規則（前綴空字串，因為四個路由自帶 `/api/...` 前綴；不解析租戶，列入新匯出的 `tenantFree`），並匯出 `prefixes`、`tenantFree`。新增測試：掃描所有 Kit 的 `routes_*.py`（含預覽排除的 Kit），每一個都必須有規則，入口權限的路由必須自帶 `/api/` 前綴且為免租戶；拿掉 `routes_ep_roles` 規則時該測試失敗（變異驗證）。入口權限 Kit 仍在預覽排除（預覽以閘門取代身分驗證），README 已更新。
 
 **再次驗證：** 預覽 Node 13/13、Python 靜態 19、`npm run typecheck` 通過、`npm test` 通過；Docker 全量映像 STATIC_OK 82 個模組，煙霧 24/24、領域表回歸 2/2、選配閘門 13/13。
+
+## 2026-10-22 EP2 端到端驗證（Claude，真實 PostgreSQL 16.6 與 HTTP）
+
+環境：`python:3.12.8-slim-bookworm` 加預覽固定版本依賴，PostgreSQL `postgres:16.6-bookworm`，uvicorn 真實監聽，`httpx` 打 HTTP。後端為測試用組裝：EP 中介層（外層）、未修改的 `endpoint_permission_middleware`（內層）、真實的 generic-forms 與 audit-edit 路由、EP 四組路由。機器 API key 中介層是**測試替身**（基線的 `api_key_auth_middleware` 不在 `kits/`），只模擬「管理金鑰時由請求標頭綁定租戶」。測試目錄 `entry_points.json` 為測試用的 4 個入口，不是 Kit 正式目錄（EP4）。腳本留在 `kits/entry-permission-kit/tests/e2e/`。
+
+**結果：HTTP 48/48 通過；啟動與建立管理員檢查全部符合預期。**
+
+- 啟動 fail loud：JWT 金鑰未設定與只有 31 字元時，行程以退出碼 3 結束並提到 secret，不啟動。
+- 建立初始管理員：兩個同時執行的 `create_admin`（同帳號）退出碼為一個 0、一個 1，資料庫只有 1 個內建管理員；之後第二次、弱密碼都退出碼 1；輸出與伺服器日誌不含密碼；密碼以 bcrypt 雜湊儲存。
+- 認證：無憑證與亂碼 token 為 401；未知帳號與錯誤密碼的 401 本文完全相同；首次登入強制改密碼，期間業務端點 403、`/me` 與改密碼可用，改完後同一 token 立即反映新狀態。
+- 固定租戶：其他租戶標頭對 admin 也回 403；預設租戶可通過；重複標頭 403；機器金鑰加其他租戶標頭 403。
+- 授權：operator 預設可讀不可寫；manager 可寫；audit 唯讀，管理者對 audit 設覆寫被拒、對 audit 角色授權寫入無效、仍 403；覆寫允許／拒絕／移除（null）三種都依預期生效；`/api/entry-points/me` 只列入口層。
+- 舊層否決：operator 通過入口層後被 audit-edit 自己的 manager 檢查擋下（403 含 Manager 訊息）；manager 兩層都通過。
+- 使用者與角色管理：manager 可列使用者，但不能建立 manager／admin、不能重設 admin 密碼；operator 不能列使用者；manager 不能用角色管理與覆寫端點。
+- 鎖定：同一帳號 5 次失敗後，正確密碼也回相同 401；鎖定存在資料庫；將 `locked_until` 設為過去後可登入。
+- 機器金鑰（替身）：正確金鑰加預設租戶標頭可通過；錯誤金鑰 401；Bearer 加機器標頭走使用者路徑，唯讀使用者仍不能寫。
+- 伺服器日誌：0 筆 Traceback 或 ERROR。
+
+**變異驗證（一次一個）：** 先前 8 項加本次 7 項共 15 項全部被測試攔到：前綴比對取代精確比對、重複入口鍵被接受、租戶標頭接受任意單一值、接受重複標頭、通過後提升為 admin、未列入入口的路由對所有人開放、略過 Bearer 使用者的租戶檢查。
+
+**未涵蓋與限制：**
+- 機器 API key 路徑只用替身驗證；基線真實的 `api_key_auth_middleware` 與 `core/auth.py` 不在 `kits/`（見 P2 thread 的 WP3a 停止紀錄）。
+- 未驗證：多 worker 並發下的跨行程鎖定（只驗了資料庫保存鎖定狀態，單行程）、bcrypt 72 位元組的 HTTP 邊界（單元測試已覆蓋）、`PATCH /api/auth/me`、使用者／角色的 PATCH 與 DELETE、重設密碼後的強制改密碼、`GET /api/entry-points` 完整目錄、OpenAPI 產生。
+- 測試目錄只有 4 個入口；Kit 實際的 `entryPoints` 宣告與組裝彙整（EP4、EP5）尚未做，所以「未宣告的現有 Kit 端點只有 admin 可通過」目前只靠 `uncatalogued` 規則，真實 12 個 Kit 的端點對照未驗證。
+- 日誌中 token 與租戶值是否外洩未做專項檢查（只確認密碼不在輸出與日誌）。

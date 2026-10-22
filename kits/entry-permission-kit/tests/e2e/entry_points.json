@@ -1,0 +1,18 @@
+{
+  "format": "composer-entry-points", "version": 1,
+  "publicPaths": ["/healthz", "/api/auth/login"],
+  "entryPoints": [
+    {"key": "entry_permission.user_manage", "label": "User management", "access": "write", "defaultRoles": ["admin", "manager"], "kitId": "entry-permission-kit",
+     "routes": [
+       {"capability": "ep.users.list", "method": "GET", "path": "/api/users"},
+       {"capability": "ep.users.create", "method": "POST", "path": "/api/users"},
+       {"capability": "ep.users.update", "method": "PATCH", "path": "/api/users/{user_id}"},
+       {"capability": "ep.users.reset", "method": "POST", "path": "/api/users/{user_id}/reset-password"}]},
+    {"key": "forms.read", "label": "Read forms", "access": "read", "defaultRoles": ["admin", "manager", "operator", "audit"], "kitId": "generic-forms-kit",
+     "routes": [{"capability": "forms.list", "method": "GET", "path": "/api/forms"}]},
+    {"key": "forms.write", "label": "Write forms", "access": "write", "defaultRoles": ["admin", "manager"], "kitId": "generic-forms-kit",
+     "routes": [{"capability": "forms.create", "method": "POST", "path": "/api/forms"}]},
+    {"key": "edit.reasons_write", "label": "Write edit reasons", "access": "write", "defaultRoles": ["operator", "manager"], "kitId": "audit-edit-kit",
+     "routes": [{"capability": "edit-reasons.create", "method": "POST", "path": "/api/edit/reasons"}]}
+  ]
+}
