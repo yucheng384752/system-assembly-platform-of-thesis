@@ -100,7 +100,13 @@ Result：
    2. 連網檢查：確認 apt 與 PyPI 可連；不通即停止並報錯，不降級成離線。
    3. 驗證安裝包（前置：工程師手動以 sha256sum 核對 install.sh 與根公鑰，見「公鑰信任起點」）：啟動器以 openssl 驗根公鑰指紋（引擎內輸入前 8 碼確認），再驗 tar.gz 的 RSA-PSS 簽章與 sha256；通過後才解壓，解壓後核對 system-manifest.json 各檔 sha256，並確認簽章檔記錄的 systemManifestSha256 相符。驗證通過前不解壓、不執行安裝包內的腳本。通過後公鑰寫入信任庫（首次安裝）；升級時改對信任庫驗證。
    4. 簽發並驗證授權（2026-10-24 改寫，原寫法是驗證既有授權）：(a) detect 產生多硬體特徵指紋（見「授權綁定與簽章發放」，取代 D38 的 /etc/machine-id）；(b) 工程師在精靈上傳 USB 的加密子金鑰檔與憑證並輸入密碼，引擎在記憶體中簽出授權，綁定該指紋與已驗證的 systemManifestSha256，用完即清；(c) 驗授權鏈（根公鑰 -> 子金鑰憑證的客戶識別碼與期限 -> 授權簽章）、到期日、指紋、manifest 雜湊相符；任一失敗拒絕安裝。升級重新簽發授權；回復舊版時保留舊授權。
-   （注意：步驟 5 至 7 的 apt、PostgreSQL、systemd 與虛擬環境寫法已被 D126 取代，改為 Docker Compose 與 PostgreSQL 16；本表尚未改寫，見 docs/install-engine-contract.md 第 9 節。上方 PostgreSQL 14 鎖定與 apt 驗證結果同樣屬 D126 之前的決定，與 D126 衝突，待使用者裁決。）
+   （注意：步驟 5 至 7 的 apt、PostgreSQL、systemd 與虛擬環境寫法已被 D126 取代，改為 Docker Compose 與 PostgreSQL 16；本表尚未改寫，見 docs/install-engine-contract.md 第 9 節。）
+
+   裁決與驗證（2026-10-24，已寫入 D133）：使用者同意以 D126 為準（Docker Compose，容器內 PostgreSQL 16），上方 PostgreSQL 14 鎖定與 apt 資料庫驗證結果作廢，僅保留作歷史紀錄。使用者要求先驗證 Ubuntu 22.04 自帶的 docker.io 是否滿足需求，不滿足才放寬「不加第三方 apt 來源」。
+   - 套件庫事實（ubuntu:22.04 容器，預設 sources，jammy-updates/universe）：docker.io 29.1.3-0ubuntu3~22.04.2、docker-compose-v2 2.40.3+ds1-0ubuntu1~22.04.1、containerd 2.2.1、runc 1.3.4（後兩者在 main）。測試 VM 的 Docker 引擎本來就是此套件版本，/etc/apt/sources.list.d 沒有 Docker 官方來源。
+   - 功能驗證（192.168.200.63）：以 Ubuntu 套件取出的 Compose 2.40.3 單獨執行，對 services/preview/docker-compose.yml 通過 config、up --build --wait（含 service_healthy 與 internal 網路）、app.preview_seed；smoke.mjs 24/24、smoke-gating.mjs 13/13，資料庫容器無對外路由（getent 解析失敗）。測試後已 down -v 並刪除建置映像與暫存檔。
+   - 結論：自帶 docker.io 與 docker-compose-v2 滿足預覽堆疊的需求，不需放寬限制。
+   - 未涵蓋：在全新客機以 sudo 實際 apt install docker.io docker-compose-v2（VM 為既有安裝，Compose 是從容器內抽取，未走 apt 安裝）；universe 套件的安全更新由社群維護，Ubuntu Pro 才提供保證，需決定是否接受；docker 群組等同 root 權限，須寫入威脅模型；PostgreSQL 映像如何取得（Docker Hub 拉取或 docker save 打進安裝包並記錄 digest）；容器內硬體指紋讀取（見上方實測）；全量映像（非預覽精簡版）與 Docker 重啟後自動啟動；Ubuntu 22.04 標準支援約到 2027-04（未再查證）。
    5. 缺少套件計畫：列出需 apt 安裝的套件與版本，使用者確認後才安裝；記錄實際安裝的版本。
    6. 建立執行環境：非 root 服務帳號、安裝目錄（版本化目錄加 current 連結）、Python 虛擬環境、依 hash 安裝依賴（--require-hashes）。
    7. 資料庫：PostgreSQL 只監聽 127.0.0.1、pg_hba 只允許本機且用 scram-sha-256（D45）；建立資料庫帳號與資料庫，連線資訊以 .env 與檔案權限保存，不寫入 log、不進命令列。
