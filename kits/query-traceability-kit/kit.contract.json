@@ -9,5 +9,30 @@
   "consumes": {
     "api": [],
     "db": ["db.records.search", "db.forms.list"]
-  }
+  },
+  "entryPoints": [
+    {
+      "key": "query.read",
+      "label": "依批號查詢與追溯",
+      "access": "read",
+      "defaultRoles": [
+        "admin",
+        "manager",
+        "operator",
+        "audit"
+      ],
+      "routes": [
+        {
+          "capability": "query.lot.get",
+          "method": "GET",
+          "path": "/api/v2/query/lot/{lot_no}"
+        },
+        {
+          "capability": "query.trace.get",
+          "method": "GET",
+          "path": "/api/v2/query/trace/{lot_no}"
+        }
+      ]
+    }
+  ]
 }
