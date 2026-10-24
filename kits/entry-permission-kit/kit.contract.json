@@ -1,0 +1,125 @@
+{
+  "kit": "entry-permission-kit",
+  "provides": {
+    "api": [
+      {
+        "capability": "auth.login",
+        "method": "POST",
+        "path": "/api/auth/login"
+      },
+      {
+        "capability": "auth.me.get",
+        "method": "GET",
+        "path": "/api/auth/me"
+      },
+      {
+        "capability": "auth.me.update",
+        "method": "PATCH",
+        "path": "/api/auth/me"
+      },
+      {
+        "capability": "auth.change-password",
+        "method": "POST",
+        "path": "/api/auth/change-password"
+      },
+      {
+        "capability": "entry-points.list",
+        "method": "GET",
+        "path": "/api/entry-points"
+      },
+      {
+        "capability": "entry-points.me",
+        "method": "GET",
+        "path": "/api/entry-points/me"
+      },
+      {
+        "capability": "roles.list",
+        "method": "GET",
+        "path": "/api/roles"
+      },
+      {
+        "capability": "roles.create",
+        "method": "POST",
+        "path": "/api/roles"
+      },
+      {
+        "capability": "roles.update",
+        "method": "PATCH",
+        "path": "/api/roles/{role_id}"
+      },
+      {
+        "capability": "roles.delete",
+        "method": "DELETE",
+        "path": "/api/roles/{role_id}"
+      },
+      {
+        "capability": "roles.grants.put",
+        "method": "PUT",
+        "path": "/api/roles/{role_id}/entry-points"
+      },
+      {
+        "capability": "ep.users.list",
+        "method": "GET",
+        "path": "/api/users"
+      },
+      {
+        "capability": "ep.users.create",
+        "method": "POST",
+        "path": "/api/users"
+      },
+      {
+        "capability": "ep.users.update",
+        "method": "PATCH",
+        "path": "/api/users/{user_id}"
+      },
+      {
+        "capability": "ep.users.reset-password",
+        "method": "POST",
+        "path": "/api/users/{user_id}/reset-password"
+      },
+      {
+        "capability": "ep.users.overrides.put",
+        "method": "PUT",
+        "path": "/api/users/{user_id}/entry-point-overrides"
+      }
+    ],
+    "db": []
+  },
+  "consumes": {
+    "api": [],
+    "db": []
+  },
+  "entryPoints": [
+    {
+      "key": "entry_permission.user_manage",
+      "label": "管理使用者",
+      "access": "write",
+      "defaultRoles": [
+        "admin",
+        "manager"
+      ],
+      "routes": [
+        {
+          "capability": "ep.users.list",
+          "method": "GET",
+          "path": "/api/users"
+        },
+        {
+          "capability": "ep.users.create",
+          "method": "POST",
+          "path": "/api/users"
+        },
+        {
+          "capability": "ep.users.update",
+          "method": "PATCH",
+          "path": "/api/users/{user_id}"
+        },
+        {
+          "capability": "ep.users.reset-password",
+          "method": "POST",
+          "path": "/api/users/{user_id}/reset-password"
+        }
+      ]
+    }
+  ]
+}

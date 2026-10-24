@@ -294,3 +294,12 @@ artifacts:
 - (b) operator 能否在 `import.job_run` 提交（commit）匯入？（可以；現場作業）
 - (c) `analytics.read`、`logs.read` 是否要開給 operator？（不開）
 - (d) 上述三項設計修正是否同意？（建議同意）
+
+## 2026-10-24 EP4 入口宣告完成（Claude；user 全部照預設、三項設計修正同意，D128）
+
+- 設計與決議：`docs/entry-permission-design.md` 第 4 節改為 `routes` 明確列出、加公開例外與通用代理說明；`docs/decision-log.md` 新增 D128；commit `6d6314a`。`entry_permission/directory.py` 的 `PUBLIC` 加入 `POST /api/mod/subscriptions/webhook`，並新增單元測試（只有目錄列出才公開、僅 POST、路徑精確）；拿掉該項時測試失敗（變異驗證）。
+- 入口宣告：9 個有後端的 Kit 各一個 commit，只在各自 `kit.contract.json` 加 `entryPoints`（其餘內容與換行格式不變，diff 只有結尾 `}` 變 `},` 加新欄位）：platform-core 3、generic-forms 4、audit-edit 4、import-pipeline 2、station-data-link 1、upload-validation 2、query-traceability 1、analytics 1、logs-ops 1、mod-subscription 2，加 entry-permission 自己的 1 個，共 22 個入口。
+- entry-permission-kit 的 `kit.contract.json`（16 個 API 能力、1 個入口）、`manifest.json`、`install.sh`、`install.ps1`（沿用基線無額外安裝的格式）已新增。**未提供：** registry（`config/registry/entry-permission-kit.json`）、`workflow.aov.json`、三份手冊；`config/kits/overlay.json` 的說明文字維持「尚未串接身分驗證」，因為組裝器整合（EP5）尚未完成，不提前宣稱。
+- 覆蓋測試 `services/package/tests/entry-points.test.mjs`（3 項，已納入 `tests/index.js`）：真實路由逐條對照（含入口權限自己的固定規則與公開例外），漏列、多列、重複宣告、虛構路由、唯讀角色出現在寫入入口的預設角色都會失敗。變異驗證：改名路由、audit 加入寫入入口、同一路由宣告兩次、移除一個入口，4 項皆被攔到，還原後 0 失敗。
+- 驗證結果：服務 `services/package/tests` 10/10、預覽 Node 13/13、預覽 Python 靜態 19、入口權限純邏輯 23、`npm run typecheck` 通過、`npm test` 498 通過 1 略過。
+- 未涵蓋：入口宣告尚未被組裝器彙整成 `permissions/entry_points.json`（EP5）；`MOD_WEBHOOK_SECRET` 的組裝與啟動必填檢查尚未實作（EP5 與 WP3a）；22 個入口的實際端到端授權結果尚未在真實 Kit 端點上驗證（目前 E2E 用 4 個測試入口）。
