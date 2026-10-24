@@ -483,3 +483,49 @@ Codex 在 WP3a 依停止條件停止（`codex-companion status`：completed，�
 **順序調整：** EP2（入口權限後端）→ EP4 的契約與 manifest（讓組裝器認得此 Kit）→ 重派 WP3a（Recipe 必須選入口權限 Kit，或明確採 API key 替代並補 `core/auth.py`）。EP2 與 WP3a 不共用檔案，但 WP3a 要等 EP2 才有可組裝的認證。
 
 另：Codex 回報 `npm.cmd test` 在其沙箱有 1 個失敗（security.test.mjs 暫存私鑰 EPERM），屬沙箱檔案權限問題；Claude 環境實測 498 通過 1 略過，不是回歸。
+
+## 2026-10-25 WP3a 重派（Claude）
+
+前置條件已解除：認證來源是 `entry-permission-kit`（D127、D128，已有後端、契約、22 個入口宣告與覆蓋測試）。`services/preview/assemble.mjs` 的 `inventory(kits, selected, excludedKits)` 現在接受呼叫端的排除表（預設值仍是預覽的表，預覽行為不變），`excluded` 也已匯出，所以系統包可以自己決定排除 `station-admin-kit` 與 `tenant-auth-kit` 兩個，納入 `entry-permission-kit`（共 11 個可納入 Kit）。
+
+**預計完成時間：2026-10-25 04:00。** 到期未完成由 Claude 接手（先以 `codex-companion status` 確認狀態）。
+
+### 設計決定（Codex 不得自行更改；與此矛盾時停止回報）
+
+1. **認證：** Recipe 必須選入 `entry-permission-kit`，否則組裝失敗並說明原因（API key 替代方案尚未提供，因為基線 `core/auth.py` 不在 `kits/`）。最小案例改為 7 個 Kit：platform-core、generic-forms、audit-edit、station-data-link、upload-validation、import-pipeline、entry-permission。全量案例為 11 個。
+2. **入口目錄：** 組裝時從所選 Kit 的 `kit.contract.json` 的 `entryPoints` 彙整出 `permissions/entry_points.json`，格式為 `schemas/entry-points.schema.json`（可用專案已有的 Ajv 2020 驗證，不新增依賴）；入口鍵重複、角色名不在 `admin/manager/operator/audit`、寫入入口含 `audit`、路由重複被兩個入口宣告，任一者都拒絕組裝。`publicPaths`：永遠含 `/healthz`、`/api/auth/login`；只有在選入 `mod-subscription-kit` 時才加 `/api/mod/subscriptions/webhook`。
+3. **MOD webhook 密鑰：** 選入 `mod-subscription-kit` 時，`deployment/docker-compose.yml` 必須用 `${MOD_WEBHOOK_SECRET:?...}` 讓缺少時 compose 直接失敗，後端 `main.py` 也要在啟動時檢查該環境變數存在且非空，缺少就啟動失敗並說明。未選入該 Kit 時不要求。
+4. **`endpoint_permissions.json`：** 輸出 `permissions/endpoint_permissions.json`（來源是 platform-core 的檔案，預設 `{}`）。若非空，`validation/report.json` 以警告列出「舊端點權限層會與入口層取交集」。
+5. **機器 API key：** 不提供。`configure_entry_permission` 要求 `machine_auth` 可呼叫；`main.py` 提供一個永遠回 401 的函式（名稱 `machine_access_unavailable`），並在 manifest `notProvided` 列出「machine API key authentication」。不得自行實作金鑰驗證或補 `core/auth.py`。
+6. **中介層順序：** `endpoint_permission_middleware` 先註冊（內層），`entry_permission_middleware` 後註冊（外層）。參考已通過 48/48 的 `kits/entry-permission-kit/tests/e2e/e2e_main.py`。
+7. **路由註冊：** 以 `services/preview/assemble.mjs` 匯出的 `prefixes` 為註冊前綴規則（含 `routes_ep_*`）；`main.py` 只掛所選 Kit 實際存在的路由檔；掛載順序固定（依檔名排序）。
+8. **首次安裝建表：** 獨立、明確的一步，不在後端啟動時默默執行。提供 `backend/app/system_init.py`（`python -m app.system_init`）：建立全部資料表（`Base.metadata.create_all`，模型集合與 `models/__init__.py` 一致），並以環境變數 `DEFAULT_TENANT_ID`（必填）建立預設租戶（`tenants` 表，名稱／代碼來自 `SYSTEM_ID`），冪等，重複執行不報錯也不改資料。初始管理員仍由 `python -m app.entry_permission.create_admin` 建立（WP3b 的安裝引擎呼叫），不在此步驟。`manifest.notProvided` 列出「executable upgrade migrations」。
+9. **後端啟動：** 若資料表不存在或預設租戶不存在，`/healthz` 回 503 並說明（不自動建表）。`/healthz` 檢查資料庫連線。缺少必要環境變數（`DATABASE_URL`、`ENTRY_PERMISSION_JWT_SECRET`、`DEFAULT_TENANT_ID`、`SECRET_KEY`，以及第 3 點）時啟動失敗，說明缺哪一項，不使用預設值。
+10. **部署檔（`deployment/`）：** `docker-compose.yml`、`backend.Dockerfile`、反向代理設定、`.env.example`、`README.md`。
+    - 映像固定：`python:3.12.8-slim-bookworm`、`postgres:16.6-bookworm`、反向代理使用固定標籤的 nginx（選一個穩定版本並寫入 README 說明為何）。
+    - 資料庫只在 `internal: true` 網路，不發布到宿主埠；後端 `expose` 不發布；反向代理發布 `${PROXY_BIND:-127.0.0.1}:${HTTP_PORT:-8080}:80`（預設只綁本機；內網開放由安裝引擎設定，TLS 未提供，README 與 `notProvided` 都要寫）。
+    - 秘密值一律 `${NAME:?必填說明}`，`.env.example` 只有欄位名稱與說明，沒有任何秘密值或看似真實的預設值。
+    - 後端以非 root 使用者執行；healthcheck 打 `/healthz`；`init` 為一次性服務（profile `init`），依賴資料庫健康。
+    - 反向代理只轉送 `/api/` 與 `/healthz`；`/` 回 503 純文字「前端尚未納入此套件版本」（前端由 WP2 另案），並列入 `notProvided`。
+    - 依賴固定檔：`deployment/backend/requirements.txt`，內容為預覽 `requirements.txt` 加所選 Kit 的 `requirements.txt`（入口權限的 `PyJWT==2.15.1`、`bcrypt==5.0.0`），去除重複；未帶 `--hash`，`notProvided` 列出「hash-locked dependency file（建議 `--require-hashes`）」，原因見 P2 thread 2026-10-22 的雜湊查證。
+11. **manifest：** 全部新檔案列入 `files`（含 role）；`notProvided` 移除已完成者（formal entry file、deployment 中已做的部分），其餘仍列出並新增本節提到的項目。
+12. **可重現與排除掃描：** 沿用 WP1 規則。預覽項目掃描（`COMPOSER_PREVIEW`、預覽固定密碼、`preview_seed`、`preview_gate`、`preview_registry`、`_preview/mod` 等）零命中；另新增掃描：輸出不得含看似真實的預設秘密（例如 `change-me`、`password`、`secret` 作為值）。
+
+### 範圍與限制
+
+只可新增或修改：`services/package/` 內檔案、本 thread 的 Codex Notes（新增「WP3a 第二次」小節，不覆蓋前次）。不得修改 `kits/`、`schemas/`、`libs/`、`apps/`、`docs/`、`scripts/`、`services/preview/`、`TODO.md`。需要新 schema 時把草案放 `services/package/` 並在 Notes 說明。不 git add/commit；不使用 Docker、網路、新 npm 依賴；沙箱沒有可用 Python，Python 類檢查（`check_tree.py`、容器內啟動）標「由 Claude 執行」，不得宣稱通過。
+
+### 成功條件
+
+1. 全量（11）與最小（7）案例都能組裝，輸出含 `deployment/`、`permissions/entry_points.json`、`backend/app/main.py`、`backend/app/system_init.py`，且可重現（兩次輸出逐檔相同）。
+2. 拒絕案例都有測試：沒選入口權限 Kit；入口鍵重複；寫入入口含 audit；webhook 在選入訂閱 Kit 但 compose 缺 `:?`（以掃描輸出驗證）。
+3. 變異驗證（拿掉任一項測試必須失敗）：移除 `:?` 必填語法、移除預覽排除、移除入口彙整、移除 `notProvided` 更新、移除「沒選入口權限即拒絕」。記錄於 Notes。
+4. `node --test services/package/tests` 與 `node --test services/preview/tests/preview.test.mjs` 全過；`npm.cmd run typecheck` 通過；新檔 JSDoc 型別在 `--strict --checkJs` 下零錯誤（指令見 P2 thread 2026-10-22 WP1 驗收）。
+
+### 停止條件
+
+需要修改 `kits/` 或既有 schema；入口權限 Kit 與所選 Kit 的實際介面與上述設計矛盾（例如 `configure_entry_permission` 簽章、`database.init_db` 行為）；任何一項設計決定無法在不自行設計認證的情況下實現。停止並在 Notes 回報，不自行決定。
+
+### 回報格式
+
+變更摘要、檔案清單、驗證方式與實際結果（含失敗與未執行項）、變異、未涵蓋。
