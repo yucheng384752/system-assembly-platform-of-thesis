@@ -10,5 +10,123 @@
   "consumes": {
     "api": [],
     "db": ["db.tenants.read", "db.edit-reasons.validate"]
-  }
+  },
+  "entryPoints": [
+    {
+      "key": "forms.read",
+      "label": "瀏覽表單與資料列",
+      "access": "read",
+      "defaultRoles": [
+        "admin",
+        "manager",
+        "operator",
+        "audit"
+      ],
+      "routes": [
+        {
+          "capability": "forms.list",
+          "method": "GET",
+          "path": "/api/forms"
+        },
+        {
+          "capability": "forms.records.list",
+          "method": "GET",
+          "path": "/api/forms/{code}/records"
+        },
+        {
+          "capability": "forms.import-jobs.get",
+          "method": "GET",
+          "path": "/api/forms/{code}/import-jobs/{job_id}"
+        },
+        {
+          "capability": "dataflows.links.list",
+          "method": "GET",
+          "path": "/api/dataflows/links"
+        }
+      ]
+    },
+    {
+      "key": "forms.import",
+      "label": "上傳並匯入表單資料",
+      "access": "write",
+      "defaultRoles": [
+        "admin",
+        "manager",
+        "operator"
+      ],
+      "routes": [
+        {
+          "capability": "forms.upload",
+          "method": "POST",
+          "path": "/api/forms/{code}/upload"
+        },
+        {
+          "capability": "forms.import.preview",
+          "method": "POST",
+          "path": "/api/forms/{code}/import/preview"
+        },
+        {
+          "capability": "forms.import.commit",
+          "method": "POST",
+          "path": "/api/forms/{code}/import/commit"
+        }
+      ]
+    },
+    {
+      "key": "forms.design",
+      "label": "設計表單與資料流",
+      "access": "write",
+      "defaultRoles": [
+        "admin",
+        "manager"
+      ],
+      "routes": [
+        {
+          "capability": "forms.create",
+          "method": "POST",
+          "path": "/api/forms"
+        },
+        {
+          "capability": "forms.delete",
+          "method": "DELETE",
+          "path": "/api/forms/{code}"
+        },
+        {
+          "capability": "forms.schema.set",
+          "method": "PUT",
+          "path": "/api/forms/{code}/schema"
+        },
+        {
+          "capability": "dataflows.links.create",
+          "method": "POST",
+          "path": "/api/dataflows/links"
+        },
+        {
+          "capability": "dataflows.links.put",
+          "method": "PUT",
+          "path": "/api/dataflows/links"
+        },
+        {
+          "capability": "dataflows.links.delete",
+          "method": "DELETE",
+          "path": "/api/dataflows/links/{from_code}/{to_code}"
+        }
+      ]
+    },
+    {
+      "key": "forms.record_delete",
+      "label": "刪除表單資料列",
+      "access": "write",
+      "defaultRoles": [
+        "admin"
+      ],
+      "routes": [
+        {
+          "capability": "forms.records.delete",
+          "method": "DELETE",
+          "path": "/api/forms/{code}/records/{record_id}"
+        }
+      ]
+    }
+  ]
 }
