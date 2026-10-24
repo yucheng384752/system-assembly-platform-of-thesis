@@ -11,5 +11,43 @@
   "consumes": {
     "api": [],
     "db": ["db.tenants.read"]
-  }
+  },
+  "entryPoints": [
+    {
+      "key": "subscription.read",
+      "label": "查看訂閱與權益",
+      "access": "read",
+      "defaultRoles": [
+        "admin",
+        "manager"
+      ],
+      "routes": [
+        {
+          "capability": "subscriptions.get",
+          "method": "GET",
+          "path": "/api/mod/subscriptions/{external_subscription_id}"
+        },
+        {
+          "capability": "subscriptions.entitlements",
+          "method": "GET",
+          "path": "/api/mod/subscriptions/{external_subscription_id}/entitlements"
+        }
+      ]
+    },
+    {
+      "key": "subscription.sync",
+      "label": "同步訂閱",
+      "access": "write",
+      "defaultRoles": [
+        "admin"
+      ],
+      "routes": [
+        {
+          "capability": "subscriptions.sync",
+          "method": "POST",
+          "path": "/api/mod/subscriptions/sync"
+        }
+      ]
+    }
+  ]
 }
