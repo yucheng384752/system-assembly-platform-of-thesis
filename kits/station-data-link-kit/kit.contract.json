@@ -12,5 +12,24 @@
   "consumes": {
     "api": [],
     "db": ["db.tenants.read"]
-  }
+  },
+  "entryPoints": [
+    {
+      "key": "import.legacy_p123",
+      "label": "匯入已驗證的上傳工作（P1/P2/P3 相容）",
+      "access": "write",
+      "defaultRoles": [
+        "admin",
+        "manager",
+        "operator"
+      ],
+      "routes": [
+        {
+          "capability": "import.legacy.commit",
+          "method": "POST",
+          "path": "/api/import"
+        }
+      ]
+    }
+  ]
 }
