@@ -15,5 +15,62 @@
   "consumes": {
     "api": [],
     "db": ["db.tables.resolve", "db.records.search"]
-  }
+  },
+  "entryPoints": [
+    {
+      "key": "import.job_read",
+      "label": "查看匯入工作與錯誤",
+      "access": "read",
+      "defaultRoles": [
+        "admin",
+        "manager",
+        "operator",
+        "audit"
+      ],
+      "routes": [
+        {
+          "capability": "import.job.get",
+          "method": "GET",
+          "path": "/api/v2/import/jobs/{job_id}"
+        },
+        {
+          "capability": "import.job.errors",
+          "method": "GET",
+          "path": "/api/v2/import/jobs/{job_id}/errors"
+        }
+      ]
+    },
+    {
+      "key": "import.job_run",
+      "label": "建立、提交與取消匯入工作",
+      "access": "write",
+      "defaultRoles": [
+        "admin",
+        "manager",
+        "operator"
+      ],
+      "routes": [
+        {
+          "capability": "import.job.create",
+          "method": "POST",
+          "path": "/api/v2/import/jobs"
+        },
+        {
+          "capability": "import.job.from_upload",
+          "method": "POST",
+          "path": "/api/v2/import/jobs/from-upload-job"
+        },
+        {
+          "capability": "import.job.commit",
+          "method": "POST",
+          "path": "/api/v2/import/jobs/{job_id}/commit"
+        },
+        {
+          "capability": "import.job.cancel",
+          "method": "POST",
+          "path": "/api/v2/import/jobs/{job_id}/cancel"
+        }
+      ]
+    }
+  ]
 }
