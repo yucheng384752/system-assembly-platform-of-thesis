@@ -6,7 +6,8 @@ import { spawnSync } from 'node:child_process';
 
 export const directory = path.dirname(fileURLToPath(import.meta.url));
 export const repository = path.resolve(directory, '../..');
-const excluded = new Map([
+/** Kits the preview never assembles. A system package passes its own, smaller map to inventory() (D127). */
+export const excluded = new Map([
   ['tenant-auth-kit', 'D03：已廢除，不納入身分驗證'],
   ['station-admin-kit', 'T2：缺少 routes_stations.py，無可啟動來源'],
   ['entry-permission-kit', 'D127：預覽不含身分驗證，由預覽閘門取代；正式系統包才納入'],
@@ -155,14 +156,14 @@ export function pythonCheck(args, input, run = spawnSync) {
 }
 
 /** @param {string} kits @returns {Promise<{included: string[], excluded: {kit: string, reason: string}[], sources: Map<string, {kit: string, data: Buffer}>, overrides: string[]}>} */
-export async function inventory(kits, selected = null) {
+export async function inventory(kits, selected = null, excludedKits = excluded) {
   const included = [], omitted = [], overrides = [];
   /** @type {Map<string, {kit: string, data: Buffer}>} */
   const sources = new Map();
   for (const entry of (await readdir(kits, { withFileTypes: true })).sort((a, b) => a.name < b.name ? -1 : 1)) {
     if (!entry.isDirectory()) continue;
     const kit = entry.name;
-    if (excluded.has(kit)) { omitted.push({ kit, reason: excluded.get(kit) ?? '' }); continue; }
+    if (excludedKits.has(kit)) { omitted.push({ kit, reason: excludedKits.get(kit) ?? '' }); continue; }
     if (selected && !selected.includes(kit)) { omitted.push({ kit, reason: 'Recipe 未選取' }); continue; }
     const backend = path.join(kits, kit, 'src/backend');
     let names;

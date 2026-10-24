@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { assemble, inventory, adapt, directory, repository, policyData, pythonCheck, prefixes, tenantFree } from '../assemble.mjs';
+import { assemble, inventory, adapt, directory, repository, policyData, pythonCheck, prefixes, tenantFree, excluded } from '../assemble.mjs';
 import { commands, execute } from '../preview.mjs';
 
 test('actual kit inventory, deterministic assembly, closed imports and source preservation', async () => {
@@ -279,4 +279,15 @@ test('every router file of every kit, including kits the preview excludes, has a
       assert.ok(tenantFree.has(stem), `${stem} must not resolve a tenant`);
     }
   }
+});
+
+test('inventory takes a caller-supplied exclusion map; the preview default still excludes entry-permission-kit', async () => {
+  const kits = path.join(repository, 'kits');
+  const preview = await inventory(kits);
+  assert.ok(preview.excluded.some(k => k.kit === 'entry-permission-kit'));
+  assert.ok(!preview.included.includes('entry-permission-kit'));
+  const own = new Map([...excluded].filter(([kit]) => kit !== 'entry-permission-kit'));
+  const system = await inventory(kits, null, own);
+  assert.ok(system.included.includes('entry-permission-kit'), 'a system package may include the kit the preview excludes');
+  assert.deepEqual(system.excluded.map(k => k.kit), ['station-admin-kit', 'tenant-auth-kit']);
 });
