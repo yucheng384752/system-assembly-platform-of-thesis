@@ -17,5 +17,61 @@
   "consumes": {
     "api": [],
     "db": []
-  }
+  },
+  "entryPoints": [
+    {
+      "key": "platform.contracts_read",
+      "label": "查看功能契約清單",
+      "access": "read",
+      "defaultRoles": [
+        "admin",
+        "manager",
+        "operator",
+        "audit"
+      ],
+      "routes": [
+        {
+          "capability": "kit.contracts.list",
+          "method": "GET",
+          "path": "/api/kit/contracts"
+        }
+      ]
+    },
+    {
+      "key": "platform.kit_call",
+      "label": "透過通用代理讀取資料",
+      "access": "read",
+      "defaultRoles": [
+        "admin",
+        "manager"
+      ],
+      "routes": [
+        {
+          "capability": "kit.capability.call",
+          "method": "POST",
+          "path": "/api/kit/call/{capability}"
+        }
+      ]
+    },
+    {
+      "key": "platform.endpoint_permissions",
+      "label": "管理端點權限設定",
+      "access": "write",
+      "defaultRoles": [
+        "admin"
+      ],
+      "routes": [
+        {
+          "capability": "admin.endpoint-permissions.get",
+          "method": "GET",
+          "path": "/api/admin/endpoint-permissions"
+        },
+        {
+          "capability": "admin.endpoint-permissions.put",
+          "method": "PUT",
+          "path": "/api/admin/endpoint-permissions"
+        }
+      ]
+    }
+  ]
 }
