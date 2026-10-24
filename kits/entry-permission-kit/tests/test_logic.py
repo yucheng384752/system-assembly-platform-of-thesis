@@ -125,6 +125,17 @@ class DirectoryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Directory(data)
 
+    def test_mod_webhook_is_public_only_when_listed_and_for_post(self):
+        # D128: external MOD callback carries no user token; it must be opted in by the directory, never implied.
+        webhook = "/api/mod/subscriptions/webhook"
+        self.assertFalse(Directory(document()).is_public("POST", webhook))
+        data = document()
+        data["publicPaths"].append(webhook)
+        directory = Directory(data)
+        self.assertTrue(directory.is_public("POST", webhook))
+        self.assertFalse(directory.is_public("GET", webhook))
+        self.assertFalse(directory.is_public("POST", webhook + "/x"))
+
     def test_invalid_directory_fails_closed(self):
         mutations = [lambda d: d.update(version=True), lambda d: d.update(unexpected=True),
                      lambda d: d["entryPoints"][0].update(access="anything"),

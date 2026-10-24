@@ -56,20 +56,25 @@ status: 設計草稿，依 D127 實作；實作前以本文為資料與介面定
       "key": "audit.edit_record",
       "label": "修正資料列",
       "access": "write",
-      "defaultRoles": ["manager"],
-      "capabilities": ["records.edit"]
+      "defaultRoles": ["admin", "manager"],
+      "routes": [
+        { "capability": "records.edit", "method": "PATCH", "path": "/api/edit/records/{table_code}/{record_id}" }
+      ]
     }
   ]
 }
 ```
 
-- `capabilities` 引用該 Kit 契約或 registry 已有的能力編號；組裝時解析成方法與路徑樣式，不重複寫路徑。
+- **路由明確列出（D128，取代先前「引用能力編號再解析」的做法）：** 各 Kit 的契約只宣告部分路由，所以 `routes` 直接寫 `{capability, method, path}`；契約未宣告的路由使用新的能力編號。路徑含組裝前綴（例如 `/api/edit/...`）。
+- **覆蓋測試：** 測試以 AST 掃描各 Kit 的 `routes_*.py` 得到真實路由（加組裝前綴），每一條都必須恰好被一個入口涵蓋，入口中列出但不存在的路由也失敗；入口權限自己的路由與公開例外另有明列的規則。新增路由而漏列入口時測試失敗，不會默默變成「僅 admin」。
 - `key` 全系統唯一，格式 `<領域>.<動作>`；重複則拒絕組裝。
 - 組裝輸出 `permissions/entry_points.json`，格式見 `schemas/entry-points.schema.json`，進 `system-manifest.json` 的 `files`。
-- **預設拒絕：** 不在任何入口、也不在公開例外（`/healthz`、`/api/auth/login`）的 `/api` 路徑，只有內建 `admin` 可通過，並記錄日誌。
+- **預設拒絕：** 不在任何入口、也不在公開例外的 `/api` 路徑，只有內建 `admin` 可通過，並記錄日誌。
+- **公開例外（D128）：** `/healthz`（GET）、`/api/auth/login`（POST），以及 `/api/mod/subscriptions/webhook`（POST）。webhook 由外部 MOD 服務呼叫、沒有使用者 token，端點以 `X-Mod-Webhook-Secret` 自行驗證；但基線程式只在 `MOD_WEBHOOK_SECRET` 有設定時才檢查，所以選入 mod-subscription-kit 的系統包，**組裝與啟動都必須要求該環境變數存在且非空**，缺少就失敗。公開例外集合固定在程式裡，目錄的 `publicPaths` 只能是它的子集。
+- **通用代理 `POST /api/kit/call/{capability}`：** 會執行 6 個資料庫讀取能力（已核對全為讀取），不經各 Kit 的入口，所以預設角色取較窄的 `admin`、`manager`（入口 `platform.kit_call`）。
 - 入口可見性（前端選單）與 API 存取使用同一份解析結果：`GET /api/entry-points/me` 回傳目前使用者可用的入口鍵。
 
-為了讓現有 12 個 Kit 的端點進入目錄，EP4 需要為各 Kit 的 `kit.contract.json` 補 `entryPoints`；這會修改 `kits/`，屬於另行核准的步驟（每個 Kit 一個 commit，預設角色保守，只用內建角色）。
+為了讓現有 Kit 的端點進入目錄，EP4 為 9 個有後端的 Kit 的 `kit.contract.json` 補 `entryPoints`（共 22 個入口，涵蓋 52 條路由，清單與角色見 mailbox thread `20261022-entry-permission-kit` 的「EP4 入口清單」，user 於 2026-10-24 照預設核准）；這會修改 `kits/`，屬於另行核准的步驟（每個 Kit 一個 commit，預設角色保守，只用內建角色）。
 
 ## 5. API
 

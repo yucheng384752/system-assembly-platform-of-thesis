@@ -5,7 +5,9 @@ from pathlib import Path
 
 from .policy import allows, builtin_admin
 
-PUBLIC = {"/healthz": "GET", "/api/auth/login": "POST"}
+# D128: the MOD webhook has no user token; the endpoint verifies X-Mod-Webhook-Secret itself, and a system package
+# that includes mod-subscription-kit must require MOD_WEBHOOK_SECRET (the baseline only checks it when set).
+PUBLIC = {"/healthz": "GET", "/api/auth/login": "POST", "/api/mod/subscriptions/webhook": "POST"}
 
 
 def _object(pairs):
