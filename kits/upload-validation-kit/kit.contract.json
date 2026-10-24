@@ -15,5 +15,92 @@
   "consumes": {
     "api": ["import.job.create"],
     "db": ["db.tenants.read"]
-  }
+  },
+  "entryPoints": [
+    {
+      "key": "upload.read",
+      "label": "查看上傳狀態與驗證結果",
+      "access": "read",
+      "defaultRoles": [
+        "admin",
+        "manager",
+        "operator",
+        "audit"
+      ],
+      "routes": [
+        {
+          "capability": "upload.status.get",
+          "method": "GET",
+          "path": "/api/upload/{process_id}/status"
+        },
+        {
+          "capability": "upload.edits.list",
+          "method": "GET",
+          "path": "/api/upload/{process_id}/edits"
+        },
+        {
+          "capability": "upload.pdf.service-status",
+          "method": "GET",
+          "path": "/api/upload/pdf/service-status"
+        },
+        {
+          "capability": "upload.pdf.status",
+          "method": "GET",
+          "path": "/api/upload/pdf/{process_id}/convert/status"
+        },
+        {
+          "capability": "upload.pdf.outputs",
+          "method": "GET",
+          "path": "/api/upload/pdf/{process_id}/convert/outputs"
+        },
+        {
+          "capability": "validate.result.get",
+          "method": "GET",
+          "path": "/api/validate"
+        }
+      ]
+    },
+    {
+      "key": "upload.run",
+      "label": "上傳、驗證與轉換檔案",
+      "access": "write",
+      "defaultRoles": [
+        "admin",
+        "manager",
+        "operator"
+      ],
+      "routes": [
+        {
+          "capability": "upload.file.create",
+          "method": "POST",
+          "path": "/api/upload"
+        },
+        {
+          "capability": "upload.pdf.create",
+          "method": "POST",
+          "path": "/api/upload/pdf"
+        },
+        {
+          "capability": "upload.validate",
+          "method": "POST",
+          "path": "/api/upload/{process_id}/validate"
+        },
+        {
+          "capability": "upload.content.update",
+          "method": "PUT",
+          "path": "/api/upload/{process_id}/content"
+        },
+        {
+          "capability": "upload.pdf.convert",
+          "method": "POST",
+          "path": "/api/upload/pdf/{process_id}/convert"
+        },
+        {
+          "capability": "upload.pdf.ingest",
+          "method": "POST",
+          "path": "/api/upload/pdf/{process_id}/convert/ingest"
+        }
+      ]
+    }
+  ]
 }
