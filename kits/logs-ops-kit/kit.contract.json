@@ -9,5 +9,29 @@
   "consumes": {
     "api": [],
     "db": []
-  }
+  },
+  "entryPoints": [
+    {
+      "key": "logs.read",
+      "label": "查看運作日誌與摘要",
+      "access": "read",
+      "defaultRoles": [
+        "admin",
+        "manager",
+        "audit"
+      ],
+      "routes": [
+        {
+          "capability": "logs.list",
+          "method": "GET",
+          "path": "/api/logs/"
+        },
+        {
+          "capability": "logs.summary",
+          "method": "GET",
+          "path": "/api/logs/summary"
+        }
+      ]
+    }
+  ]
 }
