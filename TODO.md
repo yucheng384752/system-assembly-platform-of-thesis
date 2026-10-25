@@ -97,28 +97,29 @@ Result：
 
    客機 engine 要做的事（依序）：
    1. 環境偵測：確認 Ubuntu 22.04 LTS、CPU 架構、磁碟空間、記憶體、目前使用者權限（是否 root、是否在 sudoers）、已安裝套件與版本、連接埠占用；不符合時明確拒絕並說明原因。
-   2. 連網檢查：確認 apt 與 PyPI 可連；不通即停止並報錯，不降級成離線。
+   2. 連網檢查：確認 apt 可連（需要時安裝 docker.io 與 docker-compose-v2）；映像若採線上拉取則映像倉庫也要可連；PyPI 不再需要（依賴已在映像內）。不通即停止並報錯，不降級成離線。
    3. 驗證安裝包（前置：工程師手動以 sha256sum 核對 install.sh 與根公鑰，見「公鑰信任起點」）：啟動器以 openssl 驗根公鑰指紋（引擎內輸入前 8 碼確認），再驗 tar.gz 的 RSA-PSS 簽章與 sha256；通過後才解壓，解壓後核對 system-manifest.json 各檔 sha256，並確認簽章檔記錄的 systemManifestSha256 相符。驗證通過前不解壓、不執行安裝包內的腳本。通過後公鑰寫入信任庫（首次安裝）；升級時改對信任庫驗證。
    4. 簽發並驗證授權（2026-10-24 改寫，原寫法是驗證既有授權）：(a) detect 產生多硬體特徵指紋（見「授權綁定與簽章發放」，取代 D38 的 /etc/machine-id）；(b) 工程師在精靈上傳 USB 的加密子金鑰檔與憑證並輸入密碼，引擎在記憶體中簽出授權，綁定該指紋與已驗證的 systemManifestSha256，用完即清；(c) 驗授權鏈（根公鑰 -> 子金鑰憑證的客戶識別碼與期限 -> 授權簽章）、到期日、指紋、manifest 雜湊相符；任一失敗拒絕安裝。升級重新簽發授權；回復舊版時保留舊授權。
-   （注意：步驟 5 至 7 的 apt、PostgreSQL、systemd 與虛擬環境寫法已被 D126 取代，改為 Docker Compose 與 PostgreSQL 16；本表尚未改寫，見 docs/install-engine-contract.md 第 9 節。）
+   （步驟 5 至 7 已於 2026-10-25 依 D126、D133 改寫為 Docker 流程，見下方；新增 guard 步驟 13 後原步驟 13 至 16 順延為 14 至 17。）
 
    裁決與驗證（2026-10-24，已寫入 D133）：使用者同意以 D126 為準（Docker Compose，容器內 PostgreSQL 16），上方 PostgreSQL 14 鎖定與 apt 資料庫驗證結果作廢，僅保留作歷史紀錄。使用者要求先驗證 Ubuntu 22.04 自帶的 docker.io 是否滿足需求，不滿足才放寬「不加第三方 apt 來源」。
    - 套件庫事實（ubuntu:22.04 容器，預設 sources，jammy-updates/universe）：docker.io 29.1.3-0ubuntu3~22.04.2、docker-compose-v2 2.40.3+ds1-0ubuntu1~22.04.1、containerd 2.2.1、runc 1.3.4（後兩者在 main）。測試 VM 的 Docker 引擎本來就是此套件版本，/etc/apt/sources.list.d 沒有 Docker 官方來源。
    - 功能驗證（192.168.200.63）：以 Ubuntu 套件取出的 Compose 2.40.3 單獨執行，對 services/preview/docker-compose.yml 通過 config、up --build --wait（含 service_healthy 與 internal 網路）、app.preview_seed；smoke.mjs 24/24、smoke-gating.mjs 13/13，資料庫容器無對外路由（getent 解析失敗）。測試後已 down -v 並刪除建置映像與暫存檔。
    - 結論：自帶 docker.io 與 docker-compose-v2 滿足預覽堆疊的需求，不需放寬限制。
    - 未涵蓋：在全新客機以 sudo 實際 apt install docker.io docker-compose-v2（VM 為既有安裝，Compose 是從容器內抽取，未走 apt 安裝）；universe 套件的安全更新由社群維護，Ubuntu Pro 才提供保證，需決定是否接受；docker 群組等同 root 權限，須寫入威脅模型；PostgreSQL 映像如何取得（Docker Hub 拉取或 docker save 打進安裝包並記錄 digest）；容器內硬體指紋讀取（見上方實測）；全量映像（非預覽精簡版）與 Docker 重啟後自動啟動；Ubuntu 22.04 標準支援約到 2027-04（未再查證）。
-   5. 缺少套件計畫：列出需 apt 安裝的套件與版本，使用者確認後才安裝；記錄實際安裝的版本。
-   6. 建立執行環境：非 root 服務帳號、安裝目錄（版本化目錄加 current 連結）、Python 虛擬環境、依 hash 安裝依賴（--require-hashes）。
-   7. 資料庫：PostgreSQL 只監聽 127.0.0.1、pg_hba 只允許本機且用 scram-sha-256（D45）；建立資料庫帳號與資料庫，連線資訊以 .env 與檔案權限保存，不寫入 log、不進命令列。
-   8. 套用設定：解析 Recipe 與 Site（含鎖定值與來源追溯）、驗證流程文件與 workflowRef、產生最終設定檔。
+   5. 元件計畫（2026-10-25 依 D126、D133 改寫為 Docker）：檢查 docker 與 docker compose；缺少時計畫列出以 apt 安裝 docker.io 與 docker-compose-v2（Ubuntu 套件庫，不加第三方來源），標明實際解析出的版本，使用者確認後才安裝。universe 未啟用時停止並說明原因，不自動修改 apt 來源。不把工程師帳號加入 docker 群組（等同 root 權限）；引擎的特權步驟以 sudo 呼叫 docker。最低可用版本待實測決定。
+   6. 建立執行環境：安裝目錄（版本化目錄加 current 連結）；載入映像（核對 system-manifest 記錄的 digest；映像來自安裝包或線上拉取，待決，建議打進安裝包）；建立 internal 資料網路與對外網路、具名卷；寫入 .env（0600）。本次建立的容器、網路、具名卷與載入的映像一律加標籤 `com.composer.install-id=<id>`，作為還原與升級的依據。不建立虛擬環境、systemd 服務與服務帳號（容器內使用非 root 使用者）。
+   7. 資料庫：PostgreSQL 16 容器，只在 internal 網路、不發布宿主埠（D45）；主機驗證 scram-sha-256（映像預設是否如此待實測）。密碼以 0600 的 secret 檔提供（例如 POSTGRES_PASSWORD_FILE），不放環境變數，避免 docker inspect 洩漏；不寫入 log、不進命令列。後端連線設定同樣不得把密碼放在環境變數，具體做法待設計。
+   8. 套用設定：解析 Recipe 與 Site（含鎖定值與來源追溯，含封鎖生效時段 D137）、驗證流程文件與 workflowRef、產生最終設定檔。
    9. 完整性檢查：Kit 相依與 capability 完整性（D05）；缺口逐項列出，不靜默略過。
    10. 產生 migration plan（第 2 項）：新舊欄位差異分類為自動、需確認、阻擋；需確認項目由人員核定；全新安裝則只建立初始結構。
    11. 計畫總覽與確認：把以上所有將執行的動作列成一份計畫，人工確認後才執行；支援 --plan（只看不做）。組裝期不默默執行正式 migration（spec 12.2）。
-   12. 備份與執行：既有安裝先備份資料庫與舊版本；migration 在單一交易內套用；部署前端靜態檔、設定反向代理與 systemd 服務（非 root 執行）。
-   13. 啟動與驗證：啟動服務、健康檢查、授權檢查、migration 後驗證查詢（筆數、schema_version_id、新必填規則的例外筆數）。
-   14. 失敗處理：每一步記錄完成狀態，可重複執行；失敗時還原到上一個完成點並保留備份；不因單步警告繼續假裝成功。
-   15. 輸出驗證報告：靜態檢查、安裝過程結果、現場待驗證項目分列（spec 12）；套用的實際套件版本與 migration 紀錄（計畫書 sha256、受影響筆數）。
-   16. 升級與移除：偵測既有安裝後走升級流程（同一個引擎，備份加 migration）；回復與移除須保留資料並明確確認。
+   12. 備份與執行：既有安裝先備份資料庫（pg_dump 並驗證可讀）與舊版本設定；migration 在單一交易內套用；以 compose 啟動資料庫、後端與反向代理（前端靜態檔隨反向代理映像或卷提供），容器設為自動重啟，Docker 服務開機啟動。
+   13. 啟動 guard（D136）：guard 容器以 root、cap_drop ALL、no-new-privileges、唯讀根檔案系統、不發布連接埠、唯讀掛載宿主 /sys 執行；首次計算指紋並與授權比對，結果寫入共用卷；後端讀取並在不符時依 D136、D137 處理。guard 或授權狀態頁尚未提供時，manifest 的 notProvided 必須列出，且啟動時僅檢查授權簽章、到期日與 manifest 雜湊，不宣稱已防複製。
+   14. 啟動與驗證：健康檢查、授權檢查、migration 後驗證查詢（筆數、schema_version_id、新必填規則的例外筆數）。
+   15. 失敗處理：每一步記錄完成狀態，可重複執行；失敗時還原到上一個完成點並保留備份；不因單步警告繼續假裝成功。
+   16. 輸出驗證報告：靜態檢查、安裝過程結果、現場待驗證項目分列（spec 12）；套用的實際套件與映像版本（含 digest）、migration 紀錄（計畫書 sha256、受影響筆數）、指紋來源有效性。
+   17. 升級與移除：偵測既有安裝後走升級流程（同一個引擎，備份加 migration；升級重新簽發授權）；回復與移除須保留資料並明確確認。
 
    授權綁定與簽章發放（2026-10-22 已與使用者討論，已寫入 decision-log（D129 至 D132），尚未實作）：
    - 前提：客機預設為品牌實體機，不一定有 TPM 2.0；逐台全新安裝；要防的是把系統複製到第二台機器。
@@ -179,6 +180,13 @@ Result：
    - 建議待確認（未寫入決議）：封鎖生效時段。若封鎖在夜間或假日開始，我們無法在半天內換證，所以由 Site 設定「封鎖生效時段」（預設平日 09:00 至 15:00，留 3 小時給我們處理），寬限到期若不在時段內就順延到下一個時段開始。代價：複製系統多執行最多約 2 至 3 天（含週末），屬 D44 的取捨。
    - P2 或 P5：mailbox thread 20261021-p2-executable-assembly 的 WP3 已把「安裝腳本、安裝前驗證（簽章、授權、checksum）、遷移與健康檢查」排在 P2，D126 也把引擎列為 WP3b、精靈列為 WP3c，所以自動安裝實際已在 P2，不是 P5。尚待確認：子金鑰簽發、guard、授權狀態頁是否也在 P2，建議另開工作包。WP5 的「Windows Docker 乾淨安裝」與 Ubuntu 22.04 目標不一致，需修正。
    - 未驗證：實體品牌機的指紋穩定性與 guard 失效行為、網卡實體裝置過濾規則、狀態頁與後端整合、guard 與共用卷的細節。
+
+   工作包建議（2026-10-25，Claude 建議，待使用者確認，尚未寫入 mailbox thread，因該 thread 正由另一個工作階段修改）：
+   - WP3b（引擎與命令列）：沿用原定義，補入 detect 的指紋計算、verify 的信任庫與授權鏈、issue-license、trust-store 與 license-install 步驟、Docker 還原語意；契約見 docs/install-engine-contract.md（2026-10-25 修訂）。
+   - WP3d（新增，簽發工具，離線，命令列）：scripts/security/ 旁新增「簽發子金鑰」腳本與授權鏈驗證（沿用 Node 內建 crypto）；輸出 release-fingerprints.txt（D137）；授權 schema 加 issuerCertificate。屬發行端，不進客機。
+   - WP3e（新增，執行期元件）：guard 容器、授權狀態頁、kits/platform-core-kit 的 license.py 啟動檢查改動（manifest 雜湊、讀取 guard 結果；kits/ 是基線副本，需先經使用者核准）。
+   - 順序建議：WP3a（進行中）→ WP3b → WP3d → WP3c → WP3e。WP3e 若未趕上 P2 完成，系統包仍可交付，但 manifest 的 notProvided 必須列出 guard 與狀態頁，且文件不得宣稱已防複製（引擎步驟 13）。
+   - WP5 的「Windows Docker 乾淨安裝」需改為 Ubuntu 22.04 實機，並加入授權失敗路徑、指紋不符的橫幅與封鎖時段、subkey 過期的案例。
 
    待決：
    - 封鎖生效時段與手冊雜湊維護者已確認（2026-10-25，D137）。目前沒有其他待決的授權設計項；實作排程見上方 P2 說明，待使用者決定是否另開工作包。
