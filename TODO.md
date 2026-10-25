@@ -108,7 +108,7 @@ Result：
    - 結論：自帶 docker.io 與 docker-compose-v2 滿足預覽堆疊的需求，不需放寬限制。
    - 未涵蓋：在全新客機以 sudo 實際 apt install docker.io docker-compose-v2（VM 為既有安裝，Compose 是從容器內抽取，未走 apt 安裝）；universe 套件的安全更新由社群維護，Ubuntu Pro 才提供保證，需決定是否接受；docker 群組等同 root 權限，須寫入威脅模型；PostgreSQL 映像如何取得（Docker Hub 拉取或 docker save 打進安裝包並記錄 digest）；容器內硬體指紋讀取（見上方實測）；全量映像（非預覽精簡版）與 Docker 重啟後自動啟動；Ubuntu 22.04 標準支援約到 2027-04（未再查證）。
    5. 元件計畫（2026-10-25 依 D126、D133 改寫為 Docker）：檢查 docker 與 docker compose；缺少時計畫列出以 apt 安裝 docker.io 與 docker-compose-v2（Ubuntu 套件庫，不加第三方來源），標明實際解析出的版本，使用者確認後才安裝。universe 未啟用時停止並說明原因，不自動修改 apt 來源。不把工程師帳號加入 docker 群組（等同 root 權限）；引擎的特權步驟以 sudo 呼叫 docker。最低可用版本待實測決定。
-   6. 建立執行環境：安裝目錄（版本化目錄加 current 連結）；載入映像（核對 system-manifest 記錄的 digest；映像打進安裝包，不線上拉取，D139）；建立 internal 資料網路與對外網路、具名卷；寫入 .env（0600）。本次建立的容器、網路、具名卷與載入的映像一律加標籤 `com.composer.install-id=<id>`，作為還原與升級的依據。不建立虛擬環境、systemd 服務與服務帳號（容器內使用非 root 使用者）。
+   6. 建立執行環境：安裝目錄（版本化目錄加 current 連結）；載入映像（核對 system-manifest 記錄的 digest；映像打進安裝包，不線上拉取，D139）；建立 internal 資料網路與對外網路、具名卷；寫入 .env（0600）。本次建立的容器、網路、具名卷加標籤 `com.composer.install-id=<id>`；映像不加標籤（會改變映像身分與簽章 digest），改由 state.json 記錄載入前是否存在與 image ID，作為還原與升級的依據。不建立虛擬環境、systemd 服務與服務帳號（容器內使用非 root 使用者）。
    7. 資料庫：PostgreSQL 16 容器，只在 internal 網路、不發布宿主埠（D45）；主機驗證 scram-sha-256（映像預設是否如此待實測）。密碼由引擎寫入 0600 的 .env 供 Compose 讀取，不寫入 log、不進命令列；WP3e 完成前容器內仍以環境變數接收（docker inspect 對 root 與 docker 群組可見，已知限制），WP3e 起改為 0600 檔案（例如 POSTGRES_PASSWORD_FILE 與後端讀檔）。
    8. 套用設定：解析 Recipe 與 Site（含鎖定值與來源追溯，含封鎖生效時段 D137）、驗證流程文件與 workflowRef、產生最終設定檔。
    9. 完整性檢查：Kit 相依與 capability 完整性（D05）；缺口逐項列出，不靜默略過。
