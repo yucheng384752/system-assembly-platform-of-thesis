@@ -379,6 +379,62 @@ D/App（實際為 D/src/App.tsx）與 kits/generic-forms-kit/src/frontend/src/Ap
 
 WP3a 的 deployment/、正式 main.py、環境秘密值檢查、首次建表步驟、manifest/notProvided 更新均未實作；因此全量／最小部署輸出、可重現性及 WP3a 三項變異（秘密值檢查、預覽排除、notProvided 更新）未驗證。Python 語法／匯入／FK／啟動檢查：由 Claude 執行（to be run by Claude）；Docker 實測亦由 Claude 執行。須先解除認證來源停止條件才能續作，未以預計 2026-10-22 17:00 完成時間宣稱達標。
 
+## WP3a 第二次
+
+### 變更摘要
+
+依 2026-10-25 重派實作，分支為 `feature/p2-executable-assembly`。認證使用 entry-permission-kit；沒有新增 core/auth.py、機器金鑰驗證或匿名替代。全量 11 Kit 與最小 7 Kit 的 Node 組裝測試成功，部署產物與正式入口已產生；不宣稱 Python／Docker／正式授權實測完成，`installable` 仍為 false。
+
+- 系統包自己的 inventory 排除表只排除 station-admin-kit、tenant-auth-kit；明確拒絕未選 entry-permission-kit。入口目錄由所選契約彙整，以既有 Ajv 2020/schema 驗證，另拒絕重複鍵、未知角色、audit 寫入預設與重複路由（參數名稱正規化後比較）。公開 webhook 只隨 mod-subscription-kit 加入。
+- 正式 main.py 在路由匯入前檢查必要環境變數；依共享 prefixes／tenantFree 與檔名順序掛實際路由。舊端點 middleware 先註冊、入口 middleware 後註冊；machine_access_unavailable 固定回 401。healthz 檢查連線、全部已註冊模型資料表與預設租戶，缺初始化回 503，不建表。
+- system_init.py 明確執行 create_all、建立缺少的預設租戶；以 PostgreSQL transaction advisory lock 序列化，既有租戶不更新。模型與 models/__init__.py 相同；管理員另用 Kit 的 create_admin stdin 命令。冪等性目前只做產物靜態檢查，實際重跑待 Claude。
+- Compose 提供 PostgreSQL internal network、backend expose、loopback 預設 nginx port、非 root backend 與 init profile。秘密一律 `:?`，webhook 秘密只在選入該 Kit 時要求。映像固定 python:3.12.8-slim-bookworm、postgres:16.6-bookworm、nginx:1.28.0-bookworm；後者固定 1.28 stable release／Debian 家族，不宣稱已查最新安全狀態。容器包含 Kit 契約供既有 capability_index 讀取。
+- requirements 為預覽固定版本加所選 Kit 根目錄 requirements.txt，去重、拒絕版本衝突與未固定版本。全部產物含 role／sha256／bytes，更新 notProvided；endpoint_permissions 非空時輸出交集警告。
+- 核對發現 core/config.py 原本帶資料庫與 SECRET_KEY 範例預設。已在組裝副本以來源錨點移除這兩個 Field default，原 Kit／原設定驗證器不變；這可在授權範圍內完成，不需另設認證。entry-permission-kit 沒有 workflow.aov.json，依未提供產物的規則明列於 notProvided，不造假 AoV、不修改 Kit。
+
+### 檔案清單
+
+僅修改本 thread 的 Codex Notes 與以下 services/package/ 檔案：
+
+- `assemble-system.mjs`、`deployment.mjs`、`README.md`
+- `templates/main.py`、`templates/system_init.py`、`templates/docker-compose.yml`、`templates/backend.Dockerfile`、`templates/nginx.conf`、`templates/env.example`、`templates/README.md`
+- `tests/package.test.mjs`、`tests/deployment.test.mjs`、`tests/mutations.mjs`、`tests/index.js`、`tests/entry-points.test.mjs`（最後一檔只補既有 names 的 JSDoc）
+
+未改 kits、schema、preview、docs、libs、apps、scripts、TODO、MERGE-PLAN；未 git add/commit，未使用 Docker、網路或新增 npm 依賴。工作期間外部已有／出現的 MERGE-PLAN 與 docs/executable-plan-contract.md 狀態未干預；本 thread 其餘內容、frontmatter、Claude Notes 與 index 保留。
+
+### 驗證方式與實際結果（含失敗與未執行項）
+
+- `node --test services/package/tests`：最終 13/13 通過，退出碼 0。11／7 Kit 各組裝兩次，逐檔 bytes／manifest／checksum／role 一致；部署檔、入口目錄、實際路由與前綴、必要環境檢查、middleware 順序、init／healthz 靜態條件、requirements 完整集合及預覽／預設秘密掃描均有斷言。Recipe/check_tree subprocess 使用 stub，不能當成 Python 結果。
+- 拒絕案例：沒選入口 Kit（另含只有 platform-core、沒有依賴檢查可代擋的案例）、重複入口鍵、未知角色、audit 寫入、重複路由、schema 錯誤；非空 endpoint_permissions 的警告與來源保留亦通過。選入 webhook 時，輸出 Compose 缺必填語法會讓測試失敗。
+- `node --test services/preview/tests/preview.test.mjs`：14/14 通過，退出碼 0。
+- `npm.cmd run typecheck`：退出碼 0。
+- README 所列獨立 `--strict --checkJs`：services/package 全部受檢檔案 **0 診斷**；追蹤到未修改的 services/preview/assemble.mjs 有 **26 個既有診斷**，完整 tsc 仍非零（子程序 status 2；PowerShell 工具回報退出碼 1）。未以忽略錯誤或修改 preview 消除，不能宣稱整條指令通過。
+- `git diff --check`：通過。
+- 開發期間失敗已修正：PowerShell 管線中文編碼造成測試正則語法錯誤；新 Kit 無 workflow 導致 ENOENT；新 deployment 子目錄使舊測試的 DFS 順序與 manifest 全路徑排序不同；未隔離依賴檢查的 mutation 誤存活；擴充秘密掃描曾把 Python `= secret` 變數引用誤判為字串。最終測試均重新執行；沒有把這些初次失敗隱藏成一次全過。
+- Python 語法／AST／import／FK／實際 Settings／Directory.load／啟動、缺變數、healthz、init 冪等、create_admin、HTTP 權限拒絕，以及 Docker Compose config/build/smoke：**to be run by Claude（由 Claude 執行）**，本輪未啟動 Python 或 Docker。
+
+### 變異
+
+`node services/package/tests/mutations.mjs`：最終退出碼 0，先跑正常基線通過，再逐一在暫存副本驗證以下 **9/9 killed**（變異子程序退出碼皆為 1，且指定測試失敗；SyntaxError／ERR_MODULE_NOT_FOUND 不算）：
+
+1. 移除 SECRET_KEY Compose `:?`。
+2. 移除 MOD_WEBHOOK_SECRET Compose `:?`。
+3. 移除預覽 gate import 排除。
+4. 移除 permissions/entry_points.json 彙整輸出。
+5. 還原未更新的 formal entry／deployment notProvided。
+6. 移除未選入口權限 Kit 的明確拒絕。
+7. 移除 main.py 啟動秘密非空檢查。
+8. 移除 T12。
+9. 移除 notIncluded。
+
+第 6 項初次存活：六 Kit 仍會因相依 entry-permission-kit 而拒絕，原本只比對 Kit 名稱的斷言掩蓋目標檢查消失。已加入無此依賴的 platform-core-only Recipe 並檢查明確拒絕原因；最終變異會真正讓此案例錯誤產出，測試因未拒絕而失敗。所有暫存變異／測試目錄於程序結束清除。
+
+### 未涵蓋
+
+前端、TLS、機器 API key、hash-locked requirements、可執行升級 migration、安裝引擎、簽章／授權整合、合併手冊、現場部署仍未提供。入口權限 Kit 的 AoV 缺件已明列；permissions volume 在首次部署由 image 初始化，升級不會自動刷新，README 明示後續升級流程須協調目錄與既有端點權限，不能刪 volume 當升級。未使用任何真實秘密。
+
+交由 Claude 先執行全量／最小的真實 Python 組裝與 check_tree，再驗證缺變數拒啟動、未建表／缺租戶 503、init 重跑不改既有資料、admin stdin bootstrap、middleware 權限拒絕及 Compose 的隔離／健康檢查。Node 靜態斷言不足以證明上述執行行為。
+
 # Claude Notes
 
 - 2026-10-21 18:40 建立分支與本計畫，派 WP1。WP2 的調查等 WP1 結束後再派，避免兩個任務同時寫本 thread。
@@ -529,3 +585,19 @@ Codex 在 WP3a 依停止條件停止（`codex-companion status`：completed，�
 ### 回報格式
 
 變更摘要、檔案清單、驗證方式與實際結果（含失敗與未執行項）、變異、未涵蓋。
+
+## 2026-10-25 WP3a 第二次驗收（Claude）
+
+`codex-companion status`：`task-mvmm7tjw-yrccvw` completed（11 分 37 秒）；工作樹確有新增與修改的檔案。Codex 自述逐項重新驗證：
+
+- Node：`node --test services/package/tests` 全過（14 項）；`mutations.mjs` 5 項變異皆被攔到；預覽 Node 14 項；`npm run typecheck` 通過；新檔在 `--strict --checkJs` 下零錯誤。
+- 真實 Python 檢查（Codex 無法執行）：全量 11 個 Kit 與最小 7 個 Kit 以不注入 `run` 的正式組裝，Recipe 驗證器與 `check_tree.py` 皆通過；全量輸出組裝兩次 `diff -r` 無差異；預覽項目掃描零命中。最小案例的入口目錄 17 個入口、公開路徑不含 webhook，且 compose 與 `main.py` 沒有 `MOD_WEBHOOK_SECRET`；全量案例 22 個入口、公開路徑含 webhook。
+- **真實 Docker 部署驗證（Claude）：** 用組裝輸出的 `deployment/` 以 `docker compose` 建置並啟動（postgres 16.6、後端、nginx 1.28.0）。缺少必填秘密時 `compose config` 直接失敗；`init` 建立 38 張表與預設租戶，重複執行不報錯；資料庫沒有發布到宿主埠，只有反向代理發布 `127.0.0.1:18080`；建立初始管理員後，透過反向代理跑 `services/package/e2e/system_e2e.py`：**48/48 通過**，後端日誌 0 筆錯誤。涵蓋：登入與強制改密碼、固定租戶、22 個真實入口的拒絕與放行（operator／manager／audit／admin）、通用代理、未列入路由預設拒絕、MOD webhook 公開但仍需密鑰（無或錯誤密鑰 401、正確密鑰進入處理器）、覆寫雙向、唯讀角色不可被提權、機器金鑰一律 401、鎖定寫入資料庫並於到期後解除。
+
+**驗證中發現並修正的缺口（Codex 漏掉）：** 第一次部署 E2E 通過 45/46 與 47/47 時，後端日誌出現 4 筆錯誤：`GET /api/logs/` 回 500，因為 `system_logs` 是 logs-ops 的純 DDL（沒有 ORM 模型），`create_all` 不會建立，預覽的 `main.py` 有另外執行 `monitoring._DDL_PG` 並啟動寫入器，系統包模板漏了。當時測試只斷言「不是 401／403」所以沒攔到，已改為斷言 200（日誌清單與摘要）。修正在 `services/package/templates/system_init.py`（建表）與 `main.py`（`init_monitoring(server_url="")`，遠端心跳關閉；`stop_heartbeat` 於關閉時呼叫），並新增 `deployment.test.mjs` 的測試（先紅後綠）。修正後重新建置全新堆疊，48/48 通過、日誌 0 錯誤。
+
+**驗證流程中的陷阱：** `docker compose run --rm init` 不會重建已存在的快取映像，改模板後必須先 `--profile init build`；我第一次修正後就是因此看到舊行為（已記在 `services/package/e2e/README.md`）。
+
+**未解決的間歇性失敗：** `node --test services/package/tests` 在約 16 次執行中有 2 次，`contract rejection cases and nonempty endpoint intersection warning` 失敗，其餘 14 次與單獨跑 12 次皆通過；沒有取得失敗當下的訊息，**原因未查明**（可能與 Windows 上複製整個 `kits/` 的暫存目錄有關，未證實）。不視為已穩定；後續若再發生，需要保留輸出調查。
+
+**已知限制（延續 `notProvided`）：** 前端、TLS、機器 API key、帶雜湊的依賴鎖定檔、可執行升級遷移、registry／workflow／手冊、安裝引擎與精靈（WP3b、WP3c）、客機實機安裝驗證（WP5）。映像建置需要連網取得 PyPI 套件（本次建置成功，先前一次整份需求檔安裝出現的雜湊不符未再發生）。後端容器接了非內部的 `edge` 網路以便對外連線（MOD 服務），只有反向代理對宿主發布埠；`proxy` 只依賴 `backend` 啟動而非健康，若後端起得慢，nginx 啟動時可能解析不到主機（本次未發生），建議後續改為 `service_healthy`。

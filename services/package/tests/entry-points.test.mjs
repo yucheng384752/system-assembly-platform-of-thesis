@@ -27,6 +27,7 @@ async function realRoutes() {
   const routes = new Map();
   for (const kit of (await readdir(kits, { withFileTypes: true })).filter(d => d.isDirectory())) {
     const api = path.join(kits, kit.name, 'src/backend/app/api');
+    /** @type {string[]} */
     let names = [];
     try { names = await readdir(api); } catch (error) { if (/** @type {NodeJS.ErrnoException} */ (error).code !== 'ENOENT') throw error; }
     for (const name of names.filter(n => /^routes_.*\.py$/.test(n))) {
