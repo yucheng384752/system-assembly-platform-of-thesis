@@ -823,3 +823,44 @@ Codex 第三次交付 `services/installer/`（14 檔，引擎 6 模組約 1070 �
 **未涵蓋（不得宣稱已驗證）：**真實 Docker（`docker load`、Compose 部署、`compose.override.yml` 標籤）、真實 `apt install`、sudo 與 USB、`detect` 在實體機的指紋來源、`issue-license`／授權鏈／`license-install`／`guard-up`（WP3d 之後）、精靈（WP3c）。WP3a 輸出尚缺離線映像欄位（`images`），需在 WP3d／後續整合時補。WP3e 前，容器內秘密值仍以環境變數存在，`docker inspect` 對 root 與 `docker` 群組可見。
 
 **結論：WP3b 通過驗收，第一階段（無授權）完成。**下一步 WP3d；動到 `schemas/` 與 `scripts/`，需先經 user 逐項確認。
+
+## 2026-10-26 WP3d 派工（Claude）
+
+WP3b 已驗收（b043ad2）。user 已於 2026-10-26 核准 WP3d 動 `scripts/security/` 與 `schemas/license.schema.json` 的範圍（新增為主，不改既有行為）。依據：D129 至 D132、D136、D137、D138，`docs/install-engine-contract.md`。我已先讀過 `scripts/security/lib.mjs`、`sign-package.mjs`、`generate-keys.mjs`、`verify-package.mjs`、`schemas/license.schema.json`、`services/installer/engine/detect.py` 與 `package.py`，下列規格已對齊它們；開工前仍請自查矛盾，有矛盾就先在 Notes 列出並停止。
+
+**預計完成時間：2026-10-26 03:00。**到期未完成由 Claude 接手（先以 `codex-companion status` 確認狀態）。沙箱可能沒有 `openssl` 與 Python：跨工具檢查（OpenSSL 解密子金鑰、RSA-PSS 驗證、Python 引擎相容）標「由 Claude 執行」，不得宣稱通過。
+
+### 設計決定（不得自行更改）
+
+1. **只新增，不改既有行為。**`lib.mjs` 既有匯出（`signPackage`、`verifyPackage`、`inspectPackage`、`signPayload`、`verifyEnvelope`、`validate` 的既有 `kind`）與 `schemas/license.schema.json` 既有 `$defs`（`licensePayload` 2.0、`zipSignaturePayload`）一律不改；設定交付包（zip）流程維持原狀，`apps/composer-gui/src/security.test.mjs` 必須仍通過。新功能放新檔或新增匯出。
+2. **子金鑰憑證**（新 `$defs/subkeyCertificatePayload`，信封沿用 `{ payload, signature, algorithm }`，由根金鑰簽）：`schemaVersion: "1.0"`、`keyId`（子金鑰公鑰 SPKI DER 的 SHA-256 小寫十六進位）、`issuerKeyId`（根公鑰 SPKI DER 的 SHA-256）、`subjectPublicKey`（子金鑰 SPKI PEM 字串）、`licensee: { name }`（客戶代稱，同授權的 `licensee`）、`notBefore`、`notAfter`（秒精度 UTC，同 `timestamp`）。有效期預設 24 小時，工具上限 168 小時；超過直接拒絕。憑證不含任何簽發數量欄位（離線無法執行，D130）。
+3. **授權 3.0**（新 `$defs/licensePayloadV3` 與 `$defs/licenseFileV3`）：payload 欄位 `schemaVersion: "3.0"`、`issuedAt`、`expiresAt`、`licensee: { name }`、`systemId`、`recipe`、`enabledKits`、`fingerprint: { minMatch: 2, sources: [{ source, sha256 }] }`（`sources` 至少 3 項，`source` 名稱與 `services/installer/engine/detect.py` 的 `fingerprint()` 一致，如 `product_uuid`、`board_serial`、`mac:<網卡名>`；`sha256` 為該來源值小寫去空白後的 SHA-256 十六進位）、`packageManifestSha256`（`system-manifest.json` 的 SHA-256，D132）。檔案 `license.lic` 3.0 為 `{ payload, signature, algorithm, issuerCertificate }`，`payload`／`signature` 由**子金鑰**簽，`issuerCertificate` 為整個憑證信封物件。比對時以 `sha256` 集合交集計數（名稱僅供參考，網卡名稱可能改變），交集大小 ≥ `minMatch` 才算符合。
+4. **鏈驗證**（新匯出，例如 `verifyLicenseV3`）：(a) 憑證簽章以根公鑰驗證；(b) `issuerKeyId` 等於根公鑰的 SPKI SHA-256；(c) 授權簽章以憑證的 `subjectPublicKey` 驗證，且 `keyId` 與該公鑰相符；(d) `license.issuedAt` 落在 `[notBefore, notAfter]`；簽發當下（`mode: 'issue'`）另要求 `now` 也落在該區間，之後的驗證（`mode: 'verify'`）不再要求 `now` 在區間內（授權不因子金鑰過期而失效）；(e) `licensee.name` 與憑證相同；(f) `expiresAt` 晚於 `now`；(g) `packageManifestSha256` 與傳入的預期值相同；(h) 傳入目前來源雜湊時，交集 ≥ `minMatch`。任一失敗丟出明確訊息，不吞錯。
+5. **安裝包簽章**（新 `$defs/systemPackageSignaturePayload`，信封由**根金鑰**簽，檔名 `system-package.sig.json`）：payload 必含 `sha256`（`tar.gz` 位元組的 SHA-256）與 `systemManifestSha256`（皆 64 位小寫十六進位），另可含 `schemaVersion: "1.0"`、`file`、`systemId`、`systemVersion`。WP3b 的引擎目前只要求前兩個欄位且不禁止其他欄位，所以不得縮減這兩個欄位的名稱或位置。
+6. **子金鑰私鑰檔**：加密的 PKCS#8 PEM（Node `export({ type: 'pkcs8', format: 'pem', cipher: 'aes-256-cbc', passphrase })`），須能被 OpenSSL 3.0 解密（Claude 在 Ubuntu 22.04 驗證）。密碼不得出現在命令列或輸出：只接受 `--passphrase-file`（一行文字）或互動輸入，不回顯。
+7. **工具（皆在 `scripts/security/`，Node 內建 crypto，離線，Windows 可執行）：**
+   - `issue-subkey.mjs`：`--root-key`（repo 外的根私鑰，沿用既有「私鑰不可在 repo 內」檢查）、`--client-name`、`--hours`（預設 24）、`--out-dir`（repo 外，不覆寫）；輸出 `subkey.enc.pem`、`subkey.cert.json`。
+   - `sign-system-package.mjs`：`--key`（根私鑰）、`--archive`（tar.gz）、`--manifest`（`system-manifest.json` 檔，Node 內建沒有 tar 讀取器，所以由呼叫端提供，引擎解壓後會核對包內 manifest 與 `systemManifestSha256` 相同）、`--system-id`、`--system-version`、`--out-dir`；輸出 `system-package.sig.json`。
+   - `release-fingerprints.mjs`：`--launcher`（`services/installer/install.sh`）、`--root-public-key`；輸出 `release-fingerprints.txt`：兩行 `sha256sum` 格式（`<64 位十六進位>  install.sh`、`<64 位十六進位>  root-public.pem`，雜湊是**檔案位元組**的 SHA-256，供工程師用客機的 `sha256sum` 核對），另加註解行 `# keyId (SPKI DER sha256): <64 位十六進位>` 與 `# 精靈確認碼（前 8 碼）: <8 位>`。**注意：**工程師核對的是檔案雜湊，精靈輸入的確認碼是 SPKI 指紋前 8 碼，兩者是不同的值，文件與輸出都要分開標示。
+   - `issue-license.mjs`：**測試與參考實作**，輸入子金鑰、憑證、指紋來源雜湊檔、`system-manifest.json`，輸出 `license.lic` 3.0；現場簽發由引擎執行（WP3b 第二階段，Python 與 OpenSSL），此工具用來定義與交叉驗證位元組格式。
+   - `verify-license.mjs` 與 `verify-system-package.mjs`：驗證上述檔案，退出碼 0 才算通過。
+8. **匯出與型別：**新程式碼加 `// @ts-check` 與 JSDoc 型別，在 `--strict --checkJs` 下零新增錯誤（既有 `lib.mjs:17` 的 Ajv 型別錯誤是舊問題，不要碰也不要掩蓋，在 Notes 記錄即可）。
+
+### 範圍與限制
+
+只可新增或修改：`scripts/security/`（新檔；`lib.mjs` 僅可新增匯出與新增 validator 註冊，不改既有函式）、`schemas/license.schema.json`（僅新增 `$defs`，不改既有 `$defs`、`$id`、頂層欄位的既有約束；頂層信封若需放寬以容納 `issuerCertificate`，請改用新的 `$defs/licenseFileV3`，不改頂層）、測試放 `scripts/security/tests/`（`node:test`，可用 `node --test scripts/security/tests`）、本 thread 的 Codex Notes（新增「WP3d」小節）。不得修改 `kits/`、`libs/`、`apps/`、`docs/`、`services/`、`TODO.md`、其他 schema。不 git add 或 commit；不使用 Docker、網路、新依賴（Ajv 已是專案依賴）。不得提交任何真實金鑰；測試金鑰在測試中臨時產生。
+
+### 成功條件
+
+1. 新測試涵蓋：子金鑰簽發與憑證驗證、授權 3.0 簽發與鏈驗證的正常路徑；拒絕案例：憑證被竄改、憑證用錯根金鑰簽、授權用別把子金鑰簽、`issuedAt` 在憑證區間外、簽發時 `now` 超出憑證區間、`licensee` 不一致、`packageManifestSha256` 不符、指紋交集小於 2、`expiresAt` 已過、`--hours` 超過 168、私鑰輸出在 repo 內、安裝包簽章對應的 `tar.gz` 或 manifest 被改一個位元組。
+2. 一項「驗證後不要求 `now` 在憑證區間內」的測試（子金鑰過期後，已簽發的授權仍可驗證）。
+3. 變異驗證（拿掉任一項檢查，對應測試必須失敗）：移除憑證簽章驗證、移除 `issuerKeyId` 比對、移除 `issuedAt` 區間檢查、移除 `licensee` 比對、移除指紋交集檢查、移除 `packageManifestSha256` 比對。記錄於 Notes。
+4. 既有測試不退步：`node --test services/package/tests`、`apps/composer-gui/src/security.test.mjs`（用專案既有指令執行）、`npm.cmd run typecheck` 通過。
+
+### 停止條件
+
+需要修改上述範圍以外的檔案或既有 schema 約束；規格與 `detect.py`、`package.py` 的現況矛盾；需要新增依賴；需要決定 WP3b 第二階段（引擎端 Python）的行為。
+
+### 回報格式
+
+變更摘要、檔案清單、驗證方式與實際結果（含失敗與未執行項）、變異、未涵蓋。
