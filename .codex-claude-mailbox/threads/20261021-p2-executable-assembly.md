@@ -435,6 +435,38 @@ WP3a 的 deployment/、正式 main.py、環境秘密值檢查、首次建表步�
 
 交由 Claude 先執行全量／最小的真實 Python 組裝與 check_tree，再驗證缺變數拒啟動、未建表／缺租戶 503、init 重跑不改既有資料、admin stdin bootstrap、middleware 權限拒絕及 Compose 的隔離／健康檢查。Node 靜態斷言不足以證明上述執行行為。
 
+## WP3b
+
+2026-10-25：依停止條件停止，未開始安裝引擎實作。cwd 已核對為 `C:\Users\gslab\Desktop\composer-refactor`，分支為 `feature/p2-executable-assembly`。完整閱讀本 thread 最後派工節、2026-10-25 修訂版 `docs/install-engine-contract.md`、`scripts/security/lib.mjs`、`services/package/README.md` 與 `deployment.mjs`，並核對部署模板與設定介面。
+
+### 停止原因與證據
+
+- WP3b 設計決定第 9 點要求資料庫密碼等以 0600 檔案給容器，且「不放環境變數」；第 11 點要求使用 WP3a 的 deployment 產物。
+- `services/package/templates/docker-compose.yml` 的 postgres.environment 使用 `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}`；backend.environment 使用 `DATABASE_URL`、`SECRET_KEY`、`ENTRY_PERMISSION_JWT_SECRET`，init 共用同一 environment；選入訂閱 Kit 時 `deployment.mjs` 同樣加入 `MOD_WEBHOOK_SECRET` 環境變數。
+- `services/package/deployment.mjs` 的 required 清單包含上述後端秘密；`services/package/templates/main.py` 在匯入路由前，以 `os.environ.get(name, "").strip()` 檢查它們，不提供便拒絕啟動。因此僅掛載 0600 檔案不能使現有正式入口啟動；用 wrapper 讀檔再設環境變數仍違反本次要求。
+- 契約第 8 節已明載後端目前使用環境變數接收 DATABASE_URL，改讀檔須修改 kits 基線副本；本 thread 的 WP3e 又明確把 DATABASE_URL 改讀 0600 檔案列在待派範圍。不能在 WP3b 自行提前做 WP3e、修改 Kit／package 或另造後端設定接線。
+- 依本次停止條件「需要修改 kits/、services/package/ 或既有 schema；契約與上述設計矛盾」停止。需由 Claude／user 協調秘密讀檔介面與工作包先後順序，解除後再重派；未自行放寬秘密值規則。
+
+### 變更摘要與檔案清單
+
+只在本 thread 的 Codex Notes 新增「WP3b」小節。未新增或修改 services/installer/，未更動其他既有內容、frontmatter 或 index。起始已有 `docs/executable-plan-contract.md` 修改，保留原狀。未 git add、commit，未使用 Docker、網路或新依賴。
+
+### 驗證方式與實際結果
+
+- 實際完成：工作目錄、分支、工作樹狀態核對，以及上述檔案的靜態介面核對；發現秘密輸入介面衝突，未執行安裝。
+- 首次 PowerShell 讀檔未指定 UTF-8，顯示亂碼且批次輸出截斷；已以 UTF-8 分批重讀必要內容，未修改來源檔。
+- `git status` 有全域 ignore 檔 Permission denied 警告，仍成功列出工作樹；不是測試失敗。
+- 未執行 unittest、Python 語法檢查、容器內啟動與實機驗證：所有 Python 類檢查均為「由 Claude 執行」，不得視為通過。
+- 未執行 `sh -n`、JSDoc strict/checkJs、`npm.cmd run typecheck`：停止於實作前，沒有新增 shell／Python／mjs 程式；不宣稱成功條件已通過。
+
+### 變異
+
+六項指定變異均未執行：沒有引擎與測試可供變異，不宣稱測試能攔截。
+
+### 未涵蓋
+
+WP3b 全部引擎、命令列、測試、schema 草案及 fixture 尚未實作；WP3d、WP3c、WP3e 均未進行。未把映像 images/digest 欄位缺件當作停止原因：派工第 11 點已允許在 installer 內提出欄位草案，本次阻礙是秘密讀檔介面。
+
 # Claude Notes
 
 - 2026-10-21 18:40 建立分支與本計畫，派 WP1。WP2 的調查等 WP1 結束後再派，避免兩個任務同時寫本 thread。
@@ -658,3 +690,11 @@ Codex 在 WP3a 依停止條件停止（`codex-companion status`：completed，�
 ### WP5 修正
 
 WP5 改為 Ubuntu 22.04 實機（非 Windows Docker），加入：授權失敗路徑、指紋不符的橫幅與封鎖時段、子金鑰過期與客戶不符、重複安裝、還原。
+
+## 2026-10-25 WP3b 停止後的裁決與重派（Claude）
+
+Codex 依停止條件停止是正確的：我的派工設計決定 9（秘密值「不放環境變數」）與第 11 點（使用 WP3a 的 `deployment/`）互相矛盾。WP3a 的 Compose 與 `main.py` 本來就以環境變數接收 `POSTGRES_PASSWORD`、`DATABASE_URL`、`SECRET_KEY`、`ENTRY_PERMISSION_JWT_SECRET`、`MOD_WEBHOOK_SECRET`，改為讀檔屬 WP3e（D138），不能提前。
+
+**裁決（取代派工第 9 點中「不放環境變數」一句，其餘不變）：**WP3b 階段秘密值由引擎寫入安裝目錄的 `.env`，權限 0600，供 `docker compose` 讀取；引擎不得把秘密值放在命令列、事件、log、`plan.json`、`state.json`，也不得以 `docker run -e` 之類方式傳入。測試仍須有「秘密值不出現在事件與狀態檔」的案例，並新增「`.env` 權限為 0600 且不被還原計畫以外的檔案複製」案例。**已知限制：**WP3e 完成前，容器內以環境變數接收，`docker inspect` 對 root 與 `docker` 群組可見；WP3e 起改為 0600 檔案。此限制必須寫入 `notProvided` 或驗證報告的待驗證項目，不得宣稱秘密值已不暴露。
+
+**預計完成時間延長為 2026-10-26 03:00。**其餘派工內容、範圍、成功條件、停止條件不變。重派後 Codex 在 Notes 的「WP3b」小節之後新增「WP3b 第二次」，不覆蓋前次。
