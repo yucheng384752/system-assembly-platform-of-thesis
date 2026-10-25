@@ -603,3 +603,58 @@ Codex 在 WP3a 依停止條件停止（`codex-companion status`：completed，�
 **已知限制（延續 `notProvided`）：** 前端、TLS、機器 API key、帶雜湊的依賴鎖定檔、可執行升級遷移、registry／workflow／手冊、安裝引擎與精靈（WP3b、WP3c）、客機實機安裝驗證（WP5）。映像建置需要連網取得 PyPI 套件（本次建置成功，先前一次整份需求檔安裝出現的雜湊不符未再發生）。後端容器接了非內部的 `edge` 網路以便對外連線（MOD 服務），只有反向代理對宿主發布埠；`proxy` 只依賴 `backend` 啟動而非健康，若後端起得慢，nginx 啟動時可能解析不到主機（本次未發生），建議後續改為 `service_healthy`。
 
 **補充（同日，Claude）：間歇性失敗的後續證據與一次提交失誤。** 那兩次失敗各留下一個 `services/package/tests/.contracts-*` 暫存目錄（複製整個 `kits/`，共 401 個檔案，含 `.pyc`），表示失敗發生在複製之後、清理（`finally` 內的 `rm`）沒有完成；失敗原因與清理失敗原因仍未查明。我用 `git add services/package` 時把這兩個目錄一起提交了，發現後在尚未推送的情況下以 `git commit --amend` 移除（工作樹的目錄也已刪除），並在 `.gitignore` 加入 `services/package/tests/.*/` 避免再發生；這個提交失誤不影響任何已推送的歷史。之後 12 次單獨與 8 次整個目錄的測試都沒有再失敗。另：`kits/` 內本來就追蹤了 40 個 `.pyc`（來自 f395963 的基線副本），不是本次造成，未處理。
+
+## 2026-10-25 WP3a 驗收結論與 WP3b、WP3d、WP3e 派工（Claude）
+
+**WP3a 驗收：通過。** 提交 f4412fc、fdf0896。我在 22:28 重跑：`node --test services/package/tests` 連續 7 次皆 14/14，`npm.cmd run typecheck` 通過，工作樹無遺留暫存目錄。前一節記錄的 Python 檢查與 Docker 部署 E2E 沿用，不重做。**間歇性失敗未解決：**前次 16 次中 2 次失敗，本次 7 次未重現，原因仍未知，列為已知風險，不宣稱已修好。
+
+**thread 空出：**`codex-companion status` 無任何任務，工作樹只剩 `docs/executable-plan-contract.md`（另一工作階段的文件，與本 thread 無關）。
+
+**依據：**D138、D139、D126、D129 至 D133、D136、D137，以及已修訂的 `docs/install-engine-contract.md`（2026-10-25）。順序為 WP3a（已驗收）、WP3b、WP3d、WP3c、WP3e。每個 WP 驗收後才派下一個，此刻只派 WP3b。
+
+### WP3b：安裝引擎與命令列（本次派工）
+
+**預計完成時間：2026-10-26 01:30。** 到期未完成由 Claude 接手（先以 `codex-companion status` 確認狀態）。沙箱沒有可用 Python：所有 Python 檢查標「由 Claude 執行」，不得宣稱通過。
+
+**位置與語言：**`services/installer/`。入口 `install.sh`（POSIX sh）、引擎 `services/installer/engine/`（Python 3.10 相容，只用標準庫，不新增依賴）、測試 `services/installer/tests/`（標準庫 `unittest`）、`README.md`。
+
+**設計決定（不得自行更改；與此矛盾時停止回報）：**
+
+1. **契約：**逐條實作 `docs/install-engine-contract.md` 的第 2 至 6 節。子命令 `detect`、`verify`、`plan`、`apply`、`status`、`cancel`、`rollback`；`--json` 輸出 JSON Lines；退出碼 0、10 至 17；同時只允許一個改變系統的命令（鎖檔）。
+2. **本階段不實作：**`issue-license`、授權鏈（子金鑰憑證）驗證、`license-install`、`guard-up`。呼叫時退出碼 10 並輸出「尚未提供」及原因；`plan.json` 的 `steps` 不含這三步；`verify` 只驗安裝包，授權部分回報 `skipped`。這些由 WP3d 定義格式後，在 WP3b 第二階段補。不得自行設計授權格式。
+3. **外部邊界：**所有 `docker`、`apt-get`、`sudo`、`openssl`、檔案系統特權操作都經一個 `Runner` 介面（包裝 `subprocess`，記錄命令、不經 shell、參數為陣列）；測試用假 `Runner`。測試不得呼叫真實 docker 或 sudo。
+4. **安裝包驗證（`verify`）：**輸入為 `tar.gz`、`system-package.sig.json`（沿用 `scripts/security/lib.mjs` 的信封格式 `{ payload, signature, algorithm }`，`payload` 為 JSON 字串，簽章是對該字串的 UTF-8 位元組做 RSA-PSS-SHA256、salt 32）與根公鑰 PEM。用 `openssl dgst -sha256 -sigopt rsa_padding_mode:pss -sigopt rsa_pss_saltlen:32 -verify` 驗，不用 Python 加密套件。`payload` 必含 `sha256`（tar.gz）與 `systemManifestSha256`，驗證順序：簽章 → tar.gz sha256 → 才解壓到暫存目錄 → 核對 `system-manifest.json` 的雜湊與其列出各檔 sha256 → 映像 digest 欄位存在。任一失敗退出碼 11，並說明哪一項。驗證通過前不解壓、不執行包內任何腳本。解壓要防路徑穿越與符號連結逃逸（拒絕絕對路徑與 `..`）。
+5. **根公鑰指紋：**公鑰指紋為 SPKI DER 的 SHA-256；引擎提供輸入前 8 碼的確認（`--confirm-key-prefix`，精靈同樣使用），不符退出碼 11。信任庫目錄預設 `/etc/<system-id>/trust/`，首次安裝寫入（`trust-store` 步驟），升級時改對信任庫驗證；路徑可由參數覆寫以便測試。
+6. **`detect`：**偵測 Ubuntu 22.04、架構、磁碟、記憶體、是否 root 或 sudoers、`docker` 與 `docker compose` 版本、universe 是否啟用、連接埠占用，並計算硬體指紋與各來源有效性（來源與無效值規則見契約第 9 節與 D136；網卡只取 `/sys/class/net/*/device` 存在者）。可用來源少於 3 項時警告（授權簽發階段才拒絕）。`/sys`、`/proc` 讀取路徑可由參數覆寫以便測試。
+7. **計畫與狀態：**`plan.json` 依契約第 3 節；正規化 JSON 規則為鍵排序、無多餘空白、UTF-8、LF；`planSha256` 為去除該欄位後的 SHA-256；`apply` 雜湊不符退出碼 12。`state.json`、`events.jsonl` 在 `--state-dir`（預設 `/var/lib/<system-id>/install/`），事件寫入前遮蔽秘密值。步驟集合為 `docker-ensure`、`trust-store`、`images-load`、`network-volumes`、`env-secrets`、`db-init`、`migration`（本階段只做首次建表，呼叫 `python -m app.system_init`，不做升級遷移）、`compose-up`、`health-check`。
+8. **Docker 步驟：**`docker-ensure` 缺少時以 `apt-get install docker.io docker-compose-v2` 安裝，並先檢查 universe；不加第三方來源；不把任何使用者加入 `docker` 群組；特權命令用 `sudo`。`images-load` 對每個映像 `docker load` 後核對 digest 與 manifest 一致。所有本次建立的容器、網路、卷、映像加標籤 `com.composer.install-id=<id>`，還原只處理帶標籤者。資料庫卷已有依新版寫入的資料時不刪，列為需人工處理。
+9. **秘密值：**輸入通道依契約第 4 節。資料庫密碼等寫成 0600 檔案給容器，不放環境變數、命令列、事件、log 或 `plan.json`。sudo 密碼只經標準輸入給 `sudo -S`。測試必須含「秘密值不出現在事件與狀態檔」的案例。
+10. **還原：**依契約第 5 節表格；先 `cancel`（跑完目前步驟）再還原；還原計畫同樣綁雜湊；還原失敗保留現場並退出碼 14。
+11. **部署產物來源：**引擎使用 WP3a 輸出的 `deployment/`（`docker-compose.yml`、`.env.example` 等）。需要的新欄位（映像 digest、`system-manifest.json` 的 `images`）若 WP3a 尚未輸出，把欄位草案放 `services/installer/` 並在 Notes 說明，不改 `services/package/`。
+
+**範圍與限制：**只可新增或修改 `services/installer/` 與本 thread 的 Codex Notes（新增「WP3b」小節）。不得修改 `kits/`、`schemas/`、`libs/`、`apps/`、`docs/`、`scripts/`、`services/package/`、`services/preview/`、`TODO.md`。需要新 JSON Schema 時把草案放 `services/installer/schemas/` 並說明。不 git add 或 commit；不使用 Docker、網路、新依賴。測試 fixture 若需要簽章，寫一支 `services/installer/tests/make-fixtures.mjs`（匯入 `scripts/security/lib.mjs` 的 `signPayload`，使用測試專用金鑰與虛構資料）由 Claude 執行，不得提交真實金鑰。
+
+**成功條件：**
+1. 以假 `Runner` 的單元測試涵蓋：每個子命令的正常與失敗路徑、計畫雜湊不符（12）、鎖檔（16）、取消（15）、還原與還原失敗（13、14）、秘密值不外洩、路徑穿越被拒、簽章或雜湊被竄改被拒（11）、可用指紋來源少於 3 項的警告。
+2. 變異驗證（拿掉任一項測試必須失敗）：移除簽章驗證、移除 tar.gz sha256 核對、移除路徑穿越檢查、移除計畫雜湊比對、移除秘密值遮蔽、移除「只處理帶標籤物件」。記錄於 Notes。
+3. `sh -n services/installer/install.sh` 通過，JSDoc 型別（若有 `.mjs`）在 `--strict --checkJs` 下零錯誤，`npm.cmd run typecheck` 通過。
+
+**停止條件：**需要修改 `kits/`、`services/package/` 或既有 schema；契約與上述設計矛盾；需要新增依賴；授權格式需要在本階段決定。
+
+**回報格式：**變更摘要、檔案清單、驗證方式與實際結果（含失敗與未執行項）、變異、未涵蓋。
+
+### WP3d：離線簽發工具（待派，WP3b 驗收後）
+
+範圍：`scripts/security/` 旁新增「簽發子金鑰」命令列腳本（Node 內建 crypto，加密 PKCS#8 私鑰檔與根金鑰簽發的憑證，憑證只含客戶識別碼、`keyId`、有效期，預設 24 小時）；授權 payload 加 `issuerCertificate` 與驗證鏈（根公鑰、憑證、授權簽章）；`sign-package.mjs` 支援 `tar.gz` 與 `system-package.sig.json`；輸出 `sha256sum` 格式的 `release-fingerprints.txt`；`schemas/license.schema.json` 與憑證 schema。修改 `schemas/` 與 `scripts/` 需先經 user 逐項確認。完成後才做 WP3b 第二階段（`issue-license`、授權鏈驗證、`license-install`）。
+
+### WP3c：網頁精靈（待派，WP3d 之後）
+
+沿用 WP3c 原定義與契約第 7 節；精靈只用 Python 標準庫。
+
+### WP3e：guard 容器、授權狀態頁與啟動檢查（待派，WP3c 之後）
+
+範圍：guard 容器、授權狀態頁（提供方式待設計）、`kits/platform-core-kit/src/backend/app/license.py` 啟動檢查改為核對 manifest 雜湊並讀取 guard 結果、`DATABASE_URL` 改讀 0600 檔案（`kits/` 基線副本改動已原則核准，D138，改動前先逐項回報）。未趕上 P2 時，manifest `notProvided` 必須列出 guard 與狀態頁，文件不得宣稱已防複製。
+
+### WP5 修正
+
+WP5 改為 Ubuntu 22.04 實機（非 Windows Docker），加入：授權失敗路徑、指紋不符的橫幅與封鎖時段、子金鑰過期與客戶不符、重複安裝、還原。
