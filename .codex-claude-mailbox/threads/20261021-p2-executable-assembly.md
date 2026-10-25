@@ -601,3 +601,5 @@ Codex 在 WP3a 依停止條件停止（`codex-companion status`：completed，�
 **未解決的間歇性失敗：** `node --test services/package/tests` 在約 16 次執行中有 2 次，`contract rejection cases and nonempty endpoint intersection warning` 失敗，其餘 14 次與單獨跑 12 次皆通過；沒有取得失敗當下的訊息，**原因未查明**（可能與 Windows 上複製整個 `kits/` 的暫存目錄有關，未證實）。不視為已穩定；後續若再發生，需要保留輸出調查。
 
 **已知限制（延續 `notProvided`）：** 前端、TLS、機器 API key、帶雜湊的依賴鎖定檔、可執行升級遷移、registry／workflow／手冊、安裝引擎與精靈（WP3b、WP3c）、客機實機安裝驗證（WP5）。映像建置需要連網取得 PyPI 套件（本次建置成功，先前一次整份需求檔安裝出現的雜湊不符未再發生）。後端容器接了非內部的 `edge` 網路以便對外連線（MOD 服務），只有反向代理對宿主發布埠；`proxy` 只依賴 `backend` 啟動而非健康，若後端起得慢，nginx 啟動時可能解析不到主機（本次未發生），建議後續改為 `service_healthy`。
+
+**補充（同日，Claude）：間歇性失敗的後續證據與一次提交失誤。** 那兩次失敗各留下一個 `services/package/tests/.contracts-*` 暫存目錄（複製整個 `kits/`，共 401 個檔案，含 `.pyc`），表示失敗發生在複製之後、清理（`finally` 內的 `rm`）沒有完成；失敗原因與清理失敗原因仍未查明。我用 `git add services/package` 時把這兩個目錄一起提交了，發現後在尚未推送的情況下以 `git commit --amend` 移除（工作樹的目錄也已刪除），並在 `.gitignore` 加入 `services/package/tests/.*/` 避免再發生；這個提交失誤不影響任何已推送的歷史。之後 12 次單獨與 8 次整個目錄的測試都沒有再失敗。另：`kits/` 內本來就追蹤了 40 個 `.pyc`（來自 f395963 的基線副本），不是本次造成，未處理。
