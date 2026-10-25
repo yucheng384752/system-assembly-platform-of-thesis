@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WP3b event DRAFT",
+  "type": "object", "additionalProperties": false,
+  "required": ["seq", "ts", "step", "status", "message", "undoable"],
+  "properties": {
+    "seq": { "type": "integer", "minimum": 1 },
+    "ts": { "type": "string" },
+    "step": { "type": "string" },
+    "status": { "enum": ["started", "progress", "ok", "warn", "failed", "cancelled", "rolled-back"] },
+    "message": { "type": "string" },
+    "undoable": { "type": "boolean" }
+  }
+}

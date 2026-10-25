@@ -497,6 +497,69 @@ WP3b 全部引擎、命令列、測試、schema 草案及 fixture 尚未實作�
 
 WP3b 引擎、CLI、測試、schema 草案與 fixture 均未實作；WP3d、WP3c、WP3e 未進行。原定 2026-10-26 03:00 交付未達完成狀態，待裁決後重派。WP3e 前容器秘密值仍可由 root／docker 群組透過 inspect 看見，不能宣稱已消除此暴露。
 
+## WP3b 第三次
+
+### 開工前核對與範圍
+
+2026-10-25，cwd 為 `C:\Users\gslab\Desktop\composer-refactor`，分支 `feature/p2-executable-assembly`。已完整重讀最後三節派工／兩次裁決、`docs/install-engine-contract.md`、`scripts/security/lib.mjs`、package README、deployment.mjs 與全部 templates，另唯讀核對 create_admin 的 stdin 介面與密碼規則。**未發現新的阻擋性矛盾，已進行實作。**秘密值依裁決寫入 0600 `.env`；映像不加 label，以 state 記錄存在性／載入 ID／tag；容器、網路、具名卷由引擎 override 加標籤。契約第 8 節舊「不放環境變數」措辭視為 WP3e 待辦，不再作為停止原因。
+
+只新增 `services/installer/` 與本小節；前兩次 Notes、Claude Notes、frontmatter、mailbox index 保留。起始已有 `docs/executable-plan-contract.md` 修改，未碰觸。不 git add、不 commit；未執行 Docker、網路或新增依賴；未執行 Python。
+
+### 變更摘要
+
+- POSIX sh 入口與 Python 3.10 標準庫 CLI：detect／verify／plan／apply／status／cancel／rollback。授權簽發、授權安裝、guard 明確回 10「尚未提供」，verify 授權為 skipped；不實作 WP3d／WP3c／WP3e。
+- Runner 統一 subprocess 陣列命令與特權檔案操作；不經 shell、不記錄 stdin 或子程序秘密輸出。CLI sudo 使用終端提示。
+- OpenSSL RSA-PSS-SHA256、salt 32；SPKI DER 前 8 碼；先驗簽、驗 tar.gz sha256，才安全解壓，後驗 manifest／全部 files／映像 config ID。拒絕穿越、連結、特殊檔案、重複或未列入的檔案。apply 重驗並重建計畫，拒絕漂移。
+- 正規化計畫雜湊、原子 state、JSON Lines 事件、秘密值遮蔽、flock、步驟邊界取消、九步首次安裝。首次建表及管理員沿用 WP3a／Kit 介面；無升級遷移。
+- `.env` 僅一份且 0600，管理員直接 stdin；override 不改原 Compose，服務使用 image ID、禁止 build／pull，所有資源 install-id 標籤與獨立專案名。映像 state 記錄載入前存在與否、載入後 ID、tag。
+- 還原計畫綁計畫雜湊及 state 雜湊；可選完成點。重新核對資源標籤，保留原有／仍被容器使用的映像。未確認建立完成的檔案不刪除，以免競態刪掉別人的檔案。DB 啟動後無法證明卷為空時保留卷與復原 `.env`、列人工處理並回 14；不假裝完整還原。還原失敗保留現場、不自動重試。
+- 新增 29 個 unittest 測試方法、6 項變異腳本、測試專用簽章 fixture 產生器與 3 份 schema 草案。**Python 測試與變異均未執行，測試數不是通過數。**
+
+### 檔案清單（皆為 services/installer/ 下新增）
+
+- `install.sh`
+- `README.md`
+- `engine/cli.py`
+- `engine/common.py`
+- `engine/detect.py`
+- `engine/fsops.py`
+- `engine/install.py`
+- `engine/package.py`
+- `tests/test_engine.py`
+- `tests/mutations.py`
+- `tests/make-fixtures.mjs`
+- `schemas/package-extension.schema.json`
+- `schemas/plan.schema.json`
+- `schemas/event.schema.json`
+
+另修改本 thread 的 Codex Notes（只新增「WP3b 第三次」）。
+
+### 驗證方式與實際結果
+
+- `sh -n services/installer/install.sh`：退出碼 0，通過。
+- `npm.cmd run typecheck`：退出碼 0，兩份 TypeScript 設定皆通過；**不涵蓋 Python**。
+- `node --check services/installer/tests/make-fixtures.mjs`：通過；未執行 fixture 產生或簽章。
+- `node node_modules/typescript/bin/tsc --noEmit --allowJs --checkJs --strict --target ES2022 --module NodeNext --moduleResolution NodeNext --skipLibCheck services/installer/tests/make-fixtures.mjs`：**退出碼 1**。installer 檔案診斷 0；追蹤到唯讀既有 `scripts/security/lib.mjs:17`，TS2351（Ajv default import 無 construct signature）。沒有修改 scripts，也沒有宣稱完整 strict 指令通過。
+- 以專案既有 Ajv2020 編譯 3 份 JSON Schema 草案：退出碼 0。第一次 `node -e` 因 PowerShell 參數引號被剝除而 SyntaxError，改用 here-string 經 stdin 傳入後通過；不是 schema 錯誤，也不是 Python 驗證。
+- `git diff --check`：退出碼 0；新檔另檢查格式／UTF-8。工作樹檢查顯示原有 docs 修改保留；Git 提示無法讀取使用者全域 ignore，未更改其設定。
+- Node 靜態檔案核對：14 個 installer 檔案 UTF-8／行尾空白檢查通過；移除本次新增 Notes 後，thread 與 HEAD 原內容完全相同。第一次比對因 PowerShell stdin 的中文錨點編碼而失敗，改用 Unicode escape 後退出碼 0；未改寫原 thread 內容來迎合檢查。
+- `python3 -B -m unittest discover -s services/installer/tests -p 'test_*.py' -v`：**由 Claude 執行，未執行**。
+- `python3 -B services/installer/tests/mutations.py`：**由 Claude 執行，未執行**。
+- Python 語法／匯入／compile、真實 OpenSSL fixture、sudo／apt／Compose／Docker／Ubuntu 權限與實機指紋：**由 Claude 執行，未執行**。不把 FakeRunner 或 Node 型別檢查稱為這些驗證通過。
+
+### 變異
+
+交付 `tests/mutations.py`，六項為移除簽章驗證、tar.gz sha256、路徑穿越檢查、計畫雜湊比對、秘密值遮蔽、所有權標籤比對。先要求正常 unittest 通過，再在 installer/tests 下的隔離暫存副本逐項執行指定測試；僅 assertion failure 算攔截，語法／import error 不算，最後清除副本。**六項目前全部「由 Claude 執行」，沒有 kill 結果。**
+
+### 草案、未涵蓋與風險
+
+- WP3a 尚未輸出 images；依允許範圍提出 `package-extension.schema.json`，並要求 `systemVersion`（部署版本，避免把 schemaVersion 當系統版本）。每個 docker save tar 限一個映像／tag，backend 與 init 可共用；這些 tar 必須在 files 內。原 WP3a 包直接輸入會拒絕，待封裝流程提供欄位及真實映像；沒有修改 package 或既有 schemas。
+- 容器秘密值仍能被 root／docker 群組由 inspect 讀取，已寫入 plan.notProvided、verify 報告與 README；不宣稱秘密已無暴露或已防複製。
+- 沒有現場執行結果。容量檢查的 1 GiB 磁碟／記憶體只是底線，不是容量保證；Ubuntu 的 apt 候選版本、Compose 參數、跨使用者 flock、狀態可讀權限均待實測。Docker 最低版本仍未另訂。
+- 沒有自動續跑／daemonize；程序異常停止後保留狀態，可 status／rollback，但 SSH 斷線持續執行仍是契約待決事項。斷開 stdout 觀察者不主動中止事件寫入。
+- 還原採保守資料保護；DB 曾啟動或建表後保留資料卷／復原設定，回 14 並逐項列出。沒有判斷「新版寫入」的資料庫觀測器，也不實作升級備份／遷移；這次僅首次安裝。
+- WP3d、WP3c、WP3e 與 WP5 未做；Python／實機驗收前不得標記 WP3b 驗收通過。本次交付是程式、測試與交接紀錄，待 Claude 執行上述檢查。
+
 # Claude Notes
 
 - 2026-10-21 18:40 建立分支與本計畫，派 WP1。WP2 的調查等 WP1 結束後再派，避免兩個任務同時寫本 thread。
@@ -741,3 +804,22 @@ Codex 第二次停止同樣成立：派工第 8 點同時要求「`docker load` 
 4. 其餘派工內容、第 9 點的 `.env` 裁決、範圍、成功條件、停止條件不變。測試須新增：映像 ID 與 manifest 不符被拒、還原不刪除載入前已存在的映像、`compose.override.yml` 含標籤且不覆蓋原部署檔。
 
 **預計完成時間：2026-10-26 04:00。**到期未完成由 Claude 接手。Codex 在「WP3b 第二次」之後新增「WP3b 第三次」小節。
+
+## 2026-10-26 WP3b 驗收（Claude）
+
+Codex 第三次交付 `services/installer/`（14 檔，引擎 6 模組約 1070 行、29 個 unittest、6 項變異腳本、3 份 schema 草案、簽章 fixture 產生器）。派工前兩次停止都是我的規格矛盾（秘密值環境變數、映像標籤），已裁決；第三次 Codex 自查後未發現新矛盾。
+
+**我執行的驗證（Ubuntu 22.04 VM，Python 3.10.12，OpenSSL 3.0.2）：**
+
+- `python3 -B -m unittest discover -s services/installer/tests`：29/29 通過，含 Windows 上跳過的 4 項 Linux 專屬測試（`flock` 鎖檔、0600 輸入檔、sudo 邊界、CLI 鎖）。
+- `python3 -B services/installer/tests/mutations.py`：6 項變異（簽章驗證、tar.gz sha256、路徑穿越、計畫雜湊、秘密值遮蔽、所有權標籤）皆被攔到。
+- `sh -n services/installer/install.sh` 通過。
+- **真實 OpenSSL 簽章驗證（單元測試用假 Runner，這一項是補的）：**用 `make-fixtures.mjs` 以 `scripts/security/lib.mjs` 的 `signPayload` 對測試 tar.gz 簽章，在 VM 上以真實 `install.sh verify` 與真實 `openssl dgst -sigopt rsa_padding_mode:pss -sigopt rsa_pss_saltlen:32` 驗證：正確輸入通過（回報 `license: skipped`、`keyFingerprint`）；前綴錯誤、tar.gz 多一個位元組、簽章被改一個字元，三者都以退出碼 11 的失敗訊息拒絕。這確認引擎的驗證指令與 Node 簽章格式相容。
+- 本機 Windows：`node --test services/package/tests` 與 `npm.cmd run typecheck` 沿用前一次結果；Windows 上 2 項測試失敗（0600 權限斷言、CPU 架構名稱 `AMD64`）是測試假設 Linux，不是引擎缺陷，目標平台為 Ubuntu。
+- 靜態檢查：引擎無 `shell=True`、無 `os.system`、無 `docker run -e`；解壓為自行實作，無 `extractall`；Compose 以 `--env-file` 讀 0600 的 `.env`。
+
+**Codex 回報的失敗：**獨立 `tsc --strict --checkJs` 檢查 `make-fixtures.mjs` 因既有 `scripts/security/lib.mjs:17` 的 Ajv 型別錯誤退出 1，installer 本身診斷 0。這不是本 WP 引入，列為既有問題。
+
+**未涵蓋（不得宣稱已驗證）：**真實 Docker（`docker load`、Compose 部署、`compose.override.yml` 標籤）、真實 `apt install`、sudo 與 USB、`detect` 在實體機的指紋來源、`issue-license`／授權鏈／`license-install`／`guard-up`（WP3d 之後）、精靈（WP3c）。WP3a 輸出尚缺離線映像欄位（`images`），需在 WP3d／後續整合時補。WP3e 前，容器內秘密值仍以環境變數存在，`docker inspect` 對 root 與 `docker` 群組可見。
+
+**結論：WP3b 通過驗收，第一階段（無授權）完成。**下一步 WP3d；動到 `schemas/` 與 `scripts/`，需先經 user 逐項確認。

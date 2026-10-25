@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WP3b installation plan DRAFT",
+  "type": "object",
+  "required": ["format", "version", "package", "target", "source", "names", "images", "steps", "secretRef", "migration", "planSha256", "notProvided"],
+  "properties": {
+    "format": { "const": "composer-install-plan" }, "version": { "const": 1 },
+    "package": { "type": "object", "required": ["manifestSha256", "systemVersion", "systemId", "archiveSha256", "keyFingerprint"] },
+    "target": { "type": "object", "required": ["os", "installDir", "trustDir"] },
+    "source": { "type": "object", "required": ["archive", "signature", "key", "prefix"] },
+    "names": { "type": "object" }, "images": { "type": "array" },
+    "steps": { "type": "array", "minItems": 9, "maxItems": 9,
+      "items": { "type": "object", "required": ["id", "title", "privileged", "reversible", "params", "undo"],
+        "properties": { "reversible": { "enum": ["yes", "partial", "no"] } } } },
+    "secretRef": { "type": "array", "items": { "type": "string" } },
+    "migration": { "type": "object" }, "notProvided": { "type": "array" },
+    "planSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}
