@@ -91,7 +91,7 @@ B 的 README 指向 repository 外的 `../Composer-PRD-Tests-v1.0/PRD.md` 與 `T
 | actionId／capability／Kit | `sdk:function` | 建立版本化且經確認的對應表；找不到時阻擋可執行輸出，不猜名稱 |
 | 表單恰屬節點、跨表單關聯 | 產品級 inspection_form、自訂 forms | 保留 formId／版本；補節點級表單綁定，不能把多張品檢表壓成一張 |
 | 先後順序連線 | material／data＋transfer_time | 既有邊先保留為 precedence；未經指定不得當物料流，避免改變庫存數量 |
-| 子 AoV | form／validate／store／state 子圖 | 無法對應的節點列遷移報告；保存來源且阻擋發布，不丟棄子圖 |
+| 子 AoV | form／validate／store／state 子圖 | B 的子步驟（form／validate／store／state）屬於系統邏輯疊層，對應不了者捨棄並列入遷移報告，不阻擋發布（D136）；A 的子 AoV 則在編譯期展開，無法展開者阻擋發布 |
 | 未填工時 | latency 預設 setup=0、per_unit=0 | 分開「缺資料」與真正 0；預估時長、單位、數量來源必須明確 |
 
 B 的 Edge 現無 source_port／target_port，不能宣稱已支援完整資料映射。端口、單位、輸入輸出與 dataflow binding 應先形成契約，再增加虛線 UI。A 核心固定快照維持唯一來源，不在兩個 repository 分別修改同一演算法。
