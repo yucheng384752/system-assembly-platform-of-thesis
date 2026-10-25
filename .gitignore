@@ -9,3 +9,5 @@ manuals/generated/*
 *.pem
 license.lic
 *.sig.json
+# Temporary directories created by services/package tests (a failed cleanup must never reach a commit).
+services/package/tests/.*/
