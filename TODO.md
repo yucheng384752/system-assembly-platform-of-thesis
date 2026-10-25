@@ -181,7 +181,7 @@ Result：
    - P2 或 P5：mailbox thread 20261021-p2-executable-assembly 的 WP3 已把「安裝腳本、安裝前驗證（簽章、授權、checksum）、遷移與健康檢查」排在 P2，D126 也把引擎列為 WP3b、精靈列為 WP3c，所以自動安裝實際已在 P2，不是 P5。尚待確認：子金鑰簽發、guard、授權狀態頁是否也在 P2，建議另開工作包。WP5 的「Windows Docker 乾淨安裝」與 Ubuntu 22.04 目標不一致，需修正。
    - 未驗證：實體品牌機的指紋穩定性與 guard 失效行為、網卡實體裝置過濾規則、狀態頁與後端整合、guard 與共用卷的細節。
 
-   工作包建議（2026-10-25，Claude 建議，待使用者確認，尚未寫入 mailbox thread，因該 thread 正由另一個工作階段修改）：
+   工作包建議（2026-10-25，Claude 建議，使用者已於 2026-10-25 核准（D138），尚未寫入 mailbox thread，因該 thread 正由另一個工作階段修改）：
    - WP3b（引擎與命令列）：沿用原定義，補入 detect 的指紋計算、verify 的信任庫與授權鏈、issue-license、trust-store 與 license-install 步驟、Docker 還原語意；契約見 docs/install-engine-contract.md（2026-10-25 修訂）。
    - WP3d（新增，簽發工具，離線，命令列）：scripts/security/ 旁新增「簽發子金鑰」腳本與授權鏈驗證（沿用 Node 內建 crypto）；輸出 release-fingerprints.txt（D137）；授權 schema 加 issuerCertificate。屬發行端，不進客機。
    - WP3e（新增，執行期元件）：guard 容器、授權狀態頁、kits/platform-core-kit 的 license.py 啟動檢查改動（manifest 雜湊、讀取 guard 結果；kits/ 是基線副本，需先經使用者核准）。
