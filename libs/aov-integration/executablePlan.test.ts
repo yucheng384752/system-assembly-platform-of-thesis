@@ -7,7 +7,8 @@ import notExecutable from '../../fixtures/executable-plan/not-executable.json';
 import idMismatch from '../../fixtures/executable-plan/plan-id-mismatch.json';
 import tampered from '../../fixtures/executable-plan/content-tampered.json';
 import unknownVersion from '../../fixtures/executable-plan/unknown-version.json';
-import { contentSha256 } from './index';
+import vectors from '../../fixtures/executable-plan/canonical-vectors.json';
+import { canonicalJson, contentSha256 } from './index';
 
 const validate = new Ajv({ allErrors: true, strict: false }).compile(schema);
 type Plan = typeof valid;
@@ -117,5 +118,15 @@ describe('可執行計畫 schema 與 fixtures（契約第 3、4、5、9 節）',
     const listed = fresh();
     Object.assign(listed.alarmRules[0], { recipients: ['someone'] });
     rejects(listed, '/alarmRules/0');
+  });
+
+  it('跨語言正規化向量：鍵依 UTF-16 排序、不做 Unicode 正規化（Python 端須得到相同結果）', async () => {
+    for (const v of vectors.vectors) {
+      expect(canonicalJson(v.input), v.name).toBe(v.canonical);
+      expect(await contentSha256(v.input), v.name).toBe(v.sha256);
+    }
+    const decomposed = vectors.vectors.find(v => 'decomposed' in (v.input as object))!;
+    const { decomposed: d, precomposed: p } = decomposed.input as { decomposed: string; precomposed: string };
+    expect(d).not.toBe(p);
   });
 });

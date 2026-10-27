@@ -179,9 +179,8 @@ guard、判定節點的決策表與檢驗項目，在工廠端求值時需要下
 ## 5. `planId` 計算
 
 1. 取 `ExecutablePlan`，但將 `planId` 欄位本身排除。
-2. 物件鍵遞迴排序，陣列保持原順序；數字以最短十進位字串表示；字串以 UTF-8 正規化 NFC。
+2. 物件鍵遞迴排序，排序依 UTF-16 編碼單位（JS 預設；Python 須以 `key.encode('utf-16-be')` 排序，不可用預設的碼位排序）；陣列保持原順序；數字以最短十進位字串表示（`12` 不寫成 `12.0`）；字串**不做** Unicode 正規化，依原樣以 UTF-8 計算（8.1 第 24 項）。跨語言測試向量見 `fixtures/executable-plan/canonical-vectors.json`。
 3. 序列化為不含多餘空白的 JSON，計算 sha256，取小寫十六進位。
-4. `subplans` 內每個子計畫先各自算出 `planId`，再參與外層計算。
 
 信封欄位（發行時間、發布者、builder）不參與計算。
 
@@ -249,6 +248,8 @@ guard、判定節點的決策表與檢驗項目，在工廠端求值時需要下
 22. **`held` 的解除條件**（2026-10-27，user）：有人確認警報即解除。
 23. **警報重送間隔放在參數集**（2026-10-27，user）：以 `alarmIntervals` 保存，受 4.9 的核准與版本鎖定規則約束。
 
+24. **不做 Unicode NFC 正規化**（2026-10-27，user 同意建議）：使用者皆在繁體中文環境，漢字無分解式；`planId` 是版本識別而非安全機制，遇到非 NFC 字串的後果只是多出一個版本。`canonicalJson` 不需修改，也不影響既有整合包雜湊。真正會造成跨語言不一致的是鍵排序與數字格式，已寫入第 5 節並附測試向量。
+
 ### 8.2 開放問題
 
 1. **核准流程的現有機制檢查結果（2026-10-25，靜態閱讀設計文件與資料模型，尚未執行測試）。**
@@ -260,7 +261,7 @@ guard、判定節點的決策表與檢驗項目，在工廠端求值時需要下
    - 實測發現 2：中介層把 `actor_user_id` 與 `actor_role` 放進 `request.state`，服務可據此實作「提出者不得等於核准者（manager、admin 除外）」。同一使用者同時提出與核准能通過入口層，證實此規則須在參數集服務內。
    - 限制：未測工廠端真實路由、跨 worker、與正式部署；`entry_points.json` 為測試目錄。
 2. 無（原第 2、3 項已於 2026-10-27 決定，見 8.1 第 22、23 項）。
-3. **正規化與現有雜湊函式不一致。**第 5 節要求字串以 UTF-8 NFC 正規化，但 `libs/aov-integration` 的 `canonicalJson` 不做 NFC。目前 fixtures 全為 ASCII，兩者結果相同。W1 產生計畫時須擇一：在 `canonicalJson` 加 NFC（會影響既有整合包雜湊），或另寫計畫專用的正規化。待決定。
+3. 無（原第 3 項「NFC 正規化」已於 2026-10-27 決定不做，見 8.1 第 24 項）。
 4. **`alarmRules` 與 `paramTables` 的欄位細節。**第 4.6 節只寫概要，schema（`schemas/executable-plan.schema.json`）已依概要定出欄位（`alarmRules`: `ruleId`、`nodeId`、`expr`、`minRole`；`paramTables`: `tableId`、`columns`、`defaultRows`、`usedBy`）。`alarmIntervals` 的預設間隔尚未定義，schema 未含。
 
 

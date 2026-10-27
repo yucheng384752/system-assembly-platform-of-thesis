@@ -1,0 +1,57 @@
+{
+  "note": "Cross-language vectors for planId canonicalization (contract section 5). The Python receiver must reproduce canonical and sha256 exactly.",
+  "vectors": [
+    {
+      "name": "keys sort by UTF-16 code unit, not code point: an astral key precedes U+FFFF",
+      "input": {
+        "￿": 1,
+        "😀": 2,
+        "b": 3,
+        "a": 4
+      },
+      "canonical": "{\"a\":4,\"b\":3,\"😀\":2,\"￿\":1}",
+      "sha256": "93483ac1b498afad7577379bd98982187d34545ff97d8ca3d2b65fb9a8a7f8f3"
+    },
+    {
+      "name": "numeric-looking keys are ordered as strings, arrays keep their order",
+      "input": {
+        "10": 1,
+        "9": 2,
+        "2": [
+          3,
+          1,
+          2
+        ]
+      },
+      "canonical": "{\"10\":1,\"2\":[3,1,2],\"9\":2}",
+      "sha256": "8815c2408181509b56188fbb9065617fe6ad6e854756c3d356b55a53d96153cc"
+    },
+    {
+      "name": "integers and short decimals",
+      "input": {
+        "n": 12,
+        "half": 0.5,
+        "neg": -3
+      },
+      "canonical": "{\"half\":0.5,\"n\":12,\"neg\":-3}",
+      "sha256": "4046b9cada749550ec2bdef0ee3c5241a76bf878216c7a022faa4da158826225"
+    },
+    {
+      "name": "no Unicode normalization: decomposed and precomposed e-acute stay different",
+      "input": {
+        "decomposed": "é",
+        "precomposed": "é"
+      },
+      "canonical": "{\"decomposed\":\"é\",\"precomposed\":\"é\"}",
+      "sha256": "97252aace6e47c0acc408079c8959754b5d0c7c71ecb7b76e50d0984e58c1e0c"
+    },
+    {
+      "name": "Traditional Chinese is hashed as UTF-8 as-is, no escaping",
+      "input": {
+        "名稱": "攪拌麵團"
+      },
+      "canonical": "{\"名稱\":\"攪拌麵團\"}",
+      "sha256": "b8457c85fb092d5371ed3659f4c0b6912a893b7300053ae4a0c82fa0ee5ac52f"
+    }
+  ]
+}
