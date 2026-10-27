@@ -260,6 +260,8 @@ guard、判定節點的決策表與檢驗項目，在工廠端求值時需要下
    - 實測發現 2：中介層把 `actor_user_id` 與 `actor_role` 放進 `request.state`，服務可據此實作「提出者不得等於核准者（manager、admin 除外）」。同一使用者同時提出與核准能通過入口層，證實此規則須在參數集服務內。
    - 限制：未測工廠端真實路由、跨 worker、與正式部署；`entry_points.json` 為測試目錄。
 2. 無（原第 2、3 項已於 2026-10-27 決定，見 8.1 第 22、23 項）。
+3. **正規化與現有雜湊函式不一致。**第 5 節要求字串以 UTF-8 NFC 正規化，但 `libs/aov-integration` 的 `canonicalJson` 不做 NFC。目前 fixtures 全為 ASCII，兩者結果相同。W1 產生計畫時須擇一：在 `canonicalJson` 加 NFC（會影響既有整合包雜湊），或另寫計畫專用的正規化。待決定。
+4. **`alarmRules` 與 `paramTables` 的欄位細節。**第 4.6 節只寫概要，schema（`schemas/executable-plan.schema.json`）已依概要定出欄位（`alarmRules`: `ruleId`、`nodeId`、`expr`、`minRole`；`paramTables`: `tableId`、`columns`、`defaultRows`、`usedBy`）。`alarmIntervals` 的預設間隔尚未定義，schema 未含。
 
 
 ## 9. 驗收條件（契約層）
@@ -280,6 +282,6 @@ guard、判定節點的決策表與檢驗項目，在工廠端求值時需要下
 ## 10. 下一步
 
 1. 完成 8.2 第 1 項的核准入口實測，。
-2. 依回覆撰寫 `schemas/executable-plan.schema.json`（JSON Schema 2020-12）與 fixtures（合法、缺工時、無能力對應、`planId` 不符、未知版本）。
+2. 已完成（`feature/executable-plan-schema`）：`schemas/executable-plan.schema.json`、`fixtures/executable-plan/`（合法、缺工時、不可執行、`planId` 不符、內容被改、未知版本）與 `libs/aov-integration/executablePlan.test.ts`。
 3. 在 `libs/aov-integration/` 擴充編譯端產生計畫的轉接，並加入確定性測試。
 4. 工廠端的接收與驗證留待 W3。

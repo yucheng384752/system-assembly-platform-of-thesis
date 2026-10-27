@@ -1,0 +1,380 @@
+{
+  "format": "composer-executable-plan",
+  "formatVersion": 1,
+  "planId": "0000000000000000000000000000000000000000000000000000000000000000",
+  "source": {
+    "templateId": "example-bakery",
+    "templateVersion": 3,
+    "projectSha256": "9ccc8bf50bc687b4d30f557f1ee40ab5c5b9d4a3112725e686e54abe58555035",
+    "aovCoreCommit": "6a37dbba7dcf0563e60b1e2eb591966b09deb765",
+    "libraries": [
+      {
+        "id": "bakery-actions",
+        "version": 1,
+        "sha256": "4785d5fb371dbba196408c642df434fd1a110aa9ad522d763dc15fe0ddd30359"
+      }
+    ],
+    "subgraphs": [
+      {
+        "id": "pack-line",
+        "version": 2,
+        "sha256": "b07a83b306fdb5ec891f67e82bd9fec0528805f6f5e2e7417997feab6f1c1e75"
+      }
+    ],
+    "mapping": {
+      "version": 1,
+      "sha256": "39bfdcf2f444ed66119020eec2bc397eab800e96c4408a7141bfe65be56cd415"
+    }
+  },
+  "scope": {
+    "factoryId": "example-factory",
+    "graphId": "main"
+  },
+  "nodes": [
+    {
+      "nodeId": "src",
+      "name": "Receive flour",
+      "category": "source",
+      "stage": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "port": "out",
+          "flows": [
+            "f1"
+          ]
+        }
+      ],
+      "executor": "system",
+      "actionId": "receive-material",
+      "executable": true,
+      "binding": {
+        "capability": "inventory.receive",
+        "kitId": "inventory-kit"
+      },
+      "timing": {
+        "state": "missing"
+      }
+    },
+    {
+      "nodeId": "mix",
+      "name": "Mix dough",
+      "category": "transform",
+      "stage": 1,
+      "inputs": [
+        {
+          "port": "in",
+          "flows": [
+            "f1"
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "port": "out",
+          "flows": [
+            "f2"
+          ]
+        }
+      ],
+      "executor": "manual",
+      "actionId": "mix-dough",
+      "executable": true,
+      "role": "operator",
+      "binding": {
+        "capability": "work-order.step",
+        "kitId": "work-order-kit"
+      },
+      "timing": {
+        "state": "specified",
+        "setupMin": 5,
+        "perUnitMin": 2,
+        "quantityUnit": "kg"
+      },
+      "resource": {
+        "capability": "mixer"
+      },
+      "form": {
+        "formId": "mix-record",
+        "contentSha256": "a93fc93e105505b342765b49d2d72070755cd61182f07332cd5960a75e194a91"
+      }
+    },
+    {
+      "nodeId": "qc",
+      "name": "Inspect dough",
+      "category": "judge",
+      "stage": 2,
+      "inputs": [
+        {
+          "port": "in",
+          "flows": [
+            "f2"
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "port": "out",
+          "flows": [
+            "f3"
+          ]
+        }
+      ],
+      "executor": "manual",
+      "actionId": "inspect-dough",
+      "executable": true,
+      "role": "manager",
+      "binding": {
+        "capability": "quality.inspect",
+        "kitId": "quality-kit"
+      },
+      "guard": "in.in.temperature_c >= params.temp_min",
+      "timing": {
+        "state": "specified",
+        "setupMin": 3,
+        "perUnitMin": 0,
+        "quantityUnit": "batch"
+      }
+    },
+    {
+      "nodeId": "pack/seal",
+      "name": "Seal package",
+      "category": "transform",
+      "stage": 3,
+      "inputs": [
+        {
+          "port": "in",
+          "flows": [
+            "f3"
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "port": "out",
+          "flows": [
+            "f4"
+          ]
+        }
+      ],
+      "executor": "manual",
+      "actionId": "seal-package",
+      "executable": true,
+      "binding": {
+        "capability": "work-order.step",
+        "kitId": "work-order-kit"
+      },
+      "timing": {
+        "state": "specified",
+        "setupMin": 1,
+        "perUnitMin": 1,
+        "quantityUnit": "pcs"
+      },
+      "expandedFrom": "pack@pack-line@2"
+    },
+    {
+      "nodeId": "end",
+      "name": "Ship",
+      "category": "sink",
+      "stage": 4,
+      "inputs": [
+        {
+          "port": "in",
+          "flows": [
+            "f4"
+          ]
+        }
+      ],
+      "outputs": [],
+      "executor": "system",
+      "actionId": "ship-goods",
+      "executable": true,
+      "binding": {
+        "capability": "inventory.issue",
+        "kitId": "inventory-kit"
+      },
+      "timing": {
+        "state": "missing"
+      }
+    }
+  ],
+  "flows": [
+    {
+      "id": "f1",
+      "from": {
+        "node": "src",
+        "port": "out"
+      },
+      "to": {
+        "node": "mix",
+        "port": "in"
+      },
+      "artifactType": "lot.flour",
+      "kind": "material"
+    },
+    {
+      "id": "f2",
+      "from": {
+        "node": "mix",
+        "port": "out"
+      },
+      "to": {
+        "node": "qc",
+        "port": "in"
+      },
+      "artifactType": "lot.dough",
+      "kind": "material"
+    },
+    {
+      "id": "f3",
+      "from": {
+        "node": "qc",
+        "port": "out"
+      },
+      "to": {
+        "node": "pack/seal",
+        "port": "in"
+      },
+      "artifactType": "lot.dough",
+      "kind": "material"
+    },
+    {
+      "id": "f4",
+      "from": {
+        "node": "pack/seal",
+        "port": "out"
+      },
+      "to": {
+        "node": "end",
+        "port": "in"
+      },
+      "artifactType": "lot.pack",
+      "kind": "material"
+    }
+  ],
+  "businessOnly": [
+    {
+      "id": "b1",
+      "from": "src",
+      "to": "end"
+    }
+  ],
+  "artifactTypes": [
+    {
+      "id": "lot.flour"
+    },
+    {
+      "id": "lot.dough"
+    },
+    {
+      "id": "lot.pack"
+    }
+  ],
+  "params": [
+    {
+      "id": "mix_minutes",
+      "type": "number",
+      "unit": "min",
+      "default": 10,
+      "tunable": true,
+      "range": {
+        "min": 5,
+        "max": 20
+      }
+    },
+    {
+      "id": "temp_min",
+      "type": "number",
+      "unit": "degC",
+      "default": 15,
+      "tunable": true,
+      "range": {
+        "min": 10,
+        "max": 30
+      }
+    },
+    {
+      "id": "temp_max",
+      "type": "number",
+      "unit": "degC",
+      "default": 25,
+      "tunable": true,
+      "range": {
+        "min": 10,
+        "max": 40
+      }
+    },
+    {
+      "id": "plant_name",
+      "type": "string",
+      "default": "Example plant",
+      "tunable": false
+    }
+  ],
+  "paramTables": [
+    {
+      "tableId": "dough_checks",
+      "label": "Dough inspection items",
+      "columns": [
+        {
+          "id": "item",
+          "type": "string",
+          "required": true
+        },
+        {
+          "id": "limit",
+          "type": "number",
+          "unit": "degC",
+          "required": true
+        }
+      ],
+      "defaultRows": [
+        {
+          "item": "core_temp",
+          "limit": 25
+        },
+        {
+          "item": "surface_temp",
+          "limit": 28
+        }
+      ],
+      "usedBy": {
+        "nodeId": "qc",
+        "use": "inspectionItems"
+      }
+    }
+  ],
+  "alarmRules": [
+    {
+      "ruleId": "temp-out-of-range",
+      "nodeId": "qc",
+      "expr": "in.in.temperature_c > params.temp_max",
+      "minRole": "manager"
+    }
+  ],
+  "rules": [],
+  "stages": [
+    [
+      "src"
+    ],
+    [
+      "mix"
+    ],
+    [
+      "qc"
+    ],
+    [
+      "pack/seal"
+    ],
+    [
+      "end"
+    ]
+  ],
+  "order": [
+    "src",
+    "mix",
+    "qc",
+    "pack/seal",
+    "end"
+  ]
+}

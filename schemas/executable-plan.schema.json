@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Composer executable plan",
+  "description": "Immutable, content-addressed plan handed from the Composer compiler to the factory (docs/executable-plan-contract.md, D134). Checks structure only: planId recomputation, guard evaluation, capability availability and parameter-set validation belong to the receiver (contract section 6).",
+  "type": "object", "additionalProperties": false,
+  "required": ["format", "formatVersion", "planId", "source", "scope", "nodes", "flows", "businessOnly", "artifactTypes", "params", "paramTables", "alarmRules", "rules", "stages", "order"],
+  "properties": {
+    "format": { "const": "composer-executable-plan" },
+    "formatVersion": { "const": 1 },
+    "planId": { "$ref": "#/$defs/sha256" },
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["templateId", "templateVersion", "projectSha256", "aovCoreCommit", "libraries", "subgraphs", "mapping"],
+      "properties": {
+        "templateId": { "$ref": "#/$defs/id" },
+        "templateVersion": { "type": "integer", "minimum": 1 },
+        "projectSha256": { "$ref": "#/$defs/sha256" },
+        "aovCoreCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "libraries": { "type": "array", "items": { "$ref": "#/$defs/pinnedRef" } },
+        "subgraphs": { "type": "array", "items": { "$ref": "#/$defs/pinnedRef" } },
+        "mapping": {
+          "type": "object", "additionalProperties": false,
+          "required": ["version", "sha256"],
+          "properties": { "version": { "type": "integer", "minimum": 1 }, "sha256": { "$ref": "#/$defs/sha256" } }
+        }
+      }
+    },
+    "scope": {
+      "type": "object", "additionalProperties": false,
+      "required": ["factoryId", "graphId"],
+      "properties": { "factoryId": { "$ref": "#/$defs/id" }, "graphId": { "$ref": "#/$defs/id" } }
+    },
+    "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+    "flows": { "type": "array", "items": { "$ref": "#/$defs/flow" } },
+    "businessOnly": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "from", "to"],
+        "properties": { "id": { "$ref": "#/$defs/id" }, "from": { "$ref": "#/$defs/id" }, "to": { "$ref": "#/$defs/id" } }
+      }
+    },
+    "artifactTypes": {
+      "type": "array",
+      "items": { "type": "object", "required": ["id"], "properties": { "id": { "$ref": "#/$defs/id" } } }
+    },
+    "params": { "type": "array", "items": { "$ref": "#/$defs/param" } },
+    "paramTables": { "type": "array", "items": { "$ref": "#/$defs/paramTable" } },
+    "alarmRules": { "type": "array", "items": { "$ref": "#/$defs/alarmRule" } },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object", "required": ["id", "params", "expr"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "label": { "type": "string" },
+          "params": { "type": "array", "items": { "type": "string" } },
+          "expr": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "stages": { "type": "array", "items": { "type": "array", "items": { "$ref": "#/$defs/nodeId" } } },
+    "order": { "type": "array", "items": { "$ref": "#/$defs/nodeId" } }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "nodeId": { "type": "string", "minLength": 1, "maxLength": 400 },
+    "pinnedRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "version", "sha256"],
+      "properties": { "id": { "$ref": "#/$defs/id" }, "version": { "type": "integer", "minimum": 1 }, "sha256": { "$ref": "#/$defs/sha256" } }
+    },
+    "portRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["node", "port"],
+      "properties": { "node": { "$ref": "#/$defs/nodeId" }, "port": { "$ref": "#/$defs/id" } }
+    },
+    "planPort": {
+      "type": "object", "additionalProperties": false,
+      "required": ["port", "flows"],
+      "properties": { "port": { "$ref": "#/$defs/id" }, "flows": { "type": "array", "items": { "$ref": "#/$defs/id" } } }
+    },
+    "timing": {
+      "description": "Missing is explicit; a missing state must not carry numbers, so absence can never be read as 0.",
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["state", "setupMin", "perUnitMin", "quantityUnit"],
+          "properties": {
+            "state": { "const": "specified" },
+            "setupMin": { "type": "number", "minimum": 0 },
+            "perUnitMin": { "type": "number", "minimum": 0 },
+            "quantityUnit": { "type": "string", "minLength": 1 }
+          }
+        },
+        { "type": "object", "additionalProperties": false, "required": ["state"], "properties": { "state": { "const": "missing" } } }
+      ]
+    },
+    "transferMin": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["state", "minutes"],
+          "properties": { "state": { "const": "specified" }, "minutes": { "type": "number", "minimum": 0 } }
+        },
+        { "type": "object", "additionalProperties": false, "required": ["state"], "properties": { "state": { "const": "missing" } } }
+      ]
+    },
+    "node": {
+      "type": "object", "additionalProperties": false,
+      "required": ["nodeId", "name", "category", "stage", "inputs", "outputs", "executor", "actionId", "executable"],
+      "properties": {
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "name": { "type": "string" },
+        "category": { "enum": ["source", "sink", "transform", "assemble", "split", "move", "hold", "measure", "judge", "merge", "broadcast", "subgraph"] },
+        "stage": { "type": "integer", "minimum": 0 },
+        "inputs": { "type": "array", "items": { "$ref": "#/$defs/planPort" } },
+        "outputs": { "type": "array", "items": { "$ref": "#/$defs/planPort" } },
+        "executor": { "enum": ["manual", "auto", "system"] },
+        "role": { "type": "string" },
+        "actionId": { "$ref": "#/$defs/id" },
+        "executable": { "type": "boolean" },
+        "reason": { "type": "string", "minLength": 1 },
+        "binding": {
+          "type": "object", "additionalProperties": false,
+          "required": ["capability", "kitId"],
+          "properties": { "capability": { "$ref": "#/$defs/id" }, "kitId": { "$ref": "#/$defs/id" } }
+        },
+        "guard": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "array", "items": { "type": "string", "minLength": 1 } }] },
+        "form": {
+          "type": "object", "additionalProperties": false,
+          "required": ["formId", "contentSha256"],
+          "properties": { "formId": { "$ref": "#/$defs/id" }, "contentSha256": { "$ref": "#/$defs/sha256" } }
+        },
+        "timing": { "$ref": "#/$defs/timing" },
+        "resource": {
+          "type": "object", "additionalProperties": false,
+          "properties": { "capability": { "type": "string" }, "operatorSkill": { "type": "string" } }
+        },
+        "expandedFrom": { "type": "string", "pattern": "^[^@]+@[^@]+@[0-9]+$" }
+      },
+      "allOf": [
+        { "if": { "properties": { "executable": { "const": true } } }, "then": { "required": ["binding"], "not": { "required": ["reason"] } } },
+        { "if": { "properties": { "executable": { "const": false } } }, "then": { "required": ["reason"] } }
+      ]
+    },
+    "flow": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "from", "to", "artifactType", "kind"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "from": { "$ref": "#/$defs/portRef" },
+        "to": { "$ref": "#/$defs/portRef" },
+        "artifactType": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["material", "data"] },
+        "transferMin": { "$ref": "#/$defs/transferMin" }
+      }
+    },
+    "param": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "type", "tunable"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "enum": ["number", "string", "string[]", "bool", "quantity"] },
+        "unit": { "type": "string" },
+        "default": {},
+        "description": { "type": "string" },
+        "tunable": { "type": "boolean" },
+        "range": {
+          "type": "object", "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": { "min": { "type": "number" }, "max": { "type": "number" } }
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "tunable": { "const": true } } }, "then": { "required": ["default"] } },
+        { "if": { "required": ["range"] }, "then": { "properties": { "type": { "enum": ["number", "quantity"] } } } }
+      ]
+    },
+    "paramTable": {
+      "type": "object", "additionalProperties": false,
+      "required": ["tableId", "columns", "defaultRows", "usedBy"],
+      "properties": {
+        "tableId": { "$ref": "#/$defs/id" },
+        "label": { "type": "string" },
+        "columns": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["id", "type", "required"],
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "type": { "enum": ["number", "string", "bool"] },
+              "unit": { "type": "string" },
+              "required": { "type": "boolean" }
+            }
+          }
+        },
+        "defaultRows": { "type": "array", "items": { "type": "object" } },
+        "usedBy": {
+          "type": "object", "additionalProperties": false,
+          "required": ["nodeId", "use"],
+          "properties": { "nodeId": { "$ref": "#/$defs/nodeId" }, "use": { "enum": ["inspectionItems"] } }
+        }
+      }
+    },
+    "alarmRule": {
+      "type": "object", "additionalProperties": false,
+      "required": ["ruleId", "nodeId", "expr", "minRole"],
+      "properties": {
+        "ruleId": { "$ref": "#/$defs/id" },
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "expr": { "type": "string", "minLength": 1 },
+        "minRole": { "enum": ["manager"], "description": "Recipients are this role and above (admin included); recipients are resolved from entry-permission-kit, never listed here." }
+      }
+    }
+  }
+}
