@@ -17,6 +17,11 @@ const schema = JSON.parse(readFileSync(resolve(REPO_ROOT, 'schemas', 'license.sc
 const ajv = new Ajv({ allErrors: true, strict: false });
 ajv.addSchema(schema);
 const validators = {
+  subkeyCertificatePayload: /** @type {import('ajv').ValidateFunction} */ (ajv.getSchema(`${schema.$id}#/$defs/subkeyCertificatePayload`)),
+  licensePayloadV3: /** @type {import('ajv').ValidateFunction} */ (ajv.getSchema(`${schema.$id}#/$defs/licensePayloadV3`)),
+  licenseFileV3: /** @type {import('ajv').ValidateFunction} */ (ajv.getSchema(`${schema.$id}#/$defs/licenseFileV3`)),
+  systemPackageSignaturePayload: /** @type {import('ajv').ValidateFunction} */ (ajv.getSchema(`${schema.$id}#/$defs/systemPackageSignaturePayload`)),
+  fingerprintSources: /** @type {import('ajv').ValidateFunction} */ (ajv.getSchema(`${schema.$id}#/$defs/fingerprintSources`)),
   envelope: /** @type {import('ajv').ValidateFunction} */ (ajv.getSchema(schema.$id)),
   licensePayload: /** @type {import('ajv').ValidateFunction} */ (ajv.getSchema(`${schema.$id}#/$defs/licensePayload`)),
   zipSignaturePayload: /** @type {import('ajv').ValidateFunction} */ (ajv.getSchema(`${schema.$id}#/$defs/zipSignaturePayload`)),

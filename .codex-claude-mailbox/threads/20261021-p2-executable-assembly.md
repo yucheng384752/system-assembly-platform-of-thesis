@@ -590,6 +590,52 @@ WP3b 引擎、CLI、測試、schema 草案與 fixture 均未實作；WP3d、WP3c
 
 WP3d 工具、schema 新增定義、鏈驗證與測試均未實作，WP3d 未完成。未涉及 WP3b 第二階段、WP3c、WP3e。待 Claude/user 明訂上述正規化語意後再續作；本次只留下開工前檢查紀錄。
 
+## WP3d 第二次
+
+### 開工前自檢與變更摘要
+
+2026-10-27：完整閱讀「2026-10-26 WP3d 派工（Claude）」及「2026-10-27 WP3d 裁決與重派（Claude）」，核對 `detect.py`、`package.py`、安裝契約、既有 security 工具及 schema。未發現新的阻擋矛盾，依裁決實作。來源正規化遵循 Python `.strip().lower()`，保留內部空白及分隔符號；明確測試 `  AB CD  ` → `ab cd` → `b09c5477abec5b3275cc94f1884843b392d708547fe5861a4fbe400e2a64c5eb`。額外對齊 Python strip 與 JS trim 不同的 NEL、控制分隔字元及 BOM 行為。
+
+新增離線子金鑰簽發、授權 3.0 簽發與鏈驗證、tar.gz／manifest 簽章與驗證、發行指紋輸出。子金鑰 PKCS#8 以 AES-256-CBC 加密，期限預設 24、上限 168 小時；密碼只接受單行 `--passphrase-file`。簽章沿用既有 `signPayload` 的原始 JSON 字串與 RSA-PSS saltLength 32。簽發檢查 now 與 issuedAt，驗證只要求 issuedAt 在憑證區間內，授權可在子金鑰過期後繼續驗證。指紋以唯一雜湊集合交集計數，不以來源名稱或重複項目充數。
+
+工具的使用方式與來源雜湊陣列格式記於 `scripts/security/WP3d.md`。Node issue-license 僅為測試／參考實作；未決定或實作 WP3b 第二階段。CLI 驗授權要求目前指紋；API 可省略 sources 進行鏈驗證。安裝包工具核對呼叫端提供的 tar.gz／manifest 位元組，包內 manifest 與安全解壓仍由既有引擎負責。
+
+### 檔案清單與範圍確認
+
+- `schemas/license.schema.json`：僅追加 subkeyCertificatePayload、fingerprintSources、licensePayloadV3、licenseFileV3、systemPackageSignaturePayload 五個 `$defs`。
+- `scripts/security/lib.mjs`：僅新增上述五個 validator 註冊；既有函式與既有 kind 行為不變。
+- 新增 `scripts/security/system-license.mjs`、`system-cli.mjs`。
+- 新增 `scripts/security/issue-subkey.mjs`、`sign-system-package.mjs`、`release-fingerprints.mjs`、`issue-license.mjs`、`verify-license.mjs`、`verify-system-package.mjs`。
+- 新增 `scripts/security/tests/index.js`、`system-license.test.mjs`、`mutations.mjs` 及 `scripts/security/WP3d.md`。
+- 本 thread 僅新增此小節，未覆蓋前次 Notes；未改 frontmatter、index、其他派工／Claude Notes。未修改範圍外產品檔案，未 git add／commit／其他 git 寫入，未安裝依賴、使用網路或 Docker。起始觀察到 `docs/executable-plan-contract.md` 已修改，未碰觸；最後 git status 已不列該檔，不由本次操作處理。
+- 以唯讀 `git show HEAD:<path>` 加 Node assert 逐項核對：既有 schema `$defs` 與頂層約束完全相同；移除新增五行 validator 後，lib.mjs 與基準相同。檢查退出碼 0。
+
+### 驗證方式與實際結果（含失敗與修正）
+
+- `node --test scripts/security/tests`：最終 **18/18 通過**，退出碼 0。涵蓋正常鏈、錯根／錯子鑰／憑證竄改、issuerKeyId／keyId、issuedAt 邊界、簽發 now、客戶、manifest、指紋不足與重複、授權過期、非法日期、168 小時上限拒絕、repo 內私鑰路徑拒絕、tar.gz／manifest 一位元組變動、發行檔案雜湊與 SPKI 分離、六個 CLI 流程與失敗退出碼、不覆寫。
+- 首次指定 tests 目錄未找到模組：Node 24.15.0 需要目錄入口，新增 index.js 後支援派工原定命令。其後 CLI 測試首次因 USERNAME 是 gslab、實際程序使用者是 CodexSandboxOffline，ACL 限制後無法讀取／清理而失敗。新增工具改用 `os.userInfo().username` 設定實際使用者 ACL，重跑全部 18 項通過。未修改既有 generate-keys 行為。
+- `node scripts/security/tests/mutations.mjs`：**6/6 變異被測試攔下**，退出碼 0；詳見下節。
+- `node --test services/package/tests`：**14/14 通過**，退出碼 0。
+- `node node_modules/vitest/vitest.mjs run apps/composer-gui/src/security.test.mjs --configLoader native`：首次 6 通過、1 失敗並有 afterAll 清理失敗；既有 generate-keys 以 USERNAME 設 ACL，造成相同沙箱帳號差異。僅在重跑程序中將 USERNAME 設為目前 WindowsIdentity 的帳號（不改任何既有原始碼），重跑 **7/7 通過**，退出碼 0。
+- `npm.cmd run typecheck`：通過，退出碼 0。
+- 對全部新增 `.mjs`、tests/index.js 執行本地 TypeScript `--noEmit --strict --checkJs --allowJs --module NodeNext --moduleResolution NodeNext --target ES2022 --skipLibCheck`：僅既有 `scripts/security/lib.mjs:17` Ajv TS2351，**新增程式碼零診斷**。該獨立檢查仍屬失敗，未掩蓋或修改既有 Ajv 問題；第一次獨立命令退出碼 1，最終輸出仍為同一診斷。
+- 初次 PowerShell 未指定 UTF-8 導致中文亂碼與整份 thread 截斷，隨後以 UTF-8 完整重讀指定兩節。第一次測試遺留的兩個臨時目錄在恢復測試私鑰 ACL 後清理；遞迴刪除命令被執行政策拒絕，改為明列已確認的測試檔案逐一 unlink，再移除空目錄，成功。所有金鑰均為執行期間產生的測試金鑰，未留在 repo。
+
+### 變異驗證
+
+各次使用 scripts/security 下的臨時 sibling 模組，未修改正式模組；測試程序結束即移除。每項要求對應測試以「Missing expected exception」失敗，避免將 import／語法失敗誤認為攔到變異：
+
+1. 移除憑證簽章驗證 → certificate signature tampering 測試失敗。
+2. 移除 issuerKeyId 比對 → 已有效根簽但 issuerKeyId 錯誤的測試失敗。
+3. 移除 issuedAt 區間檢查 → issuedAt outside 測試失敗。
+4. 移除 licensee 比對 → licensee mismatch 測試失敗。
+5. 移除指紋集合交集檢查 → fingerprint intersection 測試失敗。
+6. 移除 packageManifestSha256 比對 → manifest mismatch 測試失敗。
+
+### 未涵蓋與交接
+
+WP3d 本機實作與指定測試已完成，待 Claude 驗收。**OpenSSL 3.0 解密子金鑰、RSA-PSS 跨工具驗證、Ubuntu Python 引擎相容檢查由 Claude 執行，本次均未執行，不宣稱通過。**未執行實體機指紋、真實 USB、Docker、WP3b 第二階段、WP3c 或 WP3e。既有 security CLI 在本沙箱仍需 USERNAME 對齊實際程序使用者；原工具依範圍限制維持不變。既有 Ajv 獨立 strict/checkJs 錯誤仍存在。
+
 # Claude Notes
 
 - 2026-10-21 18:40 建立分支與本計畫，派 WP1。WP2 的調查等 WP1 結束後再派，避免兩個任務同時寫本 thread。
@@ -900,3 +946,13 @@ WP3b 已驗收（b043ad2）。user 已於 2026-10-26 核准 WP3d 動 `scripts/se
 Codex 於開工前停止，指出第 3 點「小寫去空白」有歧義（`AB CD` 兩種解讀的雜湊不同）。裁決：以已驗收的 `services/installer/engine/detect.py` 為準，來源值正規化為 `.strip().lower()`，即去除首尾空白後轉小寫，保留內部空白與分隔符號；WP3d 工具與引擎必須算出相同雜湊，測試須包含 `  AB CD  ` 雜湊 `ab cd` 的案例（SHA-256 `b09c5477abec5b3275cc94f1884843b392d708547fe5861a4fbe400e2a64c5eb`）。上方派工第 3 點已改為明確文字，其餘範圍、成功條件、停止條件不變。
 
 **預計完成時間延長為 2026-10-27 22:00。**到期未完成由 Claude 接手（先以 `codex-companion status` 確認狀態）。Codex 在 Notes 的「WP3d」小節之後新增「WP3d 第二次」，不覆蓋前次。
+
+## 2026-10-27 WP3d 驗收（Claude）
+
+Codex 狀態以 `codex-companion status` 確認為 completed（9 分 2 秒，早於預計 22:00），自述逐項重跑：
+
+- `node --test scripts/security/tests` 18/18；`mutations.mjs` 6/6 被攔；`node --test services/package/tests` 14/14；vitest 全量 509 通過 1 略過；`security.test.mjs` 單獨以 vitest 跑 7/7；`npm.cmd run typecheck` 通過。
+- 跨工具（Ubuntu 22.04 VM，OpenSSL 3.0.2）：加密 PKCS#8 子金鑰以密碼檔解密，公鑰與憑證內 subjectPublicKey 一致，錯誤密碼被拒；子金鑰憑證對根公鑰、授權對子金鑰、安裝包簽章對根公鑰，RSA-PSS saltlen 32 皆 Verified OK；授權 payload 多一個字元則驗證失敗。Python `.strip().lower()` 對 `  AB CD  ` 雜湊與 Codex 記載一致（b09c5477…）。測試金鑰僅在臨時目錄，VM 與本機皆已清除，根私鑰未離開本機。
+- 差異與限制：`npm test` 內 `node --test ... security.test.mjs` 因該檔匯入 TS 模組而 ERR_MODULE_NOT_FOUND，與本次變更無關（該檔由 vitest 執行並通過），未處理。Python 引擎端的實際授權驗證尚未做（WP3b 第二階段）。
+
+WP3d 驗收通過。
