@@ -956,3 +956,52 @@ Codex 狀態以 `codex-companion status` 確認為 completed（9 分 2 秒，早
 - 差異與限制：`npm test` 內 `node --test ... security.test.mjs` 因該檔匯入 TS 模組而 ERR_MODULE_NOT_FOUND，與本次變更無關（該檔由 vitest 執行並通過），未處理。Python 引擎端的實際授權驗證尚未做（WP3b 第二階段）。
 
 WP3d 驗收通過。
+
+## 2026-10-27 WP3b 第二階段派工（Claude）：授權簽發、授權鏈驗證、授權安裝
+
+**前置：**WP3a、WP3b 第一階段（b043ad2）、WP3d（99275ef）已驗收。分支 `feature/p2-executable-assembly`，cwd 為專案根目錄。**預計完成時間：2026-10-28 03:00**，到期未完成由 Claude 接手（先以 `codex-companion status` 確認狀態）。Codex 只寫本 thread 的 Codex Notes 新增「WP3b 第二階段」小節，不覆蓋前次小節。
+
+**開工前請先自檢本派工是否有互相矛盾或與現況不符之處**；有則停止，把矛盾寫進 Notes，不要自行裁決。前兩次 WP3b 都因我的規格矛盾停止，我已逐項對照過現有程式，下列「已查證事實」就是對照結果。
+
+### 已查證事實（不用再問）
+
+1. DMI 的 `product_uuid` 與各序號檔在一般使用者下不可讀（權限 0400，已在 Ubuntu 22.04 VM 實測）；網卡 MAC 可讀。所以指紋採集必須以 root 執行。`Runner.run(args, privileged=True, data=...)` 已支援以 `sudo --` 前綴與標準輸入。
+2. `detect.py` 的來源值是 `read()` 去除首尾空白後 `.lower()`，雜湊為該字串 `encode()` 的 SHA-256；WP3d 的 Node 工具已對齊同一規則（測試向量：`  AB CD  ` → `ab cd` → `b09c5477abec5b3275cc94f1884843b392d708547fe5861a4fbe400e2a64c5eb`）。不得改動這條規則。
+3. `schemas/license.schema.json` 的 `fingerprintSources.source` pattern 目前只允許 `product_uuid|product_serial|board_serial|chassis_serial|mac:<名稱>`，**不含磁碟序號**。新增磁碟來源必須同步放寬這個 pattern（見範圍）。
+4. 授權 3.0 的 `recipe` 與 `enabledKits`：system-manifest 的 `systemId` 即 recipe 名稱（`assemble-system.mjs` 的 `systemId: recipe.name`），`kits` 陣列每項的 `kit` 為 Kit 名稱。授權的 `recipe`、`enabledKits`、`systemId` 一律由已驗證的 manifest 推得，不接受人員輸入。
+5. `Runner.run(..., data=...)` 以 stdin 傳資料；OpenSSL 簽署可用 `openssl dgst -sha256 -sigopt rsa_padding_mode:pss -sigopt rsa_pss_saltlen:32 -sign <子金鑰.enc.pem> -passin stdin -out <簽章檔> <payload檔>`，密碼只走 stdin，不落地解密後的私鑰。
+6. 契約與 TODO 的順序：`detect`、`verify`（安裝包）、`issue-license`、`verify`（含授權）、`plan`、確認、`apply`。授權由現場簽發，所以授權檔是 `issue-license` 的輸出、`verify --license`／`plan --license` 的輸入。
+
+### 設計決定
+
+1. **指紋採集（新增 `fingerprint` 內部子命令）：**唯讀，輸出 `[{source, valid, sha256}]`，不輸出原值。`issue-license` 與 `apply` 內的重新核對，以 `privileged=True` 呼叫它（`sudo --` 於非 root）。`detect` 的指紋區段同樣經此採集，使一般使用者執行 `detect` 也能得到真實有效來源數；sudo 不可用時沿用現行行為並在 `warnings` 說明「未取得 root，DMI 來源不可讀」。採集邏輯留在 `detect.py`（沿用可注入的 `sys_root`）。
+2. **新增磁碟序號來源，名稱 `disk:<裝置名>`：**讀 `<sys_root>/block/<dev>/device/serial`，不存在時讀 `<sys_root>/block/<dev>/device/vpd_pg80`（實測 VM 的 SATA 碟只有這個，內容可能含不可印字元，須以 `errors='ignore'` 解碼並去除控制字元與首尾空白）。排除 `loop*`、`ram*`、`dm-*`、`md*`、`zram*`、`sr*`、`nbd*`，並排除 `removable` 為 1 或裝置路徑含 `/usb` 的碟（安裝用 USB 隨工程師帶走，不可進指紋）。比對是以雜湊集合交集，所以裝置名換了不影響。
+3. **授權簽發 `issue-license`：**輸入為 `--subkey`（加密 PKCS#8 PEM）、`--certificate`（子金鑰憑證 JSON）、`--archive`／`--signature`／`--key`／`--confirm-key-prefix`（沿用 `verify` 的來源參數，先驗安裝包以取得 manifest 雜湊）、`--out`（授權檔輸出路徑，不覆寫）。密碼與 `expiresAt` 走既有的 `--input-file`／stdin JSON 通道（欄位 `passphrase`、`expiresAt`），不進命令列。流程：驗安裝包 → 以 root 採集指紋，有效來源少於 3 項則失敗 → 驗憑證（簽章、`issuerKeyId`、`keyId`、有效區間含「現在」）→ 組 payload（`schemaVersion` 3.0、`issuedAt`＝現在、`expiresAt` 須晚於現在、`licensee` 取自憑證、`systemId`／`recipe`／`enabledKits`／`packageManifestSha256` 取自已驗證 manifest、`fingerprint` 為 `minMatch` 2 與全部有效來源）→ 以子金鑰簽署（事實 5）→ 寫出 `{payload, signature, algorithm: "RSA-PSS-SHA256", issuerCertificate}` → 立即以同一個驗證函式自驗一次。任何失敗退出碼 17，訊息不得含密碼與指紋原值。
+4. **授權鏈驗證（新函式，Python 標準函式庫，不新增依賴）：**規則與 `scripts/security/system-license.mjs` 的 `verifyLicenseV3` 一致：`licenseFileV3` 結構與 `additionalProperties`、憑證簽章（對根公鑰）、`issuerKeyId` 等於根公鑰 SPKI DER 的 SHA-256、`keyId` 等於子公鑰的 SPKI DER SHA-256、憑證 `notAfter` 晚於 `notBefore`、授權簽章（對憑證內子公鑰）、`issuedAt` 在憑證區間內、`licensee.name` 與憑證相同、`expiresAt` 晚於現在、`packageManifestSha256` 等於已驗證 manifest 雜湊、來源名稱不重複、以**不同雜湊值的集合**交集計數且不少於 `minMatch`。**子金鑰憑證過期後，已簽發且 `issuedAt` 在區間內的授權仍有效**（只在簽發當下檢查「現在」在憑證區間）。結構驗證手寫，欄位限制以 `schemas/license.schema.json` 的 `licensePayloadV3`／`licenseFileV3`／`subkeyCertificatePayload` 為準；請先讀 schema，別憑本文推測。
+5. **`verify` 與 `plan`：**`verify --license <檔>` 時加驗授權鏈（含以 root 重新採集當前指紋比對），結果 `license: 'ok'`；未給 `--license` 時維持 `license: 'skipped'`。`plan` 與 `apply` **必須**有 `--license`（沒有就以退出碼 11 拒絕，訊息說明須先 `issue-license`）；`plan.json` 記錄授權檔的 sha256、`licensee.name`、`expiresAt`，**不記錄指紋雜湊**。`apply` 在 `license-install` 前重新驗證一次（授權鏈、manifest 雜湊、當前指紋），與計畫不符則依 12 拒絕。
+6. **新步驟 `license-install`：**加入 `STEPS`，位置在 `compose-up` 之後、`health-check` 之前（`guard-up` 屬 WP3e，本階段不進 `STEPS`）。動作：把驗證過的授權檔以 `Runner.fs` 寫到 `<installDir>/license/license.lic`（目錄 0755、檔案 0644，授權本身不是秘密）；`state.json` 記錄此檔由本次安裝建立。還原時移除該檔與空的 `license/` 目錄。**本階段後端不讀取這個檔**（讀取是 WP3e），所以 `LIMITATIONS` 要改為：授權鏈驗證與安裝已提供，但後端啟動不檢查授權、guard 尚未提供，不能宣稱已防複製。`verify` 輸出的 `notProvided` 與驗證報告同步修改。
+7. **退出碼：**授權簽發失敗 17（子金鑰密碼錯誤、憑證過期或尚未生效、可用指紋來源少於 3 項、輸出檔已存在）；授權驗證失敗（鏈、manifest 雜湊、指紋交集不足、授權過期）11；計畫與授權不符 12。
+8. **跨語言一致性：**`tests/make-fixtures.mjs` 擴充，用 WP3d 的 `scripts/security/system-license.mjs` 簽出授權與憑證 fixture，讓 Python 驗證器驗 Node 簽出的授權；Python `issue-license` 簽出的授權留給我用 `scripts/security/verify-license.mjs` 反向驗證（你在沙箱不一定有 OpenSSL 與 Python，無法跑的標「由 Claude 執行」，不得宣稱通過）。
+
+### 範圍
+
+- 可改：`services/installer/`（`engine/`、`tests/`、`schemas/`、`README.md`；`install.sh` 除非必要不動）、`schemas/license.schema.json` 與 `scripts/security/` 內**僅限**為 `disk:<裝置名>` 放寬 `fingerprintSources.source` pattern 及其測試（`scripts/security/tests/`）。放寬須向後相容：既有來源名稱照舊通過，`disk:` 之後同 `mac:` 規則（非空、不含 `/` 與空白）。
+- 不可改：`docs/`（D131 與契約措辭由我改）、`services/package/`、`kits/`、`apps/`、`libs/`、`TODO.md`；不新增依賴，不執行 git 寫入。
+- 既有 29 個引擎測試：因 `plan`／`apply` 改為必須有授權，需要更新；請在 Notes 列出哪些測試改了、為什麼。不得為了讓測試過而放寬驗證。
+
+### 成功條件與驗證
+
+1. `python -m unittest discover services/installer/tests`（能在沙箱跑的部分）全數通過；因 Windows 平台假設（0600 權限斷言、CPU 名稱 AMD64）失敗的項目，須在 Notes 逐項標明是平台假設而非引擎缺陷，並與第一階段已知的失敗清單對照，不得新增。
+2. `node --test scripts/security/tests`、`node --test services/package/tests`、`npm.cmd run typecheck` 維持通過。
+3. 新測試須涵蓋：Node 簽出的有效授權通過；錯誤根公鑰、憑證竄改、`issuerKeyId` 不符、授權竄改、`issuedAt` 超出憑證區間、`licensee` 不符、manifest 雜湊不符、授權過期、指紋交集不足（含「來源名稱不同但雜湊相同只算一次」與「重複雜湊不充數」）；子金鑰憑證過期後仍通過的案例；有效來源少於 3 項被拒（退出碼 17）；`disk:` 來源的排除規則（USB、removable、loop）；`detect` 在 sudo 不可用時的 warning；`plan` 缺授權被拒；`apply` 前授權或指紋改變被拒；`license-install` 與還原（只刪本次建立者）；密碼與指紋原值不出現在事件、狀態、計畫、錯誤訊息與 runner 命令列（密碼只能出現在 `data`）。
+4. 變異驗證：至少六項，每項要有對應測試以「預期的失敗」被攔下（不可是匯入或語法錯誤）：移除憑證簽章驗證、移除 `issuerKeyId` 比對、移除 manifest 雜湊比對、把交集改成以來源名稱計數、移除 `issuedAt` 區間檢查、讓密碼出現在命令列。
+5. Notes 須含：變更摘要、檔案清單、實際測試結果（含失敗與無法執行的項目）、變異結果、未涵蓋項目。
+
+### 停止條件
+
+- 發現本派工與現有程式、schema 或其他文件矛盾；需要新增依賴；需要改範圍外檔案；無法在不放寬安全規則下滿足成功條件。停止時把原因與具體行號寫進 Notes，不要自行裁決。
+- 不在本階段：guard、授權狀態頁、後端 `license.py` 的啟動檢查（WP3e）、網頁精靈（WP3c）、升級流程、WP3a 離線 `images` 欄位。
+
+### 我之後會做的事（避免重工）
+
+D131 與契約措辭修正（手冊核對用檔案雜湊、精靈確認碼用 SPKI 前 8 碼）、契約的退出碼與步驟表更新、Ubuntu VM 上 OpenSSL 與 Python 的實機驗收、Python 簽出授權對 Node 驗證器的反向檢查。
