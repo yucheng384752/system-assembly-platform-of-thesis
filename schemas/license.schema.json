@@ -12,6 +12,68 @@
     "algorithm": { "const": "RSA-PSS-SHA256" }
   },
   "$defs": {
+    "subkeyCertificatePayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "keyId", "issuerKeyId", "subjectPublicKey", "licensee", "notBefore", "notAfter"],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "keyId": { "$ref": "#/$defs/sha256" },
+        "issuerKeyId": { "$ref": "#/$defs/sha256" },
+        "subjectPublicKey": { "type": "string", "minLength": 1, "maxLength": 8192 },
+        "licensee": { "$ref": "#/$defs/licensePayload/properties/licensee" },
+        "notBefore": { "$ref": "#/$defs/timestamp" },
+        "notAfter": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "fingerprintSources": {
+      "type": "array", "items": {
+        "type": "object", "additionalProperties": false, "required": ["source", "sha256"],
+        "properties": {
+          "source": { "type": "string", "pattern": "^(product_uuid|product_serial|board_serial|chassis_serial|mac:[^/\\s]+)$" },
+          "sha256": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    },
+    "licensePayloadV3": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "issuedAt", "expiresAt", "licensee", "systemId", "recipe", "enabledKits", "fingerprint", "packageManifestSha256"],
+      "properties": {
+        "schemaVersion": { "const": "3.0" },
+        "issuedAt": { "$ref": "#/$defs/timestamp" },
+        "expiresAt": { "$ref": "#/$defs/timestamp" },
+        "licensee": { "$ref": "#/$defs/licensePayload/properties/licensee" },
+        "systemId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,49}$" },
+        "recipe": { "$ref": "#/$defs/licensePayload/properties/recipe" },
+        "enabledKits": { "$ref": "#/$defs/licensePayload/properties/enabledKits" },
+        "fingerprint": {
+          "type": "object", "additionalProperties": false, "required": ["minMatch", "sources"],
+          "properties": { "minMatch": { "const": 2 }, "sources": { "$ref": "#/$defs/fingerprintSources", "minItems": 3 } }
+        },
+        "packageManifestSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "licenseFileV3": {
+      "type": "object", "additionalProperties": false,
+      "required": ["payload", "signature", "algorithm", "issuerCertificate"],
+      "properties": {
+        "payload": { "$ref": "#/properties/payload" },
+        "signature": { "$ref": "#/properties/signature" },
+        "algorithm": { "$ref": "#/properties/algorithm" },
+        "issuerCertificate": { "$ref": "#" }
+      }
+    },
+    "systemPackageSignaturePayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sha256", "systemManifestSha256"],
+      "properties": {
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "systemManifestSha256": { "$ref": "#/$defs/sha256" },
+        "schemaVersion": { "const": "1.0" },
+        "file": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "systemId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,49}$" },
+        "systemVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[A-Za-z0-9.-]+)?$" }
+      }
+    },
     "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "timestamp": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$" },
     "licensePayload": {
