@@ -75,6 +75,15 @@ describe('可執行計畫 schema 與 fixtures（契約第 3、4、5、9 節）',
     rejects(both, '/nodes/1');
   });
 
+  it('可執行節點缺 executor 或 actionId 被拒絕（缺執行者的節點必須標為不可執行）', () => {
+    const noExecutor = fresh();
+    delete (noExecutor.nodes[1] as { executor?: unknown }).executor;
+    rejects(noExecutor, '/nodes/1');
+    const noAction = fresh();
+    delete (noAction.nodes[1] as { actionId?: unknown }).actionId;
+    rejects(noAction, '/nodes/1');
+  });
+
   it('宣告的 planId 與內容不符，或內容在封存後被改，重新計算都對不上（接收端據此拒絕）', async () => {
     expect(validate(idMismatch), JSON.stringify(validate.errors)).toBe(true);
     expect(idMismatch.planId).not.toBe(await planIdOf(idMismatch));

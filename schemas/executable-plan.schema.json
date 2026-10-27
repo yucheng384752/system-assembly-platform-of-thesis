@@ -78,8 +78,12 @@
     },
     "planPort": {
       "type": "object", "additionalProperties": false,
-      "required": ["port", "flows"],
-      "properties": { "port": { "$ref": "#/$defs/id" }, "flows": { "type": "array", "items": { "$ref": "#/$defs/id" } } }
+      "required": ["port", "type", "flows"],
+      "properties": {
+        "port": { "$ref": "#/$defs/id" },
+        "type": { "$ref": "#/$defs/id", "description": "artifact type id as authored in A; may be a glob such as lot.*" },
+        "flows": { "type": "array", "items": { "$ref": "#/$defs/id" } }
+      }
     },
     "timing": {
       "description": "Missing is explicit; a missing state must not carry numbers, so absence can never be read as 0.",
@@ -109,7 +113,7 @@
     },
     "node": {
       "type": "object", "additionalProperties": false,
-      "required": ["nodeId", "name", "category", "stage", "inputs", "outputs", "executor", "actionId", "executable"],
+      "required": ["nodeId", "name", "category", "stage", "inputs", "outputs", "executable"],
       "properties": {
         "nodeId": { "$ref": "#/$defs/nodeId" },
         "name": { "type": "string" },
@@ -127,7 +131,18 @@
           "required": ["capability", "kitId"],
           "properties": { "capability": { "$ref": "#/$defs/id" }, "kitId": { "$ref": "#/$defs/id" } }
         },
-        "guard": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "array", "items": { "type": "string", "minLength": 1 } }] },
+        "guard": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "array", "items": { "type": "object", "required": ["label", "when"], "properties": { "label": { "type": "string" }, "when": { "type": "string", "minLength": 1 } } } }
+          ]
+        },
+        "route": { "type": "array", "items": { "type": "object", "required": ["when", "port"] } },
+        "decision": { "type": "object" },
+        "checks": { "type": "array", "items": { "type": "object", "required": ["id"] } },
+        "verdicts": { "type": "array", "items": { "type": "object", "required": ["when", "verdict"] } },
+        "boundary": { "type": "object", "required": ["kind", "location"] },
+        "nodeParams": { "type": "object" },
         "form": {
           "type": "object", "additionalProperties": false,
           "required": ["formId", "contentSha256"],
@@ -141,7 +156,7 @@
         "expandedFrom": { "type": "string", "pattern": "^[^@]+@[^@]+@[0-9]+$" }
       },
       "allOf": [
-        { "if": { "properties": { "executable": { "const": true } } }, "then": { "required": ["binding"], "not": { "required": ["reason"] } } },
+        { "if": { "properties": { "executable": { "const": true } } }, "then": { "required": ["executor", "actionId", "binding"], "not": { "required": ["reason"] } } },
         { "if": { "properties": { "executable": { "const": false } } }, "then": { "required": ["reason"] } }
       ]
     },

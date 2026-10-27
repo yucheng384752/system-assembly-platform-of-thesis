@@ -1,7 +1,7 @@
 {
   "format": "composer-executable-plan",
   "formatVersion": 1,
-  "planId": "5084c96f578e3c2d8c48f0e9d3a279a4dfaa994fbd690e66db2db8c8ec8b4f28",
+  "planId": "9fce0f30e43df09fb543d11833215046c685e96493d52817c83bab39c1639856",
   "source": {
     "templateId": "example-bakery",
     "templateVersion": 3,
@@ -40,6 +40,7 @@
       "outputs": [
         {
           "port": "out",
+          "type": "lot.flour",
           "flows": [
             "f1"
           ]
@@ -64,6 +65,7 @@
       "inputs": [
         {
           "port": "in",
+          "type": "lot.flour",
           "flows": [
             "f1"
           ]
@@ -72,6 +74,7 @@
       "outputs": [
         {
           "port": "out",
+          "type": "lot.dough",
           "flows": [
             "f2"
           ]
@@ -107,6 +110,7 @@
       "inputs": [
         {
           "port": "in",
+          "type": "lot.dough",
           "flows": [
             "f2"
           ]
@@ -115,6 +119,7 @@
       "outputs": [
         {
           "port": "out",
+          "type": "lot.dough",
           "flows": [
             "f3"
           ]
@@ -128,7 +133,12 @@
         "capability": "quality.inspect",
         "kitId": "quality-kit"
       },
-      "guard": "in.in.temperature_c >= params.temp_min",
+      "guard": [
+        {
+          "label": "temperature in range",
+          "when": "in.in.temperature_c >= params.temp_min"
+        }
+      ],
       "timing": {
         "state": "specified",
         "setupMin": 3,
@@ -144,6 +154,7 @@
       "inputs": [
         {
           "port": "in",
+          "type": "lot.dough",
           "flows": [
             "f3"
           ]
@@ -152,6 +163,7 @@
       "outputs": [
         {
           "port": "out",
+          "type": "lot.pack",
           "flows": [
             "f4"
           ]
@@ -180,6 +192,7 @@
       "inputs": [
         {
           "port": "in",
+          "type": "lot.pack",
           "flows": [
             "f4"
           ]
