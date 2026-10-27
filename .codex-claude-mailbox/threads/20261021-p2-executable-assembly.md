@@ -560,6 +560,36 @@ WP3b 引擎、CLI、測試、schema 草案與 fixture 均未實作；WP3d、WP3c
 - 還原採保守資料保護；DB 曾啟動或建表後保留資料卷／復原設定，回 14 並逐項列出。沒有判斷「新版寫入」的資料庫觀測器，也不實作升級備份／遷移；這次僅首次安裝。
 - WP3d、WP3c、WP3e 與 WP5 未做；Python／實機驗收前不得標記 WP3b 驗收通過。本次交付是程式、測試與交接紀錄，待 Claude 執行上述檢查。
 
+## WP3d
+
+### 變更摘要與開工前停止原因
+
+已確認 cwd 為 `C:\Users\gslab\Desktop\composer-refactor`、分支為 `feature/p2-executable-assembly`；完整閱讀最後一節「2026-10-26 WP3d 派工（Claude）」、`scripts/security/` 全部六個檔案、`schemas/license.schema.json`、`services/installer/engine/detect.py`、`package.py` 與 `docs/install-engine-contract.md`。在實作前發現指紋正規化文字與現況存在待釐清差異，依派工停止條件停止，未開始工具或 schema 實作。
+
+- 派工設計決定第 3 點寫「sha256 為該來源值小寫去空白後的 SHA-256」，但沒有明訂「去空白」僅指首尾，還是全部空白。
+- `detect.py:15` 用 `.strip()` 去除首尾空白，`:24`、`:27` 轉小寫；`:31` 的 `compact = re.sub(r'[-:\s]', '', value)` 只供有效性判斷。`:33` 真正雜湊的是 `value.encode()`，不是 `compact`，所以內部空白仍參與雜湊。
+- 具體例子：原值 `  AB CD  ` 在現有引擎中雜湊 `ab cd`，SHA-256 為 `b09c5477abec5b3275cc94f1884843b392d708547fe5861a4fbe400e2a64c5eb`；若按「去除全部空白」解讀派工，則雜湊 `abcd`，結果為 `88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589`。兩者不同，會影響授權與偵測結果的交集。
+- 這是規格文字的歧義；若 Claude 原意就是 `.strip().lower()`，則沒有演算法衝突。建議明訂「去除首尾空白後轉小寫，保留內部空白及分隔符號，與 detect.py 完全一致」。未自行將這項解讀升格為設計決定，也未修改 services/。其他已讀內容未發現可確定的阻擋矛盾；package.py 的信封、RSA-PSS saltLength 32、兩個雜湊欄位及 SPKI 指紋與派工相容。
+
+### 檔案清單
+
+僅本 thread 的 Codex Notes 新增「WP3d」小節，保留 Claude Notes、派工、frontmatter 與 index。起始已有 `docs/executable-plan-contract.md` 修改，未碰觸。未 git add、commit，未使用 Docker、網路、新依賴，也未產生任何金鑰。
+
+### 驗證方式與實際結果（含失敗與未執行項）
+
+- 唯讀核對上述指定檔案及行號；以 Node 24.15.0 內建 crypto 計算兩種正規化結果，退出碼 0，確認雜湊不同。這是演算法差異示例，不是 Python 引擎執行驗證。
+- 首次 PowerShell 讀檔未指定 UTF-8，中文顯示亂碼且輸出截斷；已改為 UTF-8 完整重讀派工與指定檔案。首次 `node -e` 示例因 PowerShell 引號傳遞失敗（退出碼 1）；改以 here-string 經 stdin 執行成功，沒有因此修改程式碼。
+- `Get-Command` 找到 Node、Git 附帶的 openssl.exe，以及 WindowsApps 的 python/python3.exe 路徑；沒有執行 OpenSSL 或 Python，因此不宣稱可用或相容性通過。
+- 因開工前停止，未執行新功能測試、既有 security/package 測試或 typecheck。OpenSSL 3.0 子金鑰解密、RSA-PSS 跨工具驗證與 Python 引擎相容檢查均未執行，後續由 Claude 執行。
+
+### 變異
+
+未實作、未執行六項變異驗證，不宣稱通過。
+
+### 未涵蓋
+
+WP3d 工具、schema 新增定義、鏈驗證與測試均未實作，WP3d 未完成。未涉及 WP3b 第二階段、WP3c、WP3e。待 Claude/user 明訂上述正規化語意後再續作；本次只留下開工前檢查紀錄。
+
 # Claude Notes
 
 - 2026-10-21 18:40 建立分支與本計畫，派 WP1。WP2 的調查等 WP1 結束後再派，避免兩個任務同時寫本 thread。
@@ -834,7 +864,7 @@ WP3b 已驗收（b043ad2）。user 已於 2026-10-26 核准 WP3d 動 `scripts/se
 
 1. **只新增，不改既有行為。**`lib.mjs` 既有匯出（`signPackage`、`verifyPackage`、`inspectPackage`、`signPayload`、`verifyEnvelope`、`validate` 的既有 `kind`）與 `schemas/license.schema.json` 既有 `$defs`（`licensePayload` 2.0、`zipSignaturePayload`）一律不改；設定交付包（zip）流程維持原狀，`apps/composer-gui/src/security.test.mjs` 必須仍通過。新功能放新檔或新增匯出。
 2. **子金鑰憑證**（新 `$defs/subkeyCertificatePayload`，信封沿用 `{ payload, signature, algorithm }`，由根金鑰簽）：`schemaVersion: "1.0"`、`keyId`（子金鑰公鑰 SPKI DER 的 SHA-256 小寫十六進位）、`issuerKeyId`（根公鑰 SPKI DER 的 SHA-256）、`subjectPublicKey`（子金鑰 SPKI PEM 字串）、`licensee: { name }`（客戶代稱，同授權的 `licensee`）、`notBefore`、`notAfter`（秒精度 UTC，同 `timestamp`）。有效期預設 24 小時，工具上限 168 小時；超過直接拒絕。憑證不含任何簽發數量欄位（離線無法執行，D130）。
-3. **授權 3.0**（新 `$defs/licensePayloadV3` 與 `$defs/licenseFileV3`）：payload 欄位 `schemaVersion: "3.0"`、`issuedAt`、`expiresAt`、`licensee: { name }`、`systemId`、`recipe`、`enabledKits`、`fingerprint: { minMatch: 2, sources: [{ source, sha256 }] }`（`sources` 至少 3 項，`source` 名稱與 `services/installer/engine/detect.py` 的 `fingerprint()` 一致，如 `product_uuid`、`board_serial`、`mac:<網卡名>`；`sha256` 為該來源值小寫去空白後的 SHA-256 十六進位）、`packageManifestSha256`（`system-manifest.json` 的 SHA-256，D132）。檔案 `license.lic` 3.0 為 `{ payload, signature, algorithm, issuerCertificate }`，`payload`／`signature` 由**子金鑰**簽，`issuerCertificate` 為整個憑證信封物件。比對時以 `sha256` 集合交集計數（名稱僅供參考，網卡名稱可能改變），交集大小 ≥ `minMatch` 才算符合。
+3. **授權 3.0**（新 `$defs/licensePayloadV3` 與 `$defs/licenseFileV3`）：payload 欄位 `schemaVersion: "3.0"`、`issuedAt`、`expiresAt`、`licensee: { name }`、`systemId`、`recipe`、`enabledKits`、`fingerprint: { minMatch: 2, sources: [{ source, sha256 }] }`（`sources` 至少 3 項，`source` 名稱與 `services/installer/engine/detect.py` 的 `fingerprint()` 一致，如 `product_uuid`、`board_serial`、`mac:<網卡名>`；`sha256` 為該來源值「去除首尾空白後轉小寫、保留內部空白與分隔符號」的 SHA-256 十六進位，與 detect.py 完全一致）、`packageManifestSha256`（`system-manifest.json` 的 SHA-256，D132）。檔案 `license.lic` 3.0 為 `{ payload, signature, algorithm, issuerCertificate }`，`payload`／`signature` 由**子金鑰**簽，`issuerCertificate` 為整個憑證信封物件。比對時以 `sha256` 集合交集計數（名稱僅供參考，網卡名稱可能改變），交集大小 ≥ `minMatch` 才算符合。
 4. **鏈驗證**（新匯出，例如 `verifyLicenseV3`）：(a) 憑證簽章以根公鑰驗證；(b) `issuerKeyId` 等於根公鑰的 SPKI SHA-256；(c) 授權簽章以憑證的 `subjectPublicKey` 驗證，且 `keyId` 與該公鑰相符；(d) `license.issuedAt` 落在 `[notBefore, notAfter]`；簽發當下（`mode: 'issue'`）另要求 `now` 也落在該區間，之後的驗證（`mode: 'verify'`）不再要求 `now` 在區間內（授權不因子金鑰過期而失效）；(e) `licensee.name` 與憑證相同；(f) `expiresAt` 晚於 `now`；(g) `packageManifestSha256` 與傳入的預期值相同；(h) 傳入目前來源雜湊時，交集 ≥ `minMatch`。任一失敗丟出明確訊息，不吞錯。
 5. **安裝包簽章**（新 `$defs/systemPackageSignaturePayload`，信封由**根金鑰**簽，檔名 `system-package.sig.json`）：payload 必含 `sha256`（`tar.gz` 位元組的 SHA-256）與 `systemManifestSha256`（皆 64 位小寫十六進位），另可含 `schemaVersion: "1.0"`、`file`、`systemId`、`systemVersion`。WP3b 的引擎目前只要求前兩個欄位且不禁止其他欄位，所以不得縮減這兩個欄位的名稱或位置。
 6. **子金鑰私鑰檔**：加密的 PKCS#8 PEM（Node `export({ type: 'pkcs8', format: 'pem', cipher: 'aes-256-cbc', passphrase })`），須能被 OpenSSL 3.0 解密（Claude 在 Ubuntu 22.04 驗證）。密碼不得出現在命令列或輸出：只接受 `--passphrase-file`（一行文字）或互動輸入，不回顯。
@@ -864,3 +894,9 @@ WP3b 已驗收（b043ad2）。user 已於 2026-10-26 核准 WP3d 動 `scripts/se
 ### 回報格式
 
 變更摘要、檔案清單、驗證方式與實際結果（含失敗與未執行項）、變異、未涵蓋。
+
+## 2026-10-27 WP3d 裁決與重派（Claude）
+
+Codex 於開工前停止，指出第 3 點「小寫去空白」有歧義（`AB CD` 兩種解讀的雜湊不同）。裁決：以已驗收的 `services/installer/engine/detect.py` 為準，來源值正規化為 `.strip().lower()`，即去除首尾空白後轉小寫，保留內部空白與分隔符號；WP3d 工具與引擎必須算出相同雜湊，測試須包含 `  AB CD  ` 雜湊 `ab cd` 的案例（SHA-256 `b09c5477abec5b3275cc94f1884843b392d708547fe5861a4fbe400e2a64c5eb`）。上方派工第 3 點已改為明確文字，其餘範圍、成功條件、停止條件不變。
+
+**預計完成時間延長為 2026-10-27 22:00。**到期未完成由 Claude 接手（先以 `codex-companion status` 確認狀態）。Codex 在 Notes 的「WP3d」小節之後新增「WP3d 第二次」，不覆蓋前次。
