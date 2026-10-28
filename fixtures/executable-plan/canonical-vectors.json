@@ -15,13 +15,13 @@
     {
       "name": "numeric-looking keys are ordered as strings, arrays keep their order",
       "input": {
-        "10": 1,
-        "9": 2,
         "2": [
           3,
           1,
           2
-        ]
+        ],
+        "9": 2,
+        "10": 1
       },
       "canonical": "{\"10\":1,\"2\":[3,1,2],\"9\":2}",
       "sha256": "8815c2408181509b56188fbb9065617fe6ad6e854756c3d356b55a53d96153cc"
@@ -52,6 +52,39 @@
       },
       "canonical": "{\"名稱\":\"攪拌麵團\"}",
       "sha256": "b8457c85fb092d5371ed3659f4c0b6912a893b7300053ae4a0c82fa0ee5ac52f"
+    },
+    {
+      "name": "number formatting follows ECMAScript Number::toString: exponent form from 1e21 and below 1e-6",
+      "input": {
+        "big": 1e+21,
+        "edge": 123456789012345680000,
+        "small": 1e-7,
+        "tiny": 5e-324,
+        "boundary": 0.000001,
+        "third": 0.3333333333333333,
+        "max": 1.7976931348623157e+308
+      },
+      "canonical": "{\"big\":1e+21,\"boundary\":0.000001,\"edge\":123456789012345680000,\"max\":1.7976931348623157e+308,\"small\":1e-7,\"third\":0.3333333333333333,\"tiny\":5e-324}",
+      "sha256": "37b348edf434739c9aa9369b378c838ae337417e9fa155f2a023b65448aef28c"
+    },
+    {
+      "name": "negative zero and integral floats are written as plain integers",
+      "input": {
+        "negzero": 0,
+        "whole": 12,
+        "exp": 25000000000,
+        "neg": -1.5e-10
+      },
+      "canonical": "{\"exp\":25000000000,\"neg\":-1.5e-10,\"negzero\":0,\"whole\":12}",
+      "sha256": "6b2899856a8cb684232375d975ce0add18d815a9388e0687b3f97acda7a196e3"
+    },
+    {
+      "name": "control characters use lowercase unicode escapes; quote, backslash and DEL stay as JSON.stringify writes them",
+      "input": {
+        "s": "a\u0001\u001f\b\f\n\r\t\"\\"
+      },
+      "canonical": "{\"s\":\"a\\u0001\\u001f\\b\\f\\n\\r\\t\\\"\\\\\"}",
+      "sha256": "571819d283e31a39d58bbca1eb89d409a59079fe748791cc8a423686573e98ca"
     }
   ]
 }
