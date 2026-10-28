@@ -1,7 +1,7 @@
 import Ajv from 'ajv/dist/2020';
 import {
   compile, resolveProject, TypeLibrary, parseSubgraphRef,
-  type ActionLibrary, type Diagnostic, type FormDef, type ProjectFile,
+  CATEGORY_GROUP, type ActionLibrary, type Diagnostic, type Executor, type FormDef, type NodeCategory, type ProjectFile,
 } from '../aov-core';
 import version from '../aov-core/VERSION.json';
 import planSchema from '../../schemas/executable-plan.schema.json';
@@ -13,6 +13,12 @@ export interface CapabilityMap {
   format: 'composer-action-capability-map';
   version: number;
   entries: { actionId: string; capability: string; kitId: string }[];
+  /**
+   * Used only by nodes that reference no action. A node whose action is missing from `entries`
+   * does not fall back to these, so a forgotten action mapping stays visible.
+   * `executor` fills in for nodes that have none.
+   */
+  categoryDefaults?: { category: NodeCategory; capability: string; kitId: string; executor?: Executor }[];
 }
 export type PlanTiming = { state: 'missing' } | { state: 'specified'; setupMin: number; perUnitMin: number; quantityUnit: string };
 export interface PlanBuildInput {
@@ -65,6 +71,17 @@ export function checkCapabilityMap(map: unknown): PlanBuildError[] {
     if (seen.has(entry?.actionId)) fail(`動作「${entry.actionId}」在對應表中重複，無法決定使用哪一筆。`);
     seen.add(entry?.actionId);
   });
+  if (m.categoryDefaults !== undefined && !Array.isArray(m.categoryDefaults)) { fail('對應表 categoryDefaults 必須是陣列。'); return errors; }
+  const seenCategory = new Set<string>();
+  (m.categoryDefaults ?? []).forEach((d, i) => {
+    if (!d || !(d.category in CATEGORY_GROUP)) fail(`categoryDefaults[${i}].category 不是有效的節點類別。`);
+    for (const key of ['capability', 'kitId'] as const) {
+      if (typeof d?.[key] !== 'string' || !d[key]) fail(`categoryDefaults[${i}].${key} 必須是非空字串。`);
+    }
+    if (d?.executor !== undefined && !['manual', 'auto', 'system'].includes(d.executor)) fail(`categoryDefaults[${i}].executor 不是有效的執行者。`);
+    if (seenCategory.has(d?.category)) fail(`類別「${d.category}」的預設對應重複，無法決定使用哪一筆。`);
+    seenCategory.add(d?.category);
+  });
   return errors;
 }
 
@@ -88,6 +105,7 @@ export async function buildExecutablePlan(input: PlanBuildInput): Promise<PlanBu
   const { plan: aPlan, resolved } = compiled;
   const errors: PlanBuildError[] = [];
   const mappingByAction = new Map(mapping.entries.map(e => [e.actionId, e]));
+  const mappingByCategory = new Map((mapping.categoryDefaults ?? []).map(d => [d.category, d]));
 
   // Everything the flattened nodes may reference lives in the project, its libraries or a sub-AoV.
   const sources = [project, ...subgraphClosure(project, subprojects)];
@@ -103,10 +121,13 @@ export async function buildExecutablePlan(input: PlanBuildInput): Promise<PlanBu
     const n = nodeById.get(planNode.nodeId)!;
     const ports = (dir: 'inputs' | 'outputs') => planNode[dir].map(p => ({ port: p.port, type: n[dir].find(x => x.id === p.port)!.type, flows: p.flows }));
     const reasons: string[] = [];
-    const entry = n.action ? mappingByAction.get(n.action) : undefined;
-    if (!n.action) reasons.push('節點沒有引用業務動作');
-    else if (!entry) reasons.push(`找不到動作「${n.action}」的能力對應`);
-    if (!n.executor) reasons.push('沒有設定執行者，動作庫也沒有預設值');
+    // An action is mapped by its own entry only; the category default is for nodes without an action.
+    const categoryDefault = n.action ? undefined : mappingByCategory.get(n.category);
+    const entry = n.action ? mappingByAction.get(n.action) : categoryDefault;
+    if (!n.action && !categoryDefault) reasons.push('節點沒有引用業務動作，對應表也沒有此類別的預設對應');
+    else if (n.action && !entry) reasons.push(`找不到動作「${n.action}」的能力對應`);
+    const executor = n.executor ?? categoryDefault?.executor;
+    if (!executor) reasons.push('沒有設定執行者，動作庫與對應表也沒有預設值');
     const executable = reasons.length === 0;
 
     const formSha = n.form ? formHash.get(n.form) : undefined;
@@ -117,7 +138,7 @@ export async function buildExecutablePlan(input: PlanBuildInput): Promise<PlanBu
     return {
       nodeId: planNode.nodeId, name: planNode.name, category: planNode.category, stage: planNode.stage,
       inputs: ports('inputs'), outputs: ports('outputs'),
-      executor: n.executor, role: n.role, actionId: n.action,
+      executor, role: n.role, actionId: n.action,
       executable, reason: executable ? undefined : reasons.join('；'),
       binding: executable ? { capability: entry!.capability, kitId: entry!.kitId } : undefined,
       guard: n.guard, route: n.route, decision: n.decision, checks: n.checks, verdicts: n.verdicts,
@@ -148,7 +169,7 @@ export async function buildExecutablePlan(input: PlanBuildInput): Promise<PlanBu
       libraries: await Promise.all([...libRefs.values()].sort(byIdVersion).map(r => sha(r.id, r.version, libraries))),
       subgraphs: await Promise.all(subgraphClosure(project, subprojects).sort((a, b) => byIdVersion({ id: a.meta.id, version: a.meta.version }, { id: b.meta.id, version: b.meta.version }))
         .map(s => sha(s.meta.id, s.meta.version, subprojects))),
-      mapping: { version: mapping.version, sha256: await contentSha256(mapping) },
+      mapping: { version: mapping.version, sha256: await contentSha256(jsonOnly(mapping)) },
     },
     scope, nodes, flows, businessOnly: [],
     artifactTypes: resolved.artifactTypes,

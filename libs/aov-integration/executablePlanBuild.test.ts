@@ -115,6 +115,72 @@ describe('buildExecutablePlan：A 的編譯結果轉成可執行計畫', () => {
   });
 });
 
+describe('buildExecutablePlan：依類別的預設對應', () => {
+  const withDefaults = (): CapabilityMap => ({
+    ...mapping,
+    categoryDefaults: [
+      { category: 'source', capability: 'test.receive', kitId: 'test-kit', executor: 'system' },
+      { category: 'sink', capability: 'test.ship', kitId: 'test-kit', executor: 'system' },
+      { category: 'hold', capability: 'test.hold', kitId: 'test-kit' },
+      { category: 'measure', capability: 'test.measure', kitId: 'test-kit' },
+      { category: 'judge', capability: 'test.judge', kitId: 'test-kit' },
+    ],
+  });
+
+  it('沒有動作的節點依類別對應：binding 來自類別預設，不帶 actionId；節點沒有執行者時用預設的', async () => {
+    const plan = await built({ mapping: withDefaults() });
+    const byId = Object.fromEntries(plan.nodes.map((n: any) => [n.nodeId, n]));
+    expect(byId.src_flour).toMatchObject({ executable: true, executor: 'system', binding: { capability: 'test.receive', kitId: 'test-kit' } });
+    expect(byId.src_flour).not.toHaveProperty('actionId');
+    expect(validateExecutablePlan(plan)).toEqual([]);
+  });
+
+  it('節點自己的執行者優先於類別預設；類別預設沒給執行者時沿用節點的', async () => {
+    const plan = await built({ mapping: withDefaults() });
+    expect(plan.nodes.find((n: any) => n.nodeId === 'proof')).toMatchObject({ executable: true, executor: 'auto' });
+    const project = published();
+    project.nodes.find(n => n.id === 'src_flour')!.executor = 'auto';
+    const own = await built({ project, mapping: withDefaults() });
+    expect(own.nodes.find((n: any) => n.nodeId === 'src_flour').executor).toBe('auto');
+  });
+
+  it('沒有此類別的預設、或沒有任何執行者來源時仍不可執行，原因分別說明', async () => {
+    const m = withDefaults();
+    m.categoryDefaults = m.categoryDefaults!.filter(d => d.category !== 'judge').map(d => ({ ...d, executor: undefined }));
+    const byId = Object.fromEntries((await built({ mapping: m })).nodes.map((n: any) => [n.nodeId, n]));
+    expect(byId.qc).toMatchObject({ executable: false, reason: expect.stringContaining('預設對應') });
+    expect(byId.src_flour).toMatchObject({ executable: false, reason: expect.stringContaining('執行者') });
+  });
+
+  it('動作不在對應表時不退回類別預設，避免漏對應被掩蓋', async () => {
+    const m: CapabilityMap = { ...withDefaults(), entries: mapping.entries.slice(0, 1), categoryDefaults: [{ category: 'transform', capability: 'test.any', kitId: 'test-kit' }] };
+    expect((await built({ mapping: m })).nodes.find((n: any) => n.nodeId === 'bake')).toMatchObject({ executable: false, reason: expect.stringContaining('bake-bread') });
+  });
+
+  it('類別預設進入對應表雜湊：改預設，planId 與 source.mapping 都變', async () => {
+    const a = await built({ mapping: withDefaults() });
+    const changed = withDefaults();
+    changed.categoryDefaults![0].capability = 'test.receive-v2';
+    const b = await built({ mapping: changed });
+    expect(b.planId).not.toBe(a.planId);
+    expect(b.source.mapping.sha256).not.toBe(a.source.mapping.sha256);
+  });
+
+  it('類別預設格式錯誤、類別重複、執行者無效都拒絕', async () => {
+    const dup = withDefaults();
+    dup.categoryDefaults!.push({ category: 'source', capability: 'x', kitId: 'y' });
+    await rejected({ mapping: dup }, 'mapping');
+    await rejected({ mapping: { ...mapping, categoryDefaults: [{ category: 'nope', capability: 'x', kitId: 'y' }] } as never }, 'mapping');
+    await rejected({ mapping: { ...mapping, categoryDefaults: [{ category: 'source', capability: 'x', kitId: 'y', executor: 'robot' }] } as never }, 'mapping');
+    await rejected({ mapping: { ...mapping, categoryDefaults: 'x' } as never }, 'mapping');
+  });
+
+  it('範例產線（麵包）：補齊類別預設後，所有節點可執行', async () => {
+    const plan = await built({ mapping: withDefaults() });
+    expect(plan.nodes.filter((n: any) => !n.executable).map((n: any) => n.nodeId)).toEqual([]);
+  });
+});
+
 describe('buildExecutablePlan：拒絕案例', () => {
   it('草稿版本不可編成計畫', async () => {
     await rejected({ project: structuredClone(bakery) as unknown as ProjectFile }, 'not-published');

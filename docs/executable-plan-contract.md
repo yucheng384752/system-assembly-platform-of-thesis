@@ -84,9 +84,9 @@ PlanEnvelope
 |---|---|---|---|
 | nodeId | string | 是 | 在同一份計畫內唯一；跨工廠不混用，由 `scope` 區分 |
 | category | string | 是 | 沿用 A 的 `NodeCategory` |
-| executor | `manual`/`auto`/`system` | 條件 | 沿用 A 的 `Executor`；以節點值為先、其次動作庫預設值，兩者皆無則節點不可執行（`executable` 為 `false`，`reason` 說明），不由編譯端猜測。`executable` 為 `true` 時必填 |
+| executor | `manual`/`auto`/`system` | 條件 | 沿用 A 的 `Executor`；以節點值為先、其次動作庫預設值、再其次對應表的類別預設（4.3 binding），三者皆無則節點不可執行（`executable` 為 `false`，`reason` 說明），不由編譯端猜測。`executable` 為 `true` 時必填 |
 | role | string | 否 | 預期填寫者提示；僅顯示，不作授權（專案規範：角色只是提示） |
-| actionId | string | 條件 | 引用的業務動作 id；節點沒有引用動作時省略，該節點不可執行。`executable` 為 `true` 時必填 |
+| actionId | string | 條件 | 引用的業務動作 id；節點沒有引用動作時省略，此時只有對應表有該類別的預設對應才可執行 |
 | executable | boolean | 是 | `true` 才可被工廠端執行；`false` 的節點必須帶 `reason` |
 | reason | string | 條件 | `executable` 為 `false` 時必填，例如「找不到能力對應」 |
 | binding | 物件 | 條件 | `executable` 為 `true` 時必填，見下 |
@@ -251,6 +251,8 @@ guard、判定節點的決策表與檢驗項目，在工廠端求值時需要下
 23. **警報重送間隔放在參數集**（2026-10-27，user）：以 `alarmIntervals` 保存，受 4.9 的核准與版本鎖定規則約束。
 
 24. **不做 Unicode NFC 正規化**（2026-10-27，user 同意建議）：使用者皆在繁體中文環境，漢字無分解式；`planId` 是版本識別而非安全機制，遇到非 NFC 字串的後果只是多出一個版本。`canonicalJson` 不需修改，也不影響既有整合包雜湊。真正會造成跨語言不一致的是鍵排序與數字格式，已寫入第 5 節並附測試向量。
+25. **動作對應表由產品方定義，客戶端只填寫與校正**（2026-10-28，user）：對應表（`CapabilityMap`）隨產品交付，內容的權威來源是我們；客戶端只補填自己的值或校正，不從零建立。校正後的對應表是一份新版本（`version` 遞增），其雜湊進入 `source.mapping` 與 `planId`。能力 id 與工廠端 Kit 實際提供的能力是否一致，於 W3 對照確認。
+26. **對應表支援依類別的預設對應**（2026-10-28，user）：`CapabilityMap.categoryDefaults[{category, capability, kitId, executor?}]`，類別不可重複。解析順序：節點引用動作時只查 `entries`，查不到即不可執行（**不退回類別預設**，否則漏對應的動作會被悄悄掩蓋）；節點沒有動作時才查該類別的預設。節點與動作庫都沒有執行者時，採用類別預設的 `executor`，仍無則不可執行。由類別預設對應的節點不帶 `actionId`，schema 已不再要求 `executable` 節點必有 `actionId`。
 
 ### 8.2 開放問題
 
@@ -266,8 +268,8 @@ guard、判定節點的決策表與檢驗項目，在工廠端求值時需要下
 3. 無（原第 3 項「NFC 正規化」已於 2026-10-27 決定不做，見 8.1 第 24 項）。
 4. **`alarmRules` 與 `paramTables` 的欄位細節。**第 4.6 節只寫概要，schema（`schemas/executable-plan.schema.json`）已依概要定出欄位（`alarmRules`: `ruleId`、`nodeId`、`expr`、`minRole`；`paramTables`: `tableId`、`columns`、`defaultRows`、`usedBy`）。`alarmIntervals` 的預設間隔尚未定義，schema 未含。
 
-5. **動作到能力的對應表內容尚未確認。**格式已定（`libs/aov-integration/executablePlan.ts` 的 `CapabilityMap`：`format`、`version`、`entries[{actionId, capability, kitId}]`，動作 id 不可重複），內容必須由 user 確認，目前只有測試用假資料。能力 id 要對應工廠端 Kit 實際提供的能力，而工廠端（W3）尚未存在。
-6. **沒有 `action` 的節點一律不可執行。**實際範例專案（`fixtures/aov-merge/c/project.valid.json`）的節點幾乎都只有原語類別、沒有業務動作，編成計畫後會全部標為不可執行。是否要讓對應表支援「依類別的預設對應」（例如 `source` 預設為入庫能力），待 user 決定；目前不做，以免替使用者猜。
+5. **動作對應表的實際內容尚未撰寫。**格式與責任歸屬已定（8.1 第 25、26 項），內容由我們依工廠端 Kit 實際提供的能力撰寫；工廠端（W3）尚未存在，目前只有測試用假資料。待工廠端能力清單出來後，逐筆對照填入。
+6. 無（原「沒有 `action` 的節點」已於 2026-10-28 決定支援類別預設，見 8.1 第 26 項）。範例產線（麵包）在補齊類別預設後所有節點可執行，有測試涵蓋。
 7. **工時、資源、可調整參數的來源。**A 的專案檔沒有這些欄位，`buildExecutablePlan` 由呼叫端傳入（`timings`、`resources`、`tuning`），未傳入則工時為 `missing`、參數不可調整。B 的 Latency 與 `resource` 如何帶進來，屬 W1 第二個 PR（遷移報告）。`paramTables` 與 `alarmRules` 目前恆為空陣列，待 aov-project 修改（8.1 第 10、14 項）後才能由 A 產生。
 8. **契約補洞（2026-10-27）。**原稿 4.3 漏了判定節點的 `route`/`decision`/`checks`/`verdicts`、`boundary`、`nodeParams`，以及埠位的 `type`，工廠端無法在沒有它們的情況下判定與解析連線，已補入 4.3 與 schema。
 

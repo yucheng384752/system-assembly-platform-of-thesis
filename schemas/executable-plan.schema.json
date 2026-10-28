@@ -156,7 +156,7 @@
         "expandedFrom": { "type": "string", "pattern": "^[^@]+@[^@]+@[0-9]+$" }
       },
       "allOf": [
-        { "if": { "properties": { "executable": { "const": true } } }, "then": { "required": ["executor", "actionId", "binding"], "not": { "required": ["reason"] } } },
+        { "if": { "properties": { "executable": { "const": true } } }, "then": { "required": ["executor", "binding"], "not": { "required": ["reason"] } } },
         { "if": { "properties": { "executable": { "const": false } } }, "then": { "required": ["reason"] } }
       ]
     },
