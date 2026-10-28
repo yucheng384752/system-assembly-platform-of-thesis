@@ -178,6 +178,18 @@ describe('renderGanttSvg', () => {
     expect(svg).not.toContain('總時長 0');
   });
 
+  it('起點已知但缺工時的列，標記與說明文字畫在畫布內，不會被切掉而看不見', async () => {
+    const { bake: _omitted, ...withoutBake } = timings;
+    const svg = renderGanttSvg(await estimate({ timings: withoutBake }));
+    const width = Number(/<svg[^>]*\swidth="(\d+)"/.exec(svg)![1]);
+    const marker = /<rect x="([\d.]+)"[^>]*stroke-dasharray/.exec(svg);
+    const reason = /<text x="([\d.]+)"[^>]*>缺資料：缺工時/.exec(svg);
+    expect(marker && reason).toBeTruthy();
+    expect(Number(marker![1])).toBeLessThan(width);
+    // The reason text needs room to its right; about 14px per full-width character.
+    expect(width - Number(reason![1])).toBeGreaterThan('缺資料：缺工時'.length * 14);
+  });
+
   it('節點名稱中的標記字元被跳脫，輸出不含可執行內容', async () => {
     const project = structuredClone(bakery) as unknown as ProjectFile;
     project.meta = { ...project.meta, status: 'published' };

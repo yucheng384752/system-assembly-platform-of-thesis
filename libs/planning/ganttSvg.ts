@@ -3,7 +3,7 @@ import type { GanttResult } from './ganttEstimate';
 // Static SVG of an estimate. Text is escaped, never HTML; colours follow DESIGN.md tokens.
 // State is also carried by text and shape (dashed outline, "缺資料"), not by colour alone.
 const C = { text: '#172b3a', muted: '#40576a', primary: '#075e54', border: '#718096', warnBg: '#fdf4e3', warnText: '#7a4b00', panel: '#ffffff' };
-const LABEL_W = 220, CHART_W = 640, ROW_H = 30, TOP = 24, PAD = 16;
+const LABEL_W = 220, CHART_W = 640, ROW_H = 30, TOP = 24, PAD = 16, REASON_W = 260;
 
 const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const fmt = (n: number) => String(Math.round(n * 100) / 100);
@@ -12,9 +12,13 @@ export function renderGanttSvg(estimate: Extract<GanttResult, { ok: true }>): st
   const { rows, total, lowerBound } = estimate;
   const header = [estimate.disclaimer, ...estimate.conditions, total === null ? `總時長未知（已知部分至少 ${fmt(lowerBound)} 分鐘）` : `總時長 ${fmt(total)} 分鐘`];
   const headerH = header.length * 20 + PAD;
-  const width = PAD * 2 + LABEL_W + CHART_W;
+  // A row can start after the latest known end (a transfer follows it), so the axis must reach the latest known start too.
+  const horizon = Math.max(lowerBound, total ?? 0, ...rows.map(row => row.start ?? 0)) || 1;
+  // A row with a known start and no end writes its reason to the right of its marker; reserve room for it.
+  const reasonRoom = rows.some(row => row.start !== undefined && row.end === undefined) ? REASON_W : 0;
+  const width = PAD * 2 + LABEL_W + CHART_W + reasonRoom;
   const height = headerH + TOP + rows.length * ROW_H + PAD;
-  const scale = CHART_W / (Math.max(lowerBound, total ?? 0) || 1);
+  const scale = CHART_W / horizon;
   const x = (minutes: number) => PAD + LABEL_W + minutes * scale;
 
   const out: string[] = [
