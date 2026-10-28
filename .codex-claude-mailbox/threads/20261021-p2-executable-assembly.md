@@ -1112,3 +1112,11 @@ Codex 狀態以 `codex-companion status` 確認為 completed（18 分 23 秒，�
 **未驗證（維持待辦）：** 需要 sudo 的真實指紋採集（VM 無免密碼 sudo，僅以測試中的 runner 邊界驗證）、實體機指紋穩定性、真實 USB、Docker 實機整合流程。後端仍不讀取已安裝的授權（WP3e），不得宣稱已防複製。
 
 WP3b 第二階段驗收通過。
+
+### 2026-10-28 Claude 驗收：WP3b 第二階段第二次（授權簽發與安裝）
+
+- Ubuntu 22.04 VM（Node 22.23.3 裝在使用者目錄、Python 3、OpenSSL）：`unittest discover` 55 項全過、無跳過；`license_mutations.py` 六項與 `mutations.py` 六項皆被斷言攔截。
+- Windows：同一套件僅剩已知的兩項平台失敗（POSIX 0600 斷言、AMD64 CPU 名稱）；`node --test scripts/security/tests` 19/19；`services/package/tests` 14/14；`npm run typecheck` 通過。
+- 驗收時修正一處：`test_hash_intersection_not_names` 的第一個驗證在變異下拋出 `Failure`，變成 ERROR 而非斷言失敗，`license_mutations.py` 因此誤判為未攔截；改為捕捉 `Failure` 後 `self.fail`，六項變異皆以斷言攔截。
+- 清除 Codex 留下的 `services/package/tests/.contracts-cycI5p` 暫存目錄（未提交）。
+- 未驗證（維持待辦）：需要 sudo 的真實指紋採集、實體機指紋穩定性、真實 USB、Docker 實機整合、Python 簽出授權對 Node CLI 的反向驗收；後端仍不讀授權，不能宣稱已防複製。
