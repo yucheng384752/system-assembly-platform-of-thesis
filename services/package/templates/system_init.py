@@ -3,8 +3,11 @@ import asyncio
 import os
 from uuid import UUID
 
+from app.secret_files import load_secret_files
+
 
 async def initialize():
+    load_secret_files()
     for name in ("DATABASE_URL", "SECRET_KEY", "DEFAULT_TENANT_ID", "SYSTEM_ID"):
         if not os.environ.get(name, "").strip():
             raise RuntimeError(f"Required environment variable is missing: {name}")

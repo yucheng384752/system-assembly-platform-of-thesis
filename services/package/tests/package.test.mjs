@@ -149,11 +149,25 @@ async function checkDeployment(out, selected) {
   assert.ok(expected.length > 0);
   const webhook = selected.includes('mod-subscription-kit');
   assert.deepEqual(entries.publicPaths, ['/healthz', '/api/auth/login', ...(webhook ? ['/api/mod/subscriptions/webhook'] : [])]);
-  for (const name of ['DATABASE_URL', 'SECRET_KEY', 'ENTRY_PERMISSION_JWT_SECRET', 'DEFAULT_TENANT_ID', ...(webhook ? ['MOD_WEBHOOK_SECRET'] : [])]) {
-    assert.ok(compose.includes('$' + '{' + name + ':?'), name);
-    assert.ok(main.includes('"' + name + '"'), name);
+  const secretNames = ['DATABASE_URL', 'SECRET_KEY', 'ENTRY_PERMISSION_JWT_SECRET', ...(webhook ? ['MOD_WEBHOOK_SECRET'] : [])];
+  for (const name of [...secretNames, 'DEFAULT_TENANT_ID']) assert.ok(main.includes('"' + name + '"'), name);
+  assert.ok(compose.includes('$' + '{DEFAULT_TENANT_ID:?'));
+  for (const name of secretNames) {
+    // D138/D142: private values reach the container only as mounted files, never as environment values.
+    assert.ok(compose.includes(name + '_FILE: /run/secrets/' + name.toLowerCase()), name);
+    assert.ok(!compose.includes('$' + '{' + name), name + ' must not be interpolated from the environment');
+    assert.ok(compose.includes('file: ../secrets/' + name.toLowerCase()), name);
   }
+  assert.ok(compose.includes('POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password'));
+  assert.ok(!compose.includes('$' + '{POSTGRES_PASSWORD'));
   if (!webhook) { assert.ok(!main.includes('MOD_WEBHOOK_SECRET')); assert.ok(!compose.includes('MOD_WEBHOOK_SECRET')); }
+  assert.ok(main.indexOf('load_secret_files()') < main.indexOf('Required environment variable'));
+  const gate = main.lastIndexOf('app.middleware("http")(license_gate_middleware)');
+  assert.ok(gate > main.lastIndexOf('app.include_router(') && gate > main.indexOf('app.middleware("http")(entry_permission_middleware)'),
+    'the license gate must be the outermost (last added) middleware');
+  for (const mount of ['/system/license', '/system/trust/root.pem:ro', '/system/manifest/system-manifest.json:ro']) assert.ok(compose.includes(mount), mount);
+  assert.match(compose, /LICENSE_DIR:\?/);
+  assert.match(await read('backend/app/license_gate.py'), /OPEN_PATHS = frozenset\(\{"\/healthz"\}\)/);
   assert.match(main, /if not os.environ.get\(name, ""\).strip\(\)/);
   assert.ok(main.indexOf('Required environment variable') < main.indexOf('from app.api.deps'));
   assert.ok(main.indexOf('app.middleware("http")(endpoint_permission_middleware)') < main.indexOf('app.middleware("http")(entry_permission_middleware)'));
@@ -193,7 +207,8 @@ async function checkDeployment(out, selected) {
   assert.match(dockerfile, /COPY kits\/ \/system\/kits\//);
   assert.match(proxy, /location \/api\//); assert.match(proxy, /location = \/healthz/);
   assert.match(proxy, /return 503 "前端尚未納入此套件版本/);
-  assert.equal(proxy.match(/proxy_pass/g)?.length, 2);
+  assert.match(proxy, /location = \/license/);
+  assert.equal(proxy.match(/proxy_pass/g)?.length, 3);
   for (const line of (await read('deployment/.env.example')).split('\n').filter(s => s && !s.startsWith('#'))) assert.match(line, /^[A-Z_]+=$/);
   const requirements = (await read('deployment/backend/requirements.txt')).trim().split('\n');
   assert.ok(requirements.includes('PyJWT==2.15.1')); assert.ok(requirements.includes('bcrypt==5.0.0'));

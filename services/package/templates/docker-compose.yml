@@ -3,8 +3,9 @@ services:
     image: postgres:16.6-bookworm
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+    secrets: [postgres_password]
     volumes:
       - database:/var/lib/postgresql/data
     networks: [data]
@@ -18,9 +19,9 @@ services:
       context: ..
       dockerfile: deployment/backend.Dockerfile
     environment: &backend-environment
-      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
-      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
-      ENTRY_PERMISSION_JWT_SECRET: ${ENTRY_PERMISSION_JWT_SECRET:?ENTRY_PERMISSION_JWT_SECRET is required}
+      DATABASE_URL_FILE: /run/secrets/database_url
+      SECRET_KEY_FILE: /run/secrets/secret_key
+      ENTRY_PERMISSION_JWT_SECRET_FILE: /run/secrets/entry_permission_jwt_secret
       DEFAULT_TENANT_ID: ${DEFAULT_TENANT_ID:?DEFAULT_TENANT_ID is required}
       SYSTEM_ID: ${SYSTEM_ID:?SYSTEM_ID is required}
 @@WEBHOOK_ENV@@      ENVIRONMENT: production
@@ -29,10 +30,20 @@ services:
       UPLOAD_TEMP_DIR: /system/data/uploads
       LOG_DIR: /system/data/logs
       ENDPOINT_PERMISSIONS_FILE: /system/permissions/endpoint_permissions.json
+      LICENSE_FILE: /system/license/license.lic
+      LICENSE_ROOT_KEY_FILE: /system/trust/root.pem
+      SYSTEM_MANIFEST_FILE: /system/manifest/system-manifest.json
     expose: ["8000"]
-    volumes: &backend-volumes
+    secrets: &backend-secrets
+      - database_url
+      - secret_key
+      - entry_permission_jwt_secret
+@@WEBHOOK_SECRET_REF@@    volumes:
       - files:/system/data
       - permissions:/system/permissions
+      - ${LICENSE_DIR:?LICENSE_DIR is required}:/system/license
+      - ${ROOT_KEY_FILE:?ROOT_KEY_FILE is required}:/system/trust/root.pem:ro
+      - ${MANIFEST_FILE:?MANIFEST_FILE is required}:/system/manifest/system-manifest.json:ro
     networks: [data, edge]
     depends_on:
       postgres:
@@ -46,7 +57,10 @@ services:
     profiles: ["init"]
     build: *backend-build
     environment: *backend-environment
-    volumes: *backend-volumes
+    secrets: *backend-secrets
+    volumes:
+      - files:/system/data
+      - permissions:/system/permissions
     networks: [data]
     depends_on:
       postgres:
@@ -69,3 +83,13 @@ volumes:
   database:
   files:
   permissions:
+secrets:
+  postgres_password:
+    file: ../secrets/postgres_password
+  database_url:
+    file: ../secrets/database_url
+  secret_key:
+    file: ../secrets/secret_key
+  entry_permission_jwt_secret:
+    file: ../secrets/entry_permission_jwt_secret
+@@WEBHOOK_SECRET_DEF@@
