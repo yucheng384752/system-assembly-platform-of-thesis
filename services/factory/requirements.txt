@@ -1,6 +1,8 @@
 # Versions match composer-refactor-2 (packaging/requirements.lock) so the two lines can be merged without drift.
-# jsonschema is new (plan validation); httpx is for the API tests that come with the HTTP slice and is not needed yet.
+# jsonschema is new (plan validation); httpx is used by the API tests (FastAPI TestClient) only.
 jsonschema==4.23.0
+pydantic==2.10.3
+httpx==0.28.1
 fastapi==0.115.6
 uvicorn==0.32.1
 sqlalchemy==2.0.36

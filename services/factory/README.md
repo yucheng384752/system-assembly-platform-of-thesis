@@ -1,6 +1,6 @@
 # services/factory
 
-Factory-side core for the executable plan (`docs/executable-plan-contract.md`, D134). The rules (`canonical`, `plan`, `params`, `workorder`, `alarms`) run on a store boundary; `MemoryStore` is the reference and `SqlStore` runs the same tests on SQLite and PostgreSQL. No HTTP API yet. Data model: `docs/data-model.md`.
+Factory-side core for the executable plan (`docs/executable-plan-contract.md`, D134). The rules (`canonical`, `plan`, `params`, `workorder`, `alarms`) run on a store boundary; `MemoryStore` is the reference and `SqlStore` runs the same tests on SQLite and PostgreSQL. HTTP API in `factory_api/` (`create_app`; no server entry point yet). Data model: `docs/data-model.md`.
 
 ## What exists
 
@@ -12,6 +12,7 @@ Factory-side core for the executable plan (`docs/executable-plan-contract.md`, D
 | `factory_core/params.py` | `ParameterSetService`: validate against the plan, append-only versions, separate decision records, proposer must differ from approver unless manager or admin. |
 | `factory_core/workorder.py` | `FactoryState`: orders pin `planId` at creation and the approved set at start; defaults are flagged. |
 | `factory_core/alarms.py` | `AlarmService`: raising an alarm holds its node until a manager or admin acknowledges; reminders at the interval of the pinned parameter set (`DEFAULT_REPEAT_MINUTES` when it has none). |
+| `factory_api/app.py`, `kit.contract.json` | 13 routes under `/api/factory`. Trusts only the actor that the entry-permission middleware sets and answers 401 without it; identity and time never come from the body. `kit.contract.json` declares the 8 entry points the shared directory is assembled from. |
 | `factory_core/store.py`, `sql_store.py`, `sql_schema.py`, `migrate.py`, `migrations/` | The store boundary, its SQL implementation, tables with append-only triggers, and the Alembic revision. |
 
 ## Dependencies
@@ -31,6 +32,6 @@ Checked: Windows (Python 3.13, SQLite) and Ubuntu 22.04 in `python:3.12.8` again
 
 ## Not done yet
 
-- HTTP API and entry-permission wiring (`kit.contract.json` entryPoints with `admin` in `defaultRoles`).
+- A server entry point and deployment wiring (environment from the real deployment, the assembler picking up `kit.contract.json`); end-to-end against PostgreSQL through the API.
 - Who receives the alarm and delivery of notices; this module only decides when a reminder is due.
 - The TypeScript evaluator sidecar (the expressions behind `rules`, `guard` and `alarmRules` are not evaluated here, so alarms are raised by a caller that has evaluated them), material pick, inspection and receipt steps.

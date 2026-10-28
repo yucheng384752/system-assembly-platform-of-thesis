@@ -15,7 +15,7 @@ from .workorder import FactoryState
 
 # minRole in the plan is "manager": that role and above. Admin is above manager (decision 20).
 ACK_ROLES = ('manager', 'admin')
-# Used when the pinned parameter set has no interval for a rule. The value is an assumption, to be confirmed with the client.
+# Used when the pinned parameter set has no interval for a rule (30 minutes confirmed by the user, 2026-10-28).
 DEFAULT_REPEAT_MINUTES = 30
 
 
