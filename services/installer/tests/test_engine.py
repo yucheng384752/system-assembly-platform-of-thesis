@@ -56,7 +56,7 @@ def fixture(directory, extra=None):
              'deployment/.env.example': (template / 'env.example').read_bytes().replace(b'@@WEBHOOK_EXAMPLE@@', b''),
              'deployment/nginx.conf': (template / 'nginx.conf').read_bytes()}
     images = []
-    for name, services in [('postgres', ['postgres']), ('backend', ['backend', 'init']), ('proxy', ['proxy'])]:
+    for name, services in [('postgres', ['postgres']), ('backend', ['backend', 'init', 'guard']), ('proxy', ['proxy'])]:
         config = canonical({'fixture': name})
         config_name = digest(config) + '.json'
         tag = name + ':test'
@@ -607,6 +607,50 @@ class EngineTests(unittest.TestCase):
         manifest = copy.deepcopy(self.manifest)
         manifest['images'][0]['tag'] = 'unexpected:tag'
         self.assert_code(11, lambda: validate_manifest(manifest, self.root))
+
+    def test_manifest_must_assign_an_image_to_the_guard_too(self):
+        from package import validate_manifest
+        manifest = copy.deepcopy(self.manifest)
+        backend = next(image for image in manifest['images'] if 'backend' in image['services'])
+        backend['services'].remove('guard')
+        self.assert_code(11, lambda: validate_manifest(manifest, self.root))
+
+    def test_guard_starts_before_the_backend_and_health_check_waits_for_a_hardware_match(self):
+        self.assertEqual(self.installer.apply(self.root, self.body), 0)
+        started = [c[-1] for c in self.runner.commands if c[:2] == ['docker', 'compose'] and 'up' in c]
+        self.assertLess(started.index('guard'), started.index('backend'))
+        self.assertLess(STEPS.index('license-install'), STEPS.index('guard-up'))
+        self.assertLess(STEPS.index('guard-up'), STEPS.index('compose-up'))
+        probe = ' '.join(next(c for c in self.runner.commands if 'api/license/status' in ' '.join(c)))
+        self.assertIn("['hardware']['status'] == 'match'", probe)
+        self.assertIn("status.get('valid') is True", probe)
+
+    def test_guard_container_is_removed_by_rollback_like_the_other_services(self):
+        self.runner.fail = None
+        self.runner.after = lambda args: (self.state_dir / 'cancel.request').write_text('{}') if args[-1:] == ['guard'] and 'up' in args else None
+        self.assertEqual(self.installer.apply(self.root, self.body), 15)
+        self.assertEqual(self.installer.state['steps']['guard-up']['status'], 'ok')
+        self.runner.after = None
+        rollback = self.installer.rollback_plan()
+        self.assertIn('guard-up', rollback['steps'])
+
+    def test_block_window_and_time_zone_are_validated_and_written_only_when_given(self):
+        for key, bad in (('LICENSE_BLOCK_WINDOW', 'funday 09:00-10:00'), ('LICENSE_BLOCK_WINDOW', 'mon-fri 15:00-09:00'),
+                         ('LICENSE_BLOCK_WINDOW', 'mon-fri 09:00-09:00'), ('LICENSE_BLOCK_WINDOW', 'nonsense'),
+                         ('LICENSE_TIMEZONE', 'Mars/Base')):
+            body = copy.deepcopy(self.body)
+            body['env'][key] = bad
+            self.assert_code(10, lambda: private_input(body, self.plan))
+        self.assertEqual(self.installer.apply(self.root, self.body), 0)
+        self.assertNotIn('LICENSE_BLOCK_WINDOW', (self.base / 'installed/.env').read_text())
+
+    @unittest.skipUnless(os.path.exists('/usr/share/zoneinfo/Asia/Tokyo'), 'needs the system time zone database; 由 Claude 在 Ubuntu 執行')
+    def test_block_window_and_time_zone_reach_the_compose_environment_file(self):
+        self.body['env'].update(LICENSE_BLOCK_WINDOW='mon,wed 10:00-11:30', LICENSE_TIMEZONE='Asia/Tokyo')
+        self.assertEqual(self.installer.apply(self.root, self.body), 0)
+        text = (self.base / 'installed/.env').read_text()
+        self.assertIn("LICENSE_BLOCK_WINDOW='mon,wed 10:00-11:30'", text)
+        self.assertIn("LICENSE_TIMEZONE='Asia/Tokyo'", text)
 
     def test_unknown_deployment_or_upgrade_rejected(self):
         (self.base / 'installed').mkdir()

@@ -29,7 +29,11 @@ License gate (D142): the backend verifies the installed license (root key, sub-k
 manifest hash, expiry) and returns 503 for everything except `/healthz` and the license routes while it
 is invalid. `/license` is a minimal status page, `/api/license/status` reports the state and
 `/api/license/upload` installs a new license, but only one that passes the full check. Hardware binding
-is not checked yet (guard container, work package e2); do not claim copy protection.
+is checked by the guard container (D136, D143): a root, capability-free, read-only, network-less container that
+reports hashed fingerprint sources to the backend through the read-only `guard` volume. A mismatch warns, then allows
+24 hours of grace, then blocks once the block window (`LICENSE_BLOCK_WINDOW`, `LICENSE_TIMEZONE`) is open; a guard that
+stops reporting is tolerated for 24 hours. `/api/license/rebind-request` downloads what the issuer needs for new
+hardware. This stops moving and copying a system; it does not stop a determined person.
 
 Explicit first-install sequence (commands have not been run by Codex):
 

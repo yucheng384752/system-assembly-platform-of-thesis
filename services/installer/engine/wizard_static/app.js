@@ -91,7 +91,7 @@ async function issueLicense() {
 function installInput() {
   const env = {};
   for (const name of ['POSTGRES_USER', 'POSTGRES_DB', 'POSTGRES_PASSWORD', 'SECRET_KEY', 'ENTRY_PERMISSION_JWT_SECRET',
-    'MOD_WEBHOOK_SECRET', 'DEFAULT_TENANT_ID', 'HTTP_PORT']) {
+    'MOD_WEBHOOK_SECRET', 'DEFAULT_TENANT_ID', 'HTTP_PORT', 'LICENSE_BLOCK_WINDOW', 'LICENSE_TIMEZONE']) {
     const value = $('e-' + name).value.trim();
     if (value) env[name] = value;
   }

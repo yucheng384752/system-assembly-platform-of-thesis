@@ -65,7 +65,7 @@ status: D126 為正式決議；2026-10-25 依 D129 至 D133、D136、D137 修訂
 }
 ```
 
-`steps` 的標準順序（`id`）：`docker-ensure`、`trust-store`（首次安裝寫入根公鑰到 `/etc/<system-id>/trust/`）、`images-load`、`network-volumes`、`env-secrets`、`db-init`、`migration`、`license-install`、`compose-up`、`guard-up`、`health-check`。各步驟的內容見 `TODO.md` 第 8 項的引擎步驟。
+`steps` 的標準順序（`id`）：`docker-ensure`、`trust-store`（首次安裝寫入根公鑰到 `/etc/<system-id>/trust/`）、`images-load`、`network-volumes`、`env-secrets`、`db-init`、`migration`、`license-install`、`guard-up`、`compose-up`、`health-check`。各步驟的內容見 `TODO.md` 第 8 項的引擎步驟。
 
 - `reversible`：`yes`（可完整還原）、`partial`（部分還原，說明限制）、`no`（不可逆，必須在計畫畫面明確標示，並要求額外確認）。
 - 確認動作綁定 `planSha256`。`apply --plan plan.json --plan-sha256 <值>` 在檔案內容與雜湊不符時拒絕執行。
@@ -144,20 +144,21 @@ status: D126 為正式決議；2026-10-25 依 D129 至 D133、D136、D137 修訂
 - 依賴檢查：精靈只可使用 Python 標準庫，若要新增套件須先經 user 核准。
 - 實機驗證：在全新客機以 sudo 實際執行 `apt install docker.io docker-compose-v2`、品牌機的指紋來源穩定性、USB 掛載。
 
-## 9. 安裝後的執行期元件（D136、D137）
+## 9. 安裝後的執行期元件（D136、D137、D143）
 
-這些元件不屬於安裝引擎，但安裝引擎負責部署，並在 `plan.json` 中有對應步驟。
+這些元件不屬於安裝引擎，但安裝引擎負責部署，`plan.json` 有對應步驟（`license-install`、`guard-up`）。第一段（授權閘門與狀態頁）與第二段（guard 與硬體綁定）都已實作，並在 Ubuntu 22.04 以真實 Docker 與真實硬體驗證。
 
-- **guard 容器：** root、`cap_drop ALL`、`no-new-privileges`、唯讀根檔案系統、不發布連接埠，唯讀掛載宿主 `/sys`。定期重算指紋（網卡只取有實體裝置者；空值、`0`、全零 UUID、`To Be Filled By O.E.M.` 等無效值於安裝時排除），與授權比對，結果寫入與後端共用的卷。後端為非 root，讀到不符即依下列規則處理。
-- **處理分流：** guard 失聯容忍 24 小時；指紋不符先顯示橫幅，寬限 24 小時；到期若不在 Site 設定的封鎖生效時段（預設平日 09:00 至 15:00）內，順延到下一個時段開始才拒絕服務。
-- **授權狀態頁：** 被擋時保留最小頁面，顯示原因（哪幾項來源符合、不符）、下載重新綁定申請檔、上傳新授權，其餘功能回 503；另有命令列 `status` 診斷。提供方式（由 guard 或後端提供、反向代理如何轉送、上傳端點的存取控制）待設計。
-- **緊急臨時授權：** 72 小時，只在上班時間受理，不接受夜間申請。
-- **未提供時：** guard 或狀態頁尚未實作時，manifest 的 `notProvided` 必須列出，啟動時僅檢查授權簽章、到期日與 manifest 雜湊，不得宣稱已防複製。
-- 尚未驗證：實體品牌機的指紋穩定性、guard 失效行為、狀態頁與反向代理的整合。
+- **guard 容器（D136、D143）：**沿用後端映像，命令 `python -m app.guard`；root、`cap_drop ALL`、`no-new-privileges`、唯讀根檔案系統、`network_mode: none`、不發布連接埠，唯讀掛載宿主 `/sys` 到 `/host/sys`。每 5 分鐘重算指紋（規則與引擎 `detect.py` 完全一致，由對照測試保證），先寫暫存檔再改名，寫到只有 guard 可寫的 `guard` 卷。結果檔只含時間與 `[{source, sha256}]`，不含原值，也不讀授權。後端以唯讀方式掛載該卷，所以被入侵的後端改不了 guard 的結果，root 容器也不解析後端可寫的授權檔。
+- **比對與處分（後端，D143 修訂 D136 的「guard 與授權比對」）：**後端取不同雜湊值的集合交集，至少 2 項符合才算相符。不符時：立即警告（回應標頭 `X-License-Warning`、狀態 API、狀態頁）；寬限 24 小時；寬限結束後只在封鎖生效時段（預設平日 09:00 至 15:00，時區預設 Asia/Taipei，經 `LICENSE_BLOCK_WINDOW`、`LICENSE_TIMEZONE`，安裝輸入可填）開啟時才開始停止服務，若寬限結束時不在時段內，順延到下一個時段開始。一旦開始停止服務，直到硬體再次相符或上傳符合的新授權才解除，guard 暫停也不會解除。guard 超過 24 小時沒回報（或回報檔過期、格式不符、時間在未來）視同不符；尚未回報的前 24 小時為「等待中」，不警告。不符起算時間與停止服務時間存在後端資料卷的 `license-state.json`，重啟不重置；後端被入侵時可被重置，這和 D44「只擋搬移與複製」的取捨一致。
+- **授權狀態頁與重新綁定：**被擋或警告時仍可開啟 `/license`（`/healthz` 也保持可用，其餘回 503）。頁面顯示授權狀態、符合來源數、寬限與預計停止時間，提供 `/api/license/rebind-request` 下載申請檔（系統代號、客戶、manifest 雜湊、guard 回報的 `[{source, sha256}]`，格式可直接作為發行端 `issue-license` 的 `--fingerprints` 輸入），並可上傳新授權。上傳不需登入，但只會安裝通過簽章鏈、manifest 雜湊與**目前硬體**核對的授權，且需要 guard 24 小時內的回報。
+- **緊急臨時授權：**72 小時，只在上班時間受理，不接受夜間申請。這是發行端的作業規則（以短到期日簽發），程式不強制，需寫入操作手冊。
+- **健康檢查：**安裝的最後一步要求執行中的後端回報授權有效且硬體為「相符」，確認從宿主簽發到容器內判斷整條路徑可用。
+- **仍須誠實說明：**只能防止搬移與複製，不保證所有情況；實體品牌機的指紋穩定性（BIOS 更新、換網卡）、guard 長時間失效的實際行為、封鎖時段與時區在現場的設定、真實引擎對 Docker 的完整 apply 尚待實機驗證。
 
 ## 10. 修訂紀錄
 
 - 2026-10-22（D126）：改為 Docker Compose 部署；契約升為正式決議；實作分為 WP3b（引擎與命令列）與 WP3c（網頁精靈），見 `.codex-claude-mailbox/threads/20261021-p2-executable-assembly.md`。
+- 2026-10-28（D143）：WP3e 第二段：guard 容器、硬體比對在後端、警告與 24 小時寬限、封鎖時段、重新綁定申請檔、`guard-up` 步驟（共 11 步）；第 9 節重寫。
 - 2026-10-28（D141）：WP3c 精靈實作；sudo 改為先 `sudo -v` 再由精靈檢查，不接收密碼；子金鑰以路徑輸入。
 - 2026-10-28（D140）：更正手冊核對值為檔案位元組 sha256、精靈確認碼為 SPKI 前 8 碼；子金鑰與憑證檔路徑可用命令列傳入，密碼與到期日不可。
 - 2026-10-25（D129 至 D133、D136、D137）：原第 9 節的修正整併入各節。新增 `issue-license` 與授權簽發流程、信任起點的手動核對、`trust-store` 與 `license-install` 步驟、退出碼 17、第 9 節的 guard 與狀態頁；apt 套件與 systemd 的還原列改為 Docker 物件。D133 撤銷 PostgreSQL 14 鎖定，改用容器內 PostgreSQL 16。

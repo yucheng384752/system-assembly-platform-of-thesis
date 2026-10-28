@@ -57,10 +57,10 @@ def validate_manifest(manifest, root):
             if 'sha256:' + digest(saved.extractfile(config).read()) != image['id']:
                 raise Failure(11, '映像 config digest 與映像 ID 不符')
         for service in image['services']:
-            if service not in ('postgres', 'backend', 'init', 'proxy') or service in services:
+            if service not in ('postgres', 'backend', 'init', 'guard', 'proxy') or service in services:
                 raise Failure(11, '映像 service 重複或不支援')
             services.add(service)
-    if services != {'postgres', 'backend', 'init', 'proxy'}:
+    if services != {'postgres', 'backend', 'init', 'guard', 'proxy'}:
         raise Failure(11, '映像未覆蓋全部 WP3a services')
     for required in ('deployment/docker-compose.yml', 'deployment/nginx.conf', 'deployment/.env.example'):
         if required not in listed:

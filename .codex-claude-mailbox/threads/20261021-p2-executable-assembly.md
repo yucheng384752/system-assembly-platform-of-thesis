@@ -1135,3 +1135,18 @@ user 指定這兩個工作包由 Claude 直接實作（不派 Codex）。在獨�
 - 未重跑 `services/package/e2e/system_e2e.py` 的 48 項檢查。
 - 精靈在長時間安裝中的 sudo 快取刷新、實體品牌機指紋穩定性、真實 USB 仍待實機。
 - Windows 本機的引擎測試仍有兩個已知平台假設失敗（0600 權限斷言、CPU 名稱）；Ubuntu 全數通過。
+
+## 2026-10-28 WP3e 第二段（Claude 實作，D143）
+
+**內容：**guard 容器（`guard.py`，沿用後端映像、root、`cap_drop ALL`、`no-new-privileges`、唯讀根檔案系統、`network_mode: none`、唯讀掛載宿主 `/sys`）；後端硬體政策（`license_hardware.py`：警告、24 小時寬限、封鎖時段、guard 失聯 24 小時視同不符、一旦停止服務持續到相符）；`license_gate.py` 整合（狀態 API 與頁面、`X-License-Warning` 標頭、重新綁定申請檔、上傳需通過目前硬體核對）；Compose 新增 guard 服務與 `guard` 卷；引擎新增 `guard-up` 步驟（共 11 步，在 `compose-up` 前）、manifest 映像須同時指派給 guard、health-check 要求硬體「相符」、時段與時區的安裝輸入與驗證；精靈新增兩個選填欄位。
+
+**驗證（Claude 實測）：**
+- 本機：package 14/14（新增 guard 強化設定斷言）、guard 對照測試 8 項（以同一份 sysfs 夾具比對引擎 `detect.py` 與 guard 採集，含 placeholder、虛擬網卡、可移除與 USB 碟、vpd 控制字元；USB 路徑規則的符號連結案例在 Windows 跳過，Ubuntu 執行）、閘門與政策測試 33 項、閘門與政策變異 20 項全被攔、vitest 與 security 測試維持通過。
+- Ubuntu 22.04 VM：installer 79 項全過（0 跳過）；引擎變異 14 項、授權變異 6 項、精靈變異 8 項全被攔。
+- **真實 Docker 與真實硬體（同一台 VM）：**組裝出的 7 個 Kit 系統包實際建置；guard 以 `user=0:0`、唯讀根檔案系統、`CapDrop ALL`、`no-new-privileges`、`network none`、無連接埠啟動，寫入失敗為 Read-only file system；guard 在 root 下讀到 `product_uuid`、`product_serial`、`mac:enp0s3`、`disk:sda`，非 root 的引擎採集器只讀得到後兩項，兩者對共同來源的雜湊完全一致。以 guard 回報的來源簽發授權後：後端狀態為相符（4 項）；換成「為別的硬體簽發」的授權後警告並進入寬限，回應帶 `X-License-Warning` 標頭、服務照常；把不符起算時間改成 25 小時前（時段設為全天）後停止服務，API 回 503 `hardware-mismatch`、`/healthz` 與 `/license` 仍 200，狀態檔持久；重新綁定申請檔列出 guard 回報的來源；上傳正確授權後解除、狀態檔清空；上傳別的硬體的授權被拒；停止 guard 後 24 小時容忍內仍沿用最後回報。測試後已清除容器、卷、建置映像與額外拉取的 nginx 映像。
+
+**限制與未驗證：**
+- 真實引擎對 Docker 的完整 apply（需 sudo 與打包映像）仍未在實機跑；封鎖的「時間」是以修改狀態檔的方式驗證，沒有真的等 24 小時。
+- 實體品牌機的指紋穩定性、guard 長時間失效、現場時段與時區設定、真實 USB 待實機。
+- 緊急臨時授權只是作業規則，程式不強制。
+- 沒有重跑 `services/package/e2e/system_e2e.py` 的 48 項檢查。

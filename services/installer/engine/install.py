@@ -1,4 +1,4 @@
-"""First-install executor and ownership-scoped rollback; no upgrade or runtime guard."""
+"""First-install executor and ownership-scoped rollback; no upgrade."""
 import json
 import os
 from pathlib import Path
@@ -12,15 +12,17 @@ from license import checked_license
 
 LABEL = 'com.composer.install-id'
 STEPS = ['docker-ensure', 'trust-store', 'images-load', 'network-volumes', 'env-secrets',
-         'db-init', 'migration', 'license-install', 'compose-up', 'health-check']
-LIMITATIONS = ['後端驗證授權簽章鏈、到期日與安裝包 manifest，但 guard 與硬體綁定檢查尚未提供（WP3e 第二段），不能宣稱已防複製',
+         'db-init', 'migration', 'license-install', 'guard-up', 'compose-up', 'health-check']
+LIMITATIONS = ['硬體綁定由 guard 容器回報、後端比對（不符時警告、寬限 24 小時、封鎖時段才停止服務）；實體品牌機的指紋穩定性、guard 失效行為與緊急臨時授權流程尚待實機驗證，僅能防止搬移與複製，不能保證所有情況',
               '秘密值以 0400 檔案掛入容器，不在容器環境變數；root 與 docker 群組仍可讀取宿主上的檔案',
               '升級遷移、前端、TLS 與實機驗證尚未提供']
 BACKEND_UID = 10001  # the generated backend image runs as this user
 # Secret file name (under <install>/secrets, mounted at /run/secrets) -> input field.
 SECRET_FILES = {'postgres_password': 'POSTGRES_PASSWORD', 'database_url': 'DATABASE_URL', 'secret_key': 'SECRET_KEY',
                 'entry_permission_jwt_secret': 'ENTRY_PERMISSION_JWT_SECRET', 'mod_webhook_secret': 'MOD_WEBHOOK_SECRET'}
-PUBLIC_ENV = ('POSTGRES_USER', 'POSTGRES_DB', 'DEFAULT_TENANT_ID', 'SYSTEM_ID', 'PROXY_BIND', 'HTTP_PORT')
+PUBLIC_ENV = ('POSTGRES_USER', 'POSTGRES_DB', 'DEFAULT_TENANT_ID', 'SYSTEM_ID', 'PROXY_BIND', 'HTTP_PORT',
+              'LICENSE_BLOCK_WINDOW', 'LICENSE_TIMEZONE')
+WINDOW_PATTERN = r'(daily|[a-z]{3}(?:-[a-z]{3}|(?:,[a-z]{3})*)) ([01][0-9]|2[0-3]):([0-5][0-9])-([01][0-9]|2[0-3]):([0-5][0-9])'
 
 
 def deployment_names(root):
@@ -39,8 +41,8 @@ def deployment_names(root):
             match = re.fullmatch(r'  ([a-z][a-z0-9_-]*):(?:.*)', line)
             if match:
                 groups[current].append(match.group(1))
-    if groups != {'services': ['postgres', 'backend', 'init', 'proxy'],
-                  'networks': ['data', 'edge'], 'volumes': ['database', 'files', 'permissions']}:
+    if groups != {'services': ['postgres', 'backend', 'init', 'guard', 'proxy'],
+                  'networks': ['data', 'edge'], 'volumes': ['database', 'files', 'permissions', 'guard']}:
         raise Failure(11, '部署結構不符合 WP3a；需先審閱新版介面')
     return groups
 
@@ -102,7 +104,7 @@ def private_input(body, plan):
                 'ENTRY_PERMISSION_JWT_SECRET', 'DEFAULT_TENANT_ID'}
     if 'MOD_WEBHOOK_SECRET' in plan['secretRef']:
         required.add('MOD_WEBHOOK_SECRET')
-    if not required <= env.keys() or set(env) - required - {'PROXY_BIND', 'HTTP_PORT'}:
+    if not required <= env.keys() or set(env) - required - {'PROXY_BIND', 'HTTP_PORT', 'LICENSE_BLOCK_WINDOW', 'LICENSE_TIMEZONE'}:
         raise Failure(10, 'env 欄位缺少或不支援')
     if any(not isinstance(v, str) or not v or any(c in v for c in "\n\r\x00'") for v in env.values()):
         raise Failure(10, 'env 值必須為非空單行字串，且不可含單引號')
@@ -121,6 +123,22 @@ def private_input(body, plan):
             raise ValueError()
     except ValueError:
         raise Failure(10, '租戶 UUID、IPv4 綁定位址或連接埠不合法') from None
+    window = env.get('LICENSE_BLOCK_WINDOW')
+    if window is not None:
+        match = re.fullmatch(WINDOW_PATTERN, window)
+        weekdays = {'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'}
+        days = match.group(1) if match else ''
+        # The backend refuses to start on a window it cannot parse, so reject it here instead of at first boot.
+        if (not match or (days != 'daily' and not set(re.findall(r'[a-z]{3}', days)) <= weekdays)
+                or (int(match.group(4)), int(match.group(5))) <= (int(match.group(2)), int(match.group(3)))):
+            raise Failure(10, '封鎖生效時段格式須為「mon-fri 09:00-15:00」，星期須為 mon 至 sun，且結束時間須晚於開始時間')
+    zone = env.get('LICENSE_TIMEZONE')
+    if zone is not None:
+        from zoneinfo import ZoneInfo
+        try:
+            ZoneInfo(zone)
+        except Exception:
+            raise Failure(10, '時區不合法（需為 IANA 名稱，例如 Asia/Taipei）') from None
     if not isinstance(admin, dict) or set(admin) != {'username', 'password', 'display_name'}:
         raise Failure(10, '管理員輸入格式不符')
     if any(not isinstance(v, str) or not v for v in admin.values()):
@@ -260,6 +278,10 @@ class Installer:
             self.compose(['--profile', 'init', 'run', '--rm', '-T', '--no-build', '--pull', 'never', 'init', 'python', '-m', 'app.system_init'])
             self.compose(['--profile', 'init', 'run', '--rm', '-T', '--no-build', '--pull', 'never', 'init',
                           'python', '-m', 'app.secret_files', 'app.entry_permission.create_admin'], data=canonical(admin))
+        elif step == 'guard-up':
+            self.remember(step, {'kind': 'containers'})
+            # Start the guard first so its first report exists when the backend starts.
+            self.compose(['up', '-d', '--wait', '--wait-timeout', '180', '--no-build', '--pull', 'never', 'guard'])
         elif step == 'compose-up':
             self.remember(step, {'kind': 'containers'})
             # Wait for backend before starting nginx to avoid its DNS/startup race.
@@ -283,10 +305,16 @@ class Installer:
         elif step == 'health-check':
             self.compose(['exec', '-T', 'backend', 'python', '-c',
                           "import urllib.request; urllib.request.urlopen('http://proxy/healthz', timeout=10)"])
-            # The running backend must itself accept the installed license (chain, expiry and manifest binding).
+            # The running backend must itself accept the license (chain, expiry, manifest) and the guard's report must
+            # match it: this closes the loop from issuance on the host to the container's view of the same machine.
             self.compose(['exec', '-T', 'backend', 'python', '-c',
-                          "import json, sys, urllib.request; sys.exit(0 if json.load(urllib.request.urlopen("
-                          "'http://proxy/api/license/status', timeout=10)).get('valid') is True else 1)"])
+                          "import json, sys, time, urllib.request\n"
+                          "for _ in range(30):\n"
+                          " status = json.load(urllib.request.urlopen('http://proxy/api/license/status', timeout=10))\n"
+                          " if status.get('valid') is True and status['hardware']['status'] == 'match':\n"
+                          "  sys.exit(0)\n"
+                          " time.sleep(2)\n"
+                          "sys.exit(1)"])
         else:
             raise Failure(10, '尚未提供此步驟')
 

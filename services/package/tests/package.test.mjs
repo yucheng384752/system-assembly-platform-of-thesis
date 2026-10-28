@@ -168,6 +168,18 @@ async function checkDeployment(out, selected) {
   for (const mount of ['/system/license', '/system/trust/root.pem:ro', '/system/manifest/system-manifest.json:ro']) assert.ok(compose.includes(mount), mount);
   assert.match(compose, /LICENSE_DIR:\?/);
   assert.match(await read('backend/app/license_gate.py'), /OPEN_PATHS = frozenset\(\{"\/healthz"\}\)/);
+  // D136: the guard is the only component that sees the machine, so it must stay as small and closed as designed.
+  const guard = compose.slice(compose.indexOf('\n  guard:'), compose.indexOf('\n  proxy:'));
+  for (const hardening of ['user: "0:0"', 'read_only: true', 'cap_drop: [ALL]', 'no-new-privileges:true', 'network_mode: none',
+    '- /sys:/host/sys:ro', '"app.guard"', 'GUARD_RESULT_FILE: /guard/result.json']) assert.ok(guard.includes(hardening), hardening);
+  for (const forbidden of ['ports:', 'networks:', 'expose:', '/system/license', 'secrets', 'DATABASE_URL', '/var/run/docker.sock', 'privileged']) {
+    assert.ok(!guard.includes(forbidden), 'guard must not have ' + forbidden);
+  }
+  assert.ok(compose.includes('guard:/guard:ro'), 'the backend reads the guard report read-only');
+  assert.equal(compose.match(/- \/sys:\/host\/sys:ro/g)?.length, 1, 'only the guard sees the host /sys');
+  assert.match(await read('backend/app/guard.py'), /def collect\(sys_root\)/);
+  assert.match(await read('backend/app/license_hardware.py'), /def evaluate\(/);
+  assert.match(await read('deployment/.env.example'), /LICENSE_BLOCK_WINDOW=/);
   assert.match(main, /if not os.environ.get\(name, ""\).strip\(\)/);
   assert.ok(main.indexOf('Required environment variable') < main.indexOf('from app.api.deps'));
   assert.ok(main.indexOf('app.middleware("http")(endpoint_permission_middleware)') < main.indexOf('app.middleware("http")(entry_permission_middleware)'));

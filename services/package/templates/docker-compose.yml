@@ -33,6 +33,10 @@ services:
       LICENSE_FILE: /system/license/license.lic
       LICENSE_ROOT_KEY_FILE: /system/trust/root.pem
       SYSTEM_MANIFEST_FILE: /system/manifest/system-manifest.json
+      GUARD_RESULT_FILE: /guard/result.json
+      LICENSE_STATE_FILE: /system/data/license-state.json
+      LICENSE_BLOCK_WINDOW: ${LICENSE_BLOCK_WINDOW:-mon-fri 09:00-15:00}
+      LICENSE_TIMEZONE: ${LICENSE_TIMEZONE:-Asia/Taipei}
     expose: ["8000"]
     secrets: &backend-secrets
       - database_url
@@ -44,6 +48,7 @@ services:
       - ${LICENSE_DIR:?LICENSE_DIR is required}:/system/license
       - ${ROOT_KEY_FILE:?ROOT_KEY_FILE is required}:/system/trust/root.pem:ro
       - ${MANIFEST_FILE:?MANIFEST_FILE is required}:/system/manifest/system-manifest.json:ro
+      - guard:/guard:ro
     networks: [data, edge]
     depends_on:
       postgres:
@@ -67,6 +72,29 @@ services:
         condition: service_healthy
     command: ["python", "-m", "app.system_init"]
     restart: "no"
+  guard:
+    # D136, D143: the only component that sees the machine. Root is needed to read the DMI serials; everything else
+    # is taken away. It has no network and no published port, and only writes its report to the guard volume.
+    build: *backend-build
+    command: ["python", "-m", "app.guard"]
+    user: "0:0"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    network_mode: none
+    restart: unless-stopped
+    environment:
+      GUARD_SYS_ROOT: /host/sys
+      GUARD_RESULT_FILE: /guard/result.json
+    volumes:
+      - /sys:/host/sys:ro
+      - guard:/guard
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, sys, time; sys.exit(0 if time.time() - os.path.getmtime('/guard/result.json') < 900 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
   proxy:
     image: nginx:1.28.0-bookworm
     ports:
@@ -83,6 +111,7 @@ volumes:
   database:
   files:
   permissions:
+  guard:
 secrets:
   postgres_password:
     file: ../secrets/postgres_password

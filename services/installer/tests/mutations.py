@@ -1,4 +1,4 @@
-"""Ten isolated mutations. Syntax/import errors never count as killed mutations."""
+"""Fourteen isolated mutations. Syntax/import errors never count as killed mutations."""
 import os
 from pathlib import Path
 import shutil
@@ -16,7 +16,15 @@ CASES = [
     ('ownership-label', 'install.py', "return (labels or {}).get(LABEL) == self.install_id", 'return True', 'test_rollback_label_boundary_and_nonempty_volumes'),
     ('secrets-in-env-file', 'install.py', 'public = {name: env[name] for name in PUBLIC_ENV if name in env}', 'public = dict(env)', 'test_apply_and_no_secret_copies'),
     ('backend-cannot-read-secrets', 'install.py', "owner = {} if filename == 'postgres_password' else {'owner': [BACKEND_UID, BACKEND_UID]}", 'owner = {}', 'test_apply_and_no_secret_copies'),
-    ('license-after-services', 'install.py', "'db-init', 'migration', 'license-install', 'compose-up', 'health-check']", "'db-init', 'migration', 'compose-up', 'license-install', 'health-check']", 'test_license_install_drift_is_code_12'),
+    ('license-after-services', 'install.py', "'db-init', 'migration', 'license-install', 'guard-up', 'compose-up', 'health-check']", "'db-init', 'migration', 'guard-up', 'compose-up', 'license-install', 'health-check']", 'test_license_install_drift_is_code_12'),
+    ('guard-after-backend', 'install.py', "'db-init', 'migration', 'license-install', 'guard-up', 'compose-up', 'health-check']",
+     "'db-init', 'migration', 'license-install', 'compose-up', 'guard-up', 'health-check']", 'test_guard_starts_before_the_backend_and_health_check_waits_for_a_hardware_match'),
+    ('guard-image-not-required', 'package.py', "if services != {'postgres', 'backend', 'init', 'guard', 'proxy'}:",
+     "if not services >= {'postgres', 'backend', 'init', 'proxy'}:", 'test_manifest_must_assign_an_image_to_the_guard_too'),
+    ('health-ignores-hardware', 'install.py', " and status['hardware']['status'] == 'match'", '',
+     'test_guard_starts_before_the_backend_and_health_check_waits_for_a_hardware_match'),
+    ('window-not-validated', 'install.py', "or (int(match.group(4)), int(match.group(5))) <= (int(match.group(2)), int(match.group(3)))):", '):',
+     'test_block_window_and_time_zone_are_validated_and_written_only_when_given'),
     ('admin-without-secret-loader', 'install.py', "'python', '-m', 'app.secret_files', 'app.entry_permission.create_admin'", "'python', '-m', 'app.entry_permission.create_admin'", 'test_apply_and_no_secret_copies'),
 ]
 
