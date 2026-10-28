@@ -7,7 +7,7 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy.engine import Engine
 
-MIGRATIONS = Path(__file__).resolve().parents[1] / 'migrations'
+MIGRATIONS = Path(__file__).resolve().parent / 'migrations'
 
 
 def upgrade(engine: Engine, revision: str = 'head') -> None:

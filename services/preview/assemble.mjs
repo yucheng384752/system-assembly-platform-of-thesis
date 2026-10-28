@@ -11,6 +11,7 @@ export const excluded = new Map([
   ['tenant-auth-kit', 'D03：已廢除，不納入身分驗證'],
   ['station-admin-kit', 'T2：缺少 routes_stations.py，無可啟動來源'],
   ['entry-permission-kit', 'D127：預覽不含身分驗證，由預覽閘門取代；正式系統包才納入'],
+  ['factory-core-kit', '工廠執行核心只屬於正式系統包：它要由入口權限中介層保護，預覽沒有'],
 ]);
 // Reference registry prefixes, plus three routers present only in the actual kits.
 // D127: the entry-permission routers declare their own /api/... prefix, so the registration prefix is empty.
@@ -23,10 +24,12 @@ export const prefixes = new Map([
   ['routes_mod_subscription', ''], ['routes_admin_permissions', ''],
   ['routes_import', '/api'],
   ['routes_ep_auth', ''], ['routes_ep_users', ''], ['routes_ep_roles', ''], ['routes_ep_entry_points', ''],
+  ['routes_factory', ''],
 ]);
 // Routers that never resolve a tenant: the broker and permission admin, plus the entry-permission routers (one fixed tenant, D127).
 export const tenantFree = new Set(['routes_kit_broker', 'routes_admin_permissions', 'routes_audit_events', 'routes_mod_subscription',
-  'routes_ep_auth', 'routes_ep_users', 'routes_ep_roles', 'routes_ep_entry_points']);
+  'routes_ep_auth', 'routes_ep_users', 'routes_ep_roles', 'routes_ep_entry_points',
+  'routes_factory']);
 
 /** @param {string} root @returns {Promise<string[]>} */
 export async function files(root) {

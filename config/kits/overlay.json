@@ -20,5 +20,10 @@
     "category": "permission", "required": false,
     "businessCapability": "規劃使用者登入與使用權限；目前僅提供功能設定，尚未串接身分驗證。",
     "dependencies": ["platform-core-kit"], "subfeatures": []
+  }, {
+    "id": "factory-core-kit", "version": "0.1.0", "displayName": "工廠執行核心",
+    "category": "production", "required": false,
+    "businessCapability": "接收生產計畫、管理生產參數的提出與核准、建立工單，並在警報未確認時暫停對應步驟。",
+    "dependencies": ["platform-core-kit", "entry-permission-kit"], "subfeatures": []
   }]
 }

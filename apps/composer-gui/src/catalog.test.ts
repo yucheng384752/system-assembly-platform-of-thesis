@@ -6,7 +6,7 @@ import { emptyGraph, suggestActions } from './workflowGraph';
 test('real manifest accepts BOM, validates schema and applies D03 without mutating baseline', () => {
   expect(parseManifest('\uFEFF' + raw.replace(/^\uFEFF/, '')).kits).toHaveLength(12);
   expect(() => parseManifest('{"kits":[]}')).toThrow('kit:');
-  expect(kits).toHaveLength(12);
+  expect(kits).toHaveLength(13);
   expect(kits.some(k => k.id === 'tenant-auth-kit')).toBe(false);
   expect(kits.flatMap(k => k.dependencies)).not.toContain('tenant-auth-kit');
   expect(kits.find(k => k.id === 'entry-permission-kit')?.required).toBe(false);

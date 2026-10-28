@@ -1,13 +1,21 @@
 """Test harness for the HTTP API. The middleware here is a stand-in for the shared entry-permission middleware:
 it sets the same request state from two test headers and decides nothing else."""
-from fastapi import Request
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from fixtures import EVALUATOR, FORMS, KITS, load, text
-from factory_api import Environment, create_app
+from factory_api.routes_factory import build_router
+from factory_api.support import Environment, utc_now
 from factory_core.workorder import FactoryState
 
 PLAN = load('valid.json')
+
+
+def create_app(state, *, environment, clock=utc_now) -> FastAPI:
+    """The routes alone on a fresh application, with the given state; the real deployment mounts them in the system backend."""
+    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+    app.include_router(build_router(lambda: state, environment=environment, clock=clock))
+    return app
 
 
 class Clock:

@@ -26,8 +26,8 @@ Data first: these tables are what `factory_core/sql_schema.py`, the Alembic revi
 
 - Proposer and approver must differ unless the approver is a manager or admin.
 - A work order pins the latest approved set; the pinned set being approved is checked by the service, not by a constraint.
-- Which roles may call which entry point is decided by entry-permission at the API layer, which does not exist yet.
+- Which roles may call which entry point is decided by entry-permission at the API layer (`kit.contract.json`).
 
 ## Running
 
-Fresh install: `factory_core.migrate.upgrade(engine)`, or `alembic` with `script_location = services/factory/migrations`. Tests build the same schema with `sql_schema.create_all`. Any later change to a table or guard is a new revision; revision 0001 is not edited.
+Fresh install: `factory_core.migrate.upgrade(engine)` (the system init step calls it), or `alembic` with `script_location = services/factory/factory_core/migrations`. Tests build the same schema with `sql_schema.create_all`. Any later change to a table or guard is a new revision; revision 0001 is not edited.

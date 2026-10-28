@@ -1,0 +1,100 @@
+{
+  "kit": "factory-core-kit",
+  "provides": {
+    "api": [
+      { "capability": "factory.plans.receive", "method": "POST", "path": "/api/factory/plans" },
+      { "capability": "factory.plans.list", "method": "GET", "path": "/api/factory/plans" },
+      { "capability": "factory.plans.get", "method": "GET", "path": "/api/factory/plans/{plan_id}" },
+      { "capability": "factory.params.propose", "method": "POST", "path": "/api/factory/plans/{plan_id}/parameter-sets" },
+      { "capability": "factory.params.list", "method": "GET", "path": "/api/factory/plans/{plan_id}/parameter-sets" },
+      { "capability": "factory.params.decide", "method": "POST", "path": "/api/factory/plans/{plan_id}/parameter-sets/{set_version}/decision" },
+      { "capability": "factory.orders.create", "method": "POST", "path": "/api/factory/work-orders" },
+      { "capability": "factory.orders.get", "method": "GET", "path": "/api/factory/work-orders/{order_id}" },
+      { "capability": "factory.orders.start", "method": "POST", "path": "/api/factory/work-orders/{order_id}/start" },
+      { "capability": "factory.alarms.raise", "method": "POST", "path": "/api/factory/work-orders/{order_id}/alarms" },
+      { "capability": "factory.alarms.list", "method": "GET", "path": "/api/factory/alarms" },
+      { "capability": "factory.alarms.acknowledge", "method": "POST", "path": "/api/factory/alarms/{alarm_id}/acknowledge" },
+      { "capability": "factory.alarms.remind", "method": "POST", "path": "/api/factory/alarms/reminders" }
+    ]
+  },
+  "consumes": { "api": [], "db": [] },
+  "entryPoints": [
+    {
+      "key": "factory.plan_view",
+      "label": "檢視生產計畫、工單與警報",
+      "access": "read",
+      "defaultRoles": ["admin", "manager", "operator", "audit"],
+      "routes": [
+        { "capability": "factory.plans.list", "method": "GET", "path": "/api/factory/plans" },
+        { "capability": "factory.plans.get", "method": "GET", "path": "/api/factory/plans/{plan_id}" },
+        { "capability": "factory.params.list", "method": "GET", "path": "/api/factory/plans/{plan_id}/parameter-sets" },
+        { "capability": "factory.orders.get", "method": "GET", "path": "/api/factory/work-orders/{order_id}" },
+        { "capability": "factory.alarms.list", "method": "GET", "path": "/api/factory/alarms" }
+      ]
+    },
+    {
+      "key": "factory.plan_publish",
+      "label": "接收生產計畫",
+      "access": "write",
+      "defaultRoles": ["admin", "manager"],
+      "routes": [
+        { "capability": "factory.plans.receive", "method": "POST", "path": "/api/factory/plans" }
+      ]
+    },
+    {
+      "key": "factory.order_manage",
+      "label": "建立與開工工單",
+      "access": "write",
+      "defaultRoles": ["admin", "manager", "operator"],
+      "routes": [
+        { "capability": "factory.orders.create", "method": "POST", "path": "/api/factory/work-orders" },
+        { "capability": "factory.orders.start", "method": "POST", "path": "/api/factory/work-orders/{order_id}/start" }
+      ]
+    },
+    {
+      "key": "factory.params_propose",
+      "label": "提出生產參數修改",
+      "access": "write",
+      "defaultRoles": ["admin", "manager", "operator"],
+      "routes": [
+        { "capability": "factory.params.propose", "method": "POST", "path": "/api/factory/plans/{plan_id}/parameter-sets" }
+      ]
+    },
+    {
+      "key": "factory.params_approve",
+      "label": "核准或駁回生產參數修改",
+      "access": "write",
+      "defaultRoles": ["admin", "manager"],
+      "routes": [
+        { "capability": "factory.params.decide", "method": "POST", "path": "/api/factory/plans/{plan_id}/parameter-sets/{set_version}/decision" }
+      ]
+    },
+    {
+      "key": "factory.alarm_raise",
+      "label": "回報超出範圍的警報",
+      "access": "write",
+      "defaultRoles": ["admin", "manager", "operator"],
+      "routes": [
+        { "capability": "factory.alarms.raise", "method": "POST", "path": "/api/factory/work-orders/{order_id}/alarms" }
+      ]
+    },
+    {
+      "key": "factory.alarm_acknowledge",
+      "label": "確認警報並解除節點暫停",
+      "access": "write",
+      "defaultRoles": ["admin", "manager"],
+      "routes": [
+        { "capability": "factory.alarms.acknowledge", "method": "POST", "path": "/api/factory/alarms/{alarm_id}/acknowledge" }
+      ]
+    },
+    {
+      "key": "factory.alarm_remind",
+      "label": "收取到期的警報提醒",
+      "access": "write",
+      "defaultRoles": ["admin", "manager"],
+      "routes": [
+        { "capability": "factory.alarms.remind", "method": "POST", "path": "/api/factory/alarms/reminders" }
+      ]
+    }
+  ]
+}

@@ -13,7 +13,7 @@ test('actual kit inventory, deterministic assembly, closed imports and source pr
     const second = await assemble(path.join(temp, 'two'));
     assert.deepEqual(first, second);
     assert.equal(first.included.length, 10);
-    assert.deepEqual(first.excluded.map(k => k.kit), ['entry-permission-kit', 'station-admin-kit', 'tenant-auth-kit']);
+    assert.deepEqual(first.excluded.map(k => k.kit), ['entry-permission-kit', 'factory-core-kit', 'station-admin-kit', 'tenant-auth-kit']);
     assert.ok(first.excluded.every(k => k.reason));
     assert.equal(first.overrides.length, 1);
     const after = await inventory(path.join(repository, 'kits'));
@@ -160,7 +160,7 @@ test('container isolation, fake subscription and fixed dependency versions', asy
 
 test('policy metadata uses catalog replacements, unavailable kits and workflow bindings', async () => {
   const policy = await policyData(await inventory(path.join(repository, 'kits')));
-  assert.equal(Object.keys(policy.kits).length, 12);
+  assert.equal(Object.keys(policy.kits).length, 13);
   assert.equal(policy.kits['tenant-auth-kit'], undefined);
   for (const kit of ['entry-permission-kit', 'station-admin-kit']) {
     assert.equal(policy.kits[kit].available, false);
@@ -289,5 +289,5 @@ test('inventory takes a caller-supplied exclusion map; the preview default still
   const own = new Map([...excluded].filter(([kit]) => kit !== 'entry-permission-kit'));
   const system = await inventory(kits, null, own);
   assert.ok(system.included.includes('entry-permission-kit'), 'a system package may include the kit the preview excludes');
-  assert.deepEqual(system.excluded.map(k => k.kit), ['station-admin-kit', 'tenant-auth-kit']);
+  assert.deepEqual(system.excluded.map(k => k.kit), ['factory-core-kit', 'station-admin-kit', 'tenant-auth-kit']);
 });

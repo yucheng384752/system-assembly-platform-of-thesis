@@ -1,7 +1,8 @@
 """Full JSON Schema validation of an executable plan (contract section 6).
 
-The schema file is the single source shared with the TypeScript side (`schemas/executable-plan.schema.json`); it is
-read from the repository by default, or from FACTORY_PLAN_SCHEMA when the service is deployed without the repository.
+The schema file is the single source shared with the TypeScript side (`schemas/executable-plan.schema.json`). It is read
+from FACTORY_PLAN_SCHEMA when set, else from a copy shipped next to this module (a deployed Kit carries one), else from
+the repository.
 """
 from __future__ import annotations
 
@@ -12,7 +13,9 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-DEFAULT_SCHEMA = Path(__file__).resolve().parents[3] / 'schemas' / 'executable-plan.schema.json'
+SCHEMA_NAME = 'executable-plan.schema.json'
+SHIPPED = Path(__file__).resolve().parent / SCHEMA_NAME
+DEFAULT_SCHEMA = SHIPPED if SHIPPED.exists() else Path(__file__).resolve().parents[3] / 'schemas' / SCHEMA_NAME
 
 
 @lru_cache(maxsize=1)

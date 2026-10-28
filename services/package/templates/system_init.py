@@ -32,7 +32,7 @@ async def initialize():
                     id=tenant_id, name=system_id, code=system_id, is_active=True, is_default=True))
     finally:
         await database.close_db()
-
+@@FACTORY_INIT@@
 
 if __name__ == "__main__":
     asyncio.run(initialize())
