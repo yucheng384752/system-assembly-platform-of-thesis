@@ -1,214 +1,244 @@
 """
-License verification for Form System Kit Composer generated systems.
-Checks RSA-PSS signature, expiry, and machine binding. Startup code must treat
-invalid results as fatal.
+License 3.0 verification for generated systems (composer-refactor D129 to D132, D142).
 
-Machine binding (composer-refactor D37-D38, replaces the baseline TPM binding):
-  - license payload schemaVersion 2.0 must carry machineFingerprint and fingerprintSource.
-  - windows-machine-guid: SHA-256 of HKLM\\SOFTWARE\\Microsoft\\Cryptography MachineGuid.
-  - linux-machine-id: SHA-256 of /etc/machine-id (mount it read-only into containers).
-  - Both values are trimmed and lowercased before hashing, matching
-    scripts/security/get-machine-fingerprint.ps1 / .sh in composer-refactor.
-  - These IDs are copied along with VM or disk images; binding only stops moving files
-    to another machine (D44).
-  - TPM EK fingerprints and machinePublicKey challenge-response are no longer supported;
-    such licenses are rejected with an explicit reason instead of being ignored.
+Chain: the offline root key signs a short-lived sub-key certificate; the sub-key signs the license.
+The license is bound to the exact system-manifest.json (sha256) and carries hashed hardware
+fingerprint sources. This module verifies signature chain, validity and manifest binding. Hardware
+matching is separate (fingerprint_matches) because only the guard container can read the host.
+
+Rules mirror scripts/security/system-license.mjs and services/installer/engine/license.py:
+  - envelopes are { payload (exact JSON string), signature (base64), algorithm "RSA-PSS-SHA256" }, salt length 32.
+  - key id = SHA-256 of the SPKI DER of the public key.
+  - the certificate is signed by the root key; the license by the certificate's key.
+  - issuedAt must lie inside the certificate interval; the certificate expiring afterwards does not
+    invalidate an already issued license.
+  - licensee must match the certificate, expiresAt must be in the future, packageManifestSha256 must
+    equal the installed manifest hash.
+The 2.0 format (single machine fingerprint, embedded public key) is no longer accepted.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
-import hmac
 import json
-import logging
 import os
-import platform
-import subprocess
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
-# Replaced with the issuer's RSA-2048 SubjectPublicKeyInfo PEM when the system is assembled.
-# Left as the placeholder, every license is refused so a missing key cannot pass as "invalid license" (D41).
-_PUBLIC_KEY_PLACEHOLDER = "__COMPOSER_LICENSE_PUBLIC_KEY__"
-_PUBLIC_KEY_PEM = _PUBLIC_KEY_PLACEHOLDER
+DEFAULT_LICENSE_FILE = "/system/license/license.lic"
+DEFAULT_ROOT_KEY_FILE = "/system/trust/root.pem"
+DEFAULT_MANIFEST_FILE = "/system/manifest/system-manifest.json"
 
-SCHEMA_VERSION = "2.0"
-FINGERPRINT_SOURCES = ("windows-machine-guid", "linux-machine-id")
-_REQUIRED_FIELDS = (
-    "schemaVersion", "issuedAt", "expiresAt", "licensee", "recipe", "enabledKits",
-    "machineFingerprint", "fingerprintSource", "packageManifestSha256",
+_HEX64 = re.compile(r"[a-f0-9]{64}")
+_STAMP = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z")
+_SOURCE = re.compile(r"(product_uuid|product_serial|board_serial|chassis_serial|(?:mac|disk):[^/\s]+)")
+_SYSTEM_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,49}")
+_NAME = re.compile(r"[a-z0-9-]+")
+
+# Stable codes; the status page maps them to operator-facing text.
+CODES = (
+    "ok", "license-missing", "root-key-missing", "manifest-missing", "malformed", "signature",
+    "certificate", "issued-outside-certificate", "licensee-mismatch", "expired", "manifest-mismatch",
 )
+
+
+class LicenseError(Exception):
+    def __init__(self, code: str, detail: str = ""):
+        super().__init__(detail or code)
+        self.code = code
 
 
 @dataclass
 class LicenseResult:
     valid: bool
+    code: str = "ok"
+    reason: str = ""
     licensee: str = ""
     expires_at: str = ""
-    reason: str = ""
+    system_id: str = ""
+    enabled_kits: tuple[str, ...] = ()
+    min_match: int = 2
+    sources: tuple[tuple[str, str], ...] = field(default_factory=tuple)
 
 
-def _find_license_file() -> Path | None:
-    here = Path(__file__).resolve()
-    candidates = [
-        Path(os.getcwd()) / "license.lic",
-        Path(os.getcwd()).parent / "license.lic",
-    ]
-    for idx in (3, 4, 5):
-        try:
-            candidates.insert(idx - 3, here.parents[idx] / "license.lic")
-        except IndexError:
-            continue
-    for p in candidates:
-        try:
-            if p.exists():
-                return p
-        except (OSError, ValueError):
-            continue
-    return None
-
-
-def verify_license() -> LicenseResult:
-    lic_path = _find_license_file()
-    if lic_path is None:
-        return LicenseResult(valid=False, reason="license.lic not found")
-    return verify_license_text(lic_path.read_text("utf-8-sig"))
-
-
-def verify_license_text(text: str) -> LicenseResult:
-    """Verify a license.lic document: signature, payload contract, expiry, then machine binding."""
-    if _PUBLIC_KEY_PEM.strip() == _PUBLIC_KEY_PLACEHOLDER:
-        return LicenseResult(valid=False, reason="issuer public key was not embedded at assembly; no license can be verified")
-
+def _stamp(value) -> datetime:
+    if not isinstance(value, str) or not _STAMP.fullmatch(value):
+        raise LicenseError("malformed", "invalid timestamp")
     try:
-        from cryptography.hazmat.primitives import hashes, serialization
-        from cryptography.hazmat.primitives.asymmetric import padding
-        from cryptography.exceptions import InvalidSignature
-        import base64
-    except ImportError:
-        return LicenseResult(valid=False, reason="cryptography package not installed")
+        return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    except ValueError:
+        raise LicenseError("malformed", "invalid calendar date") from None
 
-    try:
-        lic_data = json.loads(text)
-        payload_str: str = lic_data["payload"]
-        sig_b64: str = lic_data["signature"]
-        if lic_data.get("algorithm") != "RSA-PSS-SHA256":
-            return LicenseResult(valid=False, reason=f"unsupported algorithm: {lic_data.get('algorithm')!r}")
-    except Exception as exc:
-        return LicenseResult(valid=False, reason=f"malformed license.lic: {exc}")
 
-    # Verify RSA-PSS license signature (issuer signs the exact payload string)
+def _shape(value, fields: str) -> dict:
+    if not isinstance(value, dict) or set(value) != set(fields.split()):
+        raise LicenseError("malformed", "unexpected fields")
+    return value
+
+
+def _text(value, low: int, high: int) -> str:
+    if not isinstance(value, str) or not low <= len(value) <= high:
+        raise LicenseError("malformed", "invalid text")
+    return value
+
+
+def _match(value, expression: re.Pattern) -> str:
+    if not isinstance(value, str) or not expression.fullmatch(value):
+        raise LicenseError("malformed", "invalid pattern")
+    return value
+
+
+def _licensee(value) -> str:
+    _shape(value, "name")
+    return _text(value["name"], 1, 100)
+
+
+def _public_key(pem: str, code: str = "certificate"):
     try:
-        pub_key = serialization.load_pem_public_key(_PUBLIC_KEY_PEM.encode())
-        # salt_length=32 matches Node.js saltLength 32 used by scripts/security/lib.mjs.
-        # PSS.DIGEST_LENGTH is only available in cryptography >= 41; use the
-        # literal value so older deployments (Ubuntu 22.04 default) are supported.
-        pub_key.verify(
-            base64.b64decode(sig_b64, validate=True),
-            payload_str.encode("utf-8"),
-            padding.PSS(
-                mgf=padding.MGF1(hashes.SHA256()),
-                salt_length=32,
-            ),
-            hashes.SHA256(),
-        )
+        key = serialization.load_pem_public_key(pem.encode("utf-8"))
+    except (ValueError, TypeError, UnicodeError):
+        raise LicenseError(code, "unreadable public key") from None
+    if not isinstance(key, rsa.RSAPublicKey) or key.key_size < 2048:
+        raise LicenseError(code, "RSA key of at least 2048 bits required")
+    return key
+
+
+def key_id(pem: str, code: str = "certificate") -> str:
+    der = _public_key(pem, code).public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
+    return hashlib.sha256(der).hexdigest()
+
+
+def _signed(envelope, pem: str, code: str) -> dict:
+    _shape(envelope, "payload signature algorithm")
+    _text(envelope["payload"], 2, 65536)
+    _text(envelope["signature"], 1, 1024)
+    if envelope["algorithm"] != "RSA-PSS-SHA256":
+        raise LicenseError("malformed", "unsupported algorithm")
+    try:
+        signature = base64.b64decode(envelope["signature"], validate=True)
+    except ValueError:
+        raise LicenseError("malformed", "signature is not base64") from None
+    try:
+        # salt_length is the literal 32: PSS.DIGEST_LENGTH is missing before cryptography 41.
+        _public_key(pem, code).verify(signature, envelope["payload"].encode("utf-8"),
+                                      padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=32), hashes.SHA256())
     except InvalidSignature:
-        return LicenseResult(valid=False, reason="signature verification failed")
-    except Exception as exc:
-        return LicenseResult(valid=False, reason=f"signature error: {exc}")
-
+        raise LicenseError(code, "signature verification failed") from None
     try:
-        payload = json.loads(payload_str)
-    except Exception as exc:
-        return LicenseResult(valid=False, reason=f"payload parse error: {exc}")
-    problem = _payload_problem(payload)
-    if problem:
-        return LicenseResult(valid=False, reason=problem)
-
-    expires_at = payload["expiresAt"]
-    licensee = payload["licensee"]["name"]
-    try:
-        expiry_dt = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
-    except ValueError as exc:
-        return LicenseResult(valid=False, reason=f"payload parse error: {exc}")
-    if datetime.now(timezone.utc) > expiry_dt:
-        return LicenseResult(valid=False, licensee=licensee, expires_at=expires_at, reason="license expired")
-
-    source = payload["fingerprintSource"]
-    current_fp = machine_fingerprint(source)
-    if current_fp is None:
-        return LicenseResult(valid=False, licensee=licensee, expires_at=expires_at,
-                             reason=f"cannot read the {source} machine identity on this machine")
-    if not hmac.compare_digest(current_fp, payload["machineFingerprint"]):
-        return LicenseResult(valid=False, licensee=licensee, expires_at=expires_at,
-                             reason="machine fingerprint mismatch - license issued for a different machine")
-
-    return LicenseResult(valid=True, licensee=licensee, expires_at=expires_at)
-
-
-def _payload_problem(payload: object) -> str:
-    """Return why a signed payload is unacceptable, or an empty string."""
+        payload = json.loads(envelope["payload"])
+    except ValueError:
+        raise LicenseError("malformed", "payload is not JSON") from None
     if not isinstance(payload, dict):
-        return "payload must be a JSON object"
-    if "machinePublicKey" in payload:
-        return "TPM-bound licenses are no longer supported; re-issue with a machine fingerprint (schemaVersion 2.0)"
-    if payload.get("schemaVersion") != SCHEMA_VERSION:
-        return f"unsupported license schemaVersion {payload.get('schemaVersion')!r}; expected {SCHEMA_VERSION}"
-    missing = [name for name in _REQUIRED_FIELDS if name not in payload]
-    if missing:
-        return f"license payload missing: {', '.join(missing)}"
-    if payload["fingerprintSource"] not in FINGERPRINT_SOURCES:
-        return f"unknown fingerprintSource {payload['fingerprintSource']!r}"
-    if not isinstance(payload["licensee"], dict) or not isinstance(payload["licensee"].get("name"), str):
-        return "license payload licensee.name must be a string"
-    if not isinstance(payload["expiresAt"], str) or not isinstance(payload["machineFingerprint"], str):
-        return "license payload expiresAt and machineFingerprint must be strings"
-    return ""
+        raise LicenseError("malformed", "payload is not an object")
+    return payload
 
 
-def machine_fingerprint(source: str) -> str | None:
-    """SHA-256 of this machine's identity for the given source; None when unavailable or the wrong platform."""
-    is_windows = platform.system() == "Windows"
-    if source == "windows-machine-guid":
-        return _hash_identity(_windows_machine_guid()) if is_windows else None
-    if source == "linux-machine-id":
-        return _hash_identity(_linux_machine_id()) if not is_windows else None
-    return None
+def _certificate(envelope, root_pem: str) -> dict:
+    cert = _signed(envelope, root_pem, "certificate")
+    _shape(cert, "schemaVersion keyId issuerKeyId subjectPublicKey licensee notBefore notAfter")
+    if cert["schemaVersion"] != "1.0":
+        raise LicenseError("malformed", "unsupported certificate version")
+    _licensee(cert["licensee"])
+    _match(cert["issuerKeyId"], _HEX64)
+    _match(cert["keyId"], _HEX64)
+    if cert["issuerKeyId"] != key_id(root_pem):
+        raise LicenseError("certificate", "issuerKeyId does not match the trusted root key")
+    if cert["keyId"] != key_id(_text(cert["subjectPublicKey"], 1, 8192)):
+        raise LicenseError("certificate", "keyId does not match the certificate key")
+    if _stamp(cert["notAfter"]) <= _stamp(cert["notBefore"]):
+        raise LicenseError("certificate", "invalid certificate interval")
+    return cert
 
 
-def _hash_identity(raw: str | None) -> str | None:
-    value = (raw or "").strip().lower()
-    return hashlib.sha256(value.encode("utf-8")).hexdigest() if value else None
+def _payload_shape(payload: dict) -> None:
+    _shape(payload, "schemaVersion issuedAt expiresAt licensee systemId recipe enabledKits fingerprint packageManifestSha256")
+    if payload["schemaVersion"] != "3.0":
+        raise LicenseError("malformed", "unsupported license version")
+    _stamp(payload["issuedAt"])
+    _stamp(payload["expiresAt"])
+    _licensee(payload["licensee"])
+    _match(payload["systemId"], _SYSTEM_ID)
+    _match(payload["recipe"], _NAME)
+    kits = payload["enabledKits"]
+    if not isinstance(kits, list) or not kits:
+        raise LicenseError("malformed", "invalid enabledKits")
+    for kit in kits:
+        _match(kit, _NAME)
+    if len(set(kits)) != len(kits):
+        raise LicenseError("malformed", "duplicate enabledKits")
+    fingerprint = _shape(payload["fingerprint"], "minMatch sources")
+    if isinstance(fingerprint["minMatch"], bool) or fingerprint["minMatch"] != 2:
+        raise LicenseError("malformed", "invalid minMatch")
+    sources = fingerprint["sources"]
+    if not isinstance(sources, list) or len(sources) < 3:
+        raise LicenseError("malformed", "at least three fingerprint sources are required")
+    for item in sources:
+        _shape(item, "source sha256")
+        _match(item["source"], _SOURCE)
+        _match(item["sha256"], _HEX64)
+    if len({item["source"] for item in sources}) != len(sources):
+        raise LicenseError("malformed", "duplicate fingerprint source")
+    _match(payload["packageManifestSha256"], _HEX64)
 
 
-def _windows_machine_guid() -> str | None:
+def verify_license_text(text: str, root_public_key_pem: str, manifest_sha256: str,
+                        now: datetime | None = None) -> LicenseResult:
+    """Chain, validity and manifest binding. Never raises for bad input; the result carries a code."""
+    now = now or datetime.now(timezone.utc)
     try:
-        import winreg
-        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Cryptography",
-                            0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
-            value, _ = winreg.QueryValueEx(key, "MachineGuid")
-            return str(value)
-    except (ImportError, OSError) as exc:
-        logger.warning("license: cannot read MachineGuid from the registry: %s", exc)
-    try:
-        result = subprocess.run(
-            [
-                "powershell", "-NoProfile", "-NonInteractive", "-Command",
-                "(Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Cryptography' -Name MachineGuid).MachineGuid",
-            ],
-            capture_output=True, text=True, timeout=10,
-        )
-        return result.stdout if result.returncode == 0 else None
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        logger.warning("license: cannot read MachineGuid via PowerShell: %s", exc)
-        return None
+        try:
+            value = json.loads(text)
+        except (ValueError, TypeError):
+            raise LicenseError("malformed", "license is not JSON") from None
+        _shape(value, "payload signature algorithm issuerCertificate")
+        cert = _certificate(value["issuerCertificate"], root_public_key_pem)
+        payload = _signed({k: v for k, v in value.items() if k != "issuerCertificate"}, cert["subjectPublicKey"], "signature")
+        _payload_shape(payload)
+        if not _stamp(cert["notBefore"]) <= _stamp(payload["issuedAt"]) <= _stamp(cert["notAfter"]):
+            raise LicenseError("issued-outside-certificate", "issuedAt is outside the certificate interval")
+        if payload["licensee"]["name"] != cert["licensee"]["name"]:
+            raise LicenseError("licensee-mismatch", "licensee differs from the certificate")
+        base = dict(licensee=payload["licensee"]["name"], expires_at=payload["expiresAt"], system_id=payload["systemId"],
+                    enabled_kits=tuple(payload["enabledKits"]), min_match=payload["fingerprint"]["minMatch"],
+                    sources=tuple((s["source"], s["sha256"]) for s in payload["fingerprint"]["sources"]))
+        if _stamp(payload["expiresAt"]) <= now:
+            return LicenseResult(False, "expired", "license expired", **base)
+        if payload["packageManifestSha256"] != manifest_sha256:
+            return LicenseResult(False, "manifest-mismatch", "license was issued for a different package", **base)
+        return LicenseResult(True, "ok", "", **base)
+    except LicenseError as error:
+        return LicenseResult(False, error.code, str(error))
 
 
-def _linux_machine_id() -> str | None:
+def fingerprint_matches(result: LicenseResult, current_hashes) -> tuple[bool, int]:
+    """Count distinct hash values shared with the machine; source names are ignored (NIC names change)."""
+    matched = len({sha for _, sha in result.sources} & set(current_hashes))
+    return matched >= result.min_match, matched
+
+
+def _read(path: str, code: str) -> str:
     try:
-        return Path("/etc/machine-id").read_text("utf-8")
-    except (OSError, UnicodeDecodeError) as exc:
-        logger.warning("license: cannot read /etc/machine-id: %s", exc)
-        return None
+        return Path(path).read_text("utf-8-sig")
+    except (OSError, UnicodeError):
+        raise LicenseError(code, "file unavailable") from None
+
+
+def installed_license(environ=None, now: datetime | None = None) -> LicenseResult:
+    """Verify the installed license against the installed root key and manifest (paths are overridable)."""
+    env = os.environ if environ is None else environ
+    try:
+        root = _read(env.get("LICENSE_ROOT_KEY_FILE", DEFAULT_ROOT_KEY_FILE), "root-key-missing")
+        try:
+            manifest = Path(env.get("SYSTEM_MANIFEST_FILE", DEFAULT_MANIFEST_FILE)).read_bytes()
+        except OSError:
+            raise LicenseError("manifest-missing", "manifest unavailable") from None
+        text = _read(env.get("LICENSE_FILE", DEFAULT_LICENSE_FILE), "license-missing")
+    except LicenseError as error:
+        return LicenseResult(False, error.code, str(error))
+    return verify_license_text(text, root, hashlib.sha256(manifest).hexdigest(), now)

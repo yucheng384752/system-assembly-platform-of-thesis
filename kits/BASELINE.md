@@ -16,7 +16,7 @@
 
 - `platform-core-kit/src/backend/app/core/license.py`（2026-10-01，D37–D41）：移除 TPM EK 指紋與 challenge-response；授權 payload 升為 schemaVersion 2.0，必須以 `fingerprintSource`（Windows MachineGuid／Linux `/etc/machine-id`）綁定機器；公鑰改為組裝時填入的佔位值，未填入即拒絕所有授權。基線版行為以 commit `c4b2b7b` 為準。
 - 新增 `platform-core-kit/tests/test_license.py` 與 `requirements-test.txt`（pytest 9.1.1、cryptography 50.0.2，D43）。執行方式：`python -m venv .venv`，`.venv\Scripts\python -m pip install -r kits/platform-core-kit/requirements-test.txt`，再 `npm.cmd run test:kits`。
-- `platform-core-kit/tests/linux_smoke.py`：不需 pytest 的 Linux 驗證腳本，用於沒有 pip 的目標主機（用法見檔案開頭說明）。
+- 2026-10-28（D142）：`license.py` 改為授權 3.0 驗證（憑證鏈、manifest 雜湊綁定，執行期沿用既有釘選的 cryptography）；`tests/test_license.py` 改寫為 3.0 測試（unittest 風格，pytest 與 `python -m unittest` 皆可執行），舊的 `linux_smoke.py`（2.0 格式、無 pip 主機用）已移除。
 
 ## 補齊的後端原始碼（2026-10-06，D90）
 
