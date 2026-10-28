@@ -6,7 +6,8 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fixtures import EVALUATOR, FORMS, KITS, load, resealed, text
-from factory_core.plan import PlanRejected, plan_id_of, receive_plan, work_order_blockers
+from factory_core.schema_check import schema_errors
+from factory_core.plan import PlanRejected, _check_structure, plan_id_of, receive_plan, work_order_blockers
 
 
 def codes(error: PlanRejected) -> set[str]:
@@ -52,7 +53,7 @@ class ReceivePlanTests(unittest.TestCase):
     def test_malformed_inner_shape_is_an_error_not_a_crash(self):
         plan = load('valid.json')
         del plan['flows'][0]['from']
-        rejected(self, resealed(plan), 'broken-structure')
+        rejected(self, resealed(plan), 'schema')  # the schema locates it before any structural code can crash
 
     def test_a_non_executable_plan_is_stored_for_viewing_but_cannot_make_orders(self):
         received = receive_plan(load('not-executable.json'))
@@ -80,7 +81,11 @@ class ReceivePlanTests(unittest.TestCase):
         }
         for code, change in cases.items():
             with self.subTest(code):
-                rejected(self, with_change(change), code)
+                changed = with_change(change)
+                # Whatever the schema already refuses is refused as 'schema'; the factory's own structural check
+                # must still name the fault itself, because it also guards plans that reach it another way.
+                self.assertTrue(codes(rejected(self, changed, 'schema' if schema_errors(changed) else code)))
+                self.assertIn(code, {e['code'] for e in _check_structure(changed)})
 
 
 class WorkOrderBlockerTests(unittest.TestCase):

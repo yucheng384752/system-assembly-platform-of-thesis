@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import copy
 
 from .canonical import CanonicalError, content_sha256, parse_json
+from .schema_check import schema_errors
 
 FORMAT = 'composer-executable-plan'
 SUPPORTED_VERSIONS = (1,)
@@ -62,6 +63,9 @@ def receive_plan(document: str | dict) -> ReceivedPlan:
     missing = [key for key in ('planId', *REQUIRED) if key not in plan]
     if missing:
         raise PlanRejected([_error('broken-structure', '/' + key, 'required field is missing') for key in missing])
+    shape = schema_errors(plan)
+    if shape:
+        raise PlanRejected(shape)
     try:
         recomputed = plan_id_of(plan)
     except CanonicalError as error:

@@ -6,6 +6,7 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fixtures import EVALUATOR, FORMS, KITS, NOW, load, resealed
 from factory_core.plan import PlanRejected
+from factory_core.store import MemoryStore
 from factory_core.workorder import FactoryState
 
 LATER = '2026-10-28T13:00:00Z'
@@ -13,8 +14,11 @@ LATER = '2026-10-28T13:00:00Z'
 
 class WorkOrderTests(unittest.TestCase):
     def setUp(self):
-        self.state = FactoryState()
+        self.state = FactoryState(self.make_store())
         self.plan_id = self.state.store_plan(load('valid.json')).plan_id
+
+    def make_store(self):
+        return MemoryStore()
 
     def create(self, order_id='wo-1', plan_id=None, **over):
         args = dict(created_by='alice', now=NOW, active_kits=KITS, form_hashes=FORMS, evaluator_commit=EVALUATOR) | over

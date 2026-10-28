@@ -5,10 +5,12 @@ later cannot change an order that already exists.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from collections.abc import Mapping
+from dataclasses import dataclass
 
 from .params import ParameterSetService
 from .plan import PlanRejected, ReceivedPlan, receive_plan, work_order_blockers
+from .store import AlreadyExists, MemoryStore, StoreView
 
 
 @dataclass(frozen=True)
@@ -26,52 +28,75 @@ class WorkOrder:
         return self.started_at is not None
 
 
-@dataclass
-class FactoryState:
-    """In-memory reference store: plans keyed by planId, a parameter service over them, and work orders."""
-    plans: dict[str, ReceivedPlan] = field(default_factory=dict)
-    orders: dict[str, WorkOrder] = field(default_factory=dict)
-    params: ParameterSetService = field(init=False)
+class _PlanDocuments(Mapping):
+    """planId -> verified plan dict, read through the store so a persistent store needs no second copy."""
 
-    def __post_init__(self) -> None:
-        self.params = ParameterSetService(plans={})
+    def __init__(self, store):
+        self._store = store
+
+    def __getitem__(self, plan_id: str) -> dict:
+        received = self._store.get_plan(plan_id)
+        if received is None:
+            raise KeyError(plan_id)
+        return received.plan
+
+    def __iter__(self):
+        return iter(self._store.plan_ids())
+
+    def __len__(self) -> int:
+        return len(self._store.plan_ids())
+
+
+class FactoryState:
+    """Plans keyed by planId, a parameter service over them, and work orders, all on one store."""
+
+    def __init__(self, store=None) -> None:
+        self.store = store or MemoryStore()
+        self.plans = StoreView(self.store.get_plan, self.store.plan_ids)
+        self.orders = StoreView(self.store.get_order, self.store.order_ids)
+        self.params = ParameterSetService(plans=_PlanDocuments(self.store), store=self.store)
 
     def store_plan(self, document: str | dict) -> ReceivedPlan:
         received = receive_plan(document)  # raises PlanRejected; nothing is stored on failure
-        self.plans[received.plan_id] = received
-        self.params.plans[received.plan_id] = received.plan
+        self.store.save_plan(received)
         return received
 
     def create_order(self, order_id: str, plan_id: str, *, created_by: str, now: str, active_kits: set[str],
                      form_hashes: dict[str, str], evaluator_commit: str | None) -> WorkOrder:
-        received = self.plans.get(plan_id)
+        received = self.store.get_plan(plan_id)
         if received is None:
             raise PlanRejected([{'code': 'unknown-plan', 'path': '/planId', 'message': f'plan {plan_id} is not stored'}])
-        if order_id in self.orders:
+        if self.store.get_order(order_id) is not None:
             raise PlanRejected([{'code': 'duplicate-order', 'path': '/orderId', 'message': f'work order {order_id} already exists'}])
         errors = work_order_blockers(received, active_kits=active_kits, form_hashes=form_hashes, evaluator_commit=evaluator_commit)
         if errors:
             raise PlanRejected(errors)
         order = WorkOrder(order_id, plan_id, created_by, now)
-        self.orders[order_id] = order
+        try:
+            self.store.add_order(order)
+        except AlreadyExists as error:  # a concurrent creation won
+            raise PlanRejected([{'code': 'duplicate-order', 'path': '/orderId', 'message': str(error)}]) from error
         return order
 
     def start_order(self, order_id: str, *, now: str) -> WorkOrder:
-        order = self.orders[order_id]
+        order = self.store.get_order(order_id)
+        if order is None:
+            raise KeyError(order_id)
         if order.started:
             return order  # already pinned; later approvals never reach a started order
-        received = self.plans[order.plan_id]
+        received = self.store.get_plan(order.plan_id)
         approved = self.params.latest_approved(order.plan_id)
         has_tunable = any(p['tunable'] for p in received.plan['params'])
-        started = replace(order, started_at=now, set_version=approved.set_version if approved else None,
-                          using_defaults=approved is None and has_tunable)
-        self.orders[order_id] = started
-        return started
+        try:
+            return self.store.start_order(order_id, started_at=now, set_version=approved.set_version if approved else None,
+                                          using_defaults=approved is None and has_tunable)
+        except AlreadyExists:  # a concurrent start won; its pin stands
+            return self.store.get_order(order_id)
 
     def effective_params(self, order_id: str) -> dict:
         """Parameter values a started order runs with: the plan's defaults overlaid by its pinned set."""
-        order = self.orders[order_id]
-        plan = self.plans[order.plan_id].plan
+        order = self.store.get_order(order_id)
+        plan = self.store.get_plan(order.plan_id).plan
         values = {p['id']: p['default'] for p in plan['params'] if 'default' in p}
         if order.set_version is not None:
             values.update(self.params.get(order.plan_id, order.set_version).values)

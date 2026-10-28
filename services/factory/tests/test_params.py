@@ -6,8 +6,9 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fixtures import NOW, load
-from factory_core.params import ParameterSetError, ParameterSetService
-from factory_core.plan import receive_plan
+from factory_core.params import ParameterSetError
+from factory_core.store import MemoryStore
+from factory_core.workorder import FactoryState
 
 GOOD = {'mix_minutes': 12, 'temp_max': 28}
 
@@ -21,9 +22,12 @@ def failed(case: unittest.TestCase, call, code: str):
 
 class ParameterSetTests(unittest.TestCase):
     def setUp(self):
-        plan = receive_plan(load('valid.json'))
-        self.plan_id = plan.plan_id
-        self.service = ParameterSetService(plans={plan.plan_id: plan.plan})
+        self.state = FactoryState(self.make_store())
+        self.plan_id = self.state.store_plan(load('valid.json')).plan_id
+        self.service = self.state.params
+
+    def make_store(self):
+        return MemoryStore()
 
     def propose(self, values=None, **over):
         args = dict(values=GOOD if values is None else values, proposed_by='alice', reason='cooler room', now=NOW) | over
@@ -89,10 +93,13 @@ class ParameterSetTests(unittest.TestCase):
 
 
 class ApprovalRuleTests(unittest.TestCase):
+    def make_store(self):
+        return MemoryStore()
+
     def setUp(self):
-        plan = receive_plan(load('valid.json'))
-        self.plan_id = plan.plan_id
-        self.service = ParameterSetService(plans={plan.plan_id: plan.plan})
+        self.state = FactoryState(self.make_store())
+        self.plan_id = self.state.store_plan(load('valid.json')).plan_id
+        self.service = self.state.params
         self.service.propose(self.plan_id, values=GOOD, proposed_by='alice', reason='r', now=NOW)
 
     def approve(self, by, role, version=1):

@@ -8,10 +8,12 @@ manager or admin.
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 import math
 
 from .canonical import content_sha256
+from .store import AlreadyExists, MemoryStore
 
 SELF_APPROVE_ROLES = ('manager', 'admin')
 SOURCES = ('manual', 'upload')
@@ -135,10 +137,9 @@ def validate_content(plan: dict, values: object, tables: object, alarm_intervals
 
 @dataclass
 class ParameterSetService:
-    """In-memory reference implementation; a database store must keep the same append-only behavior."""
-    plans: dict[str, dict]  # planId -> verified plan
-    _sets: dict[str, list[ParameterSet]] = field(default_factory=dict)
-    _decisions: dict[tuple[str, int], Decision] = field(default_factory=dict)
+    """Rules over a store; every store (memory or SQL) must keep the same append-only behavior."""
+    plans: Mapping[str, dict]  # planId -> verified plan
+    store: MemoryStore = field(default_factory=MemoryStore)
 
     def propose(self, plan_id: str, *, values: dict, tables: dict | None = None, alarm_intervals: dict | None = None,
                 source: str = 'manual', source_sha256: str | None = None, proposed_by: str, reason: str, now: str) -> ParameterSet:
@@ -157,44 +158,46 @@ class ParameterSetService:
         if errors:
             raise ParameterSetError(errors)  # the whole set is refused; nothing is applied in part
         content = {'values': values, 'tables': tables or {}, 'alarmIntervals': alarm_intervals or {}}
-        history = self._sets.setdefault(plan_id, [])
-        record = ParameterSet(plan_id, len(history) + 1, content_sha256(content), dict(values), dict(tables or {}), dict(alarm_intervals or {}),
-                              source, source_sha256, proposed_by, now, reason)
-        history.append(record)
-        return record
+        digest = content_sha256(content)
+        return self.store.append_set(plan_id, lambda version: ParameterSet(
+            plan_id, version, digest, dict(values), dict(tables or {}), dict(alarm_intervals or {}),
+            source, source_sha256, proposed_by, now, reason))
 
     def decide(self, plan_id: str, set_version: int, *, approve: bool, by: str, role: str, now: str, note: str = '') -> Decision:
         record = self.get(plan_id, set_version)
-        if (plan_id, set_version) in self._decisions:
+        if self.store.get_decision(plan_id, set_version):
             raise ParameterSetError([_error('already-decided', '/setVersion', f'version {set_version} is already {self.status(plan_id, set_version)}')])
         if approve and by == record.proposed_by and role not in SELF_APPROVE_ROLES:
             raise ParameterSetError([_error('same-person', '/approvedBy', 'the proposer cannot approve their own change; only a manager or admin may')])
         if not approve and not note.strip():
             raise ParameterSetError([_error('required', '/note', 'a rejection needs a reason')])
         decision = Decision(plan_id, set_version, 'approved' if approve else 'rejected', by, now, note)
-        self._decisions[(plan_id, set_version)] = decision
+        try:
+            self.store.add_decision(decision)
+        except AlreadyExists as error:  # a concurrent decision won
+            raise ParameterSetError([_error('already-decided', '/setVersion', str(error))]) from error
         return decision
 
     def get(self, plan_id: str, set_version: int) -> ParameterSet:
-        history = self._sets.get(plan_id, [])
-        if not 1 <= set_version <= len(history):
+        record = self.store.get_set(plan_id, set_version)
+        if record is None:
             raise ParameterSetError([_error('unknown-set', '/setVersion', f'plan {plan_id} has no version {set_version}')])
-        return history[set_version - 1]
+        return record
 
     def status(self, plan_id: str, set_version: int) -> str:
         self.get(plan_id, set_version)
-        decision = self._decisions.get((plan_id, set_version))
+        decision = self.store.get_decision(plan_id, set_version)
         return decision.status if decision else 'pending'
 
     def decision(self, plan_id: str, set_version: int) -> Decision | None:
-        return self._decisions.get((plan_id, set_version))
+        return self.store.get_decision(plan_id, set_version)
 
     def history(self, plan_id: str) -> tuple[ParameterSet, ...]:
-        return tuple(self._sets.get(plan_id, ()))
+        return tuple(self.store.list_sets(plan_id))
 
     def latest_approved(self, plan_id: str) -> ParameterSet | None:
         """Only approved versions are ever used; pending and rejected ones are skipped."""
-        for record in reversed(self._sets.get(plan_id, [])):
+        for record in reversed(self.store.list_sets(plan_id)):
             if self.status(plan_id, record.set_version) == 'approved':
                 return record
         return None
