@@ -48,7 +48,7 @@ export async function deploymentArtifacts(kits, selected, sources) {
   const artifacts = new Map();
   for (const [output, template] of [
     ['backend/app/main.py', 'main.py'], ['backend/app/system_init.py', 'system_init.py'],
-    ['backend/app/secret_files.py', 'secret_files.py'], ['backend/app/license_gate.py', 'license_gate.py'],
+    ['.dockerignore', 'dockerignore'], ['backend/app/secret_files.py', 'secret_files.py'], ['backend/app/license_gate.py', 'license_gate.py'],
     ['deployment/docker-compose.yml', 'docker-compose.yml'], ['deployment/backend.Dockerfile', 'backend.Dockerfile'],
     ['deployment/nginx.conf', 'nginx.conf'], ['deployment/.env.example', 'env.example'], ['deployment/README.md', 'README.md'],
   ]) {

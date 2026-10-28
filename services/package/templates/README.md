@@ -12,15 +12,24 @@ pins, including PyJWT and bcrypt. A hash-locked dependency file is not provided;
 `--require-hashes` remains recommended. Image acquisition/offline provisioning is
 not supplied here.
 
-Run from this deployment directory. Supply the blank fields described in
-`.env.example` via a protected environment or a private 0600 env file supplied
-with Compose `--env-file`. Never put credentials in the package or command line.
-The DATABASE_URL must use the PostgreSQL asyncpg driver, host `postgres`, port
-5432, and the same credentials/database as the POSTGRES fields. URL-encode its
-password. SYSTEM_ID supplies the initial tenant name/code (maximum 50 characters).
-DEFAULT_TENANT_ID must be a UUID. Secrets have no defaults; Compose rejects missing
-or empty values, and the backend separately checks its required variables.
-MOD_WEBHOOK_SECRET is required only when this package includes mod-subscription-kit.
+Run from this deployment directory. Non-secret fields (see `.env.example`) go in a private `.env`
+passed with `--env-file`, including the host paths of the license directory (`LICENSE_DIR`, writable by
+UID 10001), the trusted root public key (`ROOT_KEY_FILE`) and the installed `system-manifest.json`
+(`MANIFEST_FILE`). Private values are never environment variables: provide each as a file in
+`../secrets/` (one value per file, mode 0400, owned by UID 10001; `postgres_password` may stay
+root-owned): `postgres_password`, `database_url`, `secret_key`, `entry_permission_jwt_secret` and, when
+the package includes mod-subscription-kit, `mod_webhook_secret`. Compose mounts them under
+`/run/secrets` and the backend loads `<NAME>_FILE` before any settings are created, so `docker inspect`
+shows paths only. The `database_url` must use the PostgreSQL asyncpg driver, host `postgres`, port 5432,
+and the same credentials/database as POSTGRES_USER/POSTGRES_DB (URL-encode the password). SYSTEM_ID
+supplies the initial tenant name/code (maximum 50 characters); DEFAULT_TENANT_ID must be a UUID.
+`.dockerignore` keeps `secrets/`, `license/` and `.env` out of the build context.
+
+License gate (D142): the backend verifies the installed license (root key, sub-key certificate,
+manifest hash, expiry) and returns 503 for everything except `/healthz` and the license routes while it
+is invalid. `/license` is a minimal status page, `/api/license/status` reports the state and
+`/api/license/upload` installs a new license, but only one that passes the full check. Hardware binding
+is not checked yet (guard container, work package e2); do not claim copy protection.
 
 Explicit first-install sequence (commands have not been run by Codex):
 
@@ -28,7 +37,7 @@ Explicit first-install sequence (commands have not been run by Codex):
 docker compose build backend init
 docker compose up -d --wait postgres
 docker compose --profile init run --rm init
-docker compose --profile init run --rm -T init python -m app.entry_permission.create_admin < /protected/admin-input.json
+docker compose --profile init run --rm -T init python -m app.secret_files app.entry_permission.create_admin < /protected/admin-input.json
 docker compose up -d --wait backend proxy
 ```
 

@@ -65,7 +65,7 @@ status: D126 為正式決議；2026-10-25 依 D129 至 D133、D136、D137 修訂
 }
 ```
 
-`steps` 的標準順序（`id`）：`docker-ensure`、`trust-store`（首次安裝寫入根公鑰到 `/etc/<system-id>/trust/`）、`images-load`、`network-volumes`、`env-secrets`、`db-init`、`migration`、`compose-up`、`license-install`、`guard-up`、`health-check`。各步驟的內容見 `TODO.md` 第 8 項的引擎步驟。
+`steps` 的標準順序（`id`）：`docker-ensure`、`trust-store`（首次安裝寫入根公鑰到 `/etc/<system-id>/trust/`）、`images-load`、`network-volumes`、`env-secrets`、`db-init`、`migration`、`license-install`、`compose-up`、`guard-up`、`health-check`。各步驟的內容見 `TODO.md` 第 8 項的引擎步驟。
 
 - `reversible`：`yes`（可完整還原）、`partial`（部分還原，說明限制）、`no`（不可逆，必須在計畫畫面明確標示，並要求額外確認）。
 - 確認動作綁定 `planSha256`。`apply --plan plan.json --plan-sha256 <值>` 在檔案內容與雜湊不符時拒絕執行。
@@ -74,7 +74,7 @@ status: D126 為正式決議；2026-10-25 依 D129 至 D133、D136、D137 修訂
 
 計畫之外的輸入（連線帳密、初始管理員帳號、連接埠、子金鑰密碼、授權到期日等）以 JSON 經標準輸入傳入，或由權限 0600 的暫存檔提供，用完立即刪除。不得出現在指令列。sudo 密碼不經過精靈與瀏覽器：精靈啟動前由工程師在終端機執行 `sudo -v`，精靈只以 `sudo -n true` 檢查是否已取得，未取得就提示重試（D141）。命令列模式直接使用 sudo 的密碼提示。
 
-子金鑰檔與憑證檔從工程師插在客機的 USB 讀入，路徑不是秘密，以 `--subkey`、`--certificate` 傳入命令列（D140）；密碼由工程師在精靈輸入，只經標準輸入傳給 `issue-license`，不寫磁碟、事件或日誌。資料庫與後端的秘密值由引擎寫入安裝目錄的 `.env`（權限 0600，不進命令列、事件、log、`plan.json`），供 Compose 讀取；目前 WP3a 的部署檔與正式入口以容器環境變數接收，所以 `docker inspect` 對 root 與 docker 群組仍看得到，這是 WP3e 完成前的已知限制（D138 的改讀檔在 WP3e）。
+子金鑰檔與憑證檔從工程師插在客機的 USB 讀入，路徑不是秘密，以 `--subkey`、`--certificate` 傳入命令列（D140）；密碼由工程師在精靈輸入，只經標準輸入傳給 `issue-license`，不寫磁碟、事件或日誌。資料庫與後端的秘密值由引擎寫成安裝目錄 `secrets/` 下的獨立檔案（目錄 0700、檔案 0400，不進命令列、事件、log、`plan.json`），以 Compose file secrets 掛入容器 `/run/secrets`，後端由範本 `main.py` 的 `<NAME>_FILE` 載入器讀入程序環境，所以 `docker inspect` 只看得到路徑（D138、D142，WP3e 第一段已實作並在 Ubuntu 22.04 的 Docker 驗證）。`.env` 只放非秘密設定與授權目錄、根公鑰、manifest 的宿主路徑。root 與 docker 群組仍可讀宿主上的檔案。
 
 ## 5. 事件、狀態與還原
 
@@ -139,7 +139,7 @@ status: D126 為正式決議；2026-10-25 依 D129 至 D133、D136、D137 修訂
 - 映像來源：已決定打進安裝包（`docker save`，digest 記錄於 system-manifest 並隨簽章驗證），不線上拉取（user 於 2026-10-25 同意，D139）。實測預覽用後端映像壓縮後約 157 MB、PostgreSQL 16.6 約 152 MB，兩者共用基底層一起存約 281 MB；反向代理與 guard 未量。若某映像 digest 未變，升級時略過載入的優化留待之後。
 - Docker 最低可用版本、universe 未啟用時的處理（目前為停止並說明，不自動改 apt 來源）。
 - 不把工程師帳號加入 `docker` 群組（等同 root 權限），特權步驟用 sudo；客戶日常操作指令以 sudo 執行，需寫入操作手冊與威脅模型（user 於 2026-10-25 核准，D138）。
-- 資料庫與後端連線的秘密值以 0600 檔案提供，不放環境變數；後端目前以環境變數接 `DATABASE_URL`，改為讀檔須修改 `kits/` 基線副本，user 已於 2026-10-25 原則核准（D138），實際改動範圍於工作包中逐項回報。
+- 資料庫與後端連線的秘密值已改為 0400 檔案（D138、D142）；實作不需修改 `kits/` 的設定載入，由範本入口在匯入設定前讀入。`kits/` 實際只改 `platform-core-kit` 的 `license.py`（與其測試）。
 - 本契約的事件與計畫格式需有 JSON Schema（比照 `schemas/` 的做法），並以假引擎測試精靈。
 - 依賴檢查：精靈只可使用 Python 標準庫，若要新增套件須先經 user 核准。
 - 實機驗證：在全新客機以 sudo 實際執行 `apt install docker.io docker-compose-v2`、品牌機的指紋來源穩定性、USB 掛載。

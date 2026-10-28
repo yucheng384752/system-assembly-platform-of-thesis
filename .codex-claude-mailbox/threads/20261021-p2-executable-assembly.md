@@ -1112,3 +1112,26 @@ Codex 狀態以 `codex-companion status` 確認為 completed（18 分 23 秒，�
 **未驗證（維持待辦）：** 需要 sudo 的真實指紋採集（VM 無免密碼 sudo，僅以測試中的 runner 邊界驗證）、實體機指紋穩定性、真實 USB、Docker 實機整合流程。後端仍不讀取已安裝的授權（WP3e），不得宣稱已防複製。
 
 WP3b 第二階段驗收通過。
+
+## 2026-10-28 WP3c 與 WP3e 第一段（Claude 實作，D141、D142）
+
+user 指定這兩個工作包由 Claude 直接實作（不派 Codex）。在獨立 worktree（`feature/p2-executable-assembly`）進行，避免與另一個 session 共用工作樹互相切換分支。
+
+**WP3c 網頁精靈（commit 34ed098）：**`services/installer/engine/wizard.py` 與 `wizard_static/`，Python 標準庫。防護：一次性路徑權杖、Host 與 Origin 檢查、CSP、128 KB 上限、白名單靜態檔；秘密值只走子程序 stdin；apply 與 rollback 的確認雜湊綁定畫面所示；同時一個 apply；apply 獨立 session 啟動；apply 期間每 4 分鐘 `sudo -n -v` 刷新。驗證：精靈測試 15 項、8 項變異全被攔、Ubuntu 22.04 VM 實跑真引擎的 `detect`、Chrome 以 demo 引擎走完全流程無 console 錯誤。
+
+**WP3e 第一段（commit ffd1106、1547d2c 與本次）：**
+- `kits/platform-core-kit/.../core/license.py` 改為授權 3.0 驗證（憑證鏈、manifest 雜湊綁定、指紋集合交集函式 `fingerprint_matches` 備好但尚未接線）。`kits/` 實際只改這一個檔案與其測試；移除已過時的 `tests/linux_smoke.py`。執行期沿用既有釘選的 `cryptography==43.0.3`，沒有新增依賴（D142 更正了我提問時的誤判）。
+- 範本新增 `license_gate.py`（最外層 middleware：無效授權時除 `/healthz` 與授權路由外回 503；`/license` 狀態頁、`/api/license/status`、`/api/license/upload` 只安裝通過完整驗證的授權；上傳限流 10 次／分鐘、64 KB 上限）與 `secret_files.py`（`<NAME>_FILE` 載入、`python -m app.secret_files <module>` 包裝）；Compose 改 file secrets 並掛入授權目錄、根公鑰、manifest；nginx 轉送 `/license`；新增 `.dockerignore`。
+- 引擎：秘密值寫成 0400 檔案（後端用者擁有者 UID 10001），`.env` 只剩非秘密設定與三個路徑；`license-install` 提前到 `compose-up` 前並將授權目錄交給 UID 10001；health-check 另要求 `/api/license/status` 回 `valid: true`；create_admin 經 `app.secret_files`；還原範圍與保留規則涵蓋 `secrets/`。
+
+**驗證（Claude 實測）：**
+- Ubuntu 22.04 VM：installer 全部 74 項測試通過；引擎變異 10 項全被攔（新增 4 項：秘密進 `.env`、後端讀不到秘密、授權晚於服務、create_admin 缺載入器）。
+- 真實 Docker Compose（同一台 VM，由範本組裝出的 7 個 Kit 系統包，鏡像實際建置）：postgres 以 `POSTGRES_PASSWORD_FILE` 啟動；`system_init` 與 `create_admin`（經 `app.secret_files`）成功；backend healthy；`/api/license/status` 為 valid；容器環境變數只含 `*_FILE` 路徑；容器內 UID 10001 可讀 `/run/secrets`；換成「為別的安裝包簽發」的授權後 API 回 503 `manifest-mismatch`、`/healthz` 仍 200、狀態頁 200；上傳垃圾檔 400、上傳正確授權 200 並立即恢復服務，授權檔被後端以原子替換寫入。測試後已刪除容器、卷、建置映像與額外拉取的 nginx 映像。
+- 本機：package 14/14、security 19/19、vitest 498 通過、typecheck 通過；kit 授權測試 16 項、閘門與載入器測試 13 項（pytest/unittest，需 starlette、httpx、python-multipart、cryptography 的釘選版本）、閘門變異 7 項全被攔、Node 簽出授權對後端模組的跨語言測試 4 項。
+
+**限制與未驗證：**
+- 硬體綁定檢查與 guard 尚未提供（e2）。授權頁面明示「尚未啟用」；`notProvided` 仍列 guard 與硬體綁定，不得宣稱已防複製。
+- 真實引擎對 Docker 的完整 apply（`docker load` 載入打包映像、`--no-build`、compose override）仍未在實機跑過；本次整合是直接用 Compose 與同一份範本驗證。WP3a 的 `images` 離線欄位也尚未由組裝器輸出。
+- 未重跑 `services/package/e2e/system_e2e.py` 的 48 項檢查。
+- 精靈在長時間安裝中的 sudo 快取刷新、實體品牌機指紋穩定性、真實 USB 仍待實機。
+- Windows 本機的引擎測試仍有兩個已知平台假設失敗（0600 權限斷言、CPU 名稱）；Ubuntu 全數通過。

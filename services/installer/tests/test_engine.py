@@ -52,7 +52,7 @@ def fixture(directory, extra=None):
     root = directory / 'source'
     root.mkdir()
     template = Path(os.environ.get('INSTALLER_PACKAGE_TEMPLATES', str(Path(__file__).resolve().parents[2] / 'package/templates')))
-    files = {'deployment/docker-compose.yml': (template / 'docker-compose.yml').read_bytes().replace(b'@@WEBHOOK_ENV@@', b''),
+    files = {'deployment/docker-compose.yml': (template / 'docker-compose.yml').read_bytes().replace(b'@@WEBHOOK_ENV@@', b'').replace(b'@@WEBHOOK_SECRET_REF@@', b'').replace(b'@@WEBHOOK_SECRET_DEF@@', b''),
              'deployment/.env.example': (template / 'env.example').read_bytes().replace(b'@@WEBHOOK_EXAMPLE@@', b''),
              'deployment/nginx.conf': (template / 'nginx.conf').read_bytes()}
     images = []
@@ -98,12 +98,14 @@ class FakeRunner(Runner):
         self.wrong_id = False
         self.active_install_id = ''
         self.after = None
+        self.owners = {}
 
     def fs(self, action, path, **kwargs):
         self.commands.append(['fs', action, str(path)])
         if self.fail == 'fs-remove' and action == 'remove':
             raise Failure(13, 'fixture failure')
-        kwargs.pop('owner', None)
+        if 'owner' in kwargs:
+            self.owners[str(path)] = kwargs.pop('owner')  # fsops would chown; the fixture cannot, so it records the request
         fsops.execute(dict(action=action, path=str(path), **kwargs))
 
     def run(self, args, *, privileged=False, data=None, check=True):
@@ -294,11 +296,37 @@ class EngineTests(unittest.TestCase):
             for resource in config[group].values():
                 self.assertEqual(resource['labels'][LABEL], self.installer.install_id)
         self.assertEqual((target / '.env').stat().st_mode & 0o777, 0o600)
+        # D138: private values live only in the 0400 files under secrets/, never in .env or any other file.
+        env_text = (target / '.env').read_text()
+        for private in ('db$private', 'S' * 40, 'J' * 40, 'Admin-private-123', 'postgresql+asyncpg'):
+            self.assertNotIn(private, env_text)
+        self.assertIn("LICENSE_DIR='" + str(target / 'license') + "'", env_text)
+        self.assertIn("ROOT_KEY_FILE='" + str(self.base / 'trust/root.pem') + "'", env_text)
+        self.assertIn("MANIFEST_FILE='" + str(target / 'system-manifest.json') + "'", env_text)
+        secrets = target / 'secrets'
+        self.assertEqual(sorted(p.name for p in secrets.iterdir()),
+                         ['database_url', 'entry_permission_jwt_secret', 'postgres_password', 'secret_key'])
+        self.assertEqual((secrets / 'postgres_password').read_text(), 'db$private')
+        self.assertEqual((secrets / 'secret_key').read_text(), 'S' * 40)
+        self.assertTrue((secrets / 'database_url').read_text().startswith('postgresql+asyncpg://app:db%24private@postgres:5432/app'))
+        self.assertTrue(all((secrets / n).stat().st_mode & 0o777 == 0o400 for n in ('secret_key', 'database_url')))
+        # The backend user must own what the backend reads; PostgreSQL's file stays root-owned.
+        for name in ('database_url', 'secret_key', 'entry_permission_jwt_secret'):
+            self.assertEqual(self.runner.owners.get(str(secrets / name)), [10001, 10001], name)
+        self.assertNotIn(str(secrets / 'postgres_password'), self.runner.owners)
+        self.assertEqual(self.runner.owners.get(str(target / 'license')), [10001, 10001])
+        self.assertEqual(self.runner.owners.get(str(target / 'license/license.lic')), [10001, 10001])
+        allowed = {secrets / 'postgres_password', secrets / 'database_url'}
         for path in self.base.rglob('*'):
-            if path.is_file() and path != target / '.env':
+            if path.is_file() and path not in allowed:
                 self.assertNotIn(b'db$private', path.read_bytes(), str(path))
+                self.assertNotIn(b'db%24private', path.read_bytes(), str(path))
                 self.assertNotIn(b'Admin-private-123', path.read_bytes(), str(path))
         self.assertNotIn('db$private', json.dumps(self.runner.commands))
+        # create_admin must run through the secret loader, otherwise it cannot see DATABASE_URL.
+        self.assertTrue(any('app.secret_files' in c and 'app.entry_permission.create_admin' in c for c in self.runner.commands))
+        self.assertTrue(any('urlopen(' in ' '.join(c) and '/api/license/status' in ' '.join(c) for c in self.runner.commands),
+                        'health-check must confirm the running backend accepts the license')
         self.assertTrue(any('app.entry_permission.create_admin' in c for c in self.runner.commands))
         self.assertTrue(all('build' not in c for c in self.runner.commands))
         loaded = self.installer.state['steps']['images-load']['undo']
@@ -447,13 +475,15 @@ class EngineTests(unittest.TestCase):
 
     def test_license_install_drift_is_code_12(self):
         def after(args):
-            if args[:2] == ['docker', 'compose'] and args[-1] == 'proxy':
+            # license-install now runs right after the migration step, before the services start.
+            if args[:2] == ['docker', 'compose'] and 'app.entry_permission.create_admin' in args:
                 with self.license_path.open('ab') as stream:
                     stream.write(b'\n')
         self.runner.after = after
         self.assertEqual(self.installer.apply(self.root, self.body), 12)
         self.assertFalse((self.base / 'installed/license/license.lic').exists())
-        self.assertEqual(self.installer.state['steps']['compose-up']['status'], 'ok')
+        self.assertEqual(self.installer.state['steps']['migration']['status'], 'ok')
+        self.assertNotIn('compose-up', self.installer.state['steps'], 'services must not start without a verified license')
 
     def test_fingerprint_drift_before_license_install(self):
         original = self.runner.run

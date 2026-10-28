@@ -1,4 +1,4 @@
-"""Six isolated mutations. Syntax/import errors never count as killed mutations."""
+"""Ten isolated mutations. Syntax/import errors never count as killed mutations."""
 import os
 from pathlib import Path
 import shutil
@@ -14,6 +14,10 @@ CASES = [
     ('plan-hash', 'common.py', "raise Failure(12, '計畫雜湊不符')", 'pass', 'test_plan_hash_and_order'),
     ('redaction', 'common.py', "value = value.replace(secret, '[REDACTED]')", 'value = value', 'test_redaction_at_event_and_state_boundary'),
     ('ownership-label', 'install.py', "return (labels or {}).get(LABEL) == self.install_id", 'return True', 'test_rollback_label_boundary_and_nonempty_volumes'),
+    ('secrets-in-env-file', 'install.py', 'public = {name: env[name] for name in PUBLIC_ENV if name in env}', 'public = dict(env)', 'test_apply_and_no_secret_copies'),
+    ('backend-cannot-read-secrets', 'install.py', "owner = {} if filename == 'postgres_password' else {'owner': [BACKEND_UID, BACKEND_UID]}", 'owner = {}', 'test_apply_and_no_secret_copies'),
+    ('license-after-services', 'install.py', "'db-init', 'migration', 'license-install', 'compose-up', 'health-check']", "'db-init', 'migration', 'compose-up', 'license-install', 'health-check']", 'test_license_install_drift_is_code_12'),
+    ('admin-without-secret-loader', 'install.py', "'python', '-m', 'app.secret_files', 'app.entry_permission.create_admin'", "'python', '-m', 'app.entry_permission.create_admin'", 'test_apply_and_no_secret_copies'),
 ]
 
 
