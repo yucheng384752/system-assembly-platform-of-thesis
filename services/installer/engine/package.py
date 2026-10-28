@@ -15,6 +15,29 @@ def safe_path(name):
     return PurePosixPath(name)
 
 
+def archive_image_id(saved, config):
+    """The ID a daemon reports for this archive after docker load.
+
+    The classic image store uses the config digest. The containerd store (default on new Docker 29 installs) uses the
+    digest of the top-level OCI descriptor, so that one is accepted only when its blob really hashes to that digest.
+    """
+    if 'index.json' not in saved.getnames():
+        return 'sha256:' + digest(saved.extractfile(config).read())
+    manifests = json.load(saved.extractfile('index.json')).get('manifests')
+    if not isinstance(manifests, list) or len(manifests) != 1:
+        raise Failure(11, '映像封存檔的 OCI index 必須只含一個項目')
+    wanted = manifests[0].get('digest', '')
+    if not re.fullmatch(r'sha256:[a-f0-9]{64}', wanted):
+        raise Failure(11, '映像封存檔的 OCI digest 不合法')
+    try:
+        blob = saved.getmember('blobs/sha256/' + wanted[7:])
+    except KeyError:
+        raise Failure(11, '映像封存檔缺少 OCI 根描述檔') from None
+    if not blob.isfile() or blob.size > 1 << 20 or 'sha256:' + digest(saved.extractfile(blob).read()) != wanted:
+        raise Failure(11, '映像封存檔的 OCI 根描述檔與 digest 不符')
+    return wanted
+
+
 def validate_manifest(manifest, root):
     if manifest.get('format') != 'composer-system-assembly' or not isinstance(manifest.get('files'), list):
         raise Failure(11, 'system-manifest 格式不符')
@@ -54,7 +77,7 @@ def validate_manifest(manifest, root):
             if len(metadata) != 1 or metadata[0].get('RepoTags') != [image['tag']]:
                 raise Failure(11, '每個映像封存檔須只含 manifest 指定的一個映像與標籤')
             config = str(safe_path(metadata[0]['Config']))
-            if 'sha256:' + digest(saved.extractfile(config).read()) != image['id']:
+            if archive_image_id(saved, config) != image['id']:
                 raise Failure(11, '映像 config digest 與映像 ID 不符')
         for service in image['services']:
             if service not in ('postgres', 'backend', 'init', 'guard', 'proxy') or service in services:

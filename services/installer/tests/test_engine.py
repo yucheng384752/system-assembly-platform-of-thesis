@@ -134,7 +134,11 @@ class FakeRunner(Runner):
         elif args[:2] == ['docker', 'load']:
             with tarfile.open(args[-1]) as archive:
                 item = json.load(archive.extractfile('manifest.json'))[0]
-                image_id = 'sha256:' + digest(archive.extractfile(item['Config']).read())
+                # Like the containerd store, an OCI layout is identified by its index entry, not the config digest.
+                if 'index.json' in archive.getnames():
+                    image_id = json.load(archive.extractfile('index.json'))['manifests'][0]['digest']
+                else:
+                    image_id = 'sha256:' + digest(archive.extractfile(item['Config']).read())
                 self.images.add(image_id)
                 self.tags[item['RepoTags'][0]] = image_id
         elif args[:3] == ['docker', 'image', 'rm']:
@@ -606,6 +610,50 @@ class EngineTests(unittest.TestCase):
         from package import validate_manifest
         manifest = copy.deepcopy(self.manifest)
         manifest['images'][0]['tag'] = 'unexpected:tag'
+        self.assert_code(11, lambda: validate_manifest(manifest, self.root))
+
+    def oci_archive(self, image, root_blob=b'{"mediaType": "application/vnd.oci.image.index.v1+json"}', index_digest=None, extra_entries=0, stored_blob=None):
+        """Archive as written by the containerd image store: docker-style manifest.json plus an OCI index."""
+        root_id = 'sha256:' + digest(root_blob)
+        config = canonical({'fixture': image['tag']})
+        config_name = 'blobs/sha256/' + digest(config)
+        entries = [{'mediaType': 'application/vnd.oci.image.index.v1+json', 'digest': index_digest or root_id, 'size': len(root_blob)}] * (1 + extra_entries)
+        data = tar_bytes({config_name: config, 'blobs/sha256/' + root_id[7:]: stored_blob or root_blob,
+                          'index.json': canonical({'schemaVersion': 2, 'manifests': entries}),
+                          'manifest.json': canonical([{'Config': config_name, 'RepoTags': [image['tag']], 'Layers': []}])})
+        (self.root / image['archive']).write_bytes(data)
+        return root_id
+
+    def test_containerd_oci_archive_is_identified_by_its_index_digest(self):
+        from package import validate_manifest
+        manifest = copy.deepcopy(self.manifest)
+        for image in manifest['images']:
+            image['id'] = self.oci_archive(image)
+            entry = next(f for f in manifest['files'] if f['path'] == image['archive'])
+            data = (self.root / image['archive']).read_bytes()
+            entry.update(sha256=digest(data), bytes=len(data))
+        validate_manifest(manifest, self.root)
+
+    def test_oci_archive_whose_root_blob_does_not_hash_to_its_digest_is_rejected(self):
+        from package import validate_manifest
+        # A forged ID must not pass just because a blob of that name exists: its bytes have to hash to the name.
+        for variant in (dict(stored_blob=b'{"swapped": true}'), dict(index_digest='sha256:' + 'e' * 64)):
+            manifest = copy.deepcopy(self.manifest)
+            image = manifest['images'][0]
+            image['id'] = self.oci_archive(image, **variant)
+            entry = next(f for f in manifest['files'] if f['path'] == image['archive'])
+            data = (self.root / image['archive']).read_bytes()
+            entry.update(sha256=digest(data), bytes=len(data))
+            self.assert_code(11, lambda: validate_manifest(manifest, self.root))
+
+    def test_oci_archive_with_more_than_one_index_entry_is_rejected(self):
+        from package import validate_manifest
+        manifest = copy.deepcopy(self.manifest)
+        image = manifest['images'][0]
+        image['id'] = self.oci_archive(image, extra_entries=1)
+        entry = next(f for f in manifest['files'] if f['path'] == image['archive'])
+        data = (self.root / image['archive']).read_bytes()
+        entry.update(sha256=digest(data), bytes=len(data))
         self.assert_code(11, lambda: validate_manifest(manifest, self.root))
 
     def test_manifest_must_assign_an_image_to_the_guard_too(self):

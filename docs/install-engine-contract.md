@@ -136,6 +136,7 @@ status: D126 為正式決議；2026-10-25 依 D129 至 D133、D136、D137 修訂
 - 引擎是否以 `systemd-run` 或自行 daemonize 的方式脫離終端機；兩者都要在 22.04 實測 SSH 斷線後仍會繼續。D126 說不用 systemd 執行服務，但引擎本身的脫離方式是另一件事。
 - `state.json` 與 `events.jsonl` 的存放位置與權限，要在實機驗證非 root 使用者可讀、秘密值不外洩。
 - 「原本就存在」的記錄邊界：Docker 元件、映像與具名卷，如何可靠地區分本次建立與原有。
+- 映像 ID（D144）：manifest `images[].id` 是目標 Docker 載入後回報的 ID。傳統映像儲存為設定檔 sha256；containerd 儲存（Docker 29 新安裝的預設）為封存檔 `index.json` 唯一項目的 digest，引擎要求 `blobs/sha256/<digest>` 的內容雜湊等於該 digest，否則拒絕。封存檔由 `services/package/bundle-images.mjs` 產生。實測 7 Kit 系統包：後端映像 114 MB、PostgreSQL 159 MB、nginx 76 MB，tar.gz 約 338 MB。
 - 映像來源：已決定打進安裝包（`docker save`，digest 記錄於 system-manifest 並隨簽章驗證），不線上拉取（user 於 2026-10-25 同意，D139）。實測預覽用後端映像壓縮後約 157 MB、PostgreSQL 16.6 約 152 MB，兩者共用基底層一起存約 281 MB；反向代理與 guard 未量。若某映像 digest 未變，升級時略過載入的優化留待之後。
 - Docker 最低可用版本、universe 未啟用時的處理（目前為停止並說明，不自動改 apt 來源）。
 - 不把工程師帳號加入 `docker` 群組（等同 root 權限），特權步驟用 sudo；客戶日常操作指令以 sudo 執行，需寫入操作手冊與威脅模型（user 於 2026-10-25 核准，D138）。

@@ -185,6 +185,7 @@ Result：
    - WP3b（引擎與命令列）：沿用原定義，補入 detect 的指紋計算、verify 的信任庫與授權鏈、issue-license、trust-store 與 license-install 步驟、Docker 還原語意；契約見 docs/install-engine-contract.md（2026-10-25 修訂）。
    - WP3d（新增，簽發工具，離線，命令列）：scripts/security/ 旁新增「簽發子金鑰」腳本與授權鏈驗證（沿用 Node 內建 crypto）；輸出 release-fingerprints.txt（D137）；授權 schema 加 issuerCertificate。屬發行端，不進客機。
    - WP3e（新增，執行期元件；2026-10-28 依 D142 分兩段）：e1（已完成並在 Ubuntu 22.04 Docker 驗證）＝後端授權 3.0 驗證（`kits/platform-core-kit` 的 `license.py`）、授權閘門與狀態頁、授權上傳、秘密值改讀 0400 檔案、`license-install` 提前到服務啟動前；e2（2026-10-28 已完成，D143）＝guard 容器、指紋不符警告、24 小時寬限、封鎖時段、重新綁定申請檔，並在真實 Docker 與真實硬體驗證；仍須實機驗證品牌機指紋穩定性、guard 長時間失效與完整引擎 apply，文件只能說「防搬移與複製」，不得說能擋所有情況。
+   - WP3a 離線映像（2026-10-28 完成，D144）：`services/package/bundle-images.mjs` 在組裝目錄上建置與 `docker save`，寫入 `images`；引擎改為接受 containerd 儲存的映像 ID。已用真實 Docker 29 建置、save、load，並以引擎 `verify` 驗證簽章與 338 MB 的真實包；完整 apply（需 sudo）與基底映像 digest 固定尚未做。
    - 順序建議：WP3a（進行中）→ WP3b → WP3d → WP3c → WP3e。WP3e 若未趕上 P2 完成，系統包仍可交付，但 manifest 的 notProvided 必須列出 guard 與狀態頁，且文件不得宣稱已防複製（引擎步驟 13）。
    - WP5 的「Windows Docker 乾淨安裝」需改為 Ubuntu 22.04 實機，並加入授權失敗路徑、指紋不符的橫幅與封鎖時段、subkey 過期的案例。
 

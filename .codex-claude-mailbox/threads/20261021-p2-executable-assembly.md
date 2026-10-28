@@ -1150,3 +1150,20 @@ user 指定這兩個工作包由 Claude 直接實作（不派 Codex）。在獨�
 - 實體品牌機的指紋穩定性、guard 長時間失效、現場時段與時區設定、真實 USB 待實機。
 - 緊急臨時授權只是作業規則，程式不強制。
 - 沒有重跑 `services/package/e2e/system_e2e.py` 的 48 項檢查。
+
+## Claude: WP3a 離線映像（2026-10-28，D144）
+
+**內容：**
+- 新增 `services/package/bundle-images.mjs`：對已組裝目錄執行 `docker build`（backend、init、guard 共用一個映像）、`docker pull`（postgres、nginx）、`docker save`，把 `systemVersion`、`images` 與封存檔寫回 manifest；已含映像的目錄不覆寫，Docker 失敗時 manifest 不變。組裝器本身不變。
+- 引擎 `package.py` 新增 `archive_image_id`：containerd 儲存的 OCI 封存檔以 `index.json` 唯一項目的 digest 為映像 ID，並要求該 blob 的內容雜湊等於 digest。原本假設 ID 等於設定檔雜湊，在 Docker 29 預設的 containerd 儲存上必然不符，這是實測發現的缺陷。
+- 草案 schema 的 services 補上 guard。
+
+**驗證：**
+- 單元：`bundle-images.test.mjs` 5 項（Docker 替身）；package 測試共 19/19。引擎測試 45 項在 Ubuntu 全過，新增 3 項 OCI 測試；變異工具 16 項全被攔下（新增 2 項）。
+- 真實：在 Ubuntu 22.04（Docker 29.1.3、containerd 儲存）對 7 Kit 系統包跑 `bundle-images.mjs`（約 2 分 15 秒），引擎 `validate_manifest` 通過；將後端映像 `docker rmi` 後以封存檔 `docker load`，`image inspect`（以標籤與以 ID）與 `image ls --all --no-trunc` 的 ID 都等於 manifest；打成 338 MB tar.gz，以測試根金鑰簽章後，引擎 `verify`（真實 openssl）回報 ok。測試後已清除映像、建置快取與暫存目錄。
+
+**限制與未驗證：**
+- 完整引擎 apply（需 sudo）仍未在實機跑，所以 `images-load` 對真實包的整段流程只驗到 `docker load` 與 ID 比對，未經引擎執行。
+- 基底映像以標籤指定，未固定 digest；每次建置映像 ID 都不同。
+- 這次 Ubuntu 的完整 installer 探索測試有 2 個模組沒跑（`test_license`、`test_backend_license`，我沒把 kits 與 node_modules 送上 VM）；它們不受本次修改影響，上一輪已通過。Windows 上 `test_engine` 仍有 2 項已知平台失敗。
+- 沒有跑 package 的 JSDoc 型別檢查，也沒有重跑 `system_e2e.py`。

@@ -33,6 +33,19 @@ npm.cmd run typecheck
 
 變異工具先確認正常測試通過，再於專用暫存副本移除 Compose 必填語法、webhook 必填、預覽排除、入口彙整、notProvided 更新、必選入口權限、啟動秘密檢查、T12、notIncluded；每項必須讓指定測試失敗，語法／模組載入錯誤不算成功殺死變異。暫存副本最後清除。
 
+## 離線映像與打包（D144）
+
+組裝輸出還沒有映像。在有 Docker 與網路的 Linux 發行機上，對已組裝的目錄補上映像，再打包簽章：
+
+```text
+node services/package/bundle-images.mjs <組裝目錄> --system-version 1.0.0
+cd <組裝目錄> && tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -cf - $(ls -A) | gzip -n > ../system-package.tar.gz
+```
+
+`bundle-images.mjs` 建置後端映像（backend、init、guard 共用）、拉取 Compose 指定的 postgres 與 nginx，用 `docker save` 寫入 `images/`，並把 `systemVersion`、`images` 與封存檔（role `image-archive`）寫回 `system-manifest.json`。已含映像的目錄不覆寫。tar 不可有 `./` 前綴。之後用 `scripts/security/sign-system-package.mjs` 簽章。
+
+限制：映像 ID 隨每次建置改變，所以只有「同一份封存檔」可重現，重新建置會得到新 ID；基底映像以標籤指定，尚未固定 digest。測試以 Docker 替身涵蓋流程，真實 build、save、load 與引擎 `verify` 已在 Ubuntu 22.04（Docker 29、containerd 儲存）跑過，但完整的引擎 apply 尚未在實機跑。
+
 獨立 JSDoc 檢查（根目錄 typecheck 不涵蓋本目錄）：
 
 ```text
