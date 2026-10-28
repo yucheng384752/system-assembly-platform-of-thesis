@@ -16,6 +16,7 @@ def execute(body):
     action = body['action']
     if action == 'mkdir':
         path.mkdir(mode=body.get('mode', 0o755), parents=True, exist_ok=False)
+        os.chmod(path, body.get('mode', 0o755))
     elif action == 'write':
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, body.get('mode', 0o644))
         with os.fdopen(fd, 'wb') as stream:
@@ -29,6 +30,8 @@ def execute(body):
             raise ValueError('Symbolic link in copy source')
         shutil.copytree(source, path)
         os.chmod(path, 0o755)
+    elif action == 'rmdir':
+        path.rmdir()
     elif action == 'remove':
         if path.is_dir():
             shutil.rmtree(path)
@@ -36,7 +39,7 @@ def execute(body):
             path.unlink(missing_ok=True)
     else:
         raise ValueError('Unknown filesystem operation')
-    if action != 'remove' and 'owner' in body:
+    if action not in ('remove', 'rmdir') and 'owner' in body:
         os.chown(path, body['owner'][0], body['owner'][1])
 
 

@@ -38,6 +38,18 @@ test('normalization preserves internal spaces and separators, matches Python str
   assert.equal(fingerprintHash('\u0085\u001cAB\u0085'), sha256Hex('ab'));
   assert.equal(fingerprintHash('\uFEFFAB\uFEFF'), sha256Hex('\uFEFFab\uFEFF'));
 });
+
+test('disk fingerprint source is compatible with existing sources and rejects empty, slash or whitespace', () => {
+  for (const source of ['product_uuid', 'product_serial', 'board_serial', 'chassis_serial', 'mac:eth0', 'disk:sda', 'disk:nvme0n1']) {
+    validate('fingerprintSources', [{ source, sha256: 'a'.repeat(64) }]);
+  }
+  for (const source of ['disk:', 'disk:a/b', 'disk:a b', 'disk:a\tb', 'disk:a\nb']) {
+    assert.throws(() => validate('fingerprintSources', [{ source, sha256: 'a'.repeat(64) }]));
+  }
+  const diskSources = sources.map((s, i) => ({ ...s, source: `disk:device${i}` }));
+  const signed = license({ fingerprint: { minMatch: 2, sources: diskSources } });
+  assert.deepEqual(verifyLicenseV3(signed, options).fingerprint.sources, diskSources);
+});
 test('subkey encryption, default expiry and normal license chain', () => {
   assert.match(subkey.privateKey, /BEGIN ENCRYPTED PRIVATE KEY/);
   assert.throws(() => createPrivateKey({ key: subkey.privateKey, passphrase: 'wrong' }));

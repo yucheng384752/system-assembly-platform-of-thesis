@@ -1,4 +1,4 @@
-"""First-install executor and ownership-scoped rollback; no upgrade or license work."""
+"""First-install executor and ownership-scoped rollback; no upgrade or runtime guard."""
 import json
 import os
 from pathlib import Path
@@ -7,11 +7,13 @@ import time
 from urllib.parse import quote
 import uuid
 from common import Failure, canonical, check_plan, digest, seal, read_json
+from detect import current_sources
+from license import checked_license
 
 LABEL = 'com.composer.install-id'
 STEPS = ['docker-ensure', 'trust-store', 'images-load', 'network-volumes', 'env-secrets',
-         'db-init', 'migration', 'compose-up', 'health-check']
-LIMITATIONS = ['授權鏈與授權安裝 skipped；guard 尚未提供，不能宣稱已防複製',
+         'db-init', 'migration', 'compose-up', 'license-install', 'health-check']
+LIMITATIONS = ['授權鏈驗證與安裝已提供，但後端啟動不檢查授權、guard 尚未提供，不能宣稱已防複製',
               'WP3e 前容器環境變數的秘密可由 root／docker 群組透過 docker inspect 讀取',
               '升級遷移、前端、TLS 與實機驗證尚未提供']
 
@@ -38,7 +40,9 @@ def deployment_names(root):
     return groups
 
 
-def make_plan(verified, root, source, detection, install_dir, trust_dir):
+def make_plan(verified, root, source, detection, install_dir, trust_dir, license_info):
+    if not license_info:
+        raise Failure(11, '需要授權；請先 issue-license')
     if detection['problems']:
         raise Failure(10, '環境檢查未通過：' + '；'.join(detection['problems']))
     manifest = verified['manifest']
@@ -60,7 +64,8 @@ def make_plan(verified, root, source, detection, install_dir, trust_dir):
                  'package': {'manifestSha256': verified['manifestSha256'],
                              'systemVersion': manifest['systemVersion'], 'systemId': manifest['systemId'],
                              'archiveSha256': verified['archiveSha256'], 'keyFingerprint': verified['keyFingerprint']},
-                 'source': source, 'target': {'os': 'ubuntu-22.04', 'installDir': str(target), 'trustDir': str(trust)},
+                 'source': source, 'license': license_info,
+                 'target': {'os': 'ubuntu-22.04', 'installDir': str(target), 'trustDir': str(trust)},
                  'names': names, 'images': manifest['images'],
                  'steps': [dict(id=step, title=step, privileged=step != 'health-check',
                                 reversible='partial' if step in ('docker-ensure', 'db-init', 'migration', 'compose-up') else 'yes',
@@ -128,7 +133,7 @@ def private_input(body, plan):
 
 
 class Installer:
-    def __init__(self, runner, journal, plan, state=None, key_pem=None):
+    def __init__(self, runner, journal, plan, state=None, key_pem=None, license_path=None, sys_root='/sys'):
         self.runner, self.journal, self.plan = runner, journal, plan
         self.directory = journal.directory
         self.target = Path(plan['target']['installDir'])
@@ -137,6 +142,7 @@ class Installer:
         self.install_id = self.state['installId']
         self.project = plan['package']['systemId'] + '-' + self.install_id
         self.key_pem = key_pem
+        self.license_path, self.sys_root = license_path, sys_root
 
     def save(self):
         self.journal.save(self.state)
@@ -244,6 +250,19 @@ class Installer:
             # Wait for backend before starting nginx to avoid its DNS/startup race.
             self.compose(['up', '-d', '--wait', '--wait-timeout', '180', '--no-build', '--pull', 'never', 'backend'])
             self.compose(['up', '-d', '--wait', '--wait-timeout', '180', '--no-build', '--pull', 'never', 'proxy'])
+        elif step == 'license-install':
+            try:
+                raw, info = checked_license(self.runner, self.license_path,
+                                            {'keyPem': self.key_pem, 'manifestSha256': self.plan['package']['manifestSha256']},
+                                            current_sources(self.runner, self.sys_root))
+                if info != self.plan['license']:
+                    raise Failure(12, '授權與計畫不符')
+            except (Failure, TypeError):
+                raise Failure(12, '授權或硬體與已確認計畫不符') from None
+            directory = self.target / 'license'
+            if not directory.exists():
+                self.create_fs(step, 'directory', directory, 'mkdir', mode=0o755)
+            self.create_fs(step, 'file', directory / 'license.lic', 'write', text=raw.decode('utf-8'), mode=0o644)
         elif step == 'health-check':
             self.compose(['exec', '-T', 'backend', 'python', '-c',
                           "import urllib.request; urllib.request.urlopen('http://proxy/healthz', timeout=10)"])
@@ -280,7 +299,7 @@ class Installer:
                 self.journal.event(step, 'failed', message + '；正在還原此步驟', True)
                 try:
                     self.undo_step(step)
-                    code = 14 if self.state['retained'] else 13
+                    code = 14 if self.state['retained'] else (12 if isinstance(error, Failure) and error.code == 12 else 13)
                 except Exception:
                     code = 14
                 self.state['status'] = 'failed'
@@ -356,11 +375,15 @@ class Installer:
             elif kind in ('file', 'directory'):
                 path = Path(item['path'])
                 trust = Path(self.plan['target']['trustDir'])
-                if path not in (self.target, trust, trust / 'root.pem', self.target / '.env', self.target / 'compose.override.yml'):
+                if path not in (self.target, trust, trust / 'root.pem', self.target / '.env', self.target / 'compose.override.yml',
+                                self.target / 'license', self.target / 'license/license.lic'):
                     raise Failure(14, '還原路徑不在本次固定寫入範圍')
                 # Preserve retained-volume recovery material, especially .env, instead of destroying credentials.
                 if not item.get('created') and path.exists():
                     self.retain(kind, str(path), '未取得建立完成回覆，保留以免刪除其他程序建立的檔案')
+                elif step == 'license-install' and item.get('created'):
+                    if path.exists():
+                        self.runner.fs('rmdir' if kind == 'directory' else 'remove', path)
                 elif path == self.target / '.env' and self.state.get('dataMayExist'):
                     self.retain(kind, str(path), '資料卷可能已有資料，保留復原所需秘密檔')
                 elif kind == 'directory' and any(Path(r['name']).is_relative_to(path)
