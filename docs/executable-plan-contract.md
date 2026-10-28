@@ -209,8 +209,8 @@ guard、判定節點的決策表與檢驗項目，在工廠端求值時需要下
 | 本契約 | A（`libs/aov-core`） | B（`composer-refactor-2`） |
 |---|---|---|
 | `nodes[].nodeId/name/category/stage/inputs/outputs` | `compile/compiler.ts` 的 `PlanNode`，原樣沿用 | `route_snapshot` 的 `nodes`（欄位名不同，需轉接） |
-| `nodes[].timing` | 無，需由 W1 補來源（缺值狀態） | `Latency.setup/per_unit`，預設 0，需轉為缺值判定 |
-| `nodes[].resource` | 無 | `BusinessNode.resource` |
+| `nodes[].timing` | 無，需由 W1 補來源（缺值狀態） | `Latency.setup/per_unit`，預設 0；由 `migrateProcessDefinition` 轉為 `timing`，兩者皆 0 視為缺值（8.2 第 9 項） |
+| `nodes[].resource` | 無 | `BusinessNode.resource`；由 `migrateProcessDefinition` 轉為 `resource`（`operator_skill` 改名 `operatorSkill`） |
 | `nodes[].form` | `NodeDef.form` 只存 id，快照另存 | 產品級 `inspection_form`，需改為節點級 |
 | `flows[]` | `Flow`（port 到 port，帶 artifact 型別） | `Edge`（無 port），不可直接對應 |
 | 子 AoV 展開（`expandedFrom`） | `compile/subgraph.ts` 編譯期展開為平面圖 | `Subgraph`（form/validate/store/state 步驟），工單快照未保存；B 的子圖相當於「系統邏輯」，見 4.8 |
@@ -270,8 +270,9 @@ guard、判定節點的決策表與檢驗項目，在工廠端求值時需要下
 
 5. **動作對應表的實際內容尚未撰寫。**格式與責任歸屬已定（8.1 第 25、26 項），內容由我們依工廠端 Kit 實際提供的能力撰寫；工廠端（W3）尚未存在，目前只有測試用假資料。待工廠端能力清單出來後，逐筆對照填入。
 6. 無（原「沒有 `action` 的節點」已於 2026-10-28 決定支援類別預設，見 8.1 第 26 項）。範例產線（麵包）在補齊類別預設後所有節點可執行，有測試涵蓋。
-7. **工時、資源、可調整參數的來源。**A 的專案檔沒有這些欄位，`buildExecutablePlan` 由呼叫端傳入（`timings`、`resources`、`tuning`），未傳入則工時為 `missing`、參數不可調整。B 的 Latency 與 `resource` 如何帶進來，屬 W1 第二個 PR（遷移報告）。`paramTables` 與 `alarmRules` 目前恆為空陣列，待 aov-project 修改（8.1 第 10、14 項）後才能由 A 產生。
+7. **工時、資源、可調整參數的來源。**A 的專案檔沒有這些欄位，`buildExecutablePlan` 由呼叫端傳入（`timings`、`resources`、`tuning`），未傳入則工時為 `missing`、參數不可調整。B 的 Latency 與 `resource` 由 `migrateProcessDefinition` 帶進來（W1 第二個 PR，見第 9 項）；`buildExecutablePlan` 對 `timings`、`resources` 指到計畫沒有的節點、`tuning` 指到沒有的參數，一律整份拒絕（`unknown-node`、`unknown-param`）。`paramTables` 與 `alarmRules` 目前恆為空陣列，待 aov-project 修改（8.1 第 10、14 項）後才能由 A 產生。
 8. **契約補洞（2026-10-27）。**原稿 4.3 漏了判定節點的 `route`/`decision`/`checks`/`verdicts`、`boundary`、`nodeParams`，以及埠位的 `type`，工廠端無法在沒有它們的情況下判定與解析連線，已補入 4.3 與 schema。
+9. **B 工時遷移的判斷（2026-10-28，實作時的判斷，待 user 確認）。**`libs/aov-integration/processMigration.ts`：(a) B 的 `Latency` 預設就是 0，`setup` 與 `per_unit` 皆為 0 時分不出「真的 0」與「沒填」，一律視為缺值並列入報告，由人確認後直接提供工時；(b) B 沒有記錄 `per_unit` 乘的數量單位，由呼叫端提供 `quantityUnit`，沒提供則有工時的節點也視為缺值；(c) `time_unit` 不是 `min` 時不換算，全部缺值；(d) B 節點與計畫節點只靠呼叫端的 `nodeMap` 對應，不比對名稱，`nodeMap` 寫錯 id 或兩個 B 節點對到同一個計畫節點則整份拒絕；(e) 邊的 `transfer_time` 尚未帶入（B 的邊沒有埠位，與 A 的連線對應規則未定），報告標為延後。
 
 ## 9. 驗收條件（契約層）
 
@@ -293,4 +294,5 @@ guard、判定節點的決策表與檢驗項目，在工廠端求值時需要下
 1. 完成 8.2 第 1 項的核准入口實測，。
 2. 已完成（`feature/executable-plan-schema`）：`schemas/executable-plan.schema.json`、`fixtures/executable-plan/`（合法、缺工時、不可執行、`planId` 不符、內容被改、未知版本）與 `libs/aov-integration/executablePlan.test.ts`。
 3. 已完成（W1 第一個 PR）：`libs/aov-integration/executablePlan.ts` 的 `buildExecutablePlan`、`validateExecutablePlan`、`computePlanId`、`verifyPlanId`，測試在 `executablePlanBuild.test.ts`。
-4. 工廠端的接收與驗證留待 W3。
+4. 已完成（W1 第二個 PR）：`libs/aov-integration/processMigration.ts` 的 `migrateProcessDefinition`，輸出可直接餵給 `buildExecutablePlan` 的 `timings`、`resources`，以及 B 每個欄位去向的逐欄報告；測試在 `processMigration.test.ts`，B 的樣本在 `fixtures/aov-merge/factory/process.machining.json`。
+5. 工廠端的接收與驗證留待 W3。

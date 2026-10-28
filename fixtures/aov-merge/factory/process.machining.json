@@ -1,0 +1,503 @@
+{
+  "id": "p-machining",
+  "name": "少量多樣加工流程",
+  "version": 1,
+  "time_unit": "min",
+  "nodes": [
+    {
+      "id": "n-out",
+      "name": "原料出庫",
+      "kind": "warehouse_out",
+      "function": "wms.warehouse:issue",
+      "latency": {
+        "setup": 0.0,
+        "per_unit": 0.0
+      },
+      "inputs": [],
+      "outputs": [],
+      "split": "xor",
+      "join": "none",
+      "resource": {
+        "capability": null,
+        "operator_skill": null
+      },
+      "props": {},
+      "subgraph": {
+        "inputs": [],
+        "outputs": [],
+        "steps": [],
+        "edges": [],
+        "inherit_contract": true
+      },
+      "position": {
+        "x": 0.0,
+        "y": 150.0
+      }
+    },
+    {
+      "id": "n-turn",
+      "name": "車削",
+      "kind": "task",
+      "function": "mfg.machining:turning",
+      "latency": {
+        "setup": 10.0,
+        "per_unit": 2.0
+      },
+      "inputs": [],
+      "outputs": [],
+      "split": "none",
+      "join": "none",
+      "resource": {
+        "capability": "turning",
+        "operator_skill": "turning"
+      },
+      "props": {},
+      "subgraph": {
+        "inputs": [],
+        "outputs": [],
+        "steps": [
+          {
+            "id": "n-turn-form",
+            "name": "填寫作業紀錄",
+            "kind": "form",
+            "ref": "work_report"
+          },
+          {
+            "id": "n-turn-check",
+            "name": "驗證數量",
+            "kind": "validate",
+            "ref": null
+          },
+          {
+            "id": "n-turn-store",
+            "name": "儲存紀錄",
+            "kind": "store",
+            "ref": null
+          },
+          {
+            "id": "n-turn-state",
+            "name": "更新步驟狀態",
+            "kind": "state",
+            "ref": null
+          }
+        ],
+        "edges": [
+          {
+            "id": "n-turn-form>n-turn-check",
+            "source": "n-turn-form",
+            "target": "n-turn-check"
+          },
+          {
+            "id": "n-turn-check>n-turn-store",
+            "source": "n-turn-check",
+            "target": "n-turn-store"
+          },
+          {
+            "id": "n-turn-store>n-turn-state",
+            "source": "n-turn-store",
+            "target": "n-turn-state"
+          }
+        ],
+        "inherit_contract": true
+      },
+      "position": {
+        "x": 220.0,
+        "y": 40.0
+      }
+    },
+    {
+      "id": "n-mill",
+      "name": "銑削",
+      "kind": "task",
+      "function": "mfg.machining:milling",
+      "latency": {
+        "setup": 10.0,
+        "per_unit": 3.0
+      },
+      "inputs": [],
+      "outputs": [],
+      "split": "xor",
+      "join": "none",
+      "resource": {
+        "capability": "milling",
+        "operator_skill": "milling"
+      },
+      "props": {},
+      "subgraph": {
+        "inputs": [],
+        "outputs": [],
+        "steps": [
+          {
+            "id": "n-mill-form",
+            "name": "填寫作業紀錄",
+            "kind": "form",
+            "ref": "work_report"
+          },
+          {
+            "id": "n-mill-check",
+            "name": "驗證數量",
+            "kind": "validate",
+            "ref": null
+          },
+          {
+            "id": "n-mill-store",
+            "name": "儲存紀錄",
+            "kind": "store",
+            "ref": null
+          },
+          {
+            "id": "n-mill-state",
+            "name": "更新步驟狀態",
+            "kind": "state",
+            "ref": null
+          }
+        ],
+        "edges": [
+          {
+            "id": "n-mill-form>n-mill-check",
+            "source": "n-mill-form",
+            "target": "n-mill-check"
+          },
+          {
+            "id": "n-mill-check>n-mill-store",
+            "source": "n-mill-check",
+            "target": "n-mill-store"
+          },
+          {
+            "id": "n-mill-store>n-mill-state",
+            "source": "n-mill-store",
+            "target": "n-mill-state"
+          }
+        ],
+        "inherit_contract": true
+      },
+      "position": {
+        "x": 220.0,
+        "y": 260.0
+      }
+    },
+    {
+      "id": "n-drill",
+      "name": "鑽孔",
+      "kind": "task",
+      "function": "mfg.machining:drilling",
+      "latency": {
+        "setup": 5.0,
+        "per_unit": 2.0
+      },
+      "inputs": [],
+      "outputs": [],
+      "split": "none",
+      "join": "none",
+      "resource": {
+        "capability": "drilling",
+        "operator_skill": "drilling"
+      },
+      "props": {},
+      "subgraph": {
+        "inputs": [],
+        "outputs": [],
+        "steps": [
+          {
+            "id": "n-drill-form",
+            "name": "填寫作業紀錄",
+            "kind": "form",
+            "ref": "work_report"
+          },
+          {
+            "id": "n-drill-check",
+            "name": "驗證數量",
+            "kind": "validate",
+            "ref": null
+          },
+          {
+            "id": "n-drill-store",
+            "name": "儲存紀錄",
+            "kind": "store",
+            "ref": null
+          },
+          {
+            "id": "n-drill-state",
+            "name": "更新步驟狀態",
+            "kind": "state",
+            "ref": null
+          }
+        ],
+        "edges": [
+          {
+            "id": "n-drill-form>n-drill-check",
+            "source": "n-drill-form",
+            "target": "n-drill-check"
+          },
+          {
+            "id": "n-drill-check>n-drill-store",
+            "source": "n-drill-check",
+            "target": "n-drill-store"
+          },
+          {
+            "id": "n-drill-store>n-drill-state",
+            "source": "n-drill-store",
+            "target": "n-drill-state"
+          }
+        ],
+        "inherit_contract": true
+      },
+      "position": {
+        "x": 440.0,
+        "y": 320.0
+      }
+    },
+    {
+      "id": "n-qc",
+      "name": "品檢",
+      "kind": "task",
+      "function": "qc.inspection:inspect",
+      "latency": {
+        "setup": 10.0,
+        "per_unit": 0.0
+      },
+      "inputs": [],
+      "outputs": [],
+      "split": "none",
+      "join": "xor",
+      "resource": {
+        "capability": "inspection",
+        "operator_skill": "inspection"
+      },
+      "props": {},
+      "subgraph": {
+        "inputs": [],
+        "outputs": [],
+        "steps": [
+          {
+            "id": "n-qc-form",
+            "name": "填寫作業紀錄",
+            "kind": "form",
+            "ref": "work_report"
+          },
+          {
+            "id": "n-qc-check",
+            "name": "驗證數量",
+            "kind": "validate",
+            "ref": null
+          },
+          {
+            "id": "n-qc-store",
+            "name": "儲存紀錄",
+            "kind": "store",
+            "ref": null
+          },
+          {
+            "id": "n-qc-state",
+            "name": "更新步驟狀態",
+            "kind": "state",
+            "ref": null
+          }
+        ],
+        "edges": [
+          {
+            "id": "n-qc-form>n-qc-check",
+            "source": "n-qc-form",
+            "target": "n-qc-check"
+          },
+          {
+            "id": "n-qc-check>n-qc-store",
+            "source": "n-qc-check",
+            "target": "n-qc-store"
+          },
+          {
+            "id": "n-qc-store>n-qc-state",
+            "source": "n-qc-store",
+            "target": "n-qc-state"
+          }
+        ],
+        "inherit_contract": true
+      },
+      "position": {
+        "x": 660.0,
+        "y": 150.0
+      }
+    },
+    {
+      "id": "n-in",
+      "name": "成品入庫",
+      "kind": "warehouse_in",
+      "function": "wms.warehouse:receive",
+      "latency": {
+        "setup": 0.0,
+        "per_unit": 0.0
+      },
+      "inputs": [],
+      "outputs": [],
+      "split": "none",
+      "join": "none",
+      "resource": {
+        "capability": null,
+        "operator_skill": null
+      },
+      "props": {},
+      "subgraph": {
+        "inputs": [],
+        "outputs": [],
+        "steps": [],
+        "edges": [],
+        "inherit_contract": true
+      },
+      "position": {
+        "x": 880.0,
+        "y": 150.0
+      }
+    },
+    {
+      "id": "n-scrap",
+      "name": "報廢結案",
+      "kind": "scrap_close",
+      "function": "core.runtime:close_exception",
+      "latency": {
+        "setup": 0.0,
+        "per_unit": 0.0
+      },
+      "inputs": [],
+      "outputs": [],
+      "split": "none",
+      "join": "none",
+      "resource": {
+        "capability": null,
+        "operator_skill": null
+      },
+      "props": {},
+      "subgraph": {
+        "inputs": [],
+        "outputs": [],
+        "steps": [],
+        "edges": [],
+        "inherit_contract": true
+      },
+      "position": {
+        "x": 660.0,
+        "y": 380.0
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-out-turn",
+      "source": "n-out",
+      "target": "n-turn",
+      "flow": "material",
+      "transfer_time": 5.0
+    },
+    {
+      "id": "e-out-mill",
+      "source": "n-out",
+      "target": "n-mill",
+      "flow": "material",
+      "transfer_time": 5.0
+    },
+    {
+      "id": "e-turn-qc",
+      "source": "n-turn",
+      "target": "n-qc",
+      "flow": "material",
+      "transfer_time": 5.0
+    },
+    {
+      "id": "e-mill-drill",
+      "source": "n-mill",
+      "target": "n-drill",
+      "flow": "material",
+      "transfer_time": 5.0
+    },
+    {
+      "id": "e-mill-qc",
+      "source": "n-mill",
+      "target": "n-qc",
+      "flow": "material",
+      "transfer_time": 5.0
+    },
+    {
+      "id": "e-drill-qc",
+      "source": "n-drill",
+      "target": "n-qc",
+      "flow": "material",
+      "transfer_time": 5.0
+    },
+    {
+      "id": "e-qc-in",
+      "source": "n-qc",
+      "target": "n-in",
+      "flow": "material",
+      "transfer_time": 5.0
+    }
+  ],
+  "products": [
+    {
+      "product_id": "A",
+      "name": "A 軸件",
+      "enabled_nodes": [
+        "n-out",
+        "n-turn",
+        "n-qc",
+        "n-in"
+      ],
+      "branch_choices": {},
+      "latency_overrides": {},
+      "inspection_form": "inspection",
+      "material_item": "RM-A"
+    },
+    {
+      "product_id": "B",
+      "name": "B 支架",
+      "enabled_nodes": [
+        "n-out",
+        "n-mill",
+        "n-drill",
+        "n-qc",
+        "n-in"
+      ],
+      "branch_choices": {
+        "n-mill": "e-mill-drill"
+      },
+      "latency_overrides": {},
+      "inspection_form": "inspection",
+      "material_item": "RM-B"
+    },
+    {
+      "product_id": "C",
+      "name": "C 客製件",
+      "enabled_nodes": [
+        "n-out",
+        "n-mill",
+        "n-qc",
+        "n-in"
+      ],
+      "branch_choices": {
+        "n-mill": "e-mill-qc"
+      },
+      "latency_overrides": {
+        "n-mill": {
+          "setup": 15.0,
+          "per_unit": 5.0
+        },
+        "n-qc": {
+          "setup": 15.0,
+          "per_unit": 0.0
+        }
+      },
+      "inspection_form": "inspection",
+      "material_item": "RM-C"
+    }
+  ],
+  "rework_rules": [
+    {
+      "id": "r-qc",
+      "trigger_node": "n-qc",
+      "redo_nodes": [
+        "n-turn",
+        "n-mill",
+        "n-drill"
+      ],
+      "reinspect_node": "n-qc"
+    }
+  ]
+}

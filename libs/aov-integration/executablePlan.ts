@@ -149,6 +149,18 @@ export async function buildExecutablePlan(input: PlanBuildInput): Promise<PlanBu
     };
   });
 
+  // Inputs keyed by an id the plan does not have would otherwise be ignored without a trace.
+  const planNodeIds = new Set(nodes.map(n => n.nodeId));
+  for (const label of ['timings', 'resources'] as const) {
+    for (const key of Object.keys(input[label] ?? {})) {
+      if (!planNodeIds.has(key)) errors.push({ code: 'unknown-node', message: `${label} 指定的節點「${key}」不在計畫內。`, nodeId: key });
+    }
+  }
+  const paramIds = new Set((resolved.params ?? []).map(p => p.id));
+  for (const key of Object.keys(input.tuning ?? {})) {
+    if (!paramIds.has(key)) errors.push({ code: 'unknown-param', message: `tuning 指定的參數「${key}」不在計畫內。` });
+  }
+
   const portTypeOf = (node: string, port: string, dir: 'inputs' | 'outputs') => nodeById.get(node)?.[dir].find(p => p.id === port)?.type;
   const flows = resolved.flows.map(f => {
     const type = portTypeOf(f.from.node, f.from.port, 'outputs');
