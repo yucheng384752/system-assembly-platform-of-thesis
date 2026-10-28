@@ -1,0 +1,8 @@
+# Versions match composer-refactor-2 (packaging/requirements.lock) so the two lines can be merged without drift.
+# jsonschema is new (plan validation); httpx is for the API tests that come with the HTTP slice and is not needed yet.
+jsonschema==4.23.0
+fastapi==0.115.6
+uvicorn==0.32.1
+sqlalchemy==2.0.36
+alembic==1.14.0
+psycopg[binary]==3.2.3

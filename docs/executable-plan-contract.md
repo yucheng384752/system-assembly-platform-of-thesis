@@ -273,8 +273,17 @@ guard、判定節點的決策表與檢驗項目，在工廠端求值時需要下
 7. **工時、資源、可調整參數的來源。**A 的專案檔沒有這些欄位，`buildExecutablePlan` 由呼叫端傳入（`timings`、`resources`、`tuning`），未傳入則工時為 `missing`、參數不可調整。B 的 Latency 與 `resource` 由 `migrateProcessDefinition` 帶進來（W1 第二個 PR，見第 9 項）；`buildExecutablePlan` 對 `timings`、`resources` 指到計畫沒有的節點、`tuning` 指到沒有的參數，一律整份拒絕（`unknown-node`、`unknown-param`）。`paramTables` 與 `alarmRules` 目前恆為空陣列，待 aov-project 修改（8.1 第 10、14 項）後才能由 A 產生。
 8. **契約補洞（2026-10-27）。**原稿 4.3 漏了判定節點的 `route`/`decision`/`checks`/`verdicts`、`boundary`、`nodeParams`，以及埠位的 `type`，工廠端無法在沒有它們的情況下判定與解析連線，已補入 4.3 與 schema。
 9. **B 工時遷移的判斷（2026-10-28，實作時的判斷，待 user 確認）。**`libs/aov-integration/processMigration.ts`：(a) B 的 `Latency` 預設就是 0，`setup` 與 `per_unit` 皆為 0 時分不出「真的 0」與「沒填」，一律視為缺值並列入報告，由人確認後直接提供工時；(b) B 沒有記錄 `per_unit` 乘的數量單位，由呼叫端提供 `quantityUnit`，沒提供則有工時的節點也視為缺值；(c) `time_unit` 不是 `min` 時不換算，全部缺值；(d) B 節點與計畫節點只靠呼叫端的 `nodeMap` 對應，不比對名稱，`nodeMap` 寫錯 id 或兩個 B 節點對到同一個計畫節點則整份拒絕；(e) 邊的 `transfer_time` 尚未帶入（B 的邊沒有埠位，與 A 的連線對應規則未定），報告標為延後。
-10. **流程預估（W2）的建模判斷（2026-10-28，實作時的判斷，待 user 確認）。**`libs/planning/ganttEstimate.ts` 依計畫估算，不依 B 的資料：(a) 實作放在 TS 的 `libs/planning/`，不另起 Python 服務，因為輸入是 TS 建置的計畫、不需要新的程序邊界（與 MERGE-PLAN 擬定的 `services/planning/` 不同）；(b) 判定節點（`judge`）有多個接線輸出時，呼叫端必須指定分支，只有被選分支的下游進入估算；其他節點的多個輸出視為平行；(c) 缺工時的活動節點沒有結束時間，下游起點也未知，總時長為 `null` 並另給已知部分的下限，不當成 0；(d) 邊界與結構類別（`source`、`sink`、`merge`、`broadcast`）沒填工時時視為里程碑、不佔時間，這是建模規則而非補值，結果條件中會說明；(e) 連線缺移轉時間預設算缺資料，呼叫端可明確選擇以 0 估算，結果會註明；(f) 隨數量增加的節點必須有一個共同的數量與一致的單位，否則拒絕；(g) 不含重工預覽、資源競用、排程；(h) 以 SVG 輸出並標示估算，**尚未提供 PNG**（需要影像依賴，另待核准）。`buildExecutablePlan` 新增 `transfers` 輸入，沒給的連線標為 `missing`；B 邊的 `transfer_time` 仍未自動帶入（見第 9 項 (e)）。
-11. **W3 第一段的邊界（2026-10-28）。**(a) 接收端目前只做契約第 6 節要求的整合性與結構檢查，**沒有**用 `executable-plan.schema.json` 做完整驗證，因為標準函式庫沒有 JSON Schema 驗證器，需新增 Python 依賴（例如 `jsonschema`），待 user 核准；(b) `quantity` 型參數的值先當成以 `unit` 為單位的數字，A 的 `ParamDef` 沒有規定 quantity 的值形狀，待確認；(c) 提出與核准的授權（誰能呼叫）由入口權限處理，服務只負責狀態與「提出者不得等於核准者」；(d) 參數集與工單目前是記憶體內的參考實作，換成資料庫時須保持只增不改。
+10. **流程預估（W2）的建模判斷（2026-10-28 實作，user 於同日確認 (a) 至 (g)）。**`libs/planning/ganttEstimate.ts` 依計畫估算，不依 B 的資料：(a) 實作放在 TS 的 `libs/planning/`，不另起 Python 服務，因為輸入是 TS 建置的計畫、不需要新的程序邊界（與 MERGE-PLAN 擬定的 `services/planning/` 不同）；(b) 判定節點（`judge`）有多個接線輸出時，呼叫端必須指定分支，只有被選分支的下游進入估算；其他節點的多個輸出視為平行；(c) 缺工時的活動節點沒有結束時間，下游起點也未知，總時長為 `null` 並另給已知部分的下限，不當成 0；(d) 邊界與結構類別（`source`、`sink`、`merge`、`broadcast`）沒填工時時視為里程碑、不佔時間，這是建模規則而非補值，結果條件中會說明；(e) 連線缺移轉時間預設算缺資料，呼叫端可明確選擇以 0 估算，結果會註明；(f) 隨數量增加的節點必須有一個共同的數量與一致的單位，否則拒絕；(g) 不含重工預覽、資源競用、排程；(h) 以 SVG 輸出並標示估算；PNG 見第 12 項。`buildExecutablePlan` 新增 `transfers` 輸入，沒給的連線標為 `missing`；B 邊的 `transfer_time` 仍未自動帶入（見第 9 項 (e)）。
+11. **W3 第一段的邊界（2026-10-28）。**(a) 已改為完整驗證：user 於 2026-10-28 核准新增 Python 依賴，接收端先用 `executable-plan.schema.json`（與 TS 端同一份檔）驗證，再做整合性與結構檢查；(b) `quantity` 型參數的值是以 `unit` 為單位的數字（user 於 2026-10-28 確認）；(c) 提出與核准的授權（誰能呼叫）由入口權限處理，服務只負責狀態與「提出者不得等於核准者」；(d) 參數集與工單已有 SQL 實作，見第 12 項。
+12. **W3 第二段與 PNG 的判斷（2026-10-28，實作時的判斷，待 user 確認）。**
+    (a) **警報間隔預設值 `DEFAULT_REPEAT_MINUTES = 30` 是我假設的**，參數集沒有該規則的間隔時使用；實際預設值待與客戶確認，它不在計畫雜湊內，改值不影響已發布的計畫。
+    (b) `held` 由「未確認的警報」推導，不另存旗標；解除只有「確認警報」一種途徑（8.1 第 22 項）。同一規則在警報未確認時再次觸發，回傳同一筆警報，不新增；確認後再觸發是新的一輪（`episode` 加一）並再次 hold。
+    (c) 確認警報的角色限 `manager` 與 `admin`（對應計畫的 `minRole: manager` 及以上）；是否擁有該入口的權限仍由入口權限在 API 層決定，目前 API 尚未存在。
+    (d) 提醒由 `collect_due(now)` 回傳到期的警報並記錄已通知；實際收件人（`admin` 與 `manager`，8.1 第 15 項）與送出動作由呼叫端負責，工廠核心不送出。
+    (e) 資料庫防護放在資料庫本身：只增不改的表以觸發器拒絕 `UPDATE`、`DELETE`、`TRUNCATE`，已開工的工單以觸發器鎖定。資料表與規則見 `services/factory/docs/data-model.md`；以 PostgreSQL 16.6 與 SQLite 各跑同一組測試，含併發的版本編號、單一決定與單一未確認警報。
+    (f) 工廠核心**不求值**運算式，所以警報由已求值的呼叫端觸發；TS 求值器側車仍未做（8.1 第 16 項）。
+    (g) PNG：`libs/planning/ganttPng.ts` 的 `renderGanttPng` 只在 Node 端使用，新增開發依賴 `@resvg/resvg-js@2.6.2`（user 於 2026-10-28 同意做 SVG 轉 PNG 的功能；此為其依賴，請一併確認）。渲染器遇到缺字型時會**默默不畫文字**，所以輸出前先逐字探測，缺字即拒絕並列出缺字，不交出沒有文字的圖；可用 `fontFiles` 指定字型檔使各機器輸出一致。瀏覽器端的 PNG 與 Composer 畫面另開分支處理。
+    (h) 實測時發現並修正 W2 的 SVG 缺陷：起點已知但缺工時的列，標記與說明畫在圖外而看不見；座標軸現在涵蓋最晚的已知起點，並預留說明文字的空間。
 
 ## 9. 驗收條件（契約層）
 
@@ -297,5 +306,6 @@ guard、判定節點的決策表與檢驗項目，在工廠端求值時需要下
 2. 已完成（`feature/executable-plan-schema`）：`schemas/executable-plan.schema.json`、`fixtures/executable-plan/`（合法、缺工時、不可執行、`planId` 不符、內容被改、未知版本）與 `libs/aov-integration/executablePlan.test.ts`。
 3. 已完成（W1 第一個 PR）：`libs/aov-integration/executablePlan.ts` 的 `buildExecutablePlan`、`validateExecutablePlan`、`computePlanId`、`verifyPlanId`，測試在 `executablePlanBuild.test.ts`。
 4. 已完成（W1 第二個 PR）：`libs/aov-integration/processMigration.ts` 的 `migrateProcessDefinition`，輸出可直接餵給 `buildExecutablePlan` 的 `timings`、`resources`，以及 B 每個欄位去向的逐欄報告；測試在 `processMigration.test.ts`，B 的樣本在 `fixtures/aov-merge/factory/process.machining.json`。
-5. 已完成（W2）：`libs/planning/ganttEstimate.ts` 的 `estimateGantt`、`ganttSvg.ts` 的 `renderGanttSvg`，測試在 `libs/planning/ganttEstimate.test.ts`。Composer 畫面上的預估介面與 PNG 尚未做。
-6. 已完成（W3 第一段）：`services/factory/`（只用標準函式庫）的計畫接收與驗證、參數集服務、工單鎖定，測試 47 項，另有 `canonical-vectors.json` 擴充數字格式與控制字元向量並以 3 萬筆隨機浮點數與 JS 交叉比對。尚未做：資料庫、HTTP API、入口權限接線、警報與 `held`、求值器側車、領料／品檢／入庫步驟。
+5. 已完成（W2）：`libs/planning/ganttEstimate.ts` 的 `estimateGantt`、`ganttSvg.ts` 的 `renderGanttSvg`，測試在 `libs/planning/ganttEstimate.test.ts`。PNG 見第 12 項（Node 端已做）；Composer 畫面上的預估介面與瀏覽器端 PNG 另開分支。
+6. 已完成（W3 第一段）：`services/factory/`（只用標準函式庫）的計畫接收與驗證、參數集服務、工單鎖定，測試 47 項，另有 `canonical-vectors.json` 擴充數字格式與控制字元向量並以 3 萬筆隨機浮點數與 JS 交叉比對。
+7. 已完成（W3 第二段）：Python 端完整 schema 驗證、儲存介面與 SQL 實作（Alembic 修訂 0001、只增不改的資料庫觸發器）、警報與 `held` 狀態機，測試 167 項（Windows 與 PostgreSQL 16.6）。尚未做：HTTP API、入口權限接線、求值器側車、領料／品檢／入庫步驟；Composer 畫面另開分支。
