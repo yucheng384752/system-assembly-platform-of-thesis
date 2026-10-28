@@ -657,6 +657,70 @@ WP3d 本機實作與指定測試已完成，待 Claude 驗收。**OpenSSL 3.0 �
 - 未執行 Python、Node 回歸、typecheck 或六項變異驗證：在實作前已觸發停止條件，沒有測試通過或失敗可宣稱；第一階段 Windows 已知失敗清單未重新驗證。
 - 授權簽發、Python 授權鏈驗證、磁碟指紋、授權安裝／還原與跨語言驗證均未實作。等待分支與輸入通道裁決後再續作；現有後端仍未提供本階段要求之外的啟動授權檢查／guard，不得宣稱已防複製。
 
+## WP3b 第二階段 第二次
+
+### 開工前自檢與範圍
+
+2026-10-28：完整閱讀 2026-10-27 第二階段派工與 2026-10-28 停止後裁決，核對 installer 引擎、呼叫點、測試、授權 schema、Node 驗證器與 install-engine-contract。未發現新的阻擋性規格矛盾。沿用目前 `feature/executable-plan-schema`，沒有切換分支或任何 git 寫入；子金鑰與憑證路徑可進 argv，密碼與 expiresAt 仍只接受 stdin／0600 輸入檔。既有 apply 把所有步驟例外轉成 13／14，本次依明訂的新規則保留授權漂移的 12；仍執行失敗步驟的還原，還原本身失敗仍回 14，不改已完成步驟的保留語意。
+
+開工採用 ai-development-spec、codex-claude-mailbox、ponytail 規範；未派子代理。既有 Notes、Claude 派工、frontmatter 與 index 保留。沒有修改 docs/、services/package/、kits/、apps/、libs/、TODO.md 的受版控檔案，沒有新增依賴、使用網路或 Docker。預計完成時間仍為 2026-10-28 22:00；本次交付為實作與待執行的 Python 驗證，**不宣稱第二階段已驗收**。
+
+### 變更摘要與檔案清單
+
+- `services/installer/engine/license.py`（新增）：依 schema 手寫封套、payload、憑證與來源欄位驗證；OpenSSL RSA-PSS-SHA256／salt 32、至少 2048-bit RSA、公鑰 SPKI ID、憑證時間區間、issuedAt、licensee、授權到期、manifest 綁定、不同雜湊集合交集與重複來源拒絕。簽發時間才檢查憑證「現在」有效；驗證已簽授權不要求憑證尚未到期。子金鑰保持加密，密碼只透過 runner 的 data 傳 OpenSSL stdin；自驗通過後才排他建立輸出，拒絕覆寫。驗證回 11、簽發失敗回 17，錯誤不回顯輸入。
+- `services/installer/engine/detect.py`：保留既有 `.strip().lower()`；新增 disk serial／vpd_pg80、控制字元清理與 USB／removable／虛擬裝置排除。新增固定 privileged 子程序採集入口，只傳來源、valid、sha256；detect 無 sudo／採集失敗時退回原採集並警告，授權操作不退回非特權採集。
+- `services/installer/engine/cli.py`：內部 root fingerprint、issue-license、verify --license、plan／apply 必填 --license。簽發先驗包，payload 的系統／Recipe／Kit 取自 manifest。apply 開始前驗授權與硬體，對不上計畫回 12。
+- `services/installer/engine/install.py`：十步包含 compose-up 後的 license-install；該步驟前再次驗授權鏈、manifest 綁定及當前硬體，比對計畫記錄，將剛驗過的同一份 bytes 寫入授權檔。state 記錄建立意圖與完成；還原只刪本次建立的授權檔及空目錄。LIMITATIONS 明列後端啟動仍不讀授權、guard 未提供。
+- `services/installer/engine/fsops.py`：新增非遞迴 rmdir，保留未知檔案；mkdir 明確設定指定權限，授權目錄 0755、授權檔 0644。
+- `services/installer/schemas/plan.schema.json`：十步與必要 license 記錄（sha256、licensee.name、expiresAt）；不放指紋雜湊。
+- `schemas/license.schema.json`：僅將 fingerprintSources.source 的 mac 分支擴為 mac／disk，沿用非空、不含 `/` 與空白的規則。`scripts/security/tests/system-license.test.mjs` 僅新增此相容性測試；未改 security 正式程式。
+- `services/installer/tests/make-fixtures.mjs`：WP3d API 簽發固定時間的測試憑證／授權、拒絕案例、加密測試子金鑰。根私鑰只在記憶體；測試使用臨時目錄，沒有提交金鑰。固定簽發時間 2026-10-28T10:00:00Z、憑證 24 小時，Python 測試注入相同時間。
+- `services/installer/tests/test_license.py`（新增）：真實 Node fixture → Python／OpenSSL 驗證，Python 簽發與自驗、錯根／憑證與授權竄改／issuerKeyId／keyId／issuedAt／licensee／manifest／到期／集合交集／重複雜湊與來源／additionalProperties；子憑證過期後仍有效；簽發少於三來源、錯密碼、過期或未生效憑證、已有輸出拒絕；stdin／argv／磁碟不洩漏測試值；磁碟排除、vpd 正規化與 root 採集邊界。
+- `services/installer/tests/test_engine.py`：fixture 補 kits、假授權與公鑰資訊／指紋子命令；新增授權安裝與還原、計畫無指紋、授權檔 bytes 漂移、硬體漂移、apply 開始前重驗、缺授權、CLI 不接受密碼／到期日參數、無 sudo 警告。
+- `services/installer/tests/license_mutations.py`（新增）：六項隔離變異，baseline 必須通過且不跳過；只有 unittest assertion failure 算攔截，import／語法錯誤不算。
+- `services/installer/README.md`：新指令、輸入通道、十步、退出碼、還原、驗證指令與未驗證限制。
+- 本 thread 本小節。
+
+### 既有測試調整原因
+
+所有 EngineTests 共用的 setUp 現在建立 schema 合法的測試授權，make_plan 必須提供授權摘要，Installer 接收授權路徑；FakeRunner 的密碼學仍是假邊界，真實簽驗由新增 test_license 測試。
+
+直接修改的既有測試：`test_cli_verify_and_plan` 加授權輸入及 license=ok 斷言、缺授權由舊參數錯誤 10 改為明訂的 11；`test_cli_apply_status_cancel_rollback` 的 apply 呼叫加 --license；`test_cli_detect_and_unavailable` 的 issue-license 改驗失敗 17，其餘尚未提供入口仍回 10；`test_unknown_deployment_or_upgrade_rejected` 傳入新的必要授權摘要，保留原有拒絕斷言。其餘原測試的斷言未放寬，步驟順序斷言跟隨新增的 STEPS。
+
+### 實際驗證結果
+
+| 驗證 | 實際結果 |
+|---|---|
+| `node --test scripts/security/tests` | 19/19 通過（含新增 disk 相容性測試） |
+| `node --test services/package/tests` 第一次 | 13/14；deployment.test.mjs 的 contract rejection 測試在清理 `.contracts-cycI5p` 時 EBUSY，與本 thread 已記載的 Windows 間歇性清理問題同類；保留這次失敗，不宣稱始終穩定 |
+| 同一 package 指令重跑 | 14/14 通過；未修改 package 原始碼或測試 |
+| `npm.cmd run typecheck` | 通過 |
+| 獨立 fixture `tsc --strict --checkJs` | 退出 1；最後僅既有 `scripts/security/lib.mjs:17` Ajv TS2351，installer fixture 無新增診斷；未越界修該檔 |
+| 真實 Node／OpenSSL 邊界 | 臨時產生 fixture；Node 簽出的憑證與授權以 OpenSSL 驗證通過；OpenSSL 公鑰輸出符合 Python 使用的 RSA 檢查格式；以 stdin 密碼簽出的同一 payload 再由 Node verifyLicenseV3 驗證通過。測試臨時目錄已清理，未使用真實金鑰。**這不是 Python 引擎執行結果** |
+| Python 可執行性 | `python --version` 啟動失敗：「指定的登入工作階段不存在。可能已被終止。」；`py -0p` 啟動失敗：「系統無法存取該檔案。」均指向 WindowsApps 執行入口；沒有安裝或另取 Python |
+| `python -m unittest discover services/installer/tests` | **未執行，由 Claude 執行**；Python 無法啟動，沒有測試通過數可宣稱 |
+| 既有 mutations.py 與新增 license_mutations.py | **未執行，由 Claude 執行**，不可將新增腳本等同變異已被攔截 |
+| `git diff --check` | 通過；只有既有 CRLF→LF 提示，沒有 git 寫入 |
+
+第一階段已知 Windows 失敗仍是 `test_apply_and_no_secret_copies` 的 POSIX 0600 斷言、`test_fingerprint_and_detect` 的 AMD64／Linux CPU 名稱假設；四項 Linux 專屬測試原本就跳過（flock、CLI 鎖、0600 輸入檔、sudo 邊界）。本次沒有放寬它們，也**沒有實際重跑，所以不能宣稱本次未新增 Python 失敗**；需 Claude 在 Ubuntu 跑完整測試確認。
+
+### 六項授權變異與待執行對應
+
+| 變異 | 對應 LicenseTests | 結果 |
+|---|---|---|
+| 移除憑證簽章驗證（共用簽驗邊界） | test_certificate_signature | 未執行 |
+| 移除 issuerKeyId 比對 | test_issuer_id | 未執行 |
+| 移除 manifest 雜湊比對 | test_manifest | 未執行 |
+| 雜湊集合交集改為來源名稱集合 | test_hash_intersection_not_names | 未執行 |
+| 移除 issuedAt 區間檢查 | test_issued_interval | 未執行 |
+| 密碼從 stdin 改放 `-passin pass:...` | test_issue_stdin_and_self_verification | 未執行 |
+
+Claude 後續指令：`python3 -B -m unittest discover -s services/installer/tests -p 'test_*.py' -v`、`python3 -B services/installer/tests/mutations.py`、`python3 -B services/installer/tests/license_mutations.py`。Python 簽出授權對 Node CLI 的反向驗收、Ubuntu sudo／權限／實體指紋與 USB、Docker 實機驗收均待執行；未做 WP3c、WP3e、升級、離線 images 整合。後端目前不檢查安裝的授權，不能宣稱已防複製。
+
+### 暫存目錄清理限制
+
+第一次 package 測試 EBUSY 留下 `services/package/tests/.contracts-cycI5p`。嘗試對這個已確認完整路徑用 PowerShell Remove-Item 清理時，**自動核准審查拒絕，理由為 blocked by policy**。沒有改用其他手段刪除，該測試暫存目錄保留給 Claude 處理；不是本次產品變更，不應提交。
+
 # Claude Notes
 
 - 2026-10-21 18:40 建立分支與本計畫，派 WP1。WP2 的調查等 WP1 結束後再派，避免兩個任務同時寫本 thread。
@@ -1035,3 +1099,16 @@ Codex 開工前自檢停止，兩點都成立：
 2. **輸入通道：**契約第 4 節把「子金鑰檔案路徑」列入禁止出現在命令列，與派工設計決定第 3 點衝突。**裁決：**路徑不是秘密，`--subkey`、`--certificate` 可以走命令列；密碼與 `expiresAt` 仍只走 stdin 或 0600 輸入檔。契約第 4 節已改，並記為 D140（同條更正了手冊核對值與精靈 8 碼確認碼的措辭）。
 
 其餘派工內容、範圍、成功條件、停止條件不變。**預計完成時間延長為 2026-10-28 22:00。**Codex 在既有「WP3b 第二階段」小節之後新增「WP3b 第二階段 第二次」，不覆蓋前次。
+
+## 2026-10-28 WP3b 第二階段驗收（Claude）
+
+Codex 狀態以 `codex-companion status` 確認為 completed（18 分 23 秒，早於預計 22:00）。Codex 因 Python 無法在沙箱啟動而未跑 Python 測試，下列由 Claude 補跑：
+
+- **Ubuntu 22.04 VM（Python 3.10、OpenSSL 3.0.2、Node 22.23.3 以核對過 SHASUMS 的官方 tarball 臨時安裝）：** `unittest discover` 55/55 通過、0 失敗；`mutations.py` 6/6 被攔、37 個基準測試通過；`license_mutations.py` 6/6 被攔、15 個基準測試通過。Windows 本機同一套件 55 項中僅第一階段已知的兩個平台假設失敗（0600 權限斷言、CPU 名稱），4 項 Linux 專屬測試跳過，沒有新增失敗。
+- **反向驗證（Python 簽出、Node 驗證）：** 以真實 OpenSSL 由 `license.py` 的 `issue_license` 簽出授權，`scripts/security/verify-license.mjs` 驗證通過（退出碼 0）；換成不同硬體的指紋則回「指紋交集不足」（退出碼 1）。測試金鑰在 VM 臨時目錄，已全部清除。
+- 本機：`node --test scripts/security/tests` 19/19、`services/package/tests` 14/14、`npm.cmd run typecheck` 通過。Codex 留下的 `services/package/tests/.contracts-cycI5p` 已由 Claude 刪除（未被 git 追蹤）。
+- 範圍核對：變更檔案皆在派工允許範圍內；`docs/`、`services/package/`、`kits/`、`TODO.md` 無變動。
+
+**未驗證（維持待辦）：** 需要 sudo 的真實指紋採集（VM 無免密碼 sudo，僅以測試中的 runner 邊界驗證）、實體機指紋穩定性、真實 USB、Docker 實機整合流程。後端仍不讀取已安裝的授權（WP3e），不得宣稱已防複製。
+
+WP3b 第二階段驗收通過。

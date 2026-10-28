@@ -7,7 +7,7 @@ import platform
 import re
 import shutil
 import socket
-from common import canonical
+from common import Failure, canonical
 
 
 def read(path):
@@ -26,6 +26,20 @@ def fingerprint(sys_root):
         if (card / 'device').exists():
             sources['mac:' + card.name] = read(card / 'address').lower()
     bad = {'', '0', 'none', 'unknown', 'default string', 'to be filled by o.e.m.', 'not specified', 'system serial number'}
+    for disk in sorted((root / 'block').glob('*')):
+        if (disk.name.startswith(('loop', 'ram', 'dm-', 'md', 'zram', 'sr', 'nbd'))
+                or read(disk / 'removable') == '1' or '/usb' in disk.resolve().as_posix()):
+            continue
+        serial = disk / 'device/serial'
+        if serial.exists():
+            value = read(serial).lower()
+        else:
+            try:
+                raw = (disk / 'device/vpd_pg80').read_bytes().decode('utf-8', errors='ignore')
+                value = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', raw).strip().lower()
+            except OSError:
+                value = ''
+        sources['disk:' + disk.name] = value
     result = []
     for name, value in sources.items():
         compact = re.sub(r'[-:\s]', '', value)
@@ -34,6 +48,31 @@ def fingerprint(sys_root):
     valid = [entry for entry in result if entry['valid']]
     return {'sources': result, 'validCount': len(valid), 'sha256': hashlib.sha256(canonical(valid)).hexdigest(),
             'warnings': ['可用指紋來源少於 3 項；授權簽發時將拒絕'] if len(valid) < 3 else []}
+
+
+def collect(runner, sys_root='/sys'):
+    """Only the fixed child command reads privileged hardware; it returns hashes."""
+    try:
+        result = runner.run(['python3', '-B', str(Path(__file__).with_name('cli.py')), 'fingerprint',
+                             '--json', '--sys-root', str(sys_root)], privileged=True)
+        values = json.loads(result.stdout)
+        if not isinstance(values, list):
+            raise ValueError()
+        for item in values:
+            if (not isinstance(item, dict) or set(item) != {'source', 'valid', 'sha256'}
+                    or not isinstance(item['source'], str) or type(item['valid']) is not bool
+                    or (item['valid'] and (not isinstance(item['sha256'], str)
+                        or not re.fullmatch(r'[a-f0-9]{64}', item['sha256'])))
+                    or (not item['valid'] and item['sha256'] is not None)):
+                raise ValueError()
+        return values
+    except (Failure, OSError, ValueError, TypeError):
+        raise Failure(11, '無法以 root 採集硬體指紋') from None
+
+
+def current_sources(runner, sys_root='/sys'):
+    return [{'source': item['source'], 'sha256': item['sha256']}
+            for item in collect(runner, sys_root) if item['valid']]
 
 
 def universe_enabled(apt):
@@ -110,8 +149,18 @@ def detect(runner, *, sys_root='/sys', proc_root='/proc', etc_root='/etc', targe
         problems.append('Ubuntu 套件庫 HTTPS 連線檢查失敗')
     if any(p['version'] == '(none)' for p in packages):
         problems.append('Ubuntu Docker 套件候選版本不可用')
+    fingerprints = fingerprint(sys_root)
+    try:
+        if not sudo:
+            raise Failure(11, 'sudo unavailable')
+        values = collect(runner, sys_root)
+        valid = [item for item in values if item['valid']]
+        fingerprints = dict(sources=values, validCount=len(valid), sha256=hashlib.sha256(canonical(valid)).hexdigest(),
+                            warnings=['可用指紋來源少於 3 項；授權簽發時將拒絕'] if len(valid) < 3 else [])
+    except Failure:
+        fingerprints['warnings'].append('未取得 root，DMI 來源不可讀')
     return dict(os='ubuntu-22.04' if fields.get('ID') == 'ubuntu' and fields.get('VERSION_ID') == '22.04' else 'unsupported',
                 architecture=platform.machine(), diskFreeBytes=disk, memoryKiB=int(memory.group(1)) if memory else 0,
                 root=root_user, sudo=sudo, universe=universe, port=port, portFree=port_free,
                 versions=versions, packages=packages, connectivity={'https': connectivity},
-                fingerprint=fingerprint(sys_root), problems=problems)
+                fingerprint=fingerprints, problems=problems)

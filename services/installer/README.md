@@ -1,8 +1,8 @@
 # WP3b 安裝引擎與命令列
 
-Ubuntu 22.04、Python 3.10 以上、標準庫。這是首次安裝引擎；尚未經 Python、Docker 或客機驗收。只使用 WP3a 的部署產物，不修改原 Compose；沒有新增依賴。`issue-license`、`license-install`、`guard-up` 回 10「尚未提供」，驗包的授權部分為 `skipped`。沒有精靈與升級遷移。
+Ubuntu 22.04、Python 3.10 以上、標準庫與 OpenSSL。這是首次安裝引擎，只使用 WP3a 的部署產物，不修改原 Compose，沒有新增依賴。第一階段已由 Claude 驗收；本次第二階段新增授權 3.0 簽發、鏈驗證與安裝，Python／Ubuntu 驗證待 Claude 執行。沒有精靈與升級遷移；guard 尚未提供。
 
-客機另需既有 OpenSSL、sudo 與 Ubuntu apt 工具；引擎只負責按計畫安裝缺少的 Docker 套件。沙箱沒有安裝或執行這些工具。
+客機另需既有 OpenSSL、sudo 與 Ubuntu apt 工具；引擎只負責按計畫安裝缺少的 Docker 套件。
 
 ## 信任與包裝前置
 
@@ -26,8 +26,10 @@ WP3a 尚未輸出可直接驗證的離線安裝包。封裝者需依 `schemas/pa
 sudo -v
 sh services/installer/install.sh detect --system-id example --json
 sh services/installer/install.sh verify --system-id example --archive system.tar.gz --signature system-package.sig.json --key root.pem --confirm-key-prefix 0123abcd --json
-sh services/installer/install.sh plan --system-id example --archive system.tar.gz --signature system-package.sig.json --key root.pem --confirm-key-prefix 0123abcd --plan plan.json --json
-sh services/installer/install.sh apply --system-id example --plan plan.json --plan-sha256 HASH_FROM_PLAN --input-file /private/input.json --json
+sh services/installer/install.sh issue-license --system-id example --archive system.tar.gz --signature system-package.sig.json --key root.pem --confirm-key-prefix 0123abcd --subkey /media/usb/subkey.enc.pem --certificate /media/usb/subkey.cert.json --input-file /private/issue.json --out license.lic --json
+sh services/installer/install.sh verify --system-id example --archive system.tar.gz --signature system-package.sig.json --key root.pem --confirm-key-prefix 0123abcd --license license.lic --json
+sh services/installer/install.sh plan --system-id example --archive system.tar.gz --signature system-package.sig.json --key root.pem --confirm-key-prefix 0123abcd --license license.lic --plan plan.json --json
+sh services/installer/install.sh apply --system-id example --plan plan.json --plan-sha256 HASH_FROM_PLAN --license license.lic --input-file /private/input.json --json
 sh services/installer/install.sh status --system-id example --json
 sh services/installer/install.sh cancel --system-id example --json
 sh services/installer/install.sh rollback --system-id example --plan plan.json --rollback-plan rollback.json --json
@@ -35,6 +37,8 @@ sh services/installer/install.sh rollback --system-id example --plan plan.json -
 ```
 
 `--input-file` 必須是目前使用者的普通檔案，權限正好 0600；讀完立即刪除，包括驗證失敗。省略時從 stdin 讀 JSON。輸入格式（以下是欄位說明，不是可用秘密）：
+
+`issue-license` 的輸入只含 `{"passphrase":"現場密碼","expiresAt":"2099-01-01T00:00:00Z"}`；實際到期日由人員決定。密碼、到期日都沒有命令列參數；子金鑰與憑證路徑可用 `--subkey`、`--certificate`。以下 env／admin 格式用於 `apply`：
 
 ```text
 {
@@ -56,11 +60,15 @@ sh services/installer/install.sh rollback --system-id example --plan plan.json -
 
 路徑可覆寫：`--state-dir`（預設 `/var/lib/<system-id>/install`）、`--install-dir`（`/opt/<system-id>-<systemVersion>`）、`--trust-dir`（`/etc/<system-id>/trust`）。狀態目錄不可放在安裝目錄內；舊狀態不會被自動覆寫。測試可覆寫 `--sys-root`、`--proc-root`、`--etc-root`、`--lock-file`。一般操作不得另選鎖路徑來規避互斥。
 
-detect 檢查 OS、架構、磁碟／記憶體、sudo、Docker／Compose、universe、apt 候選版本、埠及 Ubuntu 套件庫 HTTPS；底線為磁碟與記憶體各 1 GiB，並非容量保證。計畫記錄實際 apt 候選版本，只安裝缺少元件，不改 apt 來源、不加 docker 群組。sudo 尚未快取時先 `sudo -v`；不將密碼提示誤認為沒有 sudoers 權限。指紋來源是 DMI UUID／序號與具實體 device 的網卡，無效來源被排除；少於三項只警告。
+detect 檢查 OS、架構、磁碟／記憶體、sudo、Docker／Compose、universe、apt 候選版本、埠及 Ubuntu 套件庫 HTTPS；底線為磁碟與記憶體各 1 GiB，並非容量保證。計畫記錄實際 apt 候選版本，只安裝缺少元件，不改 apt 來源、不加 docker 群組。sudo 尚未快取時先 `sudo -v`；不將密碼提示誤認為沒有 sudoers 權限。指紋經 root 內部命令 `fingerprint` 採集，只回傳來源、有效性與雜湊。來源包含 DMI、實體網卡與磁碟序號（serial 或 vpd_pg80）；排除 USB、removable、loop／ram／dm／md／zram／sr／nbd 裝置。detect 無 sudo 時保留非特權採集並警告；簽發與驗證不得退回非特權採集。
+
+簽發先驗安裝包，以 manifest 推得 systemId／recipe／enabledKits，要求至少三項有效來源。憑證須為根金鑰簽署、金鑰 ID 正確且簽發當下有效；授權到期日須在未來。OpenSSL 直接讀加密 PKCS#8 子金鑰，密碼只走 stdin，解密私鑰不落地。自驗通過才以排他建立方式發布授權，不覆寫已有檔案。授權驗證使用不同雜湊值的集合交集（至少二項），來源改名不影響；已簽發授權不因子金鑰憑證後來過期而失效。
+
+`verify` 未給 `--license` 時回 `license: skipped`，有給則完整驗鏈、到期日、manifest 與當前硬體。plan／apply 必須給授權；計畫只記授權檔 sha256、licensee.name、expiresAt，不含指紋雜湊。apply 開始與 license-install 步驟前都重驗，拒絕授權或硬體漂移。
 
 ## 狀態與還原
 
-固定九步：Docker、信任庫／新安裝目錄、映像、網路與卷、秘密檔、啟動 DB、首次建表與管理員、後端／代理、經代理 healthz。`migration` 只呼叫既有 `app.system_init` 與 `app.entry_permission.create_admin`，不冒充升級遷移。
+固定十步：Docker、信任庫／新安裝目錄、映像、網路與卷、秘密檔、啟動 DB、首次建表與管理員、後端／代理、license-install、經代理 healthz。`migration` 只呼叫既有 `app.system_init` 與 `app.entry_permission.create_admin`，不冒充升級遷移。license-install 寫入 `license/license.lic`（目錄 0755、檔案 0644），state 記錄本次建立者；還原只刪本次授權檔與本次建立的空目錄，目錄內有其他檔案則保留並回報失敗。
 
 `compose.override.yml` 是 JSON（合法 YAML），替每個服務、網路與卷加 install-id label，服務用 image ID 與 `pull_policy: never`；命令另加 `--no-build --pull never`。專案名 `<system-id>-<install-id>`。映像不加 label；state 記錄載入前存在與否、載入後 ID、載入標籤。遇到原有標籤指向其他映像就停止，不覆蓋。
 
@@ -72,7 +80,7 @@ rollback 首次只產生計畫，第二次帶該計畫雜湊才執行；另綁�
 
 程序意外被殺或 SSH 斷線後可以讀 status／要求 rollback，但不會自動續跑 apply；脫離終端的方式仍是契約待決事項。沒有假稱支援可靠斷線續裝。狀態可讀權限、跨使用者 flock、sudo／Compose 整合均待 Ubuntu 實測。
 
-退出碼：0 成功，10 環境／輸入／尚未提供，11 驗包，12 計畫雜湊或漂移，13 步驟失敗已還原，14 還原失敗或需人工處理，15 取消，16 鎖。17 保留給尚未實作的授權簽發；本階段不自行簽發。
+退出碼：0 成功，10 環境／輸入／尚未提供，11 驗包或授權驗證／缺授權，12 計畫雜湊或授權／硬體漂移，13 步驟失敗已還原，14 還原失敗或需人工處理，15 取消，16 鎖，17 授權簽發失敗。license-install 是 apply 內部步驟，不提供獨立執行入口。授權漂移回 12 時，先前已完成步驟仍保留，可用 status／rollback 處理。
 
 ## 驗證與交接
 
@@ -80,12 +88,13 @@ rollback 首次只產生計畫，第二次帶該計畫雜湊才執行；另綁�
 sh -n services/installer/install.sh
 python3 -B -m unittest discover -s services/installer/tests -p 'test_*.py' -v
 python3 -B services/installer/tests/mutations.py
+python3 -B services/installer/tests/license_mutations.py
 npm run typecheck
 node node_modules/typescript/bin/tsc --noEmit --allowJs --checkJs --strict --target ES2022 --module NodeNext --moduleResolution NodeNext --skipLibCheck services/installer/tests/make-fixtures.mjs
 ```
 
-Python 單元測試與六項變異 **由 Claude 執行，Codex 未執行、未宣稱通過**。FakeRunner 不呼叫真 Docker、sudo、apt 或網路；只能證明控制流程，不能證明 OpenSSL 密碼學正確性或 Compose 可執行性。變異先要求 baseline 通過；只有 assertion failure 算攔截，語法／import 錯誤不算。模板只讀 `services/package/templates`，測試／變異副本不修改 package。
+本次 Python 單元測試與授權六項變異 **由 Claude 執行，Codex 未執行、未宣稱通過**。test_engine 的 FakeRunner 不呼叫真 Docker、sudo、apt 或網路；test_license 以 Node 產生臨時測試金鑰／憑證／授權，實際使用 OpenSSL 驗證與簽發。變異先要求 baseline 通過；只有 assertion failure 算攔截，語法／import 錯誤不算。模板只讀 `services/package/templates`，測試／變異副本不修改 package。
 
-真實簽章 fixture：Claude 用測試 tar.gz 與對應 manifest 呼叫 `node services/installer/tests/make-fixtures.mjs TEST.tar.gz system-manifest.json NEW_OUTPUT_DIR`，產生測試簽章、公鑰與前綴；私鑰只存在記憶體。再以 verify 實際呼叫 OpenSSL 驗證並竄改測試。此腳本 **由 Claude 執行**，不是 WP3d 簽發工具。
+真實簽章 fixture：`node services/installer/tests/make-fixtures.mjs TEST.tar.gz system-manifest.json NEW_OUTPUT_DIR` 產生測試簽章、公鑰、前綴、授權案例與加密測試子金鑰；根私鑰只存在記憶體。manifest 需含 systemId 與 kits。測試憑證固定為 2026-10-28T10:00:00Z 起 24 小時，單元測試注入相同時間；實機 CLI 簽發須在該區間或另產生當下有效的測試憑證。測試使用臨時目錄並清理；切勿使用真實金鑰或提交 fixture 私鑰。Python 簽出授權對 Node 驗證器的反向檢查仍由 Claude 執行。
 
-待驗證／未提供：Python 語法與所有 unittest／變異、真實 OpenSSL、apt 安裝、Compose config／離線 load／部署、Ubuntu 權限、實機指紋、斷線行為，以及 WP3d／WP3c／WP3e。WP3e 前 root／docker 群組仍能由 `docker inspect` 讀到秘密；此限制亦寫入 plan 的 `notProvided` 與 verify 報告。不能宣稱完整 P2、授權驗收或防複製已完成。
+本次待驗證：Python 語法與 unittest／變異、Python/OpenSSL 跨語言整合、apt 安裝、Compose config／離線 load／部署、Ubuntu 權限、實機指紋與斷線行為。授權鏈驗證與安裝已提供，但後端啟動不檢查授權、guard 尚未提供，不能宣稱已防複製（WP3e）。root／docker 群組仍能由 `docker inspect` 讀到秘密；此限制亦寫入 plan 的 `notProvided` 與 verify 報告。沒有完成 WP3c 或 WP3e。

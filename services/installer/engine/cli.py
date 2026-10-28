@@ -1,4 +1,4 @@
-"""CLI shared by the future wizard. No wizard, license issuance or guard here."""
+"""CLI shared by the future wizard; guard remains a separate work package."""
 import argparse
 import json
 import os
@@ -7,7 +7,8 @@ import stat
 import sys
 import tempfile
 from common import Failure, Journal, Lock, Runner, canonical, check_plan, read_json, write_json
-from detect import detect
+from detect import detect, fingerprint, current_sources
+from license import checked_license, issue_license
 from install import Installer, LIMITATIONS, STEPS, deployment_names, make_plan, private_input
 from package import verify
 
@@ -20,10 +21,11 @@ class Arguments(argparse.ArgumentParser):
 def parser():
     result = Arguments(description='WP3b 首次安裝引擎')
     result.add_argument('command', choices=['detect', 'verify', 'plan', 'apply', 'status', 'cancel', 'rollback',
-                                            'issue-license', 'license-install', 'guard-up'])
+                                            'issue-license', 'fingerprint', 'license-install', 'guard-up'])
     result.add_argument('--json', action='store_true')
     for name in ('archive', 'signature', 'key', 'confirm-key-prefix', 'plan', 'plan-sha256', 'state-dir',
-                 'install-dir', 'trust-dir', 'input-file', 'rollback-plan', 'checkpoint'):
+                 'install-dir', 'trust-dir', 'input-file', 'rollback-plan', 'checkpoint',
+                 'subkey', 'certificate', 'out', 'license'):
         result.add_argument('--' + name)
     result.add_argument('--system-id', default='composer')
     result.add_argument('--sys-root', default='/sys')
@@ -77,8 +79,33 @@ def source_args(args, trust=None):
 
 
 def run(args, runner, emit, stream):
-    if args.command in ('issue-license', 'license-install', 'guard-up'):
-        raise Failure(10, '尚未提供：授權格式待 WP3d，guard 待 WP3e')
+    if args.command in ('license-install', 'guard-up'):
+        raise Failure(10, 'license-install 僅由 apply 執行；guard 尚未提供，待 WP3e')
+    if args.command == 'fingerprint':
+        if not hasattr(os, 'geteuid') or os.geteuid() != 0:
+            raise Failure(11, '指紋內部命令須以 root 執行')
+        emit(fingerprint(args.sys_root)['sources'])
+        return 0
+    if args.command in ('plan', 'apply') and not args.license:
+        raise Failure(11, '需要 --license；請先 issue-license')
+    if args.command == 'issue-license':
+        try:
+            import re
+            if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,49}', args.system_id):
+                raise Failure(17, 'system-id 不合法')
+            body = input_body(args, stream)
+            if not args.subkey or not args.certificate or not args.out:
+                raise Failure(17, '缺少簽發參數')
+            trust = Path(args.trust_dir or '/etc/' + args.system_id + '/trust').absolute()
+            source = source_args(args, trust)
+            with tempfile.TemporaryDirectory(prefix='composer-issue-package-') as tmp:
+                verified = verify(runner, **source, destination=tmp)
+                issue_license(runner, args.subkey, args.certificate, args.out, body, verified,
+                              current_sources(runner, args.sys_root))
+            emit({'command': 'issue-license', 'status': 'ok'})
+            return 0
+        except (Failure, OSError, ValueError, KeyError, TypeError):
+            raise Failure(17, '授權簽發失敗；請檢查來源、輸入、憑證、硬體指紋與輸出路徑') from None
     import re
     if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,49}', args.system_id):
         raise Failure(10, 'system-id 不合法')
@@ -99,15 +126,18 @@ def run(args, runner, emit, stream):
             result = verify(runner, **source, destination=tmp)
             if result['manifest']['systemId'] != args.system_id:
                 raise Failure(11, 'system-id 與 manifest 不符')
+            license_info = None
+            if args.license:
+                _, license_info = checked_license(runner, args.license, result, current_sources(runner, args.sys_root))
             if args.command == 'verify':
                 emit({'command': 'verify', 'status': 'ok', 'manifestSha256': result['manifestSha256'],
-                      'keyFingerprint': result['keyFingerprint'], 'license': 'skipped', 'notProvided': LIMITATIONS})
+                      'keyFingerprint': result['keyFingerprint'], 'license': 'ok' if license_info else 'skipped', 'notProvided': LIMITATIONS})
                 return 0
             if not args.plan:
                 raise Failure(10, '需要 --plan 輸出路徑')
             detection = detect(runner, sys_root=args.sys_root, proc_root=args.proc_root, etc_root=args.etc_root, port=args.port)
             target = Path(args.install_dir or '/opt/' + args.system_id + '-' + result['manifest']['systemVersion']).absolute()
-            plan = make_plan(result, tmp, source, detection, target, trust)
+            plan = make_plan(result, tmp, source, detection, target, trust, license_info)
             if directory == target or target in directory.parents:
                 raise Failure(10, '狀態目錄不得位於安裝目錄中')
             write_json(args.plan, plan)
@@ -172,12 +202,17 @@ def run(args, runner, emit, stream):
                     or result['manifest']['images'] != plan['images']
                     or deployment_names(tmp) != plan['names']):
                 raise Failure(12, '套件與已確認計畫不符')
+            try:
+                _, license_info = checked_license(runner, args.license, result, current_sources(runner, args.sys_root))
+            except Failure:
+                raise Failure(12, '授權或硬體與已確認計畫不符') from None
             expected = make_plan(result, tmp, plan['source'], detection,
-                                 plan['target']['installDir'], plan['target']['trustDir'])
+                                 plan['target']['installDir'], plan['target']['trustDir'], license_info)
             if expected != plan:
                 raise Failure(12, '環境或套件已改變，請重新產生與確認計畫')
             (directory / 'cancel.request').unlink(missing_ok=True)
-            return Installer(runner, journal, plan, key_pem=result['keyPem']).apply(tmp, body)
+            return Installer(runner, journal, plan, key_pem=result['keyPem'],
+                             license_path=args.license, sys_root=args.sys_root).apply(tmp, body)
 
 
 def main(argv=None, runner=None, stream=None):

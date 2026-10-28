@@ -21,6 +21,22 @@ from detect import detect, fingerprint, universe_enabled
 from install import Installer, LABEL, STEPS, make_plan, override, private_input
 from package import safe_path, verify
 
+TEST_SOURCES = [{'source': name, 'sha256': digest(('fixture-' + str(i)).encode())}
+                for i, name in enumerate(('product_uuid', 'board_serial', 'disk:sda'))]
+
+
+def fake_license(manifest_hash):
+    def signed(payload):
+        return {'payload': canonical(payload).decode(), 'signature': base64.b64encode(b'fixture-signature').decode(),
+                'algorithm': 'RSA-PSS-SHA256'}
+    cert = signed({'schemaVersion': '1.0', 'issuerKeyId': digest(b'fixture-der'), 'keyId': digest(b'fixture-der'),
+                   'subjectPublicKey': 'FAKE TEST PUBLIC KEY', 'licensee': {'name': 'fixture'},
+                   'notBefore': '2026-01-01T00:00:00Z', 'notAfter': '2026-01-02T00:00:00Z'})
+    return dict(signed({'schemaVersion': '3.0', 'issuedAt': '2026-01-01T12:00:00Z', 'expiresAt': '2099-01-01T00:00:00Z',
+                        'licensee': {'name': 'fixture'}, 'systemId': 'fixture', 'recipe': 'fixture',
+                        'enabledKits': ['platform-core-kit'], 'packageManifestSha256': manifest_hash,
+                        'fingerprint': {'minMatch': 2, 'sources': TEST_SOURCES}}), issuerCertificate=cert)
+
 
 def tar_bytes(files):
     output = io.BytesIO()
@@ -49,6 +65,7 @@ def fixture(directory, extra=None):
             {'Config': config_name, 'RepoTags': [tag], 'Layers': []}])})
         images.append(image)
     manifest = {'format': 'composer-system-assembly', 'schemaVersion': '1.0.0', 'systemVersion': '1.0.0', 'systemId': 'fixture', 'images': images,
+                'kits': [{'kit': 'platform-core-kit'}],
                 'files': [{'path': name, 'bytes': len(data), 'sha256': digest(data), 'role': 'fixture'} for name, data in files.items()]}
     files['system-manifest.json'] = canonical(manifest)
     for name, data in files.items():
@@ -95,10 +112,12 @@ class FakeRunner(Runner):
         if self.fail and self.fail != 'fs-remove' and self.fail in ' '.join(args):
             code = 1
         elif args[:2] == ['openssl', 'pkey']:
-            out = b'fixture-der'
+            out = b'Public-Key: (2048 bit)\nModulus:' if '-text' in args else b'fixture-der'
         elif args[:2] == ['openssl', 'dgst']:
             signature = Path(args[args.index('-signature') + 1]).read_bytes()
             code = 0 if self.signature_ok and signature == b'fixture-signature' else 1
+        elif 'fingerprint' in args:
+            out = canonical([dict(item, valid=True) for item in TEST_SOURCES])
         elif args[0] == 'apt-cache':
             out = b'Installed: (none)\nCandidate: 1.2.3\n'
         elif args[0] == 'dpkg-query':
@@ -167,10 +186,13 @@ class EngineTests(unittest.TestCase):
         self.verified = verify(self.runner, **self.source, destination=self.extracted)
         self.detection = {'problems': [], 'packages': [{'name': name, 'version': '1.2.3', 'installed': '(none)'}
                                                      for name in ('docker.io', 'docker-compose-v2')]}
-        self.plan = make_plan(self.verified, self.root, self.source, self.detection, self.base / 'installed', self.base / 'trust')
+        self.license_path = self.base / 'license.lic'
+        write_json(self.license_path, fake_license(self.verified['manifestSha256']))
+        self.license_info = {'sha256': digest(self.license_path.read_bytes()), 'licensee': {'name': 'fixture'}, 'expiresAt': '2099-01-01T00:00:00Z'}
+        self.plan = make_plan(self.verified, self.root, self.source, self.detection, self.base / 'installed', self.base / 'trust', self.license_info)
         self.events = []
         self.journal = Journal(self.state_dir, self.events.append)
-        self.installer = Installer(self.runner, self.journal, self.plan, key_pem=self.verified['keyPem'])
+        self.installer = Installer(self.runner, self.journal, self.plan, key_pem=self.verified['keyPem'], license_path=self.license_path)
         self.body = {'env': {'POSTGRES_USER': 'app', 'POSTGRES_DB': 'app', 'POSTGRES_PASSWORD': 'db$private',
                              'SECRET_KEY': 'S' * 40, 'ENTRY_PERMISSION_JWT_SECRET': 'J' * 40,
                              'DEFAULT_TENANT_ID': '12345678-1234-1234-1234-123456789abc'},
@@ -400,20 +422,99 @@ class EngineTests(unittest.TestCase):
     def test_cli_verify_and_plan(self):
         args = sum(([('--confirm-key-prefix' if k == 'prefix' else '--' + k), v] for k, v in self.source.items()), [])
         self.assertEqual(self.call_cli('verify', *args)[0], 0)
+        code, output = self.call_cli('verify', *args, '--license', str(self.license_path))
+        self.assertEqual(code, 0)
+        self.assertEqual(output[0]['license'], 'ok')
         plan_path = self.base / 'plan.json'
-        self.assertEqual(self.call_cli('plan', *args, '--plan', str(plan_path), '--install-dir', str(self.base / 'out'),
+        self.assertEqual(self.call_cli('plan', *args, '--license', str(self.license_path), '--plan', str(plan_path), '--install-dir', str(self.base / 'out'),
                                        '--trust-dir', str(self.base / 'trust'))[0], 0)
         self.assertTrue(plan_path.exists())
         self.runner.signature_ok = False
         self.assertEqual(self.call_cli('verify', *args)[0], 11)
-        self.assertEqual(self.call_cli('plan')[0], 10)
+        self.assertEqual(self.call_cli('plan')[0], 11)
+
+    def test_license_install_recheck_and_rollback(self):
+        self.assertEqual(self.installer.apply(self.root, self.body), 0)
+        directory = self.base / 'installed/license'
+        self.assertEqual((directory / 'license.lic').read_bytes(), self.license_path.read_bytes())
+        self.assertTrue(all(item['created'] for item in self.installer.state['steps']['license-install']['undo']))
+        self.installer.undo_step('license-install')
+        self.assertFalse(directory.exists())
+        plan_text = json.dumps(self.plan)
+        self.assertIn(self.license_info['sha256'], plan_text)
+        for source in TEST_SOURCES:
+            self.assertNotIn(source['sha256'], plan_text)
+
+    def test_license_install_drift_is_code_12(self):
+        def after(args):
+            if args[:2] == ['docker', 'compose'] and args[-1] == 'proxy':
+                with self.license_path.open('ab') as stream:
+                    stream.write(b'\n')
+        self.runner.after = after
+        self.assertEqual(self.installer.apply(self.root, self.body), 12)
+        self.assertFalse((self.base / 'installed/license/license.lic').exists())
+        self.assertEqual(self.installer.state['steps']['compose-up']['status'], 'ok')
+
+    def test_fingerprint_drift_before_license_install(self):
+        original = self.runner.run
+        def changed(args, **kwargs):
+            if 'fingerprint' in args:
+                return subprocess.CompletedProcess(args, 0, canonical([]), b'')
+            return original(args, **kwargs)
+        self.runner.run = changed
+        self.assertEqual(self.installer.apply(self.root, self.body), 12)
+        self.assertFalse((self.base / 'installed/license').exists())
+
+    def test_license_rollback_preserves_unowned_files(self):
+        self.assertEqual(self.installer.apply(self.root, self.body), 0)
+        directory = self.base / 'installed/license'
+        (directory / 'foreign').write_text('keep')
+        with self.assertRaises(OSError):
+            self.installer.undo_step('license-install')
+        self.assertTrue((directory / 'foreign').exists())
+        self.assertFalse((directory / 'license.lic').exists())
+
+    def test_missing_license_apply_refused_before_mutation(self):
+        self.assertEqual(self.call_cli('apply')[0], 11)
+        self.assertFalse((self.base / 'installed').exists())
+
+    def test_cli_apply_rechecks_license_before_side_effects(self):
+        plan_path = self.base / 'plan.json'
+        write_json(plan_path, self.plan)
+        arguments = ('apply', '--license', str(self.license_path), '--plan', str(plan_path),
+                     '--plan-sha256', self.plan['planSha256'])
+        raw = self.license_path.read_bytes()
+        self.license_path.write_text('{}')
+        with patch('cli.Lock', return_value=contextlib.nullcontext()):
+            self.assertEqual(self.call_cli(*arguments)[0], 12)
+            self.license_path.write_bytes(raw)
+            with patch('cli.current_sources', return_value=[]):
+                self.assertEqual(self.call_cli(*arguments)[0], 12)
+        self.assertFalse((self.base / 'installed').exists())
+        self.assertFalse((self.state_dir / 'state.json').exists())
+
+    def test_issue_secrets_cannot_be_arguments(self):
+        for option, value in (('--passphrase', 'raw-private-password'), ('--expiresAt', '2099-01-01T00:00:00Z')):
+            code, output = self.call_cli('issue-license', option, value)
+            self.assertEqual(code, 10)
+            self.assertNotIn(value, json.dumps(output))
+        code, output = self.call_cli('issue-license', body={'passphrase': 'raw-private-password', 'expiresAt': 'invalid'})
+        self.assertEqual(code, 17)
+        self.assertNotIn('raw-private-password', json.dumps(output))
+
+    def test_detect_sudo_unavailable_warning(self):
+        with patch('detect.os.geteuid', return_value=1000, create=True):
+            self.runner.fail = 'sudo'
+            result = detect(self.runner, sys_root=self.base, proc_root=self.base, etc_root=self.base,
+                            target=self.base, port=0)
+        self.assertIn('未取得 root，DMI 來源不可讀', result['fingerprint']['warnings'])
 
     @unittest.skipUnless(sys.platform == 'linux', 'CLI mutation lock requires Ubuntu; 由 Claude 執行')
     def test_cli_apply_status_cancel_rollback(self):
         plan_path = self.base / 'plan.json'
         write_json(plan_path, self.plan)
-        self.assertEqual(self.call_cli('apply', '--plan', str(plan_path), '--plan-sha256', 'wrong')[0], 12)
-        self.assertEqual(self.call_cli('apply', '--plan', str(plan_path), '--plan-sha256', self.plan['planSha256'])[0], 0)
+        self.assertEqual(self.call_cli('apply', '--license', str(self.license_path), '--plan', str(plan_path), '--plan-sha256', 'wrong')[0], 12)
+        self.assertEqual(self.call_cli('apply', '--license', str(self.license_path), '--plan', str(plan_path), '--plan-sha256', self.plan['planSha256'])[0], 0)
         self.assertEqual(self.call_cli('status')[0], 0)
         self.assertEqual(self.call_cli('cancel')[0], 10)
         state = json.loads((self.state_dir / 'state.json').read_text())
@@ -431,7 +532,8 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(self.call_cli('detect')[0], 0)
         self.detection['problems'] = ['fixture unsupported']
         self.assertEqual(self.call_cli('detect')[0], 10)
-        for command in ('issue-license', 'license-install', 'guard-up'):
+        self.assertEqual(self.call_cli('issue-license')[0], 17)
+        for command in ('license-install', 'guard-up'):
             code, output = self.call_cli(command)
             self.assertEqual(code, 10)
             self.assertIn('尚未提供', output[0]['message'])
@@ -479,10 +581,10 @@ class EngineTests(unittest.TestCase):
     def test_unknown_deployment_or_upgrade_rejected(self):
         (self.base / 'installed').mkdir()
         self.assert_code(10, lambda: make_plan(self.verified, self.root, self.source, self.detection,
-                                             self.base / 'installed', self.base / 'trust'))
+                                             self.base / 'installed', self.base / 'trust', self.license_info))
         (self.root / 'deployment/docker-compose.yml').write_text('services: {}')
         self.assert_code(11, lambda: make_plan(self.verified, self.root, self.source, self.detection,
-                                             self.base / 'different', self.base / 'trust'))
+                                             self.base / 'different', self.base / 'trust', self.license_info))
 
     @unittest.skipUnless(sys.platform == 'linux', 'sudo boundary targets Ubuntu; 由 Claude 執行')
     def test_runner_uses_arrays_and_does_not_record_stdin(self):

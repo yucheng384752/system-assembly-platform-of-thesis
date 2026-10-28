@@ -29,7 +29,7 @@
       "type": "array", "items": {
         "type": "object", "additionalProperties": false, "required": ["source", "sha256"],
         "properties": {
-          "source": { "type": "string", "pattern": "^(product_uuid|product_serial|board_serial|chassis_serial|mac:[^/\\s]+)$" },
+          "source": { "type": "string", "pattern": "^(product_uuid|product_serial|board_serial|chassis_serial|(?:mac|disk):[^/\\s]+)$" },
           "sha256": { "$ref": "#/$defs/sha256" }
         }
       }
