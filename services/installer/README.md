@@ -66,6 +66,23 @@ detect 檢查 OS、架構、磁碟／記憶體、sudo、Docker／Compose、unive
 
 `verify` 未給 `--license` 時回 `license: skipped`，有給則完整驗鏈、到期日、manifest 與當前硬體。plan／apply 必須給授權；計畫只記授權檔 sha256、licensee.name、expiresAt，不含指紋雜湊。apply 開始與 license-install 步驟前都重驗，拒絕授權或硬體漂移。
 
+## 網頁精靈（WP3c）
+
+```sh
+sudo -v
+sh services/installer/install.sh wizard --system-id example [--state-dir ...] [--install-dir ...] [--trust-dir ...] [--wizard-port N]
+```
+
+只監聽 `127.0.0.1`；啟動時印出含一次性權杖的網址（`http://127.0.0.1:<埠>/<權杖>/`）與暫存目錄（存放授權與計畫，還原時需要）。每個畫面對應一個引擎子命令，精靈以子程序呼叫 `cli.py`，不含安裝邏輯：偵測、驗證安裝包、簽發授權、安裝設定、檢視計畫、進度與報告、還原。
+
+- **防護：**路徑權杖加 `Host` 標頭檢查（防 DNS rebinding）、POST 檢查 `Origin` 與 `Content-Type: application/json`、請求大小上限 128 KB、CSP `default-src 'none'`、不回應靜態檔案白名單以外的路徑、請求日誌不記錄（網址含權杖）。畫面文字一律以 `textContent` 呈現。
+- **秘密值：**子金鑰密碼與安裝設定只經子程序標準輸入傳給引擎，不進命令列；送出後畫面欄位立即清空。回應不回顯秘密值。
+- **確認綁定：**`apply` 與 `rollback` 的確認雜湊必須等於精靈剛顯示的計畫雜湊，否則 409；同一時間只允許一個 `apply`。
+- **sudo：**精靈不接收 sudo 密碼。開始安裝前以 `sudo -n true` 檢查，未取得時提示在終端機執行 `sudo -v`（契約第 7 節原寫「經標準輸入傳給 sudo -S」，改為此做法，見 D141）。
+- **背景執行：**`apply` 以獨立 session 啟動，關閉瀏覽器不會中斷；重新開啟精靈或用 `status` 可看進度。
+- **子金鑰與憑證：**以 USB 上的檔案路徑輸入（D140），不經瀏覽器上傳。
+- 驗證：`python3 -B -m unittest tests.test_wizard`、`python3 -B tests/wizard_mutations.py`（八項變異）。
+
 ## 狀態與還原
 
 固定十步：Docker、信任庫／新安裝目錄、映像、網路與卷、秘密檔、啟動 DB、首次建表與管理員、後端／代理、license-install、經代理 healthz。`migration` 只呼叫既有 `app.system_init` 與 `app.entry_permission.create_admin`，不冒充升級遷移。license-install 寫入 `license/license.lic`（目錄 0755、檔案 0644），state 記錄本次建立者；還原只刪本次授權檔與本次建立的空目錄，目錄內有其他檔案則保留並回報失敗。

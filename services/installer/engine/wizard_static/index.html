@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>系統安裝精靈</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <h1>系統安裝精靈</h1>
+  <p id="meta" class="muted" role="status">載入中</p>
+</header>
+<main>
+  <section id="s-detect" aria-labelledby="h-detect">
+    <h2 id="h-detect">1 環境偵測</h2>
+    <p class="muted">檢查作業系統、權限、磁碟、連接埠與硬體指紋來源，不會變更系統。</p>
+    <button id="b-detect" type="button" class="primary">開始偵測</button>
+    <div id="o-detect" role="status"></div>
+  </section>
+
+  <section id="s-verify" aria-labelledby="h-verify">
+    <h2 id="h-verify">2 驗證安裝包</h2>
+    <div class="note"><strong>先在客機終端機手動核對。</strong>請執行 <code>sha256sum</code> 核對 install.sh 與根公鑰檔案，與操作手冊逐行比對，一致才繼續。精靈不代做這一步。</div>
+    <label class="check"><input id="c-manual" type="checkbox"> 我已依操作手冊完成 sha256sum 核對，結果一致</label>
+    <label>安裝包（tar.gz）路徑<input id="f-archive" type="text" autocomplete="off"></label>
+    <label>簽章檔（system-package.sig.json）路徑<input id="f-signature" type="text" autocomplete="off"></label>
+    <label>根公鑰檔路徑<input id="f-key" type="text" autocomplete="off"></label>
+    <label>根公鑰指紋前 8 碼（印在 release-fingerprints.txt 的註解行）<input id="f-prefix" type="text" maxlength="8" autocomplete="off"></label>
+    <button id="b-verify" type="button" class="primary" disabled>驗證安裝包</button>
+    <div id="o-verify" role="status"></div>
+  </section>
+
+  <section id="s-license" aria-labelledby="h-license">
+    <h2 id="h-license">3 簽發授權</h2>
+    <p class="muted">使用 USB 上的加密子金鑰與憑證，在這台機器上簽出綁定本機硬體的授權。密碼只傳給本機引擎，不寫入磁碟。</p>
+    <label>子金鑰檔路徑（USB）<input id="f-subkey" type="text" autocomplete="off"></label>
+    <label>子金鑰憑證檔路徑（USB）<input id="f-cert" type="text" autocomplete="off"></label>
+    <label>子金鑰密碼<input id="f-pass" type="password" autocomplete="off"></label>
+    <label>授權到期日（UTC，當日結束）<input id="f-expires" type="date"></label>
+    <button id="b-license" type="button" class="primary" disabled>簽發授權</button>
+    <div id="o-license" role="status"></div>
+  </section>
+
+  <section id="s-input" aria-labelledby="h-input">
+    <h2 id="h-input">4 安裝設定</h2>
+    <p class="muted">秘密值只在安裝時傳給引擎，寫入權限 0600 的設定檔，不會顯示在計畫或事件中。</p>
+    <button id="b-generate" type="button">產生隨機值</button>
+    <div class="grid">
+      <label>資料庫使用者<input id="e-POSTGRES_USER" type="text" value="composer" autocomplete="off"></label>
+      <label>資料庫名稱<input id="e-POSTGRES_DB" type="text" value="composer" autocomplete="off"></label>
+      <label>資料庫密碼<input id="e-POSTGRES_PASSWORD" type="password" autocomplete="off"></label>
+      <label>SECRET_KEY（至少 32 字元）<input id="e-SECRET_KEY" type="password" autocomplete="off"></label>
+      <label>ENTRY_PERMISSION_JWT_SECRET（至少 32 字元）<input id="e-ENTRY_PERMISSION_JWT_SECRET" type="password" autocomplete="off"></label>
+      <label>MOD_WEBHOOK_SECRET（含 MOD 功能時才需要）<input id="e-MOD_WEBHOOK_SECRET" type="password" autocomplete="off"></label>
+      <label>預設租戶 UUID<input id="e-DEFAULT_TENANT_ID" type="text" autocomplete="off"></label>
+      <label>連接埠<input id="e-HTTP_PORT" type="text" value="8080" autocomplete="off"></label>
+      <label>管理員帳號<input id="a-username" type="text" autocomplete="off"></label>
+      <label>管理員密碼（超過 8 字元）<input id="a-password" type="password" autocomplete="off"></label>
+      <label>管理員顯示名稱<input id="a-display_name" type="text" autocomplete="off"></label>
+    </div>
+  </section>
+
+  <section id="s-plan" aria-labelledby="h-plan">
+    <h2 id="h-plan">5 檢視計畫</h2>
+    <button id="b-plan" type="button" class="primary" disabled>產生計畫</button>
+    <div id="o-plan"></div>
+    <label class="check"><input id="c-plan" type="checkbox" disabled> 我已檢視上列計畫，了解標示為部分可還原的項目</label>
+    <p class="muted">安裝需要 sudo 權限。請先在終端機執行 <code>sudo -v</code>；密碼不會經過瀏覽器。</p>
+    <button id="b-apply" type="button" class="primary" disabled>開始安裝</button>
+    <div id="o-apply" role="status"></div>
+  </section>
+
+  <section id="s-progress" aria-labelledby="h-progress">
+    <h2 id="h-progress">6 安裝進度與報告</h2>
+    <button id="b-status" type="button">重新整理</button>
+    <button id="b-cancel" type="button" class="danger">要求取消</button>
+    <div id="o-progress" role="status"></div>
+  </section>
+
+  <section id="s-rollback" aria-labelledby="h-rollback">
+    <h2 id="h-rollback">7 還原</h2>
+    <p class="muted">還原前會先產生還原計畫，確認後才執行。已有資料的資料庫卷會保留並要求人工處理。</p>
+    <button id="b-rbplan" type="button" class="danger">產生還原計畫</button>
+    <div id="o-rbplan"></div>
+    <button id="b-rollback" type="button" class="danger" disabled>確認並還原</button>
+    <div id="o-rollback" role="status"></div>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

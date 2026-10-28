@@ -21,7 +21,7 @@ class Arguments(argparse.ArgumentParser):
 def parser():
     result = Arguments(description='WP3b 首次安裝引擎')
     result.add_argument('command', choices=['detect', 'verify', 'plan', 'apply', 'status', 'cancel', 'rollback',
-                                            'issue-license', 'fingerprint', 'license-install', 'guard-up'])
+                                            'issue-license', 'fingerprint', 'license-install', 'guard-up', 'wizard'])
     result.add_argument('--json', action='store_true')
     for name in ('archive', 'signature', 'key', 'confirm-key-prefix', 'plan', 'plan-sha256', 'state-dir',
                  'install-dir', 'trust-dir', 'input-file', 'rollback-plan', 'checkpoint',
@@ -32,6 +32,7 @@ def parser():
     result.add_argument('--proc-root', default='/proc')
     result.add_argument('--etc-root', default='/etc')
     result.add_argument('--port', type=int, default=8080)
+    result.add_argument('--wizard-port', type=int, default=0)
     result.add_argument('--lock-file', default='/tmp/composer-installer.lock')
     return result
 
@@ -81,6 +82,16 @@ def source_args(args, trust=None):
 def run(args, runner, emit, stream):
     if args.command in ('license-install', 'guard-up'):
         raise Failure(10, 'license-install 僅由 apply 執行；guard 尚未提供，待 WP3e')
+    if args.command == 'wizard':
+        import re
+        from wizard import serve
+        if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,49}', args.system_id):
+            raise Failure(10, 'system-id 不合法')
+        forwarded = ['--system-id', args.system_id]
+        for name in ('state_dir', 'install_dir', 'trust_dir'):
+            if getattr(args, name):
+                forwarded += ['--' + name.replace('_', '-'), getattr(args, name)]
+        return serve(args.system_id, forwarded, port=args.wizard_port)
     if args.command == 'fingerprint':
         if not hasattr(os, 'geteuid') or os.geteuid() != 0:
             raise Failure(11, '指紋內部命令須以 root 執行')
