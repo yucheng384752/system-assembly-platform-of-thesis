@@ -20,6 +20,7 @@ export interface CapabilityMap {
    */
   categoryDefaults?: { category: NodeCategory; capability: string; kitId: string; executor?: Executor }[];
 }
+export type PlanTransfer = { state: 'missing' } | { state: 'specified'; minutes: number };
 export type PlanTiming = { state: 'missing' } | { state: 'specified'; setupMin: number; perUnitMin: number; quantityUnit: string };
 export interface PlanBuildInput {
   project: ProjectFile;
@@ -31,6 +32,8 @@ export interface PlanBuildInput {
   /** Per flattened node id; absent means missing, never 0. */
   timings?: Record<string, PlanTiming>;
   resources?: Record<string, { capability?: string; operatorSkill?: string }>;
+  /** Per flow id; absent means missing, never 0. */
+  transfers?: Record<string, PlanTransfer>;
   /** Parameters the factory may change. A's ParamDef has no such flag yet. */
   tuning?: Record<string, { range?: { min: number; max: number } }>;
 }
@@ -156,6 +159,10 @@ export async function buildExecutablePlan(input: PlanBuildInput): Promise<PlanBu
       if (!planNodeIds.has(key)) errors.push({ code: 'unknown-node', message: `${label} 指定的節點「${key}」不在計畫內。`, nodeId: key });
     }
   }
+  const flowIds = new Set(resolved.flows.map(f => f.id));
+  for (const key of Object.keys(input.transfers ?? {})) {
+    if (!flowIds.has(key)) errors.push({ code: 'unknown-flow', message: `transfers 指定的連線「${key}」不在計畫內。` });
+  }
   const paramIds = new Set((resolved.params ?? []).map(p => p.id));
   for (const key of Object.keys(input.tuning ?? {})) {
     if (!paramIds.has(key)) errors.push({ code: 'unknown-param', message: `tuning 指定的參數「${key}」不在計畫內。` });
@@ -166,7 +173,7 @@ export async function buildExecutablePlan(input: PlanBuildInput): Promise<PlanBu
     const type = portTypeOf(f.from.node, f.from.port, 'outputs');
     const kind = type ? types.kindOf(type) : undefined;
     if (!type || !kind) errors.push({ code: 'flow-type', message: `連線「${f.id}」無法判定 artifact 型別或種類。` });
-    return { id: f.id, from: f.from, to: f.to, artifactType: type, kind: kind === 'information' ? 'data' : 'material' };
+    return { id: f.id, from: f.from, to: f.to, artifactType: type, kind: kind === 'information' ? 'data' : 'material', transferMin: input.transfers?.[f.id] ?? { state: 'missing' as const } };
   });
   if (errors.length) return { ok: false, errors };
 
