@@ -219,6 +219,7 @@ async function checkDeployment(out, selected) {
   assert.match(dockerfile, /USER 10001:10001/);
   assert.match(dockerfile, /COPY kits\/ \/system\/kits\//);
   assert.match(proxy, /location \/api\//); assert.match(proxy, /location = \/healthz/);
+  assert.match(proxy, /location \/assets\/ \{\s+root [^;]+;\s+try_files \$uri =404;/);
   assert.match(proxy, /root \/usr\/share\/nginx\/html;/); assert.match(proxy, /try_files \$uri \/index\.html;/);
   assert.match(proxy, /location = \/license/);
   assert.equal(proxy.match(/proxy_pass/g)?.length, 3);

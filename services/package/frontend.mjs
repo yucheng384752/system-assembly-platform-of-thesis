@@ -137,11 +137,14 @@ export async function frontendTree(kitsDirectory, selected) {
     if (tree.has(name)) throw new Error(`前端檔案重複：${name}`);
     tree.set(name, data);
   };
+  // Checkouts with autocrlf differ in line endings; the package must not.
+  const text = /** @param {string} name @param {Buffer} data */ (name, data) =>
+    /\.(tsx?|css|json|html)$/.test(name) ? Buffer.from(data.toString('utf8').replaceAll('\r\n', '\n')) : data;
   const withUpload = selected.includes('upload-validation-kit');
   for (const name of (await walk(base)).sort()) {
     if (!withUpload && UPLOAD_ONLY.some(prefix => name === prefix || (prefix.endsWith('/') && name.startsWith(prefix)))) continue;
     if (name === 'src/App.tsx') continue;
-    put(name, await readFile(path.join(base, name)));
+    put(name, text(name, await readFile(path.join(base, name))));
   }
   for (const kit of selected) {
     const root = path.join(kitsDirectory, kit, 'src/frontend');
@@ -152,7 +155,7 @@ export async function frontendTree(kitsDirectory, selected) {
     }
     for (const name of names.sort()) {
       if (name === 'src/App.tsx') continue;
-      put(name, await readFile(path.join(root, name)));
+      put(name, text(name, await readFile(path.join(root, name))));
     }
   }
   put('src/App.tsx', Buffer.from(appSource(pages)));

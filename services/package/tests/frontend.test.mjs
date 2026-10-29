@@ -125,3 +125,9 @@ test('a build without index.html is refused and a second bundling is refused', a
     await assert.rejects(bundleFrontend(temp, { run: () => ({ status: 0 }) }), /已含前端建置結果/);
   } finally { await rm(temp, { recursive: true, force: true }); }
 });
+
+test('text files carry LF only, whatever the checkout line endings were', async () => {
+  const tree = await frontendTree(kits, MINIMAL);
+  const crlf = [...tree].filter(([name, data]) => /\.(tsx?|css|json|html)$/.test(name) && data.includes('\r\n')).map(([name]) => name);
+  assert.deepEqual(crlf, []);
+});
