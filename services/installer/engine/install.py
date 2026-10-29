@@ -275,8 +275,8 @@ class Installer:
         elif step == 'migration':
             self.remember(step, {'kind': 'database'})
             self.remember(step, {'kind': 'containers'})
-            self.compose(['--profile', 'init', 'run', '--rm', '-T', '--no-build', '--pull', 'never', 'init', 'python', '-m', 'app.system_init'])
-            self.compose(['--profile', 'init', 'run', '--rm', '-T', '--no-build', '--pull', 'never', 'init',
+            self.compose(['--profile', 'init', 'run', '--rm', '-T', '--pull', 'never', 'init', 'python', '-m', 'app.system_init'])
+            self.compose(['--profile', 'init', 'run', '--rm', '-T', '--pull', 'never', 'init',
                           'python', '-m', 'app.secret_files', 'app.entry_permission.create_admin'], data=canonical(admin))
         elif step == 'guard-up':
             self.remember(step, {'kind': 'containers'})

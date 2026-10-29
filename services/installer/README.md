@@ -36,7 +36,7 @@ sh services/installer/install.sh rollback --system-id example --plan plan.json -
 sh services/installer/install.sh rollback --system-id example --plan plan.json --rollback-plan rollback.json --plan-sha256 HASH_FROM_ROLLBACK_PLAN --json
 ```
 
-`--input-file` 必須是目前使用者的普通檔案，權限正好 0600；讀完立即刪除，包括驗證失敗。省略時從 stdin 讀 JSON。輸入格式（以下是欄位說明，不是可用秘密）：
+`issue-license` 與 `apply` 請以一般使用者執行，不要整條加 `sudo`（`--input-file` 必須屬於執行者，引擎需要時自行提權）。`--input-file` 必須是目前使用者的普通檔案，權限正好 0600；讀完立即刪除，包括驗證失敗。省略時從 stdin 讀 JSON。輸入格式（以下是欄位說明，不是可用秘密）：
 
 `issue-license` 的輸入只含 `{"passphrase":"現場密碼","expiresAt":"2099-01-01T00:00:00Z"}`；實際到期日由人員決定。密碼、到期日都沒有命令列參數；子金鑰與憑證路徑可用 `--subkey`、`--certificate`。以下 env／admin 格式用於 `apply`：
 

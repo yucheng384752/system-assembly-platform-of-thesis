@@ -673,6 +673,15 @@ class EngineTests(unittest.TestCase):
         self.assertIn("['hardware']['status'] == 'match'", probe)
         self.assertIn("status.get('valid') is True", probe)
 
+    def test_compose_run_uses_only_flags_the_ubuntu_package_supports(self):
+        # Ubuntu 22.04 ships docker-compose-v2 2.40.3, whose `run` has --pull but no --no-build (found in the WP5 real-machine run).
+        self.assertEqual(self.installer.apply(self.root, self.body), 0)
+        runs = [c for c in self.runner.commands if c[:2] == ['docker', 'compose'] and 'run' in c]
+        self.assertEqual(len(runs), 2)
+        for command in runs:
+            self.assertNotIn('--no-build', command)
+            self.assertIn('--pull', command)
+
     def test_guard_container_is_removed_by_rollback_like_the_other_services(self):
         self.runner.fail = None
         self.runner.after = lambda args: (self.state_dir / 'cancel.request').write_text('{}') if args[-1:] == ['guard'] and 'up' in args else None

@@ -1167,3 +1167,31 @@ user 指定這兩個工作包由 Claude 直接實作（不派 Codex）。在獨�
 - 基底映像以標籤指定，未固定 digest；每次建置映像 ID 都不同。
 - 這次 Ubuntu 的完整 installer 探索測試有 2 個模組沒跑（`test_license`、`test_backend_license`，我沒把 kits 與 node_modules 送上 VM）；它們不受本次修改影響，上一輪已通過。Windows 上 `test_engine` 仍有 2 項已知平台失敗。
 - 沒有跑 package 的 JSDoc 型別檢查，也沒有重跑 `system_e2e.py`。
+
+## Claude: WP5 Ubuntu 實機驗證（2026-10-29，D145）
+
+**環境：**Ubuntu 22.04.5 VM（Docker 29.1.3 containerd 儲存、apt 的 docker-compose-v2 2.40.3、真實 DMI／網卡／磁碟）。user 在 VM 加了臨時 sudoers（免密碼與 `!authenticate`），測完需移除。7 Kit 系統包，映像由 `bundle-images.mjs` 建置（D144），以測試根金鑰簽章；授權與子金鑰為測試金鑰，非正式根金鑰。
+
+**通過（皆為引擎在實機執行，不是手動步驟）：**
+- 簽發：`issue-license` 在這台機器簽出綁定 4 個來源（product_uuid、product_serial、mac:enp0s3、disk:sda）的授權；`verify`、`plan` 正常。
+- 乾淨安裝：11 步全部完成，約 52 秒（`images-load` 12 秒，先刪掉預建映像確保真的載入）；`docker-ensure` 以 apt 安裝了缺少的 docker-compose-v2。健康檢查：授權有效、硬體相符（4 項）。
+- 安全狀態：秘密檔 0400（後端用 10001、postgres 為 root）、`.env` 0600，後端容器環境變數只有 `*_FILE` 路徑；guard 為 user 0:0、唯讀根檔案系統、CapDrop ALL、`network none`、`no-new-privileges`、無埠。
+- 讀寫冒煙：10/10（登入、強制改密碼擋業務端點、改密碼、讀 forms、建立使用者 201、讀回）。
+- 授權失敗路徑（改換已安裝的授權檔，閘門即時讀取）：無檔案 `license-missing`、亂碼 `malformed`、竄改內容 `signature`、綁別的 manifest `manifest-mismatch`，皆回 503，`/healthz` 與 `/license` 維持 200；別台硬體的授權進入 `grace`，回應帶 `X-License-Warning`，服務照常。
+- 硬體綁定：寬限用完（狀態檔改成 25 小時前）且時段開啟（週四 13:45 台北）→ `blocked`；上傳別台硬體的授權被拒 400 `hardware-mismatch` 且仍封鎖；上傳正確授權後解除、狀態檔清空；重新綁定申請檔含 4 個來源。
+- 安裝包被改：根公鑰前 8 碼錯、tar.gz 改一個位元組、簽章 payload 被改，皆被 `verify` 以 code 11 拒絕；子金鑰過期的授權簽發被拒（以除錯腳本確認原因是憑證有效期，同一路徑換成新子金鑰即簽出）。
+- 重複安裝：對執行中的系統再 apply 回 code 10「已有安裝狀態」，系統不受影響。
+- 還原：成功安裝的還原移除容器、本次載入的映像與信任庫，保留可能有資料的卷、秘密檔、安裝目錄與 apt 套件並逐項警告，結束碼 14；VM 上不屬於這次安裝的兩個容器未被動到。
+
+**實機發現：**
+1. `docker compose run --no-build` 在 Ubuntu 套件版 Compose 2.40.3 不存在，migration 步驟失敗（已修，加測試與變異，Ubuntu 上 46 項引擎測試 OK、17 項變異全攔下）。e1／e2 用 Compose 5.6.0 所以沒發現。
+2. 待決：失敗還原或還原後 `state.json` 仍在，無法直接重跑（要手動搬走狀態目錄）。
+3. 待決：`issue-license` 所有失敗共用 code 17 同一則訊息，現場難以判斷原因。
+4. 以整條 sudo 執行 `issue-license` 會因 `--input-file` 擁有者不是 root 而失敗；README 與 D145 已說明用一般使用者執行。
+5. 測試環境：`sudo -v` 在有「群組需密碼」規則的帳號上，即使有免密碼條目仍要密碼，需另加 `!authenticate`；正式流程是工程師先輸入密碼，不受影響。
+
+**未驗證：**
+- 精靈（WP3c）對真實引擎的完整 apply 與 sudo 保活；本次全部走命令列。
+- 緩衝期過後在「時段關閉」時不封鎖的行為（真實機器上沒有改時段重啟，只由單元測試涵蓋）；過期的授權檔（簽發工具拒絕簽過期授權，後端的過期路徑只由單元測試涵蓋）。
+- 24 小時是真的等滿，而不是改狀態檔；guard 長時間失效；實體品牌機指紋穩定性；真實 USB；`system_e2e.py` 的 48 項（其腳本寫死專案名與帳號，未改成適用於引擎安裝）。
+- 升級、機器 API key、前端、TLS（本來就未提供）。
