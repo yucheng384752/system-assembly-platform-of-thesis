@@ -47,13 +47,14 @@ for (const size of [11, 7]) test(`${size} Kits: tree, manifest, T12, exclusions 
   assert.ok(manifest.notIncluded.every(k => k.reason.length > 3));
   assert.equal(manifest.notSelected.length, 11 - size);
   assert.ok(!manifest.notProvided.some(s => /formal entry file|deployment and startup/.test(s)));
-  for (const item of ['TLS', 'machine API key authentication', 'executable upgrade migrations', 'frontend build (WP2)', 'hash-locked dependency file（建議 --require-hashes）']) assert.ok(manifest.notProvided.includes(item), item);
+  for (const item of ['TLS', 'machine API key authentication', 'executable upgrade migrations', 'frontend bundle (built at release by bundle-frontend.mjs)', 'hash-locked dependency file（建議 --require-hashes）']) assert.ok(manifest.notProvided.includes(item), item);
   assert.equal(manifest.installable, false);
   for (const name of ['kits', 'config', 'database/migrations', 'permissions', 'aov', 'validation', 'backend', 'deployment']) assert.ok((await stat(path.join(one, name))).isDirectory());
   const names = await files(one);
   for (const required of ['backend/app/main.py', 'backend/app/system_init.py', 'permissions/entry_points.json',
     'deployment/docker-compose.yml', 'deployment/backend.Dockerfile', 'deployment/nginx.conf',
-    'deployment/.env.example', 'deployment/README.md', 'deployment/backend/requirements.txt']) assert.ok(names.includes(required), required);
+    'deployment/.env.example', 'deployment/README.md', 'deployment/backend/requirements.txt',
+    'frontend/package.json', 'frontend/package-lock.json', 'frontend/src/App.tsx', 'frontend/src/pages/LoginPage.tsx']) assert.ok(names.includes(required), required);
   assert.deepEqual(names, await files(two));
   assert.deepEqual(manifest.files.map(f => f.path), names.filter(n => n !== 'system-manifest.json').sort());
   for (const name of names) {
@@ -218,7 +219,7 @@ async function checkDeployment(out, selected) {
   assert.match(dockerfile, /USER 10001:10001/);
   assert.match(dockerfile, /COPY kits\/ \/system\/kits\//);
   assert.match(proxy, /location \/api\//); assert.match(proxy, /location = \/healthz/);
-  assert.match(proxy, /return 503 "前端尚未納入此套件版本/);
+  assert.match(proxy, /root \/usr\/share\/nginx\/html;/); assert.match(proxy, /try_files \$uri \/index\.html;/);
   assert.match(proxy, /location = \/license/);
   assert.equal(proxy.match(/proxy_pass/g)?.length, 3);
   for (const line of (await read('deployment/.env.example')).split('\n').filter(s => s && !s.startsWith('#'))) assert.match(line, /^[A-Z_]+=$/);

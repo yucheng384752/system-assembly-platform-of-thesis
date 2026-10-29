@@ -4,3 +4,4 @@ license/
 .env
 deployment/.env
 **/__pycache__
+frontend/

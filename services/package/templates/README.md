@@ -56,8 +56,9 @@ tables, and the configured tenant; missing initialization returns 503.
 PostgreSQL uses only the internal data network and publishes no port. Backend
 publishes no port and runs as UID/GID 10001; only nginx publishes a port, defaulting
 to 127.0.0.1:8080. The installation engine must explicitly configure PROXY_BIND for
-LAN access. TLS is not provided. nginx forwards only `/api/` and `/healthz`; all
-other paths return 503 because the frontend is not included in this package version.
+LAN access. TLS is not provided. nginx forwards `/api/`, `/healthz` and `/license`
+to the backend and serves every other path from the prebuilt `frontend/dist`
+(mounted read-only; a missing `frontend/dist` leaves the directory empty and `/` returns 404).
 
 Database, uploaded files/logs, and permission configuration use named volumes.
 The permissions volume is initialized from this image on first use; existing
