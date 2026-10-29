@@ -546,7 +546,7 @@ async def create_import_job_from_upload_job(
         )
     if not upload_job.file_content:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Upload job file_content is empty",
         )
 
