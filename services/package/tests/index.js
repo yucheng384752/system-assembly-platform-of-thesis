@@ -3,3 +3,4 @@ import './entry-points.test.mjs';
 import './deployment.test.mjs';
 import './bundle-images.test.mjs';
 import './frontend.test.mjs';
+import './merge-delivery.test.mjs';

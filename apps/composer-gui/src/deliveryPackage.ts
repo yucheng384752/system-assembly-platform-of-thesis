@@ -28,12 +28,12 @@ export interface ValidationReport {
 
 export const MANIFEST_FILE = 'package-manifest.json';
 export const notProvided: PackageManifest['notProvided'] = [
-  { path: 'kits/', reason: 'Kit 程式需等可執行組裝（P2）完成；本包只以 id 與版本記錄。' },
-  { path: 'frontend/', reason: '前端產物需等可執行組裝（P2）完成。' },
-  { path: 'database/migrations/', reason: 'DB migration 尚未實作（spec 7）。' },
-  { path: 'permissions/', reason: '入口權限設定尚未實作（spec 8）。' },
+  { path: 'kits/', reason: 'Kit 程式由發行端建置的系統包提供；本包只以 id 與版本記錄。' },
+  { path: 'frontend/', reason: '前端由發行端建置的系統包提供。' },
+  { path: 'database/migrations/', reason: 'DB 建表由系統包的安裝流程執行；升級遷移尚未實作（spec 7）。' },
+  { path: 'permissions/', reason: '入口權限設定由系統包提供。' },
   { path: 'docs/', reason: '所選功能的操作手冊尚未齊全（spec 11、D34）。' },
-  { path: 'deployment/', reason: '不提供部署腳本；設定交付包不能安裝（D21）。' },
+  { path: 'deployment/', reason: '不提供部署腳本；設定交付包不能安裝，安裝使用發行端另行簽章的系統包（D21、D149）。' },
 ];
 
 // Shared by the visible status and packaging so missing fragments never silently change the delivery promise.
@@ -60,6 +60,7 @@ function readme(manifest: Omit<PackageManifest, 'artifacts'>, hasSite = false): 
   return [
     `# 設定交付包：${manifest.clientName}`, '',
     '本壓縮檔是 Composer 產出的系統設定，不是可安裝的系統，也不含任何安裝或部署程式。', '',
+    '交付給客戶現場的是發行端依本設定建置並簽章的系統包（內含本包的設定、流程規格與手冊）；請勿單獨用本包安裝。', '',
     '## 包含', '',
     '- `config/system.recipe.json`：系統設定檔（已選功能與畫面設定）。',
     '- `aov/workflow.aov.json`：流程規格（流程節點、子流程、表單欄位與驗證規則、已確認的表單關聯）。',

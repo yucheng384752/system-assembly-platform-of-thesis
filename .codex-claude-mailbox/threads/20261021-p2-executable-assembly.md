@@ -1204,3 +1204,23 @@ user 指定這兩個工作包由 Claude 直接實作（不派 Codex）。在獨�
 ## Claude: license 變異「未攔下」追查（2026-10-29，D148）
 
 原因不是授權程式：從 `services/installer/tests/` 目錄啟動 `license_mutations.py` 時，`python -m unittest` 把目前目錄放在 `sys.path` 最前面，匯入了真實的 `test_license.py` 及其未變異的引擎，所以變異沒有生效。手動套用同一變異並從暫存副本執行，測試以「Failure not raised」失敗（正確攔下）；從 repo 根目錄執行工具，6 項全部攔下。三個變異工具（引擎、授權、精靈）現在都以暫存副本的 `tests/` 為工作目錄，從 `tests/` 目錄啟動時授權 6 項與引擎 18 項皆攔下（授權在 Windows，引擎在 Ubuntu）。
+
+## Claude: WP2b 前端與 WP4 合併及手冊（2026-10-29，D149、D150）
+
+user 選方案 A（發行流程合併）、前端直接做、手冊用 Markdown。
+
+**完成：**
+- 前端：基線前端中 Kit 沒有的 50 個檔案放 `services/frontend/base/`，組裝時與所選 Kit 的頁面合併，`App.tsx` 依 Recipe 產生；認證改為入口權限登入（權杖在 sessionStorage，租戶由伺服器綁定，不含管理者金鑰、註冊、場域管理頁）；`generic-forms-kit` 缺 `audit-edit-kit` 時組裝階段拒絕。`bundle-frontend.mjs` 發行時建置 `frontend/dist`，nginx 唯讀掛載並對 `/assets/` 回 404。
+- 合併：`merge-delivery.mjs`；手冊 `docs/installation-operations-manual.md` 組裝時放進包內；輸出頁、StepShell、設定交付包 README 文字更新；spec 第 12 節、D21、D32 更新。
+
+**驗證：**
+- Node 套件測試 37/37；套件變異 10/10 攔下（修了兩個過期錨點：`remove-required-compose`、`remove-required-webhook` 在 WP3e 之後就已對不上，之前沒被發現）；`npm test` 498 通過 1 略過；typecheck 通過。
+- 11 Kit 全量與 7 Kit 最小組裝都能用真實 Vite 6.0.5 建置（98 個模組）。
+- Ubuntu 22.04 實機（Docker 29、Compose 5.6.0，無 sudo，手動 compose 流程，不是引擎安裝）：`/` 回前端、`/healthz` 200、登入、強制改密碼、已登入的編輯原因與通用表格頁正常、瀏覽器主控台無錯誤。Composer 輸出頁在 dev server 以瀏覽器確認新文字。
+
+**未驗證或限制（規則 12）：**
+- 前端沒有經過引擎的完整 apply（VM 的 sudoers 已移除，用手動 compose 流程驗證）；沒有測 11 Kit 全量的實機執行，只測 7 Kit。
+- 上傳頁、查詢、分析等分頁只確認能建置，沒有逐頁操作；`tsc` 對基線上傳頁有 10 個既有型別錯誤。
+- `merge-delivery.mjs` 只用符合 manifest 格式的測試資料驗證，沒有用瀏覽器實際產生的設定交付包 zip。
+- Kit 使用手冊（D52）沒有補寫；手冊中的重新綁定頁面按鈕未用瀏覽器操作過。
+- 掃描器的預設秘密規則改為排除 `type="password"`；英文語系中的 `Password` 標籤改為 `Account password`（基線字串，影響四處）。

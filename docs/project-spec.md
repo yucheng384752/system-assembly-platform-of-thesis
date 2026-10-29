@@ -416,6 +416,10 @@ Input Adapter → Data Profiler → Task + Site constraints → Eligibility Filt
 
 所選 Kit 的手冊齊全時，交付包另含 `docs/manual-user.md`、`docs/manual-mis.md`、`docs/manual-developer.md`；不齊全時 `docs/` 列於 `notProvided` 並列出缺少的 Kit（D52）。zip 為 store 格式、固定順序與時間戳，相同設定產出相同位元組；manifest 不記錄產生時間。`kits/`、`frontend/`、`database/migrations/`、`permissions/`、`docs/`（手冊）、`deployment/` 未提供，列於 `notProvided`，不建立空目錄，也不附安裝腳本。靜態檢查任一未通過即不產生交付包。
 
+**P2 完成後的單一下載（2026-10-29，D149、D150）：**P2 已在 Ubuntu 22.04 實機驗證（乾淨安裝、授權失敗與硬體綁定、重複安裝、還原，前端登入與已登入畫面），D21 的限制解除，但只對「發行端簽章的系統包」成立；Composer 輸出頁下載的仍是設定交付包，不可單獨安裝。流程：Composer 產出設定交付包 → 發行端依同一份 Recipe 組裝系統包（`assemble-system.mjs`）→ 建置前端（`bundle-frontend.mjs`）→ 併入設定交付包（`merge-delivery.mjs`，Recipe 必須相同，AoV、驗證報告、場域設定與手冊放入 `aov/`、`validation/delivery-report.json`、`config/site/`、`docs/`）→ 補離線映像（`bundle-images.mjs`）→ 打包並以離線根金鑰簽章。客戶現場只收這一個簽章後的 tar.gz，另有工程師用的安裝引擎與根公鑰。系統包內附 `docs/installation-operations-manual.md`（驗證信任根、安裝、授權與重新綁定、還原、已知限制）。
+
+系統包目前的限制（不得對客戶宣稱已具備）：沒有 TLS、沒有機器 API key、沒有升級遷移；前端只含所選 Kit 的頁面，分頁不依角色隱藏、權限由後端決定；網頁精靈未對真實引擎完整驗證；品牌機指紋穩定性與真實 USB 流程未驗證。
+
 ### 12.2 防篡改、單機授權與通訊安全（2026-10-01，D37–D45）
 
 **流程：**

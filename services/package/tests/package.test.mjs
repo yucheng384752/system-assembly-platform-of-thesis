@@ -54,7 +54,7 @@ for (const size of [11, 7]) test(`${size} Kits: tree, manifest, T12, exclusions 
   for (const required of ['backend/app/main.py', 'backend/app/system_init.py', 'permissions/entry_points.json',
     'deployment/docker-compose.yml', 'deployment/backend.Dockerfile', 'deployment/nginx.conf',
     'deployment/.env.example', 'deployment/README.md', 'deployment/backend/requirements.txt',
-    'frontend/package.json', 'frontend/package-lock.json', 'frontend/src/App.tsx', 'frontend/src/pages/LoginPage.tsx']) assert.ok(names.includes(required), required);
+    'docs/installation-operations-manual.md', 'frontend/package.json', 'frontend/package-lock.json', 'frontend/src/App.tsx', 'frontend/src/pages/LoginPage.tsx']) assert.ok(names.includes(required), required);
   assert.deepEqual(names, await files(two));
   assert.deepEqual(manifest.files.map(f => f.path), names.filter(n => n !== 'system-manifest.json').sort());
   for (const name of names) {

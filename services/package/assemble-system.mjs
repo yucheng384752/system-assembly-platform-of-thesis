@@ -125,6 +125,8 @@ export async function assembleSystem(output, { recipe: recipeFile, kits = path.j
   for (const [name, data] of await deploymentArtifacts(kits, plan.included, [...plan.sources.keys()])) {
     put(name, Buffer.from(data), name.startsWith('deployment/') ? 'deployment' : 'backend-entry');
   }
+  // The manual ships inside the package so the engineer has it offline; CRLF checkouts must not change its bytes.
+  put('docs/installation-operations-manual.md', Buffer.from((await readFile(path.join(repository, 'docs/installation-operations-manual.md'), 'utf8')).replaceAll('\r\n', '\n')), 'operations-manual');
   for (const [name, data] of await frontendTree(kits, plan.included)) put(name, data, 'frontend-source');
   put('database/migrations/plan.json', json({ status: 'not-provided', migrations: [], reason: '正式 migration 與執行流程待 WP3；不以 create_all 冒充 migration' }), 'migration-plan');
   const manifest = {
