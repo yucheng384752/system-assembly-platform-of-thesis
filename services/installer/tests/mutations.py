@@ -1,4 +1,4 @@
-"""Seventeen isolated mutations. Syntax/import errors never count as killed mutations."""
+"""Eighteen isolated mutations. Syntax/import errors never count as killed mutations."""
 import os
 from pathlib import Path
 import shutil
@@ -30,6 +30,8 @@ CASES = [
     ('oci-many-entries', 'package.py', 'len(manifests) != 1', 'len(manifests) < 1', 'test_oci_archive_with_more_than_one_index_entry_is_rejected'),
     ('compose-run-no-build', 'install.py', "'run', '--rm', '-T', '--pull', 'never', 'init', 'python', '-m', 'app.system_init'", "'run', '--rm', '-T', '--no-build', '--pull', 'never', 'init', 'python', '-m', 'app.system_init'",
      'test_compose_run_uses_only_flags_the_ubuntu_package_supports'),
+    ('archive-keeps-data-state', 'cli.py', "or state.get('retained') or not steps", 'or not steps',
+     'test_state_that_may_hold_data_or_is_unfinished_is_never_archived'),
     ('admin-without-secret-loader', 'install.py', "'python', '-m', 'app.secret_files', 'app.entry_permission.create_admin'", "'python', '-m', 'app.entry_permission.create_admin'", 'test_apply_and_no_secret_copies'),
 ]
 

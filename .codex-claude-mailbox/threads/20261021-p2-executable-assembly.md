@@ -1195,3 +1195,8 @@ user 指定這兩個工作包由 Claude 直接實作（不派 Codex）。在獨�
 - 緩衝期過後在「時段關閉」時不封鎖的行為（真實機器上沒有改時段重啟，只由單元測試涵蓋）；過期的授權檔（簽發工具拒絕簽過期授權，後端的過期路徑只由單元測試涵蓋）。
 - 24 小時是真的等滿，而不是改狀態檔；guard 長時間失效；實體品牌機指紋穩定性；真實 USB；`system_e2e.py` 的 48 項（其腳本寫死專案名與帳號，未改成適用於引擎安裝）。
 - 升級、機器 API key、前端、TLS（本來就未提供）。
+
+## Claude: WP5 後續（2026-10-29，D146、D147）
+
+- D146：已還原且無保留項目的狀態可封存後重跑；`issue-license` 失敗改為分類原因。Ubuntu 實機環境（Python 3.10）引擎測試 48 項 OK，變異 18 項全被攔下（新增 `archive-keeps-data-state`）；`test_license` 18 項在 Windows OK。`license_mutations.py` 的 `certificate-signature` 在 Windows 上「未被攔下」，改動前的 HEAD 上也一樣，這次沒在 Ubuntu 重跑（VM 上的 Node 已清掉），原因未查。
+- D147：依 user 要求改寫歷史以移除 Claude 貢獻者署名，提交雜湊全數改變；本串先前記載的舊雜湊（如 99275ef、e43e667、34ed098、ffd1106、1547d2c、e87eaea、5d8b902、8b3f161、70799eb）不再存在於分支上，內容以提交標題對照。尚未設定遠端：加入遠端被權限機制擋下，需 user 自行執行。

@@ -673,6 +673,35 @@ class EngineTests(unittest.TestCase):
         self.assertIn("['hardware']['status'] == 'match'", probe)
         self.assertIn("status.get('valid') is True", probe)
 
+    def seed_state(self, **changes):
+        state = {'installId': 'abc123', 'status': 'rolled-back', 'retained': [], 'steps': {'docker-ensure': {'status': 'rolled-back'}}}
+        state.update(changes)
+        (self.state_dir / 'state.json').write_text(json.dumps(state), encoding='utf-8')
+        (self.state_dir / 'events.jsonl').write_text(json.dumps({'seq': 7}) + chr(10), encoding='utf-8')
+
+    def test_state_with_nothing_left_behind_is_archived_so_apply_can_run_again(self):
+        from cli import archive_rolled_back_state
+        from common import Journal
+        self.seed_state()
+        journal = Journal(self.state_dir)
+        self.assertEqual(journal.seq, 7)
+        archive_rolled_back_state(self.state_dir, journal)
+        self.assertFalse((self.state_dir / 'state.json').exists())
+        self.assertTrue((self.state_dir / 'archive/abc123/state.json').exists())
+        self.assertTrue((self.state_dir / 'archive/abc123/events.jsonl').exists())
+        self.assertEqual(journal.seq, 0)
+
+    def test_state_that_may_hold_data_or_is_unfinished_is_never_archived(self):
+        from cli import archive_rolled_back_state
+        from common import Journal
+        cases = [dict(retained=[{'kind': 'database', 'name': 'x_database'}]), dict(status='ok'), dict(status='running'),
+                 dict(steps={'docker-ensure': {'status': 'rolled-back'}, 'trust-store': {'status': 'failed'}}), dict(steps={})]
+        for changes in cases:
+            self.seed_state(**changes)
+            self.assert_code(10, lambda: archive_rolled_back_state(self.state_dir, Journal(self.state_dir)))
+            self.assertTrue((self.state_dir / 'state.json').exists(), changes)
+            self.assertFalse((self.state_dir / 'archive').exists(), changes)
+
     def test_compose_run_uses_only_flags_the_ubuntu_package_supports(self):
         # Ubuntu 22.04 ships docker-compose-v2 2.40.3, whose `run` has --pull but no --no-build (found in the WP5 real-machine run).
         self.assertEqual(self.installer.apply(self.root, self.body), 0)
