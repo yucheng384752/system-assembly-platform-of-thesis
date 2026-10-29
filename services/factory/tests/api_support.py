@@ -3,7 +3,7 @@ it sets the same request state from two test headers and decides nothing else.""
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from fixtures import EVALUATOR, FORMS, KITS, load, text
+from fixtures import EVALUATOR, FORM_UPLOAD, KITS, load, text
 from factory_api.routes_factory import build_router
 from factory_api.support import Environment, utc_now
 from factory_core.workorder import FactoryState
@@ -30,7 +30,7 @@ def build(store, *, kits=KITS, authenticate=True, authorize=None):
     """An app on `store`. `authorize(method, path, role, user)` may refuse a request, like the entry layer does."""
     state = FactoryState(store)
     clock = Clock()
-    environment = Environment(frozenset(kits), dict(FORMS), EVALUATOR)
+    environment = Environment(frozenset(kits), EVALUATOR)
     app = create_app(state, environment=lambda: environment, clock=clock)
     if authenticate:
         @app.middleware('http')

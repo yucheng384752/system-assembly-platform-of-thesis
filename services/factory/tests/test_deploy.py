@@ -35,13 +35,13 @@ class DeployTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             self.assertEqual(deployed_environment(Path(root)).active_kits, frozenset())
 
-    def test_no_forms_and_no_evaluator_means_plans_that_need_them_cannot_make_work_orders(self):
+    def test_no_uploaded_form_and_no_evaluator_means_plans_that_need_them_cannot_make_work_orders(self):
         with tempfile.TemporaryDirectory() as root:
             for kit in ('inventory-kit', 'work-order-kit', 'quality-kit'):
                 (Path(root) / 'kits' / kit).mkdir(parents=True)
                 (Path(root) / 'kits' / kit / 'kit.contract.json').write_text('{}', encoding='utf-8')
             env = deployed_environment(Path(root))
-        self.assertEqual((env.form_hashes, env.evaluator_commit), ({}, None))
+        self.assertIsNone(env.evaluator_commit)
         directory = tempfile.mkdtemp(prefix='factory-deploy-')
         self.addCleanup(lambda: [p.unlink() for p in Path(directory).glob('*')] and Path(directory).rmdir())
         engine = create_engine(f"sqlite:///{Path(directory, 'f.db').as_posix()}")
@@ -51,8 +51,8 @@ class DeployTests(unittest.TestCase):
         plan_id = state.store_plan(text(load('valid.json'))).plan_id
         with self.assertRaises(PlanRejected) as caught:
             state.create_order('wo-1', plan_id, created_by='u', now='2026-10-28T12:00:00Z', active_kits=set(env.active_kits),
-                               form_hashes=env.form_hashes, evaluator_commit=env.evaluator_commit)
-        self.assertEqual({e['code'] for e in caught.exception.errors}, {'form-mismatch', 'evaluator-mismatch'})
+                               evaluator_commit=env.evaluator_commit)
+        self.assertEqual({e['code'] for e in caught.exception.errors}, {'form-unavailable', 'evaluator-mismatch'})
 
     def test_init_schema_creates_the_tables_and_is_safe_to_run_twice(self):
         directory = tempfile.mkdtemp(prefix='factory-deploy-')

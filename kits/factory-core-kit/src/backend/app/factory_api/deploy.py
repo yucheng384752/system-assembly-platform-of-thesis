@@ -44,9 +44,9 @@ def open_state(engine: Engine) -> FactoryState:
 def deployed_environment(package_root: Path) -> Environment:
     """Active kits are the kits shipped in this system package (`<root>/kits/<kit>/kit.contract.json`).
 
-    No form hashes and no evaluator are provided yet, so a plan that needs a form or an evaluator cannot create work orders
-    on this deployment; that is the honest state until the form registry and the evaluator sidecar exist.
+    Forms come from the form registry in the database, not from here. No evaluator is provided yet, so a plan that needs one
+    cannot create work orders on this deployment; that is the honest state until the evaluator sidecar exists.
     """
     kits = package_root / 'kits'
     active = frozenset(p.name for p in kits.iterdir() if (p / 'kit.contract.json').is_file()) if kits.is_dir() else frozenset()
-    return Environment(active, {}, None)
+    return Environment(active, None)

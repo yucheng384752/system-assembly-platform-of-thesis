@@ -13,11 +13,13 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(ROOT / 'kits' / 'entry-permission-kit' / 'src' / 'backend'))
 from api_support import as_user, build, plan_text
+from fixtures import FORM_UPLOAD
 from app.entry_permission.directory import Directory  # the production entry-directory reader and policy
 from jsonschema import Draft202012Validator
 
 from factory_core.store import MemoryStore
 
+FORM_SHA = json.loads(FORM_UPLOAD)['contentSha256']
 CONTRACT = json.loads((Path(__file__).resolve().parents[1] / 'kit.contract.json').read_text(encoding='utf-8'))
 SCHEMA = json.loads((ROOT / 'schemas' / 'entry-points.schema.json').read_text(encoding='utf-8'))
 
@@ -103,6 +105,8 @@ class EnforcementTests(unittest.TestCase):
         calls = {
             'view': lambda c: c.get(self.PLANS),
             'publish': lambda c: c.post(self.PLANS, content=plan_text()),
+            'upload form': lambda c: c.post('/api/factory/forms', content=FORM_UPLOAD),
+            'view form': lambda c: c.get(f'/api/factory/forms/{FORM_SHA}'),
             'propose': lambda c: c.post(f'{self.PLANS}/{plan_id}/parameter-sets', json={'values': {'mix_minutes': 12}, 'reason': 'r'}),
             'approve': lambda c: c.post(f'{self.PLANS}/{plan_id}/parameter-sets/1/decision', json={'approve': True}),
             'order': lambda c: c.post('/api/factory/work-orders', json={'orderId': 'wo-1', 'planId': plan_id}),
@@ -111,13 +115,13 @@ class EnforcementTests(unittest.TestCase):
         expected = {
             'admin': dict.fromkeys(calls, True),
             'manager': dict.fromkeys(calls, True),
-            'operator': {'view': True, 'publish': False, 'propose': True, 'approve': False, 'order': True, 'remind': False},
-            'audit': {'view': True, 'publish': False, 'propose': False, 'approve': False, 'order': False, 'remind': False},
+            'operator': {'view': True, 'upload form': False, 'view form': True, 'publish': False, 'propose': True, 'approve': False, 'order': True, 'remind': False},
+            'audit': {'view': True, 'upload form': False, 'view form': True, 'publish': False, 'propose': False, 'approve': False, 'order': False, 'remind': False},
             'qc': dict.fromkeys(calls, False),  # a role the contract does not name gets nothing by default
         }
         for role, allowed in expected.items():
             client = as_user(app, f'{role}-user', role)
-            for name in ('view', 'propose', 'order', 'publish', 'remind', 'approve'):
+            for name in ('view', 'view form', 'propose', 'order', 'publish', 'upload form', 'remind', 'approve'):
                 with self.subTest(role=role, call=name):
                     status = calls[name](client).status_code
                     if allowed[name]:
@@ -160,6 +164,7 @@ class EnforcementTests(unittest.TestCase):
         app, _ = enforcing_app(grants={'factory.alarm_acknowledge': True, 'factory.params_approve': True})
         admin = as_user(app, 'root', 'admin')
         plan_id = admin.post(self.PLANS, content=plan_text()).json()['planId']
+        admin.post('/api/factory/forms', content=FORM_UPLOAD)
         operator = as_user(app, 'oscar', 'operator')
         operator.post(f'{self.PLANS}/{plan_id}/parameter-sets', json={'values': {'mix_minutes': 12}, 'reason': 'r'})
         own = operator.post(f'{self.PLANS}/{plan_id}/parameter-sets/1/decision', json={'approve': True})

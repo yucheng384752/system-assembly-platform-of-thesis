@@ -5,6 +5,8 @@
       { "capability": "factory.plans.receive", "method": "POST", "path": "/api/factory/plans" },
       { "capability": "factory.plans.list", "method": "GET", "path": "/api/factory/plans" },
       { "capability": "factory.plans.get", "method": "GET", "path": "/api/factory/plans/{plan_id}" },
+      { "capability": "factory.forms.upload", "method": "POST", "path": "/api/factory/forms" },
+      { "capability": "factory.forms.get", "method": "GET", "path": "/api/factory/forms/{content_sha256}" },
       { "capability": "factory.params.propose", "method": "POST", "path": "/api/factory/plans/{plan_id}/parameter-sets" },
       { "capability": "factory.params.list", "method": "GET", "path": "/api/factory/plans/{plan_id}/parameter-sets" },
       { "capability": "factory.params.decide", "method": "POST", "path": "/api/factory/plans/{plan_id}/parameter-sets/{set_version}/decision" },
@@ -27,6 +29,7 @@
       "routes": [
         { "capability": "factory.plans.list", "method": "GET", "path": "/api/factory/plans" },
         { "capability": "factory.plans.get", "method": "GET", "path": "/api/factory/plans/{plan_id}" },
+        { "capability": "factory.forms.get", "method": "GET", "path": "/api/factory/forms/{content_sha256}" },
         { "capability": "factory.params.list", "method": "GET", "path": "/api/factory/plans/{plan_id}/parameter-sets" },
         { "capability": "factory.orders.get", "method": "GET", "path": "/api/factory/work-orders/{order_id}" },
         { "capability": "factory.alarms.list", "method": "GET", "path": "/api/factory/alarms" }
@@ -34,11 +37,12 @@
     },
     {
       "key": "factory.plan_publish",
-      "label": "接收生產計畫",
+      "label": "接收生產計畫與表單",
       "access": "write",
       "defaultRoles": ["admin", "manager"],
       "routes": [
-        { "capability": "factory.plans.receive", "method": "POST", "path": "/api/factory/plans" }
+        { "capability": "factory.plans.receive", "method": "POST", "path": "/api/factory/plans" },
+        { "capability": "factory.forms.upload", "method": "POST", "path": "/api/factory/forms" }
       ]
     },
     {

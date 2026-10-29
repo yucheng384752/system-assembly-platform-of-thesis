@@ -8,6 +8,7 @@ import idMismatch from '../../fixtures/executable-plan/plan-id-mismatch.json';
 import tampered from '../../fixtures/executable-plan/content-tampered.json';
 import unknownVersion from '../../fixtures/executable-plan/unknown-version.json';
 import vectors from '../../fixtures/executable-plan/canonical-vectors.json';
+import formFixtures from '../../fixtures/executable-plan/forms.json';
 import { canonicalJson, contentSha256 } from './index';
 
 const validate = new Ajv({ allErrors: true, strict: false }).compile(schema);
@@ -43,6 +44,12 @@ describe('可執行計畫 schema 與 fixtures（契約第 3、4、5、9 節）',
     next.nodes[1].form!.contentSha256 = 'f'.repeat(64);
     expect(await planIdOf(next)).not.toBe(valid.planId);
     expect(valid.planId).toBe(await planIdOf(valid));
+  });
+
+  it('表單 fixture 的雜湊以 TypeScript 重算相同，且計畫 fixture 引用的就是它（Python 端用同一份檔案驗證）', async () => {
+    for (const entry of formFixtures.forms) expect(await contentSha256(entry.definition)).toBe(entry.contentSha256);
+    const named = valid.nodes.filter(n => n.form).map(n => n.form!);
+    expect(named).toEqual([{ formId: formFixtures.forms[0].definition.id, contentSha256: formFixtures.forms[0].contentSha256 }]);
   });
 
   it('缺工時以 missing 表示且不帶數字；fixture 通過且不是 0', async () => {

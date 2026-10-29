@@ -13,10 +13,11 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 
 from .alarms import Acknowledgement, Alarm
-from .canonical import canonical_json, parse_json
+from .canonical import canonical_json, content_sha256, parse_json
+from .forms import FormRecord
 from .params import Decision, ParameterSet
 from .plan import PlanRejected, ReceivedPlan, receive_plan
-from .sql_schema import alarm_acks, alarm_notices, alarms, parameter_decisions, parameter_sets, plans, work_orders
+from .sql_schema import alarm_acks, alarm_notices, alarms, forms, parameter_decisions, parameter_sets, plans, work_orders
 from .store import AlreadyExists
 from .workorder import WorkOrder
 
@@ -58,6 +59,35 @@ class SqlStore:
     def plan_ids(self) -> list[str]:
         with self.engine.connect() as conn:
             return [r[0] for r in conn.execute(select(plans.c.plan_id).order_by(plans.c.plan_id))]
+
+    # forms
+    def save_form(self, record: FormRecord) -> None:
+        try:
+            with self.engine.begin() as conn:
+                if not self._exists(conn, forms, content_sha256=record.content_sha256):
+                    conn.execute(insert(forms).values(content_sha256=record.content_sha256, form_id=record.form_id, definition=canonical_json(record.definition),
+                                                      uploaded_by=record.uploaded_by, uploaded_at=record.uploaded_at))
+        except IntegrityError:
+            if self.get_form(record.content_sha256) is None:  # not a concurrent upload of the same content: a real failure
+                raise
+
+    def get_form(self, content_sha256_: str) -> FormRecord | None:
+        with self.engine.connect() as conn:
+            row = conn.execute(select(forms).where(forms.c.content_sha256 == content_sha256_)).first()
+        if row is None:
+            return None
+        definition = parse_json(row.definition)
+        if content_sha256(definition) != row.content_sha256 or definition.get('id') != row.form_id:
+            raise StoreCorrupt(f'stored form {row.content_sha256} no longer hashes to its key')
+        return FormRecord(row.content_sha256, row.form_id, definition, row.uploaded_by, row.uploaded_at)
+
+    def has_form(self, form_id: str, content_sha256_: str) -> bool:
+        record = self.get_form(content_sha256_)
+        return record is not None and record.form_id == form_id
+
+    def form_hashes(self) -> list[str]:
+        with self.engine.connect() as conn:
+            return [r[0] for r in conn.execute(select(forms.c.content_sha256).order_by(forms.c.content_sha256))]
 
     # parameter sets
     @staticmethod

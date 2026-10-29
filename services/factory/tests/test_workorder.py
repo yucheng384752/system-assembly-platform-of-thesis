@@ -4,7 +4,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from fixtures import EVALUATOR, FORMS, KITS, NOW, load, resealed
+from fixtures import EVALUATOR, KITS, NOW, load, register_forms, resealed
 from factory_core.plan import PlanRejected
 from factory_core.store import MemoryStore
 from factory_core.workorder import FactoryState
@@ -16,12 +16,13 @@ class WorkOrderTests(unittest.TestCase):
     def setUp(self):
         self.state = FactoryState(self.make_store())
         self.plan_id = self.state.store_plan(load('valid.json')).plan_id
+        register_forms(self.state)
 
     def make_store(self):
         return MemoryStore()
 
     def create(self, order_id='wo-1', plan_id=None, **over):
-        args = dict(created_by='alice', now=NOW, active_kits=KITS, form_hashes=FORMS, evaluator_commit=EVALUATOR) | over
+        args = dict(created_by='alice', now=NOW, active_kits=KITS, evaluator_commit=EVALUATOR) | over
         return self.state.create_order(order_id, plan_id or self.plan_id, **args)
 
     def approve_set(self, values, proposer='alice', approver='bob'):

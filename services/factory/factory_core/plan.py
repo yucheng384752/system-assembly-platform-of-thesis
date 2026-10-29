@@ -141,7 +141,7 @@ def _check_structure(plan: dict) -> list[dict]:
     return errors
 
 
-def work_order_blockers(received: ReceivedPlan, *, active_kits: set[str], form_hashes: dict[str, str], evaluator_commit: str | None) -> list[dict]:
+def work_order_blockers(received: ReceivedPlan, *, active_kits: set[str], registered_forms: set[tuple[str, str]], evaluator_commit: str | None) -> list[dict]:
     """Conditions for creating a work order from a stored plan (contract section 6); empty means allowed."""
     plan = received.plan
     errors = [_error('not-executable', f"/nodes/{b['nodeId']}", b['reason']) for b in received.blockers]
@@ -150,10 +150,8 @@ def work_order_blockers(received: ReceivedPlan, *, active_kits: set[str], form_h
         if binding and binding['kitId'] not in active_kits:
             errors.append(_error('kit-not-active', f"/nodes/{node['nodeId']}/binding", f"kit {binding['kitId']} is not in the current selection"))
         form = node.get('form')
-        if form:
-            actual = form_hashes.get(form['formId'])
-            if actual != form['contentSha256']:
-                errors.append(_error('form-mismatch', f"/nodes/{node['nodeId']}/form", f"form {form['formId']} is " + ('unavailable' if actual is None else 'different from the one the plan was built with')))
+        if form and (form['formId'], form['contentSha256']) not in registered_forms:
+            errors.append(_error('form-unavailable', f"/nodes/{node['nodeId']}/form", f"form {form['formId']} with content {form['contentSha256']} has not been uploaded to this factory"))
     if received.needs_evaluator and evaluator_commit != plan['source']['aovCoreCommit']:
         errors.append(_error('evaluator-mismatch', '/source/aovCoreCommit', f"evaluator {evaluator_commit!r} differs from the plan's {plan['source']['aovCoreCommit']}; a guard could mean something else at run time"))
     return errors

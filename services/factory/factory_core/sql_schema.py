@@ -18,6 +18,16 @@ plans = Table(
     CheckConstraint('length(plan_id) = 64', name='plans_id_is_sha256'),
 )
 
+forms = Table(
+    'forms', metadata,
+    Column('content_sha256', String(64), primary_key=True),  # sha256 of the canonical definition; the same hash is the same content
+    Column('form_id', String(200), nullable=False),
+    Column('definition', Text, nullable=False),  # canonical JSON; the hash is re-checked on read
+    Column('uploaded_by', Text, nullable=False),
+    Column('uploaded_at', String(40), nullable=False),
+    CheckConstraint('length(content_sha256) = 64', name='forms_hash_is_sha256'),
+)
+
 parameter_sets = Table(
     'parameter_sets', metadata,
     Column('plan_id', String(64), ForeignKey('plans.plan_id'), nullable=False),
@@ -93,44 +103,57 @@ alarm_notices = Table(
     PrimaryKeyConstraint('alarm_id', 'seq'),
 )
 
-APPEND_ONLY = ('plans', 'parameter_sets', 'parameter_decisions', 'alarms', 'alarm_acks', 'alarm_notices')
+APPEND_ONLY = ('plans', 'parameter_sets', 'parameter_decisions', 'alarms', 'alarm_acks', 'alarm_notices', 'forms')
 ORDER_FIXED = ('order_id', 'plan_id', 'created_by', 'created_at')
 
 
-def guard_statements(dialect: str) -> list[str]:
-    """DDL that makes the database itself refuse edits and deletes, whatever the application does."""
+def guard_statements(dialect: str, *, tables: tuple[str, ...] = APPEND_ONLY, shared: bool = True) -> list[str]:
+    """DDL that makes the database itself refuse edits and deletes, whatever the application does.
+
+    A migration passes the tables it creates; `shared` (the trigger functions and the work order guard) is installed once, by the
+    first revision.
+    """
     out: list[str] = []
     if dialect == 'postgresql':
-        out.append("""CREATE OR REPLACE FUNCTION factory_append_only() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN RAISE EXCEPTION USING MESSAGE = 'factory records are append-only: ' || TG_OP || ' on ' || TG_TABLE_NAME; END $$""")
-        fixed = ' OR '.join(f'NEW.{c} IS DISTINCT FROM OLD.{c}' for c in ORDER_FIXED)
-        out.append(f"""CREATE OR REPLACE FUNCTION factory_order_guard() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-  IF TG_OP = 'DELETE' THEN RAISE EXCEPTION 'work orders are never deleted'; END IF;
-  IF OLD.started_at IS NOT NULL THEN RAISE EXCEPTION 'a started work order is pinned and cannot change'; END IF;
-  IF {fixed} THEN RAISE EXCEPTION 'only the start of a work order may be written'; END IF;
-  RETURN NEW;
-END $$""")
-        for table in APPEND_ONLY:
+        if shared:
+            out.extend(_postgres_shared())
+        for table in tables:
             out.append(f'CREATE TRIGGER {table}_append_only BEFORE UPDATE OR DELETE ON {table} FOR EACH ROW EXECUTE FUNCTION factory_append_only()')
             out.append(f'CREATE TRIGGER {table}_no_truncate BEFORE TRUNCATE ON {table} FOR EACH STATEMENT EXECUTE FUNCTION factory_append_only()')
-        out.append('CREATE TRIGGER work_orders_guard BEFORE UPDATE OR DELETE ON work_orders FOR EACH ROW EXECUTE FUNCTION factory_order_guard()')
-        out.append('CREATE TRIGGER work_orders_no_truncate BEFORE TRUNCATE ON work_orders FOR EACH STATEMENT EXECUTE FUNCTION factory_append_only()')
+        if shared:
+            out.append('CREATE TRIGGER work_orders_guard BEFORE UPDATE OR DELETE ON work_orders FOR EACH ROW EXECUTE FUNCTION factory_order_guard()')
+            out.append('CREATE TRIGGER work_orders_no_truncate BEFORE TRUNCATE ON work_orders FOR EACH STATEMENT EXECUTE FUNCTION factory_append_only()')
     elif dialect == 'sqlite':
-        for table in APPEND_ONLY:
+        for table in tables:
             for op in ('UPDATE', 'DELETE'):
                 out.append(f"CREATE TRIGGER {table}_no_{op.lower()} BEFORE {op} ON {table} BEGIN SELECT RAISE(ABORT, 'factory records are append-only'); END")
-        out.append("CREATE TRIGGER work_orders_no_delete BEFORE DELETE ON work_orders BEGIN SELECT RAISE(ABORT, 'work orders are never deleted'); END")
-        fixed = ' OR '.join(f'NEW.{c} IS NOT OLD.{c}' for c in ORDER_FIXED)
-        out.append(f"CREATE TRIGGER work_orders_pinned BEFORE UPDATE ON work_orders WHEN OLD.started_at IS NOT NULL BEGIN SELECT RAISE(ABORT, 'a started work order is pinned and cannot change'); END")
-        out.append(f"CREATE TRIGGER work_orders_fixed BEFORE UPDATE ON work_orders WHEN {fixed} BEGIN SELECT RAISE(ABORT, 'only the start of a work order may be written'); END")
+        if shared:
+            out.append("CREATE TRIGGER work_orders_no_delete BEFORE DELETE ON work_orders BEGIN SELECT RAISE(ABORT, 'work orders are never deleted'); END")
+            fixed = ' OR '.join(f'NEW.{c} IS NOT OLD.{c}' for c in ORDER_FIXED)
+            out.append("CREATE TRIGGER work_orders_pinned BEFORE UPDATE ON work_orders WHEN OLD.started_at IS NOT NULL BEGIN SELECT RAISE(ABORT, 'a started work order is pinned and cannot change'); END")
+            out.append(f"CREATE TRIGGER work_orders_fixed BEFORE UPDATE ON work_orders WHEN {fixed} BEGIN SELECT RAISE(ABORT, 'only the start of a work order may be written'); END")
     else:
         raise ValueError(f'no append-only guards are defined for {dialect}; refusing to run unguarded')
     return out
 
 
-def install_guards(connection: Connection) -> None:
-    for statement in guard_statements(connection.dialect.name):
+def _postgres_shared() -> list[str]:
+    fixed = ' OR '.join(f'NEW.{c} IS DISTINCT FROM OLD.{c}' for c in ORDER_FIXED)
+    return [
+        """CREATE OR REPLACE FUNCTION factory_append_only() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN RAISE EXCEPTION USING MESSAGE = 'factory records are append-only: ' || TG_OP || ' on ' || TG_TABLE_NAME; END $$""",
+        f"""CREATE OR REPLACE FUNCTION factory_order_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN RAISE EXCEPTION 'work orders are never deleted'; END IF;
+  IF OLD.started_at IS NOT NULL THEN RAISE EXCEPTION 'a started work order is pinned and cannot change'; END IF;
+  IF {fixed} THEN RAISE EXCEPTION 'only the start of a work order may be written'; END IF;
+  RETURN NEW;
+END $$""",
+    ]
+
+
+def install_guards(connection: Connection, *, tables: tuple[str, ...] = APPEND_ONLY, shared: bool = True) -> None:
+    for statement in guard_statements(connection.dialect.name, tables=tables, shared=shared):
         connection.exec_driver_sql(statement)
 
 

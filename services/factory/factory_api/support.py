@@ -21,16 +21,18 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from factory_core.alarms import Alarm, AlarmError
 from factory_core.canonical import CanonicalError
+from factory_core.forms import FormRecord
 from factory_core.params import Decision, ParameterSet, ParameterSetError
 from factory_core.plan import PlanRejected
 from factory_core.workorder import WorkOrder
 
 PREFIX = '/api/factory'
 MAX_PLAN_BYTES = 8 * 1024 * 1024
+MAX_FORM_BYTES = 1024 * 1024
 NOT_FOUND = ('unknown-plan', 'unknown-order', 'unknown-set', 'unknown-alarm', 'unknown-rule')
 FORBIDDEN = ('same-person', 'role')
 CONFLICT = ('already-decided', 'already-acknowledged', 'duplicate-order', 'not-started', 'not-executable', 'kit-not-active',
-            'form-mismatch', 'evaluator-mismatch')
+            'form-unavailable', 'evaluator-mismatch')
 
 
 @dataclass(frozen=True)
@@ -43,7 +45,6 @@ class Actor:
 class Environment:
     """What this factory deployment actually has. Never taken from a request: a client must not assert its own kits."""
     active_kits: frozenset[str]
-    form_hashes: dict[str, str]
     evaluator_commit: str | None
 
 
@@ -96,6 +97,10 @@ def _decision(d: Decision) -> dict:
 def _order(o: WorkOrder) -> dict:
     return {'orderId': o.order_id, 'planId': o.plan_id, 'createdBy': o.created_by, 'createdAt': o.created_at, 'startedAt': o.started_at,
             'setVersion': o.set_version, 'usingDefaults': o.using_defaults}
+
+
+def _form(r: FormRecord) -> dict:
+    return {'contentSha256': r.content_sha256, 'formId': r.form_id, 'uploadedBy': r.uploaded_by, 'uploadedAt': r.uploaded_at}
 
 
 def _alarm(a: Alarm, status: str) -> dict:

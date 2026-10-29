@@ -4,9 +4,13 @@ import json
 from fastapi.testclient import TestClient
 
 from api_support import PLAN, as_user, build, plan_text
-from fixtures import KITS, load, resealed, text
+from factory_api.support import MAX_FORM_BYTES
+from factory_core.canonical import content_sha256 as content_hash
+from fixtures import FORM_UPLOAD, KITS, load, parse_json, resealed, text
 
 PLANS = '/api/factory/plans'
+FORMS = '/api/factory/forms'
+FORM_SHA = parse_json(FORM_UPLOAD)['contentSha256']
 
 
 class ApiCases:
@@ -17,6 +21,7 @@ class ApiCases:
         self.manager = as_user(self.app, 'mia', 'manager')
         self.operator = as_user(self.app, 'oscar', 'operator')
         self.plan_id = self.manager.post(PLANS, content=plan_text()).json()['planId']
+        self.assertEqual(self.manager.post(FORMS, content=FORM_UPLOAD).status_code, 201)
 
     def propose(self, client=None, values=None, **over):
         body = {'values': {'mix_minutes': 12} if values is None else values, 'reason': 'cooler room'} | over
@@ -34,10 +39,10 @@ class ApiCases:
         bare, _, _ = build(self.make_store(), authenticate=False)
         client = TestClient(bare, raise_server_exceptions=True, headers={'X-Test-User': 'mia', 'X-Test-Role': 'admin'})  # headers mean nothing alone
         routes = [(r, m) for r in bare.routes if getattr(r, 'path', '').startswith('/api/factory') for m in r.methods]
-        self.assertGreaterEqual(len(routes), 13)
+        self.assertGreaterEqual(len(routes), 15)
         for route, method in routes:
             with self.subTest(f'{method} {route.path}'):
-                path = route.path.replace('{plan_id}', 'x').replace('{order_id}', 'x').replace('{alarm_id}', 'x').replace('{set_version}', '1')
+                path = route.path.replace('{plan_id}', 'x').replace('{order_id}', 'x').replace('{alarm_id}', 'x').replace('{set_version}', '1').replace('{content_sha256}', 'x')
                 self.assertEqual(client.request(method, path, json={}).status_code, 401)
 
     def test_a_plan_is_received_idempotently_and_by_content_not_by_formatting(self):
@@ -107,10 +112,63 @@ class ApiCases:
         smaller, _, _ = build(self.make_store(), kits=KITS - {'quality-kit'})
         client = as_user(smaller, 'oscar', 'operator')
         client.post(PLANS, content=plan_text())
+        client.post(FORMS, content=FORM_UPLOAD)
         refused = client.post('/api/factory/work-orders', json={'orderId': 'wo-x', 'planId': self.plan_id})
         self.assertEqual((refused.status_code, refused.json()['errors'][0]['code']), (409, 'kit-not-active'))
         claim = self.operator.post('/api/factory/work-orders', json={'orderId': 'wo-y', 'planId': self.plan_id, 'activeKits': ['quality-kit']})
         self.assertEqual(claim.status_code, 422)
+
+    def test_an_order_waits_for_the_form_its_plan_names(self):
+        bare, _, _ = build(self.make_store())
+        client = as_user(bare, 'mia', 'manager')
+        client.post(PLANS, content=plan_text())
+        refused = client.post('/api/factory/work-orders', json={'orderId': 'wo-x', 'planId': self.plan_id})
+        self.assertEqual((refused.status_code, refused.json()['errors'][0]['code']), (409, 'form-unavailable'))
+        client.post(FORMS, content=FORM_UPLOAD)
+        self.assertEqual(client.post('/api/factory/work-orders', json={'orderId': 'wo-x', 'planId': self.plan_id}).status_code, 201)
+
+    def test_a_form_with_other_content_does_not_satisfy_the_plan(self):
+        bare, _, _ = build(self.make_store())
+        client = as_user(bare, 'mia', 'manager')
+        client.post(PLANS, content=plan_text())
+        variant = parse_json(FORM_UPLOAD)['definition']
+        variant['fields']['water_temp']['default'] = 25  # same id, different content, so a different hash
+        uploaded = client.post(FORMS, json={'contentSha256': content_hash(variant), 'definition': variant})
+        self.assertEqual(uploaded.status_code, 201)
+        self.assertNotEqual(uploaded.json()['contentSha256'], FORM_SHA)
+        refused = client.post('/api/factory/work-orders', json={'orderId': 'wo-x', 'planId': self.plan_id})
+        self.assertEqual((refused.status_code, refused.json()['errors'][0]['code']), (409, 'form-unavailable'))
+
+    def test_a_form_is_stored_by_its_content_and_the_first_upload_stands(self):
+        first = self.manager.get(f'{FORMS}/{FORM_SHA}').json()
+        self.assertEqual((first['formId'], first['uploadedBy'], first['definition']['name']), ('mix-record', 'mia', '混合記錄'))
+        again = as_user(self.app, 'admin', 'admin').post(FORMS, content=json.dumps(parse_json(FORM_UPLOAD), indent=4, sort_keys=True, ensure_ascii=False))
+        self.assertEqual((again.status_code, again.json()['uploadedBy'], again.json()['contentSha256']), (201, 'mia', FORM_SHA))
+        self.assertEqual(self.operator.get(f'{FORMS}/{FORM_SHA}').status_code, 200)
+        self.assertEqual(self.operator.get(f'{FORMS}/{"0" * 64}').status_code, 404)
+
+    def test_a_form_that_does_not_match_its_claimed_hash_or_shape_is_refused_and_not_stored(self):
+        good = parse_json(FORM_UPLOAD)
+        edited = {**good, 'definition': {**good['definition'], 'name': 'edited'}}
+        no_type = {**good, 'definition': {**good['definition'], 'fields': {'x': {'label': 'no type'}}}}
+        extra = {**good, 'note': 'x'}
+        cases = [('form-hash-mismatch', edited), ('unknown-field-type', no_type), ('broken-structure', extra),
+                 ('broken-structure', {'contentSha256': FORM_SHA, 'definition': []})]
+        fresh, _, _ = build(self.make_store())
+        client = as_user(fresh, 'mia', 'manager')
+        for code, body in cases:
+            with self.subTest(code, body=str(body)[:60]):
+                response = client.post(FORMS, json=body)
+                self.assertEqual(response.status_code, 422)
+                self.assertIn(code, {e['code'] for e in response.json()['errors']})
+        self.assertEqual(client.post(FORMS, content=bytes([255, 254])).status_code, 422)
+        self.assertEqual(client.post(FORMS, content=b'{' * 10).status_code, 422)
+        self.assertEqual(client.get(f'{FORMS}/{FORM_SHA}').status_code, 404)
+
+    def test_an_oversized_form_is_refused(self):
+        big = parse_json(FORM_UPLOAD)
+        big['definition']['name'] = 'x' * (MAX_FORM_BYTES + 1)
+        self.assertEqual(self.manager.post(FORMS, json=big).status_code, 413)
 
     def test_an_order_pins_the_plan_then_the_approved_set_and_later_approvals_do_not_reach_it(self):
         self.propose(), self.decide(1)

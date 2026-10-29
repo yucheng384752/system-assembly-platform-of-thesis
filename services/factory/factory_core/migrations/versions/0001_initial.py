@@ -89,4 +89,4 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('alarm_id', 'seq'),
     )
     # Guards are part of this revision. A later change to them needs its own revision with its own SQL.
-    install_guards(op.get_bind())
+    install_guards(op.get_bind(), tables=('plans', 'parameter_sets', 'parameter_decisions', 'alarms', 'alarm_acks', 'alarm_notices'))

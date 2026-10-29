@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import bakery from '../../fixtures/aov-merge/c/project.valid.json';
 import version from '../aov-core/VERSION.json';
 import type { ProjectFile } from '../aov-core';
+import { contentSha256 } from './index';
 import { buildExecutablePlan, computePlanId, validateExecutablePlan, verifyPlanId, type CapabilityMap, type PlanBuildInput } from './executablePlan';
 
 // The mapping below is test data only. The real action-to-capability table is confirmed by the user and does not exist yet.
@@ -102,6 +103,23 @@ describe('buildExecutablePlan：A 的編譯結果轉成可執行計畫', () => {
     expect(formOf(b).contentSha256).not.toBe(formOf(a).contentSha256);
     expect(b.planId).not.toBe(a.planId);
     expect(await verifyPlanId(a as never)).toBe(true);
+  });
+
+  it('回傳計畫節點引用的表單定義，雜湊與節點上的相同；沒引用的表單不隨計畫送出', async () => {
+    const p = published();
+    p.forms = [
+      { id: 'bake-record', name: 'Bake record', subject: ['lot.dough'], fields: { temp: { label: 'Temperature', type: 'number', unit: 'degC', default: 180.5 } } },
+      { id: 'unused-record', name: 'Unused', subject: ['lot.dough'], fields: {} },
+    ];
+    p.nodes.find(n => n.id === 'bake')!.form = 'bake-record';
+    const result = await buildExecutablePlan(input({ project: p }));
+    if (!result.ok) throw new Error(JSON.stringify(result.errors));
+    expect(result.forms.map(f => f.definition.id)).toEqual(['bake-record']);
+    const named = (result.plan.nodes as any[]).find(n => n.nodeId === 'bake').form;
+    expect(result.forms[0].contentSha256).toBe(named.contentSha256);
+    expect(await contentSha256(result.forms[0].definition)).toBe(named.contentSha256); // what the factory recomputes on upload
+    expect(Object.keys(result.forms[0]).sort()).toEqual(['contentSha256', 'definition']); // exactly the upload body
+    expect((await buildExecutablePlan(input())).ok && ((await buildExecutablePlan(input())) as { forms: unknown[] }).forms).toEqual([]);
   });
 
   it('只有 tuning 指定的參數可由工廠調整，並帶允許範圍', async () => {

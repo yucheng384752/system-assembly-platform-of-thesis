@@ -36,6 +36,7 @@ class StoreView(Mapping):
 class MemoryStore:
     def __init__(self) -> None:
         self._plans: dict[str, Any] = {}
+        self._forms: dict[str, Any] = {}
         self._sets: dict[str, list[Any]] = {}
         self._decisions: dict[tuple[str, int], Any] = {}
         self._orders: dict[str, Any] = {}
@@ -52,6 +53,20 @@ class MemoryStore:
 
     def plan_ids(self) -> list[str]:
         return list(self._plans)
+
+    # forms (content addressed like plans: the first upload of a content is the record)
+    def save_form(self, record: Any) -> None:
+        self._forms.setdefault(record.content_sha256, record)
+
+    def get_form(self, content_sha256: str) -> Any | None:
+        return self._forms.get(content_sha256)
+
+    def has_form(self, form_id: str, content_sha256: str) -> bool:
+        record = self._forms.get(content_sha256)
+        return record is not None and record.form_id == form_id
+
+    def form_hashes(self) -> list[str]:
+        return list(self._forms)
 
     # parameter sets and their decisions
     def append_set(self, plan_id: str, make: Callable[[int], Any]) -> Any:

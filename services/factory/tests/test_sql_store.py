@@ -3,6 +3,7 @@
 SQLite always runs. PostgreSQL runs when FACTORY_TEST_PG_URL is set (for example
 postgresql+psycopg://factory:factory@127.0.0.1:5432/factory_test); it is wiped between tests, so use a scratch database.
 """
+import json
 import os
 from pathlib import Path
 import sys
@@ -14,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import test_params
 import test_workorder
 from alarm_cases import AlarmCases, NODE, RULE, at
-from fixtures import EVALUATOR, FORMS, KITS, NOW, load
+from fixtures import EVALUATOR, FORM_UPLOAD, KITS, NOW, load, register_forms
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
@@ -83,9 +84,10 @@ class SpecificCases:
         self.store = self.make_store()
         self.state = FactoryState(self.store)
         self.plan_id = self.state.store_plan(load('valid.json')).plan_id
+        register_forms(self.state)
 
     def order(self, order_id='wo-1', start=True):
-        self.state.create_order(order_id, self.plan_id, created_by='alice', now=NOW, active_kits=KITS, form_hashes=FORMS, evaluator_commit=EVALUATOR)
+        self.state.create_order(order_id, self.plan_id, created_by='alice', now=NOW, active_kits=KITS, evaluator_commit=EVALUATOR)
         return self.state.start_order(order_id, now=at(0)) if start else self.store.get_order(order_id)
 
     def refused(self, sql, **params):
@@ -123,6 +125,7 @@ class SpecificCases:
         alarm_id = f'wo-1:{RULE}:1'
         AlarmService(self.state).acknowledge(alarm_id, by='bob', role='manager', now=at(2))
         for sql in ("UPDATE plans SET document = '{}'", 'DELETE FROM plans',
+                    "UPDATE forms SET definition = '{}'", 'DELETE FROM forms',
                     "UPDATE parameter_sets SET values_json = '{}'", 'DELETE FROM parameter_sets',
                     "UPDATE parameter_decisions SET status = 'rejected'", 'DELETE FROM parameter_decisions',
                     "UPDATE alarms SET detail = 'x'", 'DELETE FROM alarms',
@@ -132,6 +135,47 @@ class SpecificCases:
             with self.subTest(sql):
                 self.refused(sql)
         self.assertEqual(self.store.get_set(self.plan_id, 1).values, {'mix_minutes': 12})
+
+    def test_a_form_survives_a_restart_and_reads_back_with_the_hash_it_was_stored_under(self):
+        record = self.state.store.get_form(json.loads(FORM_UPLOAD)['contentSha256'])
+        again = SqlStore(self.reopen()).get_form(record.content_sha256)
+        self.assertEqual(again, record)
+        self.assertEqual(content_sha256(again.definition), again.content_sha256)
+        self.assertEqual(SqlStore(self.reopen()).form_hashes(), [record.content_sha256])
+
+    def test_a_stored_form_that_no_longer_hashes_to_its_key_is_never_used(self):
+        self.disable_guards('forms')
+        with self.engine.begin() as conn:
+            conn.execute(text('UPDATE forms SET definition = replace(definition, :a, :b)'), {'a': 'min', 'b': 'hr'})
+        with self.assertRaises(StoreCorrupt):
+            SqlStore(self.reopen()).get_form(json.loads(FORM_UPLOAD)['contentSha256'])
+        with self.assertRaises(StoreCorrupt):  # and an order is not created on a form that cannot be trusted
+            self.order('wo-corrupt', start=False)
+
+    def test_concurrent_uploads_of_one_form_leave_one_record_and_no_error(self):
+        sha = json.loads(FORM_UPLOAD)['contentSha256']
+        fresh = FactoryState(SqlStore(self.reopen()))
+        errors = []
+
+        def upload(i):
+            try:
+                fresh.store_form(FORM_UPLOAD, uploaded_by=f'u{i}', now=NOW)
+            except Exception as error:  # noqa: BLE001 - collected and asserted below
+                errors.append(error)
+        threads = [threading.Thread(target=upload, args=(i,)) for i in range(6)]
+        [t.start() for t in threads]
+        [t.join() for t in threads]
+        self.assertEqual((errors, fresh.store.form_hashes()), ([], [sha]))
+
+    def test_a_lost_race_on_the_same_form_is_not_an_error_but_any_other_failure_is(self):
+        from unittest import mock
+        from factory_core.forms import FormRecord
+        record = self.store.get_form(json.loads(FORM_UPLOAD)['contentSha256'])
+        with mock.patch.object(SqlStore, '_exists', return_value=False):  # as if a concurrent upload landed between the check and the insert
+            self.store.save_form(record)
+        self.assertEqual(self.store.get_form(record.content_sha256), record)
+        with self.assertRaises(IntegrityError):  # a hash that is not 64 characters is refused by the table, and nothing hides that
+            self.store.save_form(FormRecord('f' * 63, 'x', {'id': 'x'}, 'u', NOW))
 
     def test_a_started_order_cannot_be_restarted_or_repinned_even_by_raw_sql(self):
         self.order('wo-pending', start=False)
@@ -240,6 +284,26 @@ class MigrationCases:
                 conn.exec_driver_sql("UPDATE plans SET document = 'x'")
         with engine.connect() as conn:
             self.assertEqual(conn.exec_driver_sql('SELECT count(*) FROM plans').scalar(), 0)
+
+    def test_a_database_at_revision_0001_gains_the_form_registry_and_keeps_its_records(self):
+        from factory_core.migrate import upgrade
+        engine = self.blank_engine()
+        upgrade(engine, '0001')
+        with engine.begin() as conn:
+            conn.exec_driver_sql("INSERT INTO plans VALUES ('" + 'a' * 64 + "', '{}')")
+        has_forms = ("SELECT count(*) FROM information_schema.tables WHERE table_name = 'forms'" if engine.dialect.name == 'postgresql'
+                     else "SELECT count(*) FROM sqlite_master WHERE name = 'forms'")
+        with engine.connect() as conn:
+            self.assertEqual(conn.exec_driver_sql(has_forms).scalar(), 0)
+        upgrade(engine)
+        state = FactoryState(SqlStore(engine))
+        register_forms(state)
+        self.assertEqual(len(state.store.form_hashes()), 1)
+        with engine.connect() as conn:
+            self.assertEqual(conn.exec_driver_sql('SELECT count(*) FROM plans').scalar(), 1)
+        with self.assertRaises((DBAPIError, IntegrityError)):  # the new table is guarded by the revision that created it
+            with engine.begin() as conn:
+                conn.exec_driver_sql('DELETE FROM forms')
 
 
 class SqliteMigrationTests(MigrationCases, unittest.TestCase):

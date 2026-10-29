@@ -29,5 +29,11 @@ def text(plan: dict) -> str:
 
 KITS = {'inventory-kit', 'work-order-kit', 'quality-kit'}
 EVALUATOR = load('valid.json')['source']['aovCoreCommit']
-FORMS = {n['form']['formId']: n['form']['contentSha256'] for n in load('valid.json')['nodes'] if n.get('form')}
+FORMS = {(n['form']['formId'], n['form']['contentSha256']) for n in load('valid.json')['nodes'] if n.get('form')}  # as if registered
+FORM_UPLOAD = text(load('forms.json')['forms'][0])  # the real upload of the form valid.json names
+
 NOW = '2026-10-28T12:00:00Z'
+
+
+def register_forms(state, by='engineer'):
+    return state.store_form(FORM_UPLOAD, uploaded_by=by, now=NOW)

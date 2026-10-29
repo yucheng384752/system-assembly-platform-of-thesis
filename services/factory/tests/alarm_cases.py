@@ -1,5 +1,5 @@
 """Alarm behavior, written once as a mixin so the memory store and the SQL stores are held to the same rules."""
-from fixtures import EVALUATOR, FORMS, KITS, NOW, load
+from fixtures import EVALUATOR, KITS, NOW, load, register_forms
 from factory_core.alarms import ACK_ROLES, DEFAULT_REPEAT_MINUTES, AlarmError, AlarmService, parse_time
 from factory_core.workorder import FactoryState
 
@@ -17,13 +17,14 @@ class AlarmCases:
     def setUp(self):
         self.state = FactoryState(self.make_store())
         self.plan_id = self.state.store_plan(load('valid.json')).plan_id
+        register_forms(self.state)
         self.alarms = AlarmService(self.state)
 
     def start(self, order_id='wo-1', set_values=None, intervals=None):
         if set_values is not None or intervals is not None:
             record = self.state.params.propose(self.plan_id, values=set_values or {}, alarm_intervals=intervals, proposed_by='alice', reason='r', now=NOW)
             self.state.params.decide(self.plan_id, record.set_version, approve=True, by='bob', role='manager', now=NOW)
-        self.state.create_order(order_id, self.plan_id, created_by='alice', now=NOW, active_kits=KITS, form_hashes=FORMS, evaluator_commit=EVALUATOR)
+        self.state.create_order(order_id, self.plan_id, created_by='alice', now=NOW, active_kits=KITS, evaluator_commit=EVALUATOR)
         self.state.start_order(order_id, now=at(0))
         return order_id
 
@@ -76,7 +77,7 @@ class AlarmCases:
 
     def test_alarms_need_a_started_order_and_a_rule_the_plan_declares(self):
         self.failed(lambda: self.alarms.raise_alarm('ghost', RULE, now=at(1)), 'unknown-order')
-        self.state.create_order('wo-2', self.plan_id, created_by='alice', now=NOW, active_kits=KITS, form_hashes=FORMS, evaluator_commit=EVALUATOR)
+        self.state.create_order('wo-2', self.plan_id, created_by='alice', now=NOW, active_kits=KITS, evaluator_commit=EVALUATOR)
         self.failed(lambda: self.alarms.raise_alarm('wo-2', RULE, now=at(1)), 'not-started')
         order = self.start()
         self.failed(lambda: self.alarms.raise_alarm(order, 'no-such-rule', now=at(1)), 'unknown-rule')

@@ -39,7 +39,12 @@ export interface PlanBuildInput {
 }
 export interface PlanBuildError { code: string; message: string; nodeId?: string }
 export type ExecutablePlan = Record<string, unknown> & { planId: string };
-export type PlanBuildResult = { ok: true; plan: ExecutablePlan } | { ok: false; errors: PlanBuildError[] };
+/**
+ * A form definition a plan node names, in the shape the factory's `POST /api/factory/forms` takes. The definition travels beside
+ * the plan, never inside it, so planId does not change; the factory recomputes the hash and refuses a mismatch.
+ */
+export interface PlanForm { contentSha256: string; definition: FormDef }
+export type PlanBuildResult = { ok: true; plan: ExecutablePlan; forms: PlanForm[] } | { ok: false; errors: PlanBuildError[] };
 
 const validatePlan = new Ajv({ allErrors: true, strict: false }).compile(planSchema);
 
@@ -112,14 +117,15 @@ export async function buildExecutablePlan(input: PlanBuildInput): Promise<PlanBu
 
   // Everything the flattened nodes may reference lives in the project, its libraries or a sub-AoV.
   const sources = [project, ...subgraphClosure(project, subprojects)];
-  const forms = new Map<string, FormDef>();
-  for (const source of sources) for (const form of resolveProject(source, libraries).forms) forms.set(form.id, form);
+  const formDefs = new Map<string, FormDef>();
+  for (const source of sources) for (const form of resolveProject(source, libraries).forms) formDefs.set(form.id, form);
   const formHash = new Map<string, string>();
-  for (const [id, def] of forms) formHash.set(id, await contentSha256(def));
+  for (const [id, def] of formDefs) formHash.set(id, await contentSha256(def));
   const types = TypeLibrary.fromProject(resolved);
   const nodeById = new Map(resolved.nodes.map(n => [n.id, n]));
   const subgraphRefs = new Map(project.nodes.filter(n => n.category === 'subgraph').map(n => [n.id, parseSubgraphRef(n.ref)]));
 
+  const usedForms = new Set<string>();
   const nodes = aPlan.nodes.map(planNode => {
     const n = nodeById.get(planNode.nodeId)!;
     const ports = (dir: 'inputs' | 'outputs') => planNode[dir].map(p => ({ port: p.port, type: n[dir].find(x => x.id === p.port)!.type, flows: p.flows }));
@@ -136,6 +142,7 @@ export async function buildExecutablePlan(input: PlanBuildInput): Promise<PlanBu
     const formSha = n.form ? formHash.get(n.form) : undefined;
     if (n.form && !formSha) errors.push({ code: 'form-missing', message: `節點「${n.name}」引用的表單「${n.form}」找不到內容。`, nodeId: n.id });
     const form = n.form && formSha ? { formId: n.form, contentSha256: formSha } : undefined;
+    if (form) usedForms.add(form.formId);
     const outer = planNode.nodeId.includes('/') ? planNode.nodeId.split('/')[0] : undefined;
     const ref = outer ? subgraphRefs.get(outer) : undefined;
     return {
@@ -199,7 +206,9 @@ export async function buildExecutablePlan(input: PlanBuildInput): Promise<PlanBu
   }) as ExecutablePlan;
   plan.planId = await computePlanId(plan);
   const shapeErrors = validateExecutablePlan(plan);
-  return shapeErrors.length ? { ok: false, errors: shapeErrors } : { ok: true, plan };
+  if (shapeErrors.length) return { ok: false, errors: shapeErrors };
+  const forms = [...usedForms].sort().map(id => ({ contentSha256: formHash.get(id)!, definition: jsonOnly(formDefs.get(id)!) }));
+  return { ok: true, plan, forms };
 }
 
 const byIdVersion = (a: { id: string; version: number }, b: { id: string; version: number }) => a.id.localeCompare(b.id) || a.version - b.version;

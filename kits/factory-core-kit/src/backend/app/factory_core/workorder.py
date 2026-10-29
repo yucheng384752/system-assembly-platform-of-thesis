@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from .forms import FormRecord, plan_forms, receive_form
 from .params import ParameterSetService
 from .plan import PlanRejected, ReceivedPlan, receive_plan, work_order_blockers
 from .store import AlreadyExists, MemoryStore, StoreView
@@ -61,14 +62,20 @@ class FactoryState:
         self.store.save_plan(received)
         return received
 
+    def store_form(self, document: str | dict, *, uploaded_by: str, now: str) -> FormRecord:
+        record = receive_form(document, uploaded_by=uploaded_by, uploaded_at=now)  # raises PlanRejected; nothing is stored on failure
+        self.store.save_form(record)
+        return self.store.get_form(record.content_sha256)  # the first upload's record when this content was already registered
+
     def create_order(self, order_id: str, plan_id: str, *, created_by: str, now: str, active_kits: set[str],
-                     form_hashes: dict[str, str], evaluator_commit: str | None) -> WorkOrder:
+                     evaluator_commit: str | None) -> WorkOrder:
         received = self.store.get_plan(plan_id)
         if received is None:
             raise PlanRejected([{'code': 'unknown-plan', 'path': '/planId', 'message': f'plan {plan_id} is not stored'}])
         if self.store.get_order(order_id) is not None:
             raise PlanRejected([{'code': 'duplicate-order', 'path': '/orderId', 'message': f'work order {order_id} already exists'}])
-        errors = work_order_blockers(received, active_kits=active_kits, form_hashes=form_hashes, evaluator_commit=evaluator_commit)
+        registered = {(form_id, sha) for form_id, sha in plan_forms(received.plan) if self.store.has_form(form_id, sha)}
+        errors = work_order_blockers(received, active_kits=active_kits, registered_forms=registered, evaluator_commit=evaluator_commit)
         if errors:
             raise PlanRejected(errors)
         order = WorkOrder(order_id, plan_id, created_by, now)

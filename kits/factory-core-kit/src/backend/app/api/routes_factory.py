@@ -14,14 +14,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from app.factory_api.deploy import deployed_environment, make_engine, open_state
-from app.factory_api.support import (MAX_PLAN_BYTES, AcknowledgeBody, Actor, AlarmBody, DecisionBody, Environment, OrderBody, ProposeBody, _alarm,
-                                 _decision, _order, _set, actor, guarded, utc_now)
+from app.factory_api.support import (MAX_FORM_BYTES, MAX_PLAN_BYTES, AcknowledgeBody, Actor, AlarmBody, DecisionBody, Environment, OrderBody,
+                                 ProposeBody, _alarm, _decision, _form, _order, _set, actor, guarded, utc_now)
 from app.factory_core.alarms import AlarmService
 from app.factory_core.workorder import FactoryState, WorkOrder
 
 
 def build_router(get_state: Callable[[], FactoryState], *, environment: Callable[[], Environment], clock: Callable[[], str] = utc_now) -> APIRouter:
-    """The 13 routes. `get_state` is called per request so a deployment can open its database lazily."""
+    """The 15 routes. `get_state` is called per request so a deployment can open its database lazily."""
     router = APIRouter()
 
     def plan_or_404(state: FactoryState, plan_id: str):
@@ -60,6 +60,26 @@ def build_router(get_state: Callable[[], FactoryState], *, environment: Callable
         received = plan_or_404(get_state(), plan_id)
         return {'planId': received.plan_id, 'executable': received.executable, 'blockers': list(received.blockers), 'plan': received.plan}
 
+    @router.post('/api/factory/forms', status_code=201)
+    @guarded
+    async def upload_form(request: Request, who: Actor = Depends(actor)):
+        body = await request.body()
+        if len(body) > MAX_FORM_BYTES:
+            return JSONResponse(status_code=413, content={'errors': [{'code': 'too-large', 'path': '/', 'message': f'a form may be at most {MAX_FORM_BYTES} bytes'}]})
+        try:
+            document = body.decode('utf-8')
+        except UnicodeDecodeError:
+            return JSONResponse(status_code=422, content={'errors': [{'code': 'broken-structure', 'path': '/', 'message': 'the form must be UTF-8 text'}]})
+        return _form(get_state().store_form(document, uploaded_by=who.user_id, now=clock()))
+
+    @router.get('/api/factory/forms/{content_sha256}')
+    @guarded
+    def get_form(content_sha256: str, _: Actor = Depends(actor)):
+        record = get_state().store.get_form(content_sha256)
+        if record is None:
+            raise HTTPException(404, 'Unknown form')
+        return _form(record) | {'definition': record.definition}
+
     @router.post('/api/factory/plans/{plan_id}/parameter-sets', status_code=201)
     @guarded
     def propose(plan_id: str, body: ProposeBody, who: Actor = Depends(actor)):
@@ -89,7 +109,7 @@ def build_router(get_state: Callable[[], FactoryState], *, environment: Callable
     def create_order(body: OrderBody, who: Actor = Depends(actor)):
         env = environment()
         order = get_state().create_order(body.orderId, body.planId, created_by=who.user_id, now=clock(), active_kits=set(env.active_kits),
-                                         form_hashes=env.form_hashes, evaluator_commit=env.evaluator_commit)
+                                         evaluator_commit=env.evaluator_commit)
         return _order(order)
 
     @router.post('/api/factory/work-orders/{order_id}/start')

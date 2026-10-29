@@ -59,7 +59,7 @@ class ReceivePlanTests(unittest.TestCase):
         received = receive_plan(load('not-executable.json'))
         self.assertFalse(received.executable)
         self.assertEqual([b['nodeId'] for b in received.blockers], ['mix'])
-        errors = work_order_blockers(received, active_kits=KITS, form_hashes=FORMS, evaluator_commit=EVALUATOR)
+        errors = work_order_blockers(received, active_kits=KITS, registered_forms=FORMS, evaluator_commit=EVALUATOR)
         self.assertIn('not-executable', {e['code'] for e in errors})
 
     def test_structural_faults_are_refused_even_when_the_id_matches(self):
@@ -93,7 +93,7 @@ class WorkOrderBlockerTests(unittest.TestCase):
         self.received = receive_plan(load('valid.json'))
 
     def blockers(self, **over):
-        args = dict(active_kits=KITS, form_hashes=FORMS, evaluator_commit=EVALUATOR) | over
+        args = dict(active_kits=KITS, registered_forms=FORMS, evaluator_commit=EVALUATOR) | over
         return {e['code'] for e in work_order_blockers(self.received, **args)}
 
     def test_an_executable_plan_with_everything_available_has_no_blockers(self):
@@ -102,9 +102,11 @@ class WorkOrderBlockerTests(unittest.TestCase):
     def test_a_kit_outside_the_current_selection_blocks(self):
         self.assertEqual(self.blockers(active_kits=KITS - {'quality-kit'}), {'kit-not-active'})
 
-    def test_a_form_that_changed_or_vanished_blocks(self):
-        self.assertEqual(self.blockers(form_hashes={'mix-record': 'f' * 64}), {'form-mismatch'})
-        self.assertEqual(self.blockers(form_hashes={}), {'form-mismatch'})
+    def test_a_form_the_factory_does_not_hold_blocks(self):
+        # Registered under another hash is the same as not registered: the plan names one exact content.
+        self.assertEqual(self.blockers(registered_forms={('mix-record', 'f' * 64)}), {'form-unavailable'})
+        self.assertEqual(self.blockers(registered_forms=set()), {'form-unavailable'})
+        self.assertEqual(self.blockers(registered_forms={('other-form', next(iter(FORMS))[1])}), {'form-unavailable'})
 
     def test_a_different_evaluator_blocks_because_a_guard_could_mean_something_else(self):
         self.assertTrue(self.received.needs_evaluator)
@@ -119,7 +121,7 @@ class WorkOrderBlockerTests(unittest.TestCase):
                 node['category'] = 'transform'
         received = receive_plan(resealed(plan))
         self.assertFalse(received.needs_evaluator)
-        self.assertEqual(work_order_blockers(received, active_kits=KITS, form_hashes=FORMS, evaluator_commit=None), [])
+        self.assertEqual(work_order_blockers(received, active_kits=KITS, registered_forms=FORMS, evaluator_commit=None), [])
 
 
 if __name__ == '__main__':
