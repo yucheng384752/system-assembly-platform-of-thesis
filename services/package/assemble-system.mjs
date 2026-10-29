@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { adapt, inventory, policyData, pythonCheck, directory as preview, repository } from '../preview/assemble.mjs';
 import { deploymentArtifacts, entryDirectory } from './deployment.mjs';
+import { bundleEvaluator } from '../evaluator/build.mjs';
 
 /** @typedef {(command: string, args: string[], options: import('node:child_process').SpawnSyncOptionsWithStringEncoding) =>
  * {status?: number | null, stdout?: string | Buffer | null, stderr?: string | Buffer | null, error?: Error}} Run */
@@ -117,6 +118,7 @@ export async function assembleSystem(output, { recipe: recipeFile, kits = path.j
       missingWorkflows.push(`Kit workflow: ${kit}/workflow.aov.json (source not provided)`);
     }
   }
+  if (plan.included.includes('factory-core-kit')) put('evaluator/evaluator.cjs', await bundleEvaluator(), 'evaluator-bundle');
   put('config/system.recipe.json', json(recipe), 'recipe');
   put('permissions/endpoint_permissions.json', await readFile(path.join(kits, 'platform-core-kit/src/backend/app/config/endpoint_permissions.json')), 'permission-declarations');
   put('permissions/entry_points.json', json(await entryDirectory(kits, plan.included)), 'permission-directory');

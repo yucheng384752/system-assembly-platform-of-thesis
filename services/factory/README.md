@@ -33,7 +33,7 @@ Checked: Windows (Python 3.13, SQLite) and Ubuntu 22.04 in `python:3.12.8` again
 
 ## Not done yet
 
-- The evaluator for a deployment: a plan with a guard or a judge node cannot create work orders on a deployed system yet. Forms are no longer a blocker: they are uploaded to the registry (`POST /api/factory/forms`).
+- Nothing in the factory calls the evaluator while a work order runs yet (no node completion, pick or inspection flow exists); the evaluator is deployed and its commit gates order creation (`factory_core/evaluator.py`, `services/evaluator/`).
 - How a form definition maps to a generic-forms station (which station records this form's data) is undecided.
 - The deployed check goes straight to the backend; the nginx path, several backend processes and real alarm delivery are not covered.
 - Who receives the alarm and delivery of notices; this module only decides when a reminder is due.

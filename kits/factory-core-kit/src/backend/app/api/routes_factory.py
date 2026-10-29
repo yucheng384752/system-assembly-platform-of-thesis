@@ -13,7 +13,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from app.factory_api.deploy import deployed_environment, make_engine, open_state
+from app.factory_api.deploy import deployed_environment, evaluator_for, make_engine, open_state
 from app.factory_api.support import (MAX_FORM_BYTES, MAX_PLAN_BYTES, AcknowledgeBody, Actor, AlarmBody, DecisionBody, Environment, OrderBody,
                                  ProposeBody, _alarm, _decision, _form, _order, _set, actor, guarded, utc_now)
 from app.factory_core.alarms import AlarmService
@@ -168,8 +168,12 @@ def _state() -> FactoryState:
 
 
 @lru_cache(maxsize=1)
+def _evaluator():
+    return evaluator_for(PACKAGE_ROOT)
+
+
 def _environment() -> Environment:
-    return deployed_environment(PACKAGE_ROOT)
+    return deployed_environment(PACKAGE_ROOT, _evaluator())  # not cached: the evaluator's availability is asked for each order
 
 
 router = build_router(_state, environment=_environment, clock=utc_now)

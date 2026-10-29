@@ -5,10 +5,14 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from unittest import mock
+
+from evaluator_support import NODE, fake, real_command
 from fixtures import PLAN_DIR, load, text
 from sqlalchemy import create_engine, inspect
 
-from factory_api.deploy import deployed_environment, init_schema, open_state, sync_database_url
+from factory_api.deploy import deployed_environment, evaluator_for, init_schema, open_state, sync_database_url
+from factory_core.evaluator import Evaluator
 from factory_core.plan import PlanRejected
 
 
@@ -21,6 +25,35 @@ class DeployTests(unittest.TestCase):
         for given in ('sqlite:///x.db', 'mysql://u:p@db/x', '', 'postgres://u:p@db/x'):
             with self.subTest(given), self.assertRaises(ValueError):
                 sync_database_url(given)
+
+    def test_the_package_has_an_evaluator_only_with_both_node_and_its_bundle(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.assertIsNone(evaluator_for(Path(root)))  # no bundle
+            (Path(root) / 'evaluator').mkdir()
+            (Path(root) / 'evaluator' / 'evaluator.cjs').write_text('', encoding='utf-8')
+            with mock.patch('factory_api.deploy.shutil.which', return_value=None):
+                self.assertIsNone(evaluator_for(Path(root)))  # no node
+            with mock.patch('factory_api.deploy.shutil.which', return_value='/usr/local/bin/node'):
+                self.assertIsInstance(evaluator_for(Path(root)), Evaluator)
+
+    def test_the_environments_evaluator_commit_is_what_the_running_evaluator_reports_and_none_when_it_cannot(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.assertIsNone(deployed_environment(Path(root)).evaluator_commit)
+            broken = Evaluator(['/no/such/evaluator'])
+            self.assertIsNone(deployed_environment(Path(root), broken).evaluator_commit)  # reported, not raised, and not guessed
+            hello = '\n'.join(['import json, sys', 'for line in sys.stdin:', '    r = json.loads(line)',
+                               "    print(json.dumps({'id': r['id'], 'ok': True, 'commit': 'c0ffee', 'protocol': 1}), flush=True)"])
+            fine = Evaluator(fake(hello))
+            self.addCleanup(fine.close)
+            self.assertEqual(deployed_environment(Path(root), fine).evaluator_commit, 'c0ffee')
+
+    @unittest.skipUnless(NODE, 'node is not available: the real evaluator was not exercised')
+    def test_the_real_bundle_gives_the_commit_plans_are_checked_against(self):
+        from fixtures import EVALUATOR
+        real = Evaluator(real_command())
+        self.addCleanup(real.close)
+        with tempfile.TemporaryDirectory() as root:
+            self.assertEqual(deployed_environment(Path(root), real).evaluator_commit, EVALUATOR)
 
     def test_active_kits_are_the_kits_shipped_in_the_package(self):
         with tempfile.TemporaryDirectory() as root:

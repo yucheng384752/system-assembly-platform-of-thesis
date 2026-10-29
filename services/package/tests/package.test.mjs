@@ -257,3 +257,22 @@ test('factory-core-kit: its migration runs in the init step only when the kit is
   assert.ok(!(/** @type {string} */ (off.get('deployment/backend/requirements.txt'))).includes('alembic'));
   assert.equal(new Set(requirements).size, requirements.length);
 });
+
+test('factory-core-kit: the evaluator reaches the image only with the kit (node binary from a build stage, bundle passes the exclusion scan)', async () => {
+  const kits = path.join(repository, 'kits');
+  /** @param {string[]} selected */
+  const dockerfile = async selected => {
+    const plan = await inventory(kits, selected, systemExcluded);
+    return /** @type {string} */ ((await deploymentArtifacts(kits, plan.included, [...plan.sources.keys()])).get('deployment/backend.Dockerfile'));
+  };
+  const on = await dockerfile([...minimal, 'factory-core-kit']), off = await dockerfile(minimal);
+  const froms = on.split('\n').filter(l => l.startsWith('FROM '));
+  assert.deepEqual(froms, ['FROM node:22.12.0-bookworm-slim AS evaluator-node', 'FROM python:3.12.8-slim-bookworm'], 'the python stage is last, so it is the image that runs');
+  assert.match(on, /COPY --from=evaluator-node \/usr\/local\/bin\/node \/usr\/local\/bin\/node/);
+  assert.match(on, /COPY evaluator\/ \/system\/evaluator\//);
+  assert.doesNotMatch(off, /node|evaluator|@@/);
+  const { bundleEvaluator } = await import('../../evaluator/build.mjs');
+  const bundle = await bundleEvaluator();
+  assert.doesNotThrow(() => scanExclusions(new Map([['evaluator/evaluator.cjs', bundle]])));
+  assert.ok(bundle.length > 1000 && bundle.length < 1_000_000);
+});

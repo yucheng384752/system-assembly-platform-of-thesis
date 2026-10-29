@@ -45,6 +45,11 @@ const factoryInit = `    # factory-core-kit: tables and append-only guards (Alem
         factory_engine.dispose()
 `;
 
+// factory-core-kit evaluates guards in a node child process (contract 8.1 item 16). Only the node binary is taken from the node image
+// (same Debian release as the python base, so the libraries match); the bundle is one self-contained file built by the assembler.
+const evaluatorStage = 'FROM node:22.12.0-bookworm-slim AS evaluator-node\n';
+const evaluatorCopy = 'COPY --from=evaluator-node /usr/local/bin/node /usr/local/bin/node\nCOPY evaluator/ /system/evaluator/\n';
+
 /** @param {string} kits @param {string[]} selected @param {string[]} sources
  * @returns {Promise<Map<string, string>>} */
 export async function deploymentArtifacts(kits, selected, sources) {
@@ -67,6 +72,8 @@ export async function deploymentArtifacts(kits, selected, sources) {
       .replaceAll('@@REQUIRED@@', JSON.stringify(required))
       .replaceAll('@@ROUTERS@@', routers)
       .replaceAll('@@FACTORY_INIT@@\n', factory ? factoryInit : '')
+      .replaceAll('@@EVALUATOR_NODE@@\n', factory ? evaluatorStage : '')
+      .replaceAll('@@EVALUATOR_COPY@@\n', factory ? evaluatorCopy : '')
       .replaceAll('@@WEBHOOK_ENV@@', webhook ? '      MOD_WEBHOOK_SECRET: ${MOD_WEBHOOK_SECRET:?MOD_WEBHOOK_SECRET is required}\n' : '')
       .replaceAll('@@WEBHOOK_EXAMPLE@@', webhook ? '# MOD_WEBHOOK_SECRET: required external MOD webhook shared secret\nMOD_WEBHOOK_SECRET=\n' : ''));
   }

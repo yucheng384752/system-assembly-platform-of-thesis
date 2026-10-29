@@ -30,4 +30,4 @@ kit.contract.json 宣告 8 個入口與其路由；新增路由必須同時宣�
 
 ## 常見錯誤與復原
 
-工廠核心不求值運算式，所以含 guard 或判定節點的計畫不能建立工單。表單以內容雜湊為鍵登錄，建單時檢查計畫指名的每一份都已登錄。警報由已求值的呼叫端觸發。
+工廠核心不自行求值運算式，而是呼叫 factory_core/evaluator.py 啟動的 Node 子程序（services/evaluator，A 的固定快照求值器，打包成單一檔案放在系統包的 evaluator/）；建單時比對它回報的 aov-core commit 與計畫的 source.aovCoreCommit，求值器缺失或版本不同即拒絕。求值失敗一律是錯誤，不當成 true 或 false。表單以內容雜湊為鍵登錄，建單時檢查計畫指名的每一份都已登錄。警報由已求值的呼叫端觸發。

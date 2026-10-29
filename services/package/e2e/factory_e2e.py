@@ -14,6 +14,7 @@ All data is synthetic and the passwords are test values only.
 import json
 import os
 import sys
+import time
 
 import httpx
 from sqlalchemy import text
@@ -45,17 +46,27 @@ def login(user, password):
 
 
 def runnable_plan():
-    """The contract fixture made runnable on this deployment: kits that exist here, no guards, no judge node. The form stays: it is uploaded."""
+    """The contract fixture made runnable on this deployment: kits that exist here. The form is uploaded, and the guard and the judge
+    node stay: they need the evaluator, which is exactly what is deployed."""
     plan = json.load(open("/tmp/valid.json", encoding="utf-8"))
     for node in plan["nodes"]:
-        for key in ("guard", "route", "decision", "checks", "verdicts"):
-            node.pop(key, None)
-        if node["category"] == "judge":
-            node["category"] = "transform"
         if "binding" in node:
             node["binding"]["kitId"] = "platform-core-kit"
     plan["planId"] = plan_id_of(plan)
     return plan
+
+
+def evaluator_pids():
+    """Processes of this container whose command line names the evaluator bundle."""
+    found = []
+    for entry in os.listdir("/proc"):
+        if entry.isdigit():
+            try:
+                if b"evaluator.cjs" in open(f"/proc/{entry}/cmdline", "rb").read():
+                    found.append(int(entry))
+            except OSError:
+                pass
+    return found
 
 
 def sql(statement):
@@ -133,8 +144,23 @@ if PHASE == "run":
     check("manager approves their own proposal", c.post(sets + "/2/decision", headers=mia, json={"approve": True}).status_code == 200)
 
     # Version 2 is approved before any order starts, so the order below pins version 2.
+    check("the plan has a guard and a judge node, so it needs the evaluator", any(n.get("guard") for n in plan["nodes"]) and any(n["category"] == "judge" for n in plan["nodes"]))
     r = c.post("/api/factory/work-orders", headers=oscar, json={"orderId": "wo-1", "planId": plan_id})
-    check("operator creates a work order", r.status_code == 201, r.text)
+    check("operator creates a work order for a plan with a guard (the deployed evaluator matches its commit)", r.status_code == 201, r.text)
+    other = json.loads(body)
+    other["source"]["aovCoreCommit"] = "0" * 40
+    other["planId"] = plan_id_of(other)
+    r = c.post("/api/factory/plans", headers=mia, content=json.dumps(other, ensure_ascii=False))
+    check("a plan built with another core is stored", r.status_code == 201, r.text)
+    r = c.post("/api/factory/work-orders", headers=oscar, json={"orderId": "wo-other", "planId": other["planId"]})
+    check("but no work order from it: the evaluator is from a different core", r.status_code == 409 and r.json()["errors"][0]["code"] == "evaluator-mismatch", r.text)
+    first_pid = evaluator_pids()
+    check("exactly one evaluator process is running, started by the backend", len(first_pid) == 1, first_pid)
+    os.kill(first_pid[0], 9)
+    time.sleep(1)
+    r = c.post("/api/factory/work-orders", headers=oscar, json={"orderId": "wo-restart", "planId": plan_id})
+    second_pid = evaluator_pids()
+    check("after the evaluator is killed the next order restarts it and succeeds", r.status_code == 201 and len(second_pid) == 1 and second_pid != first_pid, (r.text, first_pid, second_pid))
     r = c.post("/api/factory/work-orders/wo-1/start", headers=oscar)
     check("starting pins the latest approved set", r.status_code == 200 and r.json()["setVersion"] == 2, r.text)
     c.post(sets, headers=oscar, json={"values": {"mix_minutes": 18}, "reason": "later"})
