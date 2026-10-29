@@ -40,7 +40,7 @@ def run(path, method=None):
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1', PYTHONPATH=str(path / 'tests'),
                INSTALLER_PACKAGE_TEMPLATES=str(ROOT.parent / 'package/templates'))
     target = 'test_engine' + ('.EngineTests.' + method if method else '')
-    return subprocess.run([sys.executable, '-B', '-m', 'unittest', target], env=env,
+    return subprocess.run([sys.executable, '-B', '-m', 'unittest', target], env=env, cwd=path / 'tests',
                           capture_output=True, text=True, encoding='utf-8', errors='replace')
 
 

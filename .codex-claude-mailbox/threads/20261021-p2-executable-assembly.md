@@ -1200,3 +1200,7 @@ user 指定這兩個工作包由 Claude 直接實作（不派 Codex）。在獨�
 
 - D146：已還原且無保留項目的狀態可封存後重跑；`issue-license` 失敗改為分類原因。Ubuntu 實機環境（Python 3.10）引擎測試 48 項 OK，變異 18 項全被攔下（新增 `archive-keeps-data-state`）；`test_license` 18 項在 Windows OK。`license_mutations.py` 的 `certificate-signature` 在 Windows 上「未被攔下」，改動前的 HEAD 上也一樣，這次沒在 Ubuntu 重跑（VM 上的 Node 已清掉），原因未查。
 - D147：依 user 要求改寫歷史以移除 Claude 貢獻者署名，提交雜湊全數改變；本串先前記載的舊雜湊（如 99275ef、e43e667、34ed098、ffd1106、1547d2c、e87eaea、5d8b902、8b3f161、70799eb）不再存在於分支上，內容以提交標題對照。尚未設定遠端：加入遠端被權限機制擋下，需 user 自行執行。
+
+## Claude: license 變異「未攔下」追查（2026-10-29，D148）
+
+原因不是授權程式：從 `services/installer/tests/` 目錄啟動 `license_mutations.py` 時，`python -m unittest` 把目前目錄放在 `sys.path` 最前面，匯入了真實的 `test_license.py` 及其未變異的引擎，所以變異沒有生效。手動套用同一變異並從暫存副本執行，測試以「Failure not raised」失敗（正確攔下）；從 repo 根目錄執行工具，6 項全部攔下。三個變異工具（引擎、授權、精靈）現在都以暫存副本的 `tests/` 為工作目錄，從 `tests/` 目錄啟動時授權 6 項與引擎 18 項皆攔下（授權在 Windows，引擎在 Ubuntu）。
