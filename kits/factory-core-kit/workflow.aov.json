@@ -1,0 +1,145 @@
+{
+  "format": "composer-kit-workflow",
+  "version": 1,
+  "kitId": "factory-core-kit",
+  "kitVersion": "0.1.0",
+  "status": "draft",
+  "scope": "描述生產計畫接收、參數修改與核准、工單建立與開工、警報回報與確認。連線只畫來源與測試明確要求的前置：建立工單需先有已接收的計畫，且計畫引用的表單須已上傳；提出參數需有計畫；核准需有已提出的版本；開工需有工單；回報警報需有工單；確認警報需有已回報的警報。開工不要求參數已核准，未核准時沿用計畫預設並標示。查詢與提醒節點不建立連線。所有路由都需已登入的身分，身分由入口權限中介層提供，本流程不重複畫出。未涵蓋跨 Kit 的節點執行、評估器細節與授權測試。尚未完成執行驗證。",
+  "nodes": [
+    {
+      "id": "receive-plan",
+      "name": "接收生產計畫",
+      "capabilityIds": [
+        "factory.plans.receive"
+      ]
+    },
+    {
+      "id": "list-plans",
+      "name": "查詢生產計畫清單",
+      "capabilityIds": [
+        "factory.plans.list"
+      ]
+    },
+    {
+      "id": "get-plan",
+      "name": "查看生產計畫",
+      "capabilityIds": [
+        "factory.plans.get"
+      ]
+    },
+    {
+      "id": "upload-form",
+      "name": "上傳計畫引用的表單",
+      "capabilityIds": [
+        "factory.forms.upload"
+      ]
+    },
+    {
+      "id": "get-form",
+      "name": "查看表單定義",
+      "capabilityIds": [
+        "factory.forms.get"
+      ]
+    },
+    {
+      "id": "propose-params",
+      "name": "提出生產參數修改",
+      "capabilityIds": [
+        "factory.params.propose"
+      ]
+    },
+    {
+      "id": "list-params",
+      "name": "查詢參數版本",
+      "capabilityIds": [
+        "factory.params.list"
+      ]
+    },
+    {
+      "id": "decide-params",
+      "name": "核准或駁回參數修改",
+      "capabilityIds": [
+        "factory.params.decide"
+      ]
+    },
+    {
+      "id": "create-order",
+      "name": "建立工單",
+      "capabilityIds": [
+        "factory.orders.create"
+      ]
+    },
+    {
+      "id": "start-order",
+      "name": "工單開工",
+      "capabilityIds": [
+        "factory.orders.start"
+      ]
+    },
+    {
+      "id": "get-order",
+      "name": "查看工單",
+      "capabilityIds": [
+        "factory.orders.get"
+      ]
+    },
+    {
+      "id": "raise-alarm",
+      "name": "回報警報並暫停節點",
+      "capabilityIds": [
+        "factory.alarms.raise"
+      ]
+    },
+    {
+      "id": "list-alarms",
+      "name": "查詢警報",
+      "capabilityIds": [
+        "factory.alarms.list"
+      ]
+    },
+    {
+      "id": "acknowledge-alarm",
+      "name": "確認警報並解除暫停",
+      "capabilityIds": [
+        "factory.alarms.acknowledge"
+      ]
+    },
+    {
+      "id": "collect-reminders",
+      "name": "收取到期提醒",
+      "capabilityIds": [
+        "factory.alarms.remind"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "receive-plan",
+      "to": "create-order"
+    },
+    {
+      "from": "upload-form",
+      "to": "create-order"
+    },
+    {
+      "from": "receive-plan",
+      "to": "propose-params"
+    },
+    {
+      "from": "propose-params",
+      "to": "decide-params"
+    },
+    {
+      "from": "create-order",
+      "to": "start-order"
+    },
+    {
+      "from": "create-order",
+      "to": "raise-alarm"
+    },
+    {
+      "from": "raise-alarm",
+      "to": "acknowledge-alarm"
+    }
+  ]
+}

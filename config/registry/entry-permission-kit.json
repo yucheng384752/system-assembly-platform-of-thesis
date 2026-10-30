@@ -1,0 +1,1081 @@
+{
+  "format": "composer-kit-registry",
+  "version": 1,
+  "kitId": "entry-permission-kit",
+  "scope": "登錄入口與使用權限的 16 個路由：登入與個人資料、入口目錄、角色與授權、使用者管理。入口層只決定可見性，舊的端點權限中介層仍可拒絕請求；授權測試標為未涵蓋。",
+  "capabilities": [
+    {
+      "id": "auth.login",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "entry-permission-kit",
+        "mService": "auth-login"
+      },
+      "verified": true
+    },
+    {
+      "id": "auth.me.get",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/auth/me",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "entry-permission-kit",
+        "mService": "auth-me-get"
+      },
+      "verified": true
+    },
+    {
+      "id": "auth.me.update",
+      "kind": "api",
+      "method": "PATCH",
+      "path": "/api/auth/me",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "entry-permission-kit",
+        "mService": "auth-me-update"
+      },
+      "verified": true
+    },
+    {
+      "id": "auth.change-password",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/auth/change-password",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "entry-permission-kit",
+        "mService": "auth-change-password"
+      },
+      "verified": true
+    },
+    {
+      "id": "entry-points.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/entry-points",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "entry-permission-kit",
+        "mService": "entry-points-list"
+      },
+      "verified": true
+    },
+    {
+      "id": "entry-points.me",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/entry-points/me",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "entry-permission-kit",
+        "mService": "entry-points-me"
+      },
+      "verified": true
+    },
+    {
+      "id": "roles.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/roles",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "entry-permission-kit",
+        "mService": "roles-list"
+      },
+      "verified": true
+    },
+    {
+      "id": "roles.create",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/roles",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "entry-permission-kit",
+        "mService": "roles-create"
+      },
+      "verified": true
+    },
+    {
+      "id": "roles.update",
+      "kind": "api",
+      "method": "PATCH",
+      "path": "/api/roles/{role_id}",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "entry-permission-kit",
+        "mService": "roles-update"
+      },
+      "verified": true
+    },
+    {
+      "id": "roles.delete",
+      "kind": "api",
+      "method": "DELETE",
+      "path": "/api/roles/{role_id}",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "entry-permission-kit",
+        "mService": "roles-delete"
+      },
+      "verified": true
+    },
+    {
+      "id": "roles.grants.put",
+      "kind": "api",
+      "method": "PUT",
+      "path": "/api/roles/{role_id}/entry-points",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "entry-permission-kit",
+        "mService": "roles-grants-put"
+      },
+      "verified": true
+    },
+    {
+      "id": "ep.users.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/users",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "entry-permission-kit",
+        "mService": "ep-users-list"
+      },
+      "verified": true
+    },
+    {
+      "id": "ep.users.create",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/users",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "entry-permission-kit",
+        "mService": "ep-users-create"
+      },
+      "verified": true
+    },
+    {
+      "id": "ep.users.update",
+      "kind": "api",
+      "method": "PATCH",
+      "path": "/api/users/{user_id}",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "entry-permission-kit",
+        "mService": "ep-users-update"
+      },
+      "verified": true
+    },
+    {
+      "id": "ep.users.reset-password",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/users/{user_id}/reset-password",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "entry-permission-kit",
+        "mService": "ep-users-reset-password"
+      },
+      "verified": true
+    },
+    {
+      "id": "ep.users.overrides.put",
+      "kind": "api",
+      "method": "PUT",
+      "path": "/api/users/{user_id}/entry-point-overrides",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "entry-permission-kit",
+        "mService": "ep-users-overrides-put"
+      },
+      "verified": true
+    }
+  ],
+  "consumes": [],
+  "mServices": [
+    {
+      "id": "auth-login",
+      "name": "登入",
+      "responsibility": "登入",
+      "provides": [
+        "auth.login"
+      ],
+      "inputs": [
+        {
+          "name": "username",
+          "type": "string"
+        },
+        {
+          "name": "password",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "token",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "auth-login"
+      ],
+      "failure": "401 憑證無效、帳號停用或暫時鎖定（不區分原因）"
+    },
+    {
+      "id": "auth-me-get",
+      "name": "取得目前使用者",
+      "responsibility": "取得目前使用者",
+      "provides": [
+        "auth.me.get"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "user",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "auth-me-get"
+      ],
+      "failure": "401 未登入"
+    },
+    {
+      "id": "auth-me-update",
+      "name": "修改自己的顯示名稱",
+      "responsibility": "修改自己的顯示名稱",
+      "provides": [
+        "auth.me.update"
+      ],
+      "inputs": [
+        {
+          "name": "display_name",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "user",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "auth-me-update"
+      ],
+      "failure": "401 未登入；422 欄位不合"
+    },
+    {
+      "id": "auth-change-password",
+      "name": "變更自己的密碼",
+      "responsibility": "變更自己的密碼",
+      "provides": [
+        "auth.change-password"
+      ],
+      "inputs": [
+        {
+          "name": "current_password",
+          "type": "string"
+        },
+        {
+          "name": "new_password",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "user",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "auth-change-password"
+      ],
+      "failure": "401 未登入；400 密碼變更無效"
+    },
+    {
+      "id": "entry-points-list",
+      "name": "列出全部入口",
+      "responsibility": "列出全部入口",
+      "provides": [
+        "entry-points.list"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "directory",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "entry-points-list"
+      ],
+      "failure": "401 未登入"
+    },
+    {
+      "id": "entry-points-me",
+      "name": "列出自己可見的入口",
+      "responsibility": "列出自己可見的入口",
+      "provides": [
+        "entry-points.me"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "entry_points",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "entry-points-me"
+      ],
+      "failure": "401 未登入"
+    },
+    {
+      "id": "roles-list",
+      "name": "列出角色",
+      "responsibility": "列出角色",
+      "provides": [
+        "roles.list"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "roles",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "roles-list"
+      ],
+      "failure": "401 未登入"
+    },
+    {
+      "id": "roles-create",
+      "name": "建立角色",
+      "responsibility": "建立角色",
+      "provides": [
+        "roles.create"
+      ],
+      "inputs": [
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "display_name",
+          "type": "string"
+        },
+        {
+          "name": "is_readonly",
+          "type": "boolean"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "role",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "roles-create"
+      ],
+      "failure": "409 保留的角色名稱；422 欄位不合"
+    },
+    {
+      "id": "roles-update",
+      "name": "修改角色",
+      "responsibility": "修改角色",
+      "provides": [
+        "roles.update"
+      ],
+      "inputs": [
+        {
+          "name": "role_id",
+          "type": "string"
+        },
+        {
+          "name": "display_name",
+          "type": "string"
+        },
+        {
+          "name": "is_readonly",
+          "type": "boolean"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "role",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "roles-update"
+      ],
+      "failure": "403 內建角色不可修改；404 角色不存在；422 欄位不合"
+    },
+    {
+      "id": "roles-delete",
+      "name": "刪除角色",
+      "responsibility": "刪除角色",
+      "provides": [
+        "roles.delete"
+      ],
+      "inputs": [
+        {
+          "name": "role_id",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "deleted",
+          "type": "boolean"
+        }
+      ],
+      "functions": [
+        "roles-delete"
+      ],
+      "failure": "403 內建角色不可刪除；404 角色不存在"
+    },
+    {
+      "id": "roles-grants-put",
+      "name": "設定角色的入口授權",
+      "responsibility": "設定角色的入口授權",
+      "provides": [
+        "roles.grants.put"
+      ],
+      "inputs": [
+        {
+          "name": "role_id",
+          "type": "string"
+        },
+        {
+          "name": "entries",
+          "type": "json"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "role",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "roles-grants-put"
+      ],
+      "failure": "404 角色不存在；422 入口不存在"
+    },
+    {
+      "id": "ep-users-list",
+      "name": "列出使用者",
+      "responsibility": "列出使用者",
+      "provides": [
+        "ep.users.list"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "users",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "ep-users-list"
+      ],
+      "failure": "401 未登入；403 無權管理使用者"
+    },
+    {
+      "id": "ep-users-create",
+      "name": "建立使用者",
+      "responsibility": "建立使用者",
+      "provides": [
+        "ep.users.create"
+      ],
+      "inputs": [
+        {
+          "name": "username",
+          "type": "string"
+        },
+        {
+          "name": "password",
+          "type": "string"
+        },
+        {
+          "name": "display_name",
+          "type": "string"
+        },
+        {
+          "name": "employee_no",
+          "type": "string"
+        },
+        {
+          "name": "role_id",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "user",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "ep-users-create"
+      ],
+      "failure": "403 無權管理該角色；404 角色不存在；422 欄位不合"
+    },
+    {
+      "id": "ep-users-update",
+      "name": "修改使用者",
+      "responsibility": "修改使用者",
+      "provides": [
+        "ep.users.update"
+      ],
+      "inputs": [
+        {
+          "name": "user_id",
+          "type": "string"
+        },
+        {
+          "name": "display_name",
+          "type": "string"
+        },
+        {
+          "name": "employee_no",
+          "type": "string"
+        },
+        {
+          "name": "role_id",
+          "type": "string"
+        },
+        {
+          "name": "is_active",
+          "type": "boolean"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "user",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "ep-users-update"
+      ],
+      "failure": "403 無權管理該使用者；404 使用者不存在"
+    },
+    {
+      "id": "ep-users-reset-password",
+      "name": "重設使用者密碼",
+      "responsibility": "重設使用者密碼",
+      "provides": [
+        "ep.users.reset-password"
+      ],
+      "inputs": [
+        {
+          "name": "user_id",
+          "type": "string"
+        },
+        {
+          "name": "new_password",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "user",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "ep-users-reset-password"
+      ],
+      "failure": "403 無權管理該使用者；404 使用者不存在；422 密碼不合"
+    },
+    {
+      "id": "ep-users-overrides-put",
+      "name": "設定個別使用者的入口例外",
+      "responsibility": "設定個別使用者的入口例外",
+      "provides": [
+        "ep.users.overrides.put"
+      ],
+      "inputs": [
+        {
+          "name": "user_id",
+          "type": "string"
+        },
+        {
+          "name": "entries",
+          "type": "json"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "user",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "ep-users-overrides-put"
+      ],
+      "failure": "403 僅管理員；404 使用者不存在；422 入口不存在"
+    }
+  ],
+  "functions": [
+    {
+      "id": "auth-login",
+      "primitive": "auth-login",
+      "input": [
+        {
+          "name": "username",
+          "type": "string"
+        },
+        {
+          "name": "password",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "token",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 憑證無效、帳號停用或暫時鎖定（不區分原因）"
+      ],
+      "sideEffects": [
+        "更新失敗次數與鎖定狀態"
+      ],
+      "source": {
+        "path": "kits/entry-permission-kit/src/backend/app/api/routes_ep_auth.py",
+        "symbol": "login"
+      }
+    },
+    {
+      "id": "auth-me-get",
+      "primitive": "auth-me-get",
+      "input": [],
+      "output": [
+        {
+          "name": "user",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/entry-permission-kit/src/backend/app/api/routes_ep_auth.py",
+        "symbol": "me"
+      }
+    },
+    {
+      "id": "auth-me-update",
+      "primitive": "auth-me-update",
+      "input": [
+        {
+          "name": "display_name",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "user",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；422 欄位不合"
+      ],
+      "sideEffects": [
+        "更新使用者"
+      ],
+      "source": {
+        "path": "kits/entry-permission-kit/src/backend/app/api/routes_ep_auth.py",
+        "symbol": "update_me"
+      }
+    },
+    {
+      "id": "auth-change-password",
+      "primitive": "auth-change-password",
+      "input": [
+        {
+          "name": "current_password",
+          "type": "string"
+        },
+        {
+          "name": "new_password",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "user",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；400 密碼變更無效"
+      ],
+      "sideEffects": [
+        "更新密碼"
+      ],
+      "source": {
+        "path": "kits/entry-permission-kit/src/backend/app/api/routes_ep_auth.py",
+        "symbol": "change_password"
+      }
+    },
+    {
+      "id": "entry-points-list",
+      "primitive": "entry-points-list",
+      "input": [],
+      "output": [
+        {
+          "name": "directory",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/entry-permission-kit/src/backend/app/api/routes_ep_entry_points.py",
+        "symbol": "directory"
+      }
+    },
+    {
+      "id": "entry-points-me",
+      "primitive": "entry-points-me",
+      "input": [],
+      "output": [
+        {
+          "name": "entry_points",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/entry-permission-kit/src/backend/app/api/routes_ep_entry_points.py",
+        "symbol": "available"
+      }
+    },
+    {
+      "id": "roles-list",
+      "primitive": "roles-list",
+      "input": [],
+      "output": [
+        {
+          "name": "roles",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/entry-permission-kit/src/backend/app/api/routes_ep_roles.py",
+        "symbol": "list_roles"
+      }
+    },
+    {
+      "id": "roles-create",
+      "primitive": "roles-create",
+      "input": [
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "display_name",
+          "type": "string"
+        },
+        {
+          "name": "is_readonly",
+          "type": "boolean"
+        }
+      ],
+      "output": [
+        {
+          "name": "role",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "409 保留的角色名稱；422 欄位不合"
+      ],
+      "sideEffects": [
+        "新增角色"
+      ],
+      "source": {
+        "path": "kits/entry-permission-kit/src/backend/app/api/routes_ep_roles.py",
+        "symbol": "create_role"
+      }
+    },
+    {
+      "id": "roles-update",
+      "primitive": "roles-update",
+      "input": [
+        {
+          "name": "role_id",
+          "type": "string"
+        },
+        {
+          "name": "display_name",
+          "type": "string"
+        },
+        {
+          "name": "is_readonly",
+          "type": "boolean"
+        }
+      ],
+      "output": [
+        {
+          "name": "role",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "403 內建角色不可修改；404 角色不存在；422 欄位不合"
+      ],
+      "sideEffects": [
+        "更新角色"
+      ],
+      "source": {
+        "path": "kits/entry-permission-kit/src/backend/app/api/routes_ep_roles.py",
+        "symbol": "update_role"
+      }
+    },
+    {
+      "id": "roles-delete",
+      "primitive": "roles-delete",
+      "input": [
+        {
+          "name": "role_id",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "deleted",
+          "type": "boolean"
+        }
+      ],
+      "failures": [
+        "403 內建角色不可刪除；404 角色不存在"
+      ],
+      "sideEffects": [
+        "刪除角色"
+      ],
+      "source": {
+        "path": "kits/entry-permission-kit/src/backend/app/api/routes_ep_roles.py",
+        "symbol": "delete_role"
+      }
+    },
+    {
+      "id": "roles-grants-put",
+      "primitive": "roles-grants-put",
+      "input": [
+        {
+          "name": "role_id",
+          "type": "string"
+        },
+        {
+          "name": "entries",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "role",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "404 角色不存在；422 入口不存在"
+      ],
+      "sideEffects": [
+        "取代角色的入口授權"
+      ],
+      "source": {
+        "path": "kits/entry-permission-kit/src/backend/app/api/routes_ep_roles.py",
+        "symbol": "set_grants"
+      }
+    },
+    {
+      "id": "ep-users-list",
+      "primitive": "ep-users-list",
+      "input": [],
+      "output": [
+        {
+          "name": "users",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；403 無權管理使用者"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/entry-permission-kit/src/backend/app/api/routes_ep_users.py",
+        "symbol": "list_users"
+      }
+    },
+    {
+      "id": "ep-users-create",
+      "primitive": "ep-users-create",
+      "input": [
+        {
+          "name": "username",
+          "type": "string"
+        },
+        {
+          "name": "password",
+          "type": "string"
+        },
+        {
+          "name": "display_name",
+          "type": "string"
+        },
+        {
+          "name": "employee_no",
+          "type": "string"
+        },
+        {
+          "name": "role_id",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "user",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "403 無權管理該角色；404 角色不存在；422 欄位不合"
+      ],
+      "sideEffects": [
+        "新增使用者"
+      ],
+      "source": {
+        "path": "kits/entry-permission-kit/src/backend/app/api/routes_ep_users.py",
+        "symbol": "create_user"
+      }
+    },
+    {
+      "id": "ep-users-update",
+      "primitive": "ep-users-update",
+      "input": [
+        {
+          "name": "user_id",
+          "type": "string"
+        },
+        {
+          "name": "display_name",
+          "type": "string"
+        },
+        {
+          "name": "employee_no",
+          "type": "string"
+        },
+        {
+          "name": "role_id",
+          "type": "string"
+        },
+        {
+          "name": "is_active",
+          "type": "boolean"
+        }
+      ],
+      "output": [
+        {
+          "name": "user",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "403 無權管理該使用者；404 使用者不存在"
+      ],
+      "sideEffects": [
+        "更新使用者"
+      ],
+      "source": {
+        "path": "kits/entry-permission-kit/src/backend/app/api/routes_ep_users.py",
+        "symbol": "update_user"
+      }
+    },
+    {
+      "id": "ep-users-reset-password",
+      "primitive": "ep-users-reset-password",
+      "input": [
+        {
+          "name": "user_id",
+          "type": "string"
+        },
+        {
+          "name": "new_password",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "user",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "403 無權管理該使用者；404 使用者不存在；422 密碼不合"
+      ],
+      "sideEffects": [
+        "更新密碼並要求下次登入變更"
+      ],
+      "source": {
+        "path": "kits/entry-permission-kit/src/backend/app/api/routes_ep_users.py",
+        "symbol": "reset_password"
+      }
+    },
+    {
+      "id": "ep-users-overrides-put",
+      "primitive": "ep-users-overrides-put",
+      "input": [
+        {
+          "name": "user_id",
+          "type": "string"
+        },
+        {
+          "name": "entries",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "user",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "403 僅管理員；404 使用者不存在；422 入口不存在"
+      ],
+      "sideEffects": [
+        "取代使用者的入口例外"
+      ],
+      "source": {
+        "path": "kits/entry-permission-kit/src/backend/app/api/routes_ep_users.py",
+        "symbol": "set_overrides"
+      }
+    }
+  ]
+}
