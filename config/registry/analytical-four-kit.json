@@ -2,7 +2,7 @@
   "format": "composer-kit-registry",
   "version": 1,
   "kitId": "analytical-four-kit",
-  "scope": "登錄製造數據分析的 9 個路由：設定、就緒檢查、示範資料、啟動與查看分析、取得結果。分析本身是背景執行，階段對應引擎的 pipeline 方法。",
+  "scope": "登錄製造數據分析的 15 個路由：設定、就緒檢查、示範資料、啟動與查看分析、取得結果、回饋與案例庫版本。分析本身是背景執行，階段對應引擎的 pipeline 方法。",
   "capabilities": [
     {
       "id": "analytical-four.settings.get",
@@ -97,6 +97,78 @@
       "implementedBy": {
         "kitId": "analytical-four-kit",
         "mService": "analytical-four-results-get"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.feedback.submit",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/analytical-four/feedback",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-feedback-submit"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.feedback.import",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/analytical-four/feedback/import",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-feedback-import"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.feedback.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytical-four/feedback",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-feedback-list"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.feedback.decide",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/analytical-four/feedback/{feedback_id}/decision",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-feedback-decide"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.library.publish",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/analytical-four/library/publish",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-library-publish"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.library.versions",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytical-four/library/versions",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-library-versions"
       },
       "verified": true
     },
@@ -295,6 +367,164 @@
         "analytical-four-results-get"
       ],
       "failure": "401 未登入；404 找不到這次分析或結果檔"
+    },
+    {
+      "id": "analytical-four-feedback-submit",
+      "name": "對一次客訴診斷的事件提交確認結果",
+      "responsibility": "對一次客訴診斷的事件提交確認結果",
+      "provides": [
+        "analytical-four.feedback.submit"
+      ],
+      "inputs": [
+        {
+          "name": "run_id",
+          "type": "string"
+        },
+        {
+          "name": "event_id",
+          "type": "string"
+        },
+        {
+          "name": "confirmed_ng",
+          "type": "string"
+        },
+        {
+          "name": "actual_cause",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "feedback",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-feedback-submit"
+      ],
+      "failure": "401 未登入；404 找不到分析或事件；409 分析未成功或沒有客訴診斷結果；422 不良代碼或文字欄位不合"
+    },
+    {
+      "id": "analytical-four-feedback-import",
+      "name": "匯入已確認的案例紀錄",
+      "responsibility": "匯入已確認的案例紀錄",
+      "provides": [
+        "analytical-four.feedback.import"
+      ],
+      "inputs": [
+        {
+          "name": "records",
+          "type": "json"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "feedback",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-feedback-import"
+      ],
+      "failure": "401 未登入；413 內容過大；422 任一筆不合法時整批不寫入"
+    },
+    {
+      "id": "analytical-four-feedback-list",
+      "name": "列出回饋與核可狀態",
+      "responsibility": "列出回饋與核可狀態",
+      "provides": [
+        "analytical-four.feedback.list"
+      ],
+      "inputs": [
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "limit",
+          "type": "integer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "feedback",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-feedback-list"
+      ],
+      "failure": "401 未登入；422 參數不合；500 回饋檔損毀"
+    },
+    {
+      "id": "analytical-four-feedback-decide",
+      "name": "核可或駁回一筆回饋",
+      "responsibility": "核可或駁回一筆回饋",
+      "provides": [
+        "analytical-four.feedback.decide"
+      ],
+      "inputs": [
+        {
+          "name": "feedback_id",
+          "type": "string"
+        },
+        {
+          "name": "approve",
+          "type": "boolean"
+        },
+        {
+          "name": "note",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "decision",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-feedback-decide"
+      ],
+      "failure": "401 未登入；404 找不到回饋；409 已有決定；422 approve 不是布林值"
+    },
+    {
+      "id": "analytical-four-library-publish",
+      "name": "把已核可的回饋發布成新的案例庫版本",
+      "responsibility": "把已核可的回饋發布成新的案例庫版本",
+      "provides": [
+        "analytical-four.library.publish"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "manifest",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-library-publish"
+      ],
+      "failure": "401 未登入；409 分析進行中、沒有新的已核可回饋或沒有案例檔路徑"
+    },
+    {
+      "id": "analytical-four-library-versions",
+      "name": "列出案例庫的歷史版本",
+      "responsibility": "列出案例庫的歷史版本",
+      "provides": [
+        "analytical-four.library.versions"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "versions",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-library-versions"
+      ],
+      "failure": "401 未登入；500 版本資料損毀"
     },
     {
       "id": "analytical-four-runs-create",
@@ -523,6 +753,172 @@
       "source": {
         "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
         "symbol": "get_result"
+      }
+    },
+    {
+      "id": "analytical-four-feedback-submit",
+      "primitive": "analytical-four-feedback-submit",
+      "input": [
+        {
+          "name": "run_id",
+          "type": "string"
+        },
+        {
+          "name": "event_id",
+          "type": "string"
+        },
+        {
+          "name": "confirmed_ng",
+          "type": "string"
+        },
+        {
+          "name": "actual_cause",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "feedback",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；404 找不到分析或事件；409 分析未成功或沒有客訴診斷結果；422 不良代碼或文字欄位不合"
+      ],
+      "sideEffects": [
+        "追加一筆回饋；經理或管理員提交時同時追加核可"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "submit_feedback"
+      }
+    },
+    {
+      "id": "analytical-four-feedback-import",
+      "primitive": "analytical-four-feedback-import",
+      "input": [
+        {
+          "name": "records",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "feedback",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；413 內容過大；422 任一筆不合法時整批不寫入"
+      ],
+      "sideEffects": [
+        "追加回饋；經理或管理員提交時同時追加核可"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "import_feedback"
+      }
+    },
+    {
+      "id": "analytical-four-feedback-list",
+      "primitive": "analytical-four-feedback-list",
+      "input": [
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "limit",
+          "type": "integer"
+        }
+      ],
+      "output": [
+        {
+          "name": "feedback",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；422 參數不合；500 回饋檔損毀"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "list_feedback"
+      }
+    },
+    {
+      "id": "analytical-four-feedback-decide",
+      "primitive": "analytical-four-feedback-decide",
+      "input": [
+        {
+          "name": "feedback_id",
+          "type": "string"
+        },
+        {
+          "name": "approve",
+          "type": "boolean"
+        },
+        {
+          "name": "note",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "decision",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；404 找不到回饋；409 已有決定；422 approve 不是布林值"
+      ],
+      "sideEffects": [
+        "追加核可紀錄"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "decide_feedback"
+      }
+    },
+    {
+      "id": "analytical-four-library-publish",
+      "primitive": "analytical-four-library-publish",
+      "input": [],
+      "output": [
+        {
+          "name": "manifest",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；409 分析進行中、沒有新的已核可回饋或沒有案例檔路徑"
+      ],
+      "sideEffects": [
+        "新增案例庫版本資料夾並更新分析讀取的兩個案例檔"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "publish_library"
+      }
+    },
+    {
+      "id": "analytical-four-library-versions",
+      "primitive": "analytical-four-library-versions",
+      "input": [],
+      "output": [
+        {
+          "name": "versions",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；500 版本資料損毀"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "library_versions"
       }
     },
     {

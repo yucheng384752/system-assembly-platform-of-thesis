@@ -36,6 +36,7 @@ def client(data):
         user = request.headers.get('x-test-user')
         if user:
             request.state.actor_user_id = user
+            request.state.actor_role = request.headers.get('x-test-role', 'operator')
         return await call_next(request)
 
     app.include_router(routes_analytical_four.router)

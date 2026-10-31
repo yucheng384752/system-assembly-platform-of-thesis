@@ -31,7 +31,8 @@ def test_aov_describes_every_run_stage_in_execution_order():
 def test_aov_has_no_step_that_the_run_does_not_perform():
     workflow = load(KIT / 'workflow.aov.json')
     stage_ids = {s[0] for s in STAGES}
-    run_steps = {n['id'] for n in workflow['nodes'] if n.get('subfeatureId')}
+    after_run = {'submit-feedback', 'approve-feedback', 'publish-library'}  # steps that follow a run rather than being part of one
+    run_steps = {n['id'] for n in workflow['nodes'] if n.get('subfeatureId')} - after_run
     assert run_steps == stage_ids
 
 

@@ -8,11 +8,12 @@ sources:
   - kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py
   - kits/analytical-four-kit/src/backend/app/analytical_four/settings.py
   - kits/analytical-four-kit/src/backend/app/analytical_four/runs.py
+  - kits/analytical-four-kit/src/backend/app/analytical_four/feedback.py
 ---
 
 ## 用途
 
-app/analytical_four/ 內含：engine（自 Analytical-Four 複製的分析程式，匯入路徑改為本 Kit 套件）、pipeline.py（原 main.py 的方法本體，加上階段方法）、settings.py（設定與就緒檢查）、runs.py（背景執行與執行紀錄）、offline_vectors.py（不需下載模型的向量建構器）、seed_demo.py 與 demo_data/。路由在 app/api/routes_analytical_four.py。
+app/analytical_four/ 內含：engine（自 Analytical-Four 複製的分析程式，匯入路徑改為本 Kit 套件）、pipeline.py（原 main.py 的方法本體，加上階段方法）、settings.py（設定與就緒檢查）、runs.py（背景執行與執行紀錄）、offline_vectors.py（不需下載模型的向量建構器）、feedback.py（回饋、核可、案例庫版本）、seed_demo.py 與 demo_data/。路由在 app/api/routes_analytical_four.py。
 
 ## 前置條件
 
@@ -28,7 +29,7 @@ app/analytical_four/ 內含：engine（自 Analytical-Four 複製的分析程式
 
 ## 輸入輸出
 
-所有路由回傳 JSON，身分取自入口權限中介層設定的 request.state，沒有則回 401。執行紀錄結構見 docs/analytical-four-kit.md。結果檔名稱只能取自 results/ 內實際存在的清單，不接受路徑。
+所有路由回傳 JSON，身分取自入口權限中介層設定的 request.state，沒有則回 401。執行紀錄結構見 docs/analytical-four-kit.md。回饋與核可只追加；案例紀錄格式取自相似案例搜尋實際讀取的欄位，格式與規則見 docs/analytical-four-kit.md 第 8 節。結果檔名稱只能取自 results/ 內實際存在的清單，不接受路徑。
 
 ## 常見錯誤與復原
 

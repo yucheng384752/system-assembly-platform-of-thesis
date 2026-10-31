@@ -4,7 +4,7 @@
   "kitId": "analytical-four-kit",
   "kitVersion": "0.1.0",
   "status": "draft",
-  "scope": "描述這套分析系統一次執行的步驟：先調整設定並確認就緒，啟動後依序讀取資料、描述性分析、診斷性分析（A 層），再做不良類型診斷（B 層），最後對應製程位置、檢索 SOP、彙整事件、搜尋相似案例並由 AI 綜合診斷（C 層）。A、B、C 三層對應三個子功能，可在設定中分別開關；B、C 需要 A，客訴分析模式的 C 需要 B。每日模式的 C 層只做製程位置對應與 SOP 檢索，彙整、相似案例與 AI 診斷僅在客訴分析模式執行。分析在背景執行，啟動後以執行狀態查看；結果檔在執行完成後取得。載入示範資料不是前置條件。未涵蓋人工回饋寫回案例庫、預測模型與繪圖。尚未完成執行驗證。",
+  "scope": "描述這套分析系統一次執行的步驟：先調整設定並確認就緒，啟動後依序讀取資料、描述性分析、診斷性分析（A 層），再做不良類型診斷（B 層），最後對應製程位置、檢索 SOP、彙整事件、搜尋相似案例並由 AI 綜合診斷（C 層）。A、B、C 三層對應三個子功能，可在設定中分別開關；B、C 需要 A，客訴分析模式的 C 需要 B。每日模式的 C 層只做製程位置對應與 SOP 檢索，彙整、相似案例與 AI 診斷僅在客訴分析模式執行。分析在背景執行，啟動後以執行狀態查看；結果檔在執行完成後取得。載入示範資料不是前置條件。分析之後可對客訴診斷的事件提交確認結果（或匯入已確認的案例），經核可後發布成新的案例庫版本，供下一次相似案例搜尋使用；舊版本保留。未涵蓋預測模型與繪圖。尚未完成執行驗證。",
   "nodes": [
     {
       "id": "load-demo",
@@ -130,6 +130,33 @@
         "analytical-four.results.list",
         "analytical-four.results.get"
       ]
+    },
+    {
+      "id": "submit-feedback",
+      "name": "提交確認結果",
+      "subfeatureId": "layer-c",
+      "capabilityIds": [
+        "analytical-four.feedback.submit",
+        "analytical-four.feedback.import"
+      ]
+    },
+    {
+      "id": "approve-feedback",
+      "name": "核可回饋",
+      "subfeatureId": "layer-c",
+      "capabilityIds": [
+        "analytical-four.feedback.list",
+        "analytical-four.feedback.decide"
+      ]
+    },
+    {
+      "id": "publish-library",
+      "name": "發布案例庫新版本",
+      "subfeatureId": "layer-c",
+      "capabilityIds": [
+        "analytical-four.library.publish",
+        "analytical-four.library.versions"
+      ]
     }
   ],
   "edges": [
@@ -196,6 +223,18 @@
     {
       "from": "view-run",
       "to": "view-results"
+    },
+    {
+      "from": "view-results",
+      "to": "submit-feedback"
+    },
+    {
+      "from": "submit-feedback",
+      "to": "approve-feedback"
+    },
+    {
+      "from": "approve-feedback",
+      "to": "publish-library"
     }
   ]
 }

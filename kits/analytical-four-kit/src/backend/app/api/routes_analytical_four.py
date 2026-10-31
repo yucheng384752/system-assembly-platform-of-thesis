@@ -10,6 +10,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import ValidationError
 
+from app.analytical_four.feedback import FeedbackError, FeedbackStore
 from app.analytical_four.runs import RunError, RunStore, problems_as_json
 from app.analytical_four.seed_demo import seed
 from app.analytical_four.settings import Settings, SettingsError, data_dir, load_settings, readiness, save_settings
@@ -31,6 +32,29 @@ def _store(root: str) -> RunStore:
 
 def store() -> RunStore:
     return _store(str(data_dir()))  # keyed by directory so one process keeps one run lock per data directory
+
+
+@lru_cache(maxsize=4)
+def _feedback(root: str) -> FeedbackStore:
+    return FeedbackStore(Path(root), store())
+
+
+def feedback() -> FeedbackStore:
+    return _feedback(str(data_dir()))
+
+
+def actor_role(request: Request) -> str:
+    role = getattr(request.state, 'actor_role', None)
+    if not isinstance(role, str) or not role:
+        raise HTTPException(401, 'Unauthorized')
+    return role
+
+
+def refused(error: FeedbackError) -> HTTPException:
+    return HTTPException(error.status, error.message)
+
+
+MAX_BODY_BYTES = 5_000_000
 
 
 def settings_or_422() -> Settings:
@@ -117,3 +141,60 @@ def get_result(run_id: str, request: Request, name: str = Query(..., min_length=
         return store().result(run_id, name)
     except RunError as error:
         raise failing(error) from error
+
+
+@router.post('/api/analytical-four/feedback', status_code=201)
+def submit_feedback(body: dict, request: Request):
+    who, role = actor_id(request), actor_role(request)
+    try:
+        return feedback().submit_from_run(settings_or_422(), str(body.get('runId', '')), str(body.get('eventId', '')),
+                                          body.get('confirmedNg'), body.get('actualCause'), body.get('note'), who, role)
+    except FeedbackError as error:
+        raise refused(error) from error
+
+
+@router.post('/api/analytical-four/feedback/import', status_code=201)
+def import_feedback(body: dict, request: Request):
+    who, role = actor_id(request), actor_role(request)
+    if int(request.headers.get('content-length') or 0) > MAX_BODY_BYTES:
+        raise HTTPException(413, f'一次匯入最多 {MAX_BODY_BYTES} 位元組')
+    try:
+        return {'feedback': feedback().import_records(settings_or_422(), body.get('records'), who, role)}
+    except FeedbackError as error:
+        raise refused(error) from error
+
+
+@router.get('/api/analytical-four/feedback')
+def list_feedback(request: Request, status: str = Query('', pattern='^(pending|approved|rejected)?$'), limit: int = Query(100, ge=1, le=500)):
+    actor_id(request)
+    try:
+        return {'feedback': feedback().list(status or None, limit)}
+    except FeedbackError as error:
+        raise refused(error) from error
+
+
+@router.post('/api/analytical-four/feedback/{feedback_id}/decision')
+def decide_feedback(feedback_id: str, body: dict, request: Request):
+    who, role = actor_id(request), actor_role(request)
+    try:
+        return feedback().decide(feedback_id, body.get('approve'), body.get('note'), who, role)
+    except FeedbackError as error:
+        raise refused(error) from error
+
+
+@router.post('/api/analytical-four/library/publish', status_code=201)
+def publish_library(request: Request):
+    who = actor_id(request)
+    try:
+        return feedback().publish(settings_or_422(), who)
+    except FeedbackError as error:
+        raise refused(error) from error
+
+
+@router.get('/api/analytical-four/library/versions')
+def library_versions(request: Request):
+    actor_id(request)
+    try:
+        return {'versions': feedback().versions()}
+    except FeedbackError as error:
+        raise refused(error) from error
