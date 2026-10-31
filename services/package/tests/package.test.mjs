@@ -28,9 +28,9 @@ async function recipeFile(temp, enabledKits) {
 // No Python or Docker process is launched. Real AST/FK verification is by Claude.
 const stub = () => ({ status: 0, stdout: '' });
 
-for (const size of [12, 7]) test(`${size} Kits: tree, manifest, T12, exclusions and identical output bytes`, async () => fixture(async temp => {
+for (const size of [13, 7]) test(`${size} Kits: tree, manifest, T12, exclusions and identical output bytes`, async () => fixture(async temp => {
   const before = await inventory(path.join(repository, 'kits'), null, systemExcluded);
-  const selected = size === 12 ? before.included : minimal;
+  const selected = size === 13 ? before.included : minimal;
   const recipe = await recipeFile(temp, selected);
   /** @type {{executable: string, args: string[], options: import('node:child_process').SpawnSyncOptionsWithStringEncoding}[]} */
   const calls = [];
@@ -47,7 +47,7 @@ for (const size of [12, 7]) test(`${size} Kits: tree, manifest, T12, exclusions 
   }
   assert.deepEqual(manifest.notIncluded.map(k => k.kit), ['station-admin-kit', 'tenant-auth-kit']);
   assert.ok(manifest.notIncluded.every(k => k.reason.length > 3));
-  assert.equal(manifest.notSelected.length, 12 - size);
+  assert.equal(manifest.notSelected.length, 13 - size);
   assert.ok(!manifest.notProvided.some(s => /formal entry file|deployment and startup/.test(s)));
   for (const item of ['TLS', 'machine API key authentication', 'executable upgrade migrations', 'frontend build (WP2)', 'hash-locked dependency file（建議 --require-hashes）']) assert.ok(manifest.notProvided.includes(item), item);
   assert.equal(manifest.installable, false);

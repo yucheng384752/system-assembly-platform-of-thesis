@@ -1,0 +1,117 @@
+{
+  "process": {
+    "stations": [
+      {
+        "id": "P1",
+        "order": 1,
+        "name": "Extrusion"
+      },
+      {
+        "id": "P2",
+        "order": 2,
+        "name": "Slitting"
+      },
+      {
+        "id": "P3",
+        "order": 3,
+        "name": "Punching"
+      }
+    ]
+  },
+  "roles": {
+    "parameter": {
+      "direction": "cause",
+      "level": 1
+    },
+    "outcome": {
+      "direction": "effect",
+      "level": 2
+    }
+  },
+  "topology": {
+    "P1": {
+      "feature": [
+        {
+          "id": "ActualTemp_C1",
+          "name": "Actual Temp_C1",
+          "role": "parameter",
+          "level": 1
+        },
+        {
+          "id": "ActualTemp_C2",
+          "name": "Actual Temp_C2",
+          "role": "parameter",
+          "level": 1
+        },
+        {
+          "id": "ActualTemp_C3",
+          "name": "Actual Temp_C3",
+          "role": "parameter",
+          "level": 1
+        },
+        {
+          "id": "LineSpeed",
+          "name": "Line Speed(M/min)",
+          "role": "parameter",
+          "level": 2
+        },
+        {
+          "id": "ExtruderSpeed",
+          "name": "Extruder Speed (rpm)",
+          "role": "parameter",
+          "level": 2
+        }
+      ]
+    },
+    "P2": {
+      "feature": [
+        {
+          "id": "HeatGunTemperature",
+          "name": "Heat gun temperature",
+          "role": "parameter",
+          "level": 1
+        },
+        {
+          "id": "RewindTorque",
+          "name": "Rewind torque",
+          "role": "parameter",
+          "level": 1
+        },
+        {
+          "id": "SlittingSpeed",
+          "name": "Slitting speed",
+          "role": "parameter",
+          "level": 2
+        },
+        {
+          "id": "ThicknessDiff",
+          "name": "Thickness diff",
+          "role": "outcome",
+          "level": 3
+        }
+      ]
+    },
+    "P3": {
+      "feature": [
+        {
+          "id": "PasteIronTemp",
+          "name": "pasteirontemp",
+          "role": "parameter",
+          "level": 1
+        },
+        {
+          "id": "BlowIronTemp",
+          "name": "blowirontemp",
+          "role": "parameter",
+          "level": 1
+        },
+        {
+          "id": "Burr",
+          "name": "Burr",
+          "role": "outcome",
+          "level": 2
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,182 @@
+{
+    "NG-A": {
+        "sample_count": 5,
+        "anomaly_profile": {
+            "pasteirontemp": 0.45,
+            "blowirontemp": 0.45,
+            "Thickness diff": 0.09
+        },
+        "t2_profile": {
+            "pasteirontemp": 0.5,
+            "blowirontemp": 0.33,
+            "Burr": 0.03,
+            "Actual Temp_C1": 0.03,
+            "Line Speed(M/min)": 0.03,
+            "Actual Temp_C3": 0.03,
+            "Thickness diff": 0.03
+        },
+        "spe_profile": {
+            "Actual Temp_C3": 0.5,
+            "Slitting speed": 0.33,
+            "Rewind torque": 0.17
+        },
+        "machine_profile": {
+            "E2": 0.6,
+            "E1": 0.4
+        },
+        "slitting_machine_profile": {
+            "S2": 0.8,
+            "S1": 0.2
+        },
+        "winder_profile": {
+            "1": 0.4,
+            "4": 0.2,
+            "3": 0.4
+        },
+        "quality_inspection_profile": {
+            "QA1": 0.8,
+            "QA2": 0.2
+        },
+        "quality_control_profile": {
+            "QC1": 0.6,
+            "QC2": 0.4
+        },
+        "p3_machine_profile": {
+            "P22": 1.0
+        }
+    },
+    "NG-B": {
+        "sample_count": 5,
+        "anomaly_profile": {
+            "Burr": 0.56,
+            "pasteirontemp": 0.22,
+            "Line Speed(M/min)": 0.11,
+            "Slitting speed": 0.11
+        },
+        "t2_profile": {
+            "Burr": 0.5,
+            "Line Speed(M/min)": 0.13,
+            "Slitting speed": 0.1,
+            "pasteirontemp": 0.13,
+            "Heat gun temperature": 0.07,
+            "Actual Temp_C2": 0.03,
+            "Actual Temp_C3": 0.03
+        },
+        "spe_profile": {
+            "Actual Temp_C3": 0.5,
+            "Slitting speed": 0.33,
+            "Rewind torque": 0.17
+        },
+        "machine_profile": {
+            "E1": 0.4,
+            "E2": 0.6
+        },
+        "slitting_machine_profile": {
+            "S1": 1.0
+        },
+        "winder_profile": {
+            "4": 0.6,
+            "1": 0.2,
+            "2": 0.2
+        },
+        "quality_inspection_profile": {
+            "QA2": 0.8,
+            "QA1": 0.2
+        },
+        "quality_control_profile": {
+            "QC2": 0.8,
+            "QC1": 0.2
+        },
+        "p3_machine_profile": {
+            "P22": 1.0
+        }
+    },
+    "NG-C": {
+        "sample_count": 5,
+        "anomaly_profile": {
+            "Heat gun temperature": 0.45,
+            "Rewind torque": 0.45,
+            "pasteirontemp": 0.09
+        },
+        "t2_profile": {
+            "Heat gun temperature": 0.5,
+            "Rewind torque": 0.33,
+            "pasteirontemp": 0.07,
+            "Extruder Speed (rpm)": 0.03,
+            "Actual Temp_C2": 0.03,
+            "Slitting speed": 0.03
+        },
+        "spe_profile": {
+            "Actual Temp_C3": 0.5,
+            "Slitting speed": 0.33,
+            "Rewind torque": 0.17
+        },
+        "machine_profile": {
+            "E1": 0.4,
+            "E2": 0.6
+        },
+        "slitting_machine_profile": {
+            "S2": 1.0
+        },
+        "winder_profile": {
+            "1": 0.6,
+            "3": 0.4
+        },
+        "quality_inspection_profile": {
+            "QA2": 0.8,
+            "QA1": 0.2
+        },
+        "quality_control_profile": {
+            "QC1": 0.4,
+            "QC2": 0.6
+        },
+        "p3_machine_profile": {
+            "P22": 0.6,
+            "P21": 0.4
+        }
+    },
+    "NG-D": {
+        "sample_count": 5,
+        "anomaly_profile": {
+            "Actual Temp_C1": 0.45,
+            "Actual Temp_C2": 0.45,
+            "Heat gun temperature": 0.09
+        },
+        "t2_profile": {
+            "Actual Temp_C1": 0.5,
+            "Heat gun temperature": 0.1,
+            "Actual Temp_C2": 0.3,
+            "Burr": 0.03,
+            "Line Speed(M/min)": 0.03,
+            "blowirontemp": 0.03
+        },
+        "spe_profile": {
+            "Actual Temp_C3": 0.5,
+            "Slitting speed": 0.33,
+            "Rewind torque": 0.17
+        },
+        "machine_profile": {
+            "E2": 1.0
+        },
+        "slitting_machine_profile": {
+            "S2": 0.6,
+            "S1": 0.4
+        },
+        "winder_profile": {
+            "2": 0.6,
+            "3": 0.2,
+            "4": 0.2
+        },
+        "quality_inspection_profile": {
+            "QA1": 0.8,
+            "QA2": 0.2
+        },
+        "quality_control_profile": {
+            "QC2": 1.0
+        },
+        "p3_machine_profile": {
+            "P22": 0.6,
+            "P21": 0.4
+        }
+    }
+}

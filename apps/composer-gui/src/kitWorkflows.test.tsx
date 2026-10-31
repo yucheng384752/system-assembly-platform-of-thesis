@@ -17,11 +17,11 @@ const wp2KitIds = [
   'generic-forms-kit', 'station-data-link-kit', 'import-pipeline-kit',
   'analytics-kit', 'audit-edit-kit', 'mod-subscription-kit',
   'logs-ops-kit', 'platform-core-kit', 'query-traceability-kit',
-  'factory-core-kit', 'entry-permission-kit',
+  'factory-core-kit', 'entry-permission-kit', 'analytical-four-kit',
 ];
 
-// 這兩個 Kit 的能力全數已驗證；漏掉任何一個，流程描述就無法說明該 Kit 實際能做什麼。
-test.each(['factory-core-kit', 'entry-permission-kit'])('%s 的流程涵蓋登錄的全部能力', kitId => {
+// 這些 Kit 的能力全數已驗證；漏掉任何一個，流程描述就無法說明該 Kit 實際能做什麼。
+test.each(['factory-core-kit', 'entry-permission-kit', 'analytical-four-kit'])('%s 的流程涵蓋登錄的全部能力', kitId => {
   const parsed = parseKitWorkflow(workflowFiles[`kits/${kitId}/workflow.aov.json`], catalog.kits.find(item => item.id === kitId)!);
   const used = new Set(parsed.nodes.flatMap(node => node.capabilityIds));
   expect(registry.find(entry => entry.kitId === kitId)!.capabilities.map(c => c.id).filter(id => !used.has(id))).toEqual([]);

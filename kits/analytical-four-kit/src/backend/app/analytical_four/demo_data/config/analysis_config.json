@@ -1,0 +1,114 @@
+{
+  "data_source": {
+    "current_data": {
+      "descriptive": "data/current_daily.csv"
+    },
+    "baseline_data": {
+      "descriptive": "data/baseline.csv",
+      "diagnostic": "",
+      "prescriptive": "known_base.json",
+      "topology": "config/topology.json",
+      "rag_knowledge": "config/knowledge.csv",
+      "prompts": "",
+      "ng_code": "config/ng_code.json"
+    },
+    "case_data": {
+      "llm_records": "cases/llm_records.jsonl",
+      "llm_error_records": "cases/llm_error_records.jsonl"
+    },
+    "llm_setting": {
+      "api_endpoint": ""
+    },
+    "rag_setting": {
+      "builder_type": "builtin-hash",
+      "db_path": "rag/chroma",
+      "collection_name": "demo_sops"
+    }
+  },
+  "method": "IQR Thresholds",
+  "mode": "daily",
+  "serializer": "UT",
+  "observer": "All",
+  "feature": {
+    "P1": {
+      "numerical": [
+        "Actual Temp_C1",
+        "Actual Temp_C2",
+        "Actual Temp_C3",
+        "Line Speed(M/min)",
+        "Extruder Speed (rpm)"
+      ],
+      "categorical": {
+        "Man": [],
+        "Machine": [
+          "P1.Machine_No."
+        ],
+        "Material": [
+          "P1.Material"
+        ],
+        "Method": [],
+        "Environment": [],
+        "Measurement": []
+      },
+      "target": "",
+      "id": "Produce_No."
+    },
+    "P2": {
+      "numerical": [
+        "Heat gun temperature",
+        "Rewind torque",
+        "Slitting speed",
+        "Thickness diff"
+      ],
+      "categorical": {
+        "Man": [
+          "Quality inspection",
+          "Quality control"
+        ],
+        "Machine": [
+          "Slitting machine",
+          "Winder number"
+        ],
+        "Material": [],
+        "Method": [],
+        "Environment": [],
+        "Measurement": [
+          "P2.NG_code"
+        ]
+      },
+      "target": "",
+      "id": "Produce_No."
+    },
+    "P3": {
+      "numerical": [
+        "pasteirontemp",
+        "blowirontemp",
+        "Burr"
+      ],
+      "categorical": {
+        "Man": [],
+        "Machine": [
+          "P3.Machine_No."
+        ],
+        "Material": [],
+        "Method": [],
+        "Environment": [],
+        "Measurement": [
+          "P3.NG_code"
+        ]
+      },
+      "target": "Finish",
+      "id": "Produce_No."
+    }
+  },
+  "datetime": [
+    {
+      "name": "timestamp",
+      "format": "%Y%m%d",
+      "components": [
+        "DayOfWeek",
+        "Month"
+      ]
+    }
+  ]
+}
