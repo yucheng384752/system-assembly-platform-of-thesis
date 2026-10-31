@@ -38,13 +38,15 @@ test('contract rejection cases and nonempty endpoint intersection warning', asyn
     await writeFile(contractPath, JSON.stringify(original));
     const endpoints = { '/api/edit': 'manager' };
     await writeFile(path.join(kits, 'platform-core-kit/src/backend/app/config/endpoint_permissions.json'), JSON.stringify(endpoints));
+    // Every included kit now ships a workflow description, so remove one to keep checking that a missing source is reported, not skipped.
+    await rm(path.join(kits, 'entry-permission-kit/workflow.aov.json'));
     const output = path.join(temp, 'warning');
     const manifest = await assembleSystem(output, { recipe, kits, run });
     assert.deepEqual(JSON.parse(await readFile(path.join(output, 'permissions/endpoint_permissions.json'), 'utf8')), endpoints);
     const report = JSON.parse(await readFile(path.join(output, 'validation/report.json'), 'utf8'));
     assert.deepEqual(report.warnings, ['舊端點權限層會與入口層取交集']);
     assert.ok(manifest.notProvided.includes('Kit workflow: entry-permission-kit/workflow.aov.json (source not provided)'));
-  } finally { await rm(temp, { recursive: true, force: true }); }
+  } finally { await rm(temp, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }); }
 });
 
 test('logs-ops own table is created by the explicit init step and its writer is started by the backend (found in the deployed-system check)', async () => {
@@ -61,5 +63,5 @@ test('logs-ops own table is created by the explicit init step and its writer is 
     const main = await readFile(path.join(output, 'backend/app/main.py'), 'utf8');
     assert.match(main, /init_monitoring\(server_url=""\)/, 'main must start the log writer without a remote heartbeat');
     assert.match(main, /stop_heartbeat/);
-  } finally { await rm(temp, { recursive: true, force: true }); }
+  } finally { await rm(temp, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }); }
 });

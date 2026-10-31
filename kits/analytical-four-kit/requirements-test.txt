@@ -1,0 +1,3 @@
+# Test-only packages for kits/analytical-four-kit/tests. Install the preview requirements, this Kit requirements.txt and this file into one Python 3.10+ environment, then run:
+#   python -B -m pytest -p no:cacheprovider -q kits/analytical-four-kit/tests
+pytest==9.1.1

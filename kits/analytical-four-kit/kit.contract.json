@@ -1,0 +1,138 @@
+{
+  "kit": "analytical-four-kit",
+  "provides": {
+    "api": [
+      {
+        "capability": "analytical-four.settings.get",
+        "method": "GET",
+        "path": "/api/analytical-four/settings"
+      },
+      {
+        "capability": "analytical-four.settings.put",
+        "method": "PUT",
+        "path": "/api/analytical-four/settings"
+      },
+      {
+        "capability": "analytical-four.status.get",
+        "method": "GET",
+        "path": "/api/analytical-four/status"
+      },
+      {
+        "capability": "analytical-four.demo.load",
+        "method": "POST",
+        "path": "/api/analytical-four/demo"
+      },
+      {
+        "capability": "analytical-four.runs.create",
+        "method": "POST",
+        "path": "/api/analytical-four/runs"
+      },
+      {
+        "capability": "analytical-four.runs.list",
+        "method": "GET",
+        "path": "/api/analytical-four/runs"
+      },
+      {
+        "capability": "analytical-four.runs.get",
+        "method": "GET",
+        "path": "/api/analytical-four/runs/{run_id}"
+      },
+      {
+        "capability": "analytical-four.results.list",
+        "method": "GET",
+        "path": "/api/analytical-four/runs/{run_id}/results"
+      },
+      {
+        "capability": "analytical-four.results.get",
+        "method": "GET",
+        "path": "/api/analytical-four/runs/{run_id}/result"
+      }
+    ]
+  },
+  "consumes": {
+    "api": [],
+    "db": []
+  },
+  "entryPoints": [
+    {
+      "key": "analytical_four.view",
+      "label": "檢視分析設定、狀態與結果",
+      "access": "read",
+      "defaultRoles": [
+        "admin",
+        "manager",
+        "operator",
+        "audit"
+      ],
+      "routes": [
+        {
+          "capability": "analytical-four.settings.get",
+          "method": "GET",
+          "path": "/api/analytical-four/settings"
+        },
+        {
+          "capability": "analytical-four.status.get",
+          "method": "GET",
+          "path": "/api/analytical-four/status"
+        },
+        {
+          "capability": "analytical-four.runs.list",
+          "method": "GET",
+          "path": "/api/analytical-four/runs"
+        },
+        {
+          "capability": "analytical-four.runs.get",
+          "method": "GET",
+          "path": "/api/analytical-four/runs/{run_id}"
+        },
+        {
+          "capability": "analytical-four.results.list",
+          "method": "GET",
+          "path": "/api/analytical-four/runs/{run_id}/results"
+        },
+        {
+          "capability": "analytical-four.results.get",
+          "method": "GET",
+          "path": "/api/analytical-four/runs/{run_id}/result"
+        }
+      ]
+    },
+    {
+      "key": "analytical_four.run",
+      "label": "啟動製造數據分析",
+      "access": "write",
+      "defaultRoles": [
+        "admin",
+        "manager",
+        "operator"
+      ],
+      "routes": [
+        {
+          "capability": "analytical-four.runs.create",
+          "method": "POST",
+          "path": "/api/analytical-four/runs"
+        }
+      ]
+    },
+    {
+      "key": "analytical_four.configure",
+      "label": "調整分析層級、模式與 LLM 服務位址",
+      "access": "write",
+      "defaultRoles": [
+        "admin"
+      ],
+      "routes": [
+        {
+          "capability": "analytical-four.settings.put",
+          "method": "PUT",
+          "path": "/api/analytical-four/settings"
+        },
+        {
+          "capability": "analytical-four.demo.load",
+          "method": "POST",
+          "path": "/api/analytical-four/demo"
+        }
+      ]
+    }
+  ]
+}

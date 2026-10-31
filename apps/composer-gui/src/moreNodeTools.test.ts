@@ -70,7 +70,7 @@ describe('新增工具的上架條件', () => {
   });
 
   test('所有 registry 通過解析與服務鏈檢查，只記環境變數名稱', () => {
-    expect(registry).toHaveLength(12);
+    expect(registry).toHaveLength(13);
     for (const entry of registry) expect(parseRegistry(entry)).toEqual(entry);
     for (const entry of registry) for (const fn of entry.functions) {
       expect(readFileSync(fn.source.path, 'utf8'))

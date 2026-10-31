@@ -1,0 +1,15 @@
+{
+  "kit": "analytical-four-kit",
+  "displayName": "製造數據分析",
+  "installOrder": 100,
+  "requires": [
+    "python"
+  ],
+  "runtimeEnv": [
+    "ANALYTICAL_FOUR_DATA_DIR"
+  ],
+  "scripts": {
+    "windows": "install.ps1",
+    "linux": "install.sh"
+  }
+}

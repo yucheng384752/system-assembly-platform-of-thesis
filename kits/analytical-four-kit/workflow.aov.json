@@ -1,0 +1,201 @@
+{
+  "format": "composer-kit-workflow",
+  "version": 1,
+  "kitId": "analytical-four-kit",
+  "kitVersion": "0.1.0",
+  "status": "draft",
+  "scope": "描述這套分析系統一次執行的步驟：先調整設定並確認就緒，啟動後依序讀取資料、描述性分析、診斷性分析（A 層），再做不良類型診斷（B 層），最後對應製程位置、檢索 SOP、彙整事件、搜尋相似案例並由 AI 綜合診斷（C 層）。A、B、C 三層對應三個子功能，可在設定中分別開關；B、C 需要 A，客訴分析模式的 C 需要 B。每日模式的 C 層只做製程位置對應與 SOP 檢索，彙整、相似案例與 AI 診斷僅在客訴分析模式執行。分析在背景執行，啟動後以執行狀態查看；結果檔在執行完成後取得。載入示範資料不是前置條件。未涵蓋人工回饋寫回案例庫、預測模型與繪圖。尚未完成執行驗證。",
+  "nodes": [
+    {
+      "id": "load-demo",
+      "name": "載入示範資料",
+      "capabilityIds": [
+        "analytical-four.demo.load"
+      ]
+    },
+    {
+      "id": "configure",
+      "name": "調整分析設定",
+      "capabilityIds": [
+        "analytical-four.settings.get",
+        "analytical-four.settings.put"
+      ]
+    },
+    {
+      "id": "check-ready",
+      "name": "確認資料與設定就緒",
+      "capabilityIds": [
+        "analytical-four.status.get"
+      ]
+    },
+    {
+      "id": "start-run",
+      "name": "啟動分析",
+      "capabilityIds": [
+        "analytical-four.runs.create"
+      ]
+    },
+    {
+      "id": "read-data",
+      "name": "讀取並整理資料",
+      "subfeatureId": "layer-a",
+      "capabilityIds": [
+        "analytical-four.runs.create"
+      ]
+    },
+    {
+      "id": "descriptive",
+      "name": "描述性分析",
+      "subfeatureId": "layer-a",
+      "capabilityIds": [
+        "analytical-four.runs.create"
+      ]
+    },
+    {
+      "id": "diagnostic",
+      "name": "診斷性分析",
+      "subfeatureId": "layer-a",
+      "capabilityIds": [
+        "analytical-four.runs.create"
+      ]
+    },
+    {
+      "id": "ng-code",
+      "name": "不良類型診斷",
+      "subfeatureId": "layer-b",
+      "capabilityIds": [
+        "analytical-four.runs.create"
+      ]
+    },
+    {
+      "id": "topology",
+      "name": "製程位置對應",
+      "subfeatureId": "layer-c",
+      "capabilityIds": [
+        "analytical-four.runs.create"
+      ]
+    },
+    {
+      "id": "rag",
+      "name": "SOP 檢索",
+      "subfeatureId": "layer-c",
+      "capabilityIds": [
+        "analytical-four.runs.create"
+      ]
+    },
+    {
+      "id": "compile",
+      "name": "彙整事件",
+      "subfeatureId": "layer-c",
+      "capabilityIds": [
+        "analytical-four.runs.create"
+      ]
+    },
+    {
+      "id": "search-key",
+      "name": "擷取搜尋關鍵",
+      "subfeatureId": "layer-c",
+      "capabilityIds": [
+        "analytical-four.runs.create"
+      ]
+    },
+    {
+      "id": "similarity",
+      "name": "相似案例搜尋",
+      "subfeatureId": "layer-c",
+      "capabilityIds": [
+        "analytical-four.runs.create"
+      ]
+    },
+    {
+      "id": "llm",
+      "name": "AI 綜合診斷",
+      "subfeatureId": "layer-c",
+      "capabilityIds": [
+        "analytical-four.runs.create"
+      ]
+    },
+    {
+      "id": "view-run",
+      "name": "查看執行狀態",
+      "capabilityIds": [
+        "analytical-four.runs.get",
+        "analytical-four.runs.list"
+      ]
+    },
+    {
+      "id": "view-results",
+      "name": "取得分析結果",
+      "capabilityIds": [
+        "analytical-four.results.list",
+        "analytical-four.results.get"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "configure",
+      "to": "check-ready"
+    },
+    {
+      "from": "check-ready",
+      "to": "start-run"
+    },
+    {
+      "from": "start-run",
+      "to": "read-data"
+    },
+    {
+      "from": "read-data",
+      "to": "descriptive"
+    },
+    {
+      "from": "descriptive",
+      "to": "diagnostic"
+    },
+    {
+      "from": "diagnostic",
+      "to": "ng-code"
+    },
+    {
+      "from": "diagnostic",
+      "to": "topology"
+    },
+    {
+      "from": "diagnostic",
+      "to": "rag"
+    },
+    {
+      "from": "ng-code",
+      "to": "compile"
+    },
+    {
+      "from": "topology",
+      "to": "compile"
+    },
+    {
+      "from": "rag",
+      "to": "compile"
+    },
+    {
+      "from": "compile",
+      "to": "search-key"
+    },
+    {
+      "from": "search-key",
+      "to": "similarity"
+    },
+    {
+      "from": "similarity",
+      "to": "llm"
+    },
+    {
+      "from": "start-run",
+      "to": "view-run"
+    },
+    {
+      "from": "view-run",
+      "to": "view-results"
+    }
+  ]
+}
