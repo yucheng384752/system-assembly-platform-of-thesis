@@ -13,6 +13,12 @@ def make(**override):
     return Settings.model_validate(base)
 
 
+def test_a_run_with_every_layer_off_would_do_nothing_and_still_report_success():
+    # found while comparing the original and Kit workflows: it passed validation and ended 'succeeded' with no stages
+    with pytest.raises(ValidationError, match='至少'):
+        make(layers={'a': False, 'b': False, 'c': False})
+
+
 def test_b_and_c_need_a():
     # Without A there is no serialized event for B or C to work on.
     with pytest.raises(ValidationError, match='A 層'):

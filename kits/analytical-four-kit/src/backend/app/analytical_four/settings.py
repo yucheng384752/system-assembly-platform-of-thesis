@@ -107,6 +107,8 @@ class Settings(BaseModel):
     @model_validator(mode='after')
     def layers_are_consistent(self):
         on = self.layers
+        if not (on.a or on.b or on.c):
+            raise ValueError('至少要啟用一個分析層級')
         if on.b and not on.a:
             raise ValueError('B 層（不良類型診斷）需要先啟用 A 層')
         if on.c and not on.a:
