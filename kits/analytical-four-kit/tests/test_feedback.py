@@ -80,7 +80,7 @@ def test_a_corrected_feedback_replaces_the_case_in_the_next_version_only(client,
     assert old['feedback']['confirmed_ng'] == 'NG-A' and case_files(data)[0]['feedback']['confirmed_ng'] == 'NG-C'
 
 
-def test_the_next_analysis_finds_the_published_case(client, data, llm, complaint_run):
+def test_the_next_analysis_finds_the_published_case_for_a_different_product(client, data, llm, complaint_run):
     # The reason the loop exists: a confirmed case must change what the LLM is shown next time.
     run_id, events = complaint_run
     assert all(c['body']['top3_cases'] == [] for c in llm.calls)
@@ -88,6 +88,9 @@ def test_the_next_analysis_finds_the_published_case(client, data, llm, complaint
         submit(client, run_id, event)
     assert client.post(f'{API}/library/publish', headers=MANAGER).status_code == 201
     llm.calls.clear()
+    # A real complaint is a different product, not a re-run of the same one: give every row a new product number.
+    complaint = data / 'data' / 'complaint.csv'
+    complaint.write_text(complaint.read_text(encoding='utf-8').replace('CMP-', 'NEW-'), encoding='utf-8')
     again = run_and_wait(client)
     assert again['state'] == 'succeeded'
     assert len(llm.calls) == len(events) and all(c['body']['top3_cases'] for c in llm.calls)

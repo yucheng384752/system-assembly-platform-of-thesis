@@ -1,6 +1,8 @@
 import json
 from datetime import datetime
 
+IDENTIFIER_KEYS = {"Produce_No._or_Semi_produce_No."}
+
 class SimilarSearcher:
     def __init__(self):
         # 如果有需要，可以在這裡預存 case_base，但目前我們選擇從外部傳入
@@ -79,7 +81,10 @@ class SimilarSearcher:
 
             # 可選：機台限制
             if require_same_machine:
-                is_match = all(case["summary"]["categorical"].get(key) == val for key, val in new_categorical.items())
+                # The product number is in this dict too; it differs for every event, so comparing it would
+                # reject every case except a re-analysis of the same product.
+                is_match = all(case["summary"]["categorical"].get(key) == val for key, val in new_categorical.items()
+                               if key not in IDENTIFIER_KEYS)
                 if not is_match:
                     excluded["machine_mismatch"] += 1
                     continue
