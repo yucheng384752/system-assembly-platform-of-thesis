@@ -11,7 +11,7 @@ const go = (name: string) => fireEvent.click(screen.getByRole('button', { name }
 
 test('the app opens on the home page with five navigation entries (D63)', () => {
   render(<App />);
-  expect([...nav().querySelectorAll('button')].map(b => b.textContent)).toEqual(['首頁', '流程', '資料集', '執行記錄', '系統設定']);
+  expect([...nav().querySelectorAll('button')].map(b => b.textContent)).toEqual(['首頁', '流程', '發布準備', '資料集', '執行記錄', '系統設定']);
   expect(screen.getByRole('button', { name: '首頁' }).getAttribute('aria-current')).toBe('page');
   expect(screen.getByRole('heading', { level: 1, name: '首頁' })).toBeTruthy();
 });
@@ -48,7 +48,7 @@ test('the sidebar collapses and expands without losing any navigation entry', ()
   expect(toggle().getAttribute('aria-expanded')).toBe('false');
   expect(toggle().textContent).toBe('展開導覽');
   expect(container.querySelector('.app-shell')?.classList.contains('sidebar-collapsed')).toBe(true);
-  for (const title of ['首頁', '流程', '資料集', '執行記錄', '系統設定']) {
+  for (const title of ['首頁', '流程', '發布準備', '資料集', '執行記錄', '系統設定']) {
     const entry = screen.getByRole('button', { name: title });
     expect(entry.getAttribute('title')).toBe(title);
     expect(entry.querySelector('.visually-hidden')?.textContent).toBe(title);
