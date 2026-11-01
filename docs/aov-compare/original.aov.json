@@ -1,0 +1,273 @@
+{
+  "format": "composer-kit-workflow",
+  "version": 1,
+  "kitId": "analytical-four-original",
+  "kitVersion": "f49cfd3",
+  "status": "draft",
+  "scope": "? f49cfd3:main.py Analytical_Four_System.main() ???????????????????????????????????????????????????? AND ???select-mode ? mode ? daily?complain ?????? return?daily ? complain ??????? ensure-output??????????????????topology?rag????? mode ? ng-daily ? ng-complain??????? mode ???daily ????? outputs/known_base.json ????complain ?? compile ? llm ???????????????????????? output_data ??????????main ?????????????????????????output_data ?????????????????????????????????? main ??ErrorAnalysis?event_feedback_record?Gemini??????? main ??????????commit ??? ut_config_v7.json????? mode?????????????????????? capabilityIds ???",
+  "nodes": [
+    {
+      "id": "select-mode",
+      "name": "main?? mode ????????",
+      "capabilityIds": []
+    },
+    {
+      "id": "unknown-mode-return",
+      "name": "?? mode??? Unknown mode ? return",
+      "capabilityIds": []
+    },
+    {
+      "id": "daily-read-current",
+      "name": "daily??? current CSV?read_data?",
+      "capabilityIds": []
+    },
+    {
+      "id": "daily-clean",
+      "name": "daily???????????????data_cleaning?",
+      "capabilityIds": []
+    },
+    {
+      "id": "daily-split",
+      "name": "daily?? target?threshold=5 ? sample?baseline?data_splitting?",
+      "capabilityIds": []
+    },
+    {
+      "id": "complain-read-current",
+      "name": "complain??? current CSV?read_data?",
+      "capabilityIds": []
+    },
+    {
+      "id": "complain-read-baseline",
+      "name": "complain??? descriptive baseline CSV?read_data?",
+      "capabilityIds": []
+    },
+    {
+      "id": "complain-clean",
+      "name": "complain??? current?data_cleaning?",
+      "capabilityIds": []
+    },
+    {
+      "id": "complain-align",
+      "name": "complain?baseline ???? current?sample=current?align_features?",
+      "capabilityIds": []
+    },
+    {
+      "id": "ensure-output",
+      "name": "?? mode?????? output_folder",
+      "capabilityIds": []
+    },
+    {
+      "id": "basic-statistics",
+      "name": "???baseline ?????basic_statistics?",
+      "capabilityIds": []
+    },
+    {
+      "id": "categorical-statistics",
+      "name": "???current ?????categorical_statistics?",
+      "capabilityIds": []
+    },
+    {
+      "id": "compare-outliers",
+      "name": "???sample ?????compare_outliers?base_line=None?",
+      "capabilityIds": []
+    },
+    {
+      "id": "correlation",
+      "name": "???Pearson ???????correlation_analysis?",
+      "capabilityIds": []
+    },
+    {
+      "id": "sample-ids",
+      "name": "???id ?????????? row_<index>",
+      "capabilityIds": []
+    },
+    {
+      "id": "pca",
+      "name": "???PCA ???? T??SPE?contribution_analysis?",
+      "capabilityIds": []
+    },
+    {
+      "id": "extract-features",
+      "name": "???????????extract_feature_importance?",
+      "capabilityIds": []
+    },
+    {
+      "id": "weighted-rank",
+      "name": "??????????calculate_weighted_contributions?",
+      "capabilityIds": []
+    },
+    {
+      "id": "serialize",
+      "name": "???? SerializationInputs ???????serialization?",
+      "capabilityIds": []
+    },
+    {
+      "id": "topology",
+      "name": "???????????topology_analysis?",
+      "capabilityIds": []
+    },
+    {
+      "id": "rag",
+      "name": "??????????????? SOP ???rag_analysis?",
+      "capabilityIds": []
+    },
+    {
+      "id": "ng-daily",
+      "name": "daily?train_daily_mode?? outputs/known_base.json?main ??",
+      "capabilityIds": []
+    },
+    {
+      "id": "ng-complain",
+      "name": "complain??????? predict_complain_mode?ng_code_analysis?",
+      "capabilityIds": []
+    },
+    {
+      "id": "compile",
+      "name": "complain???????????????compilation_events?",
+      "capabilityIds": []
+    },
+    {
+      "id": "compile-write-again",
+      "name": "complain?main ?? output_data ? compilation_events.json",
+      "capabilityIds": []
+    },
+    {
+      "id": "search-key",
+      "name": "complain???? extract_search_key",
+      "capabilityIds": []
+    },
+    {
+      "id": "search-key-write",
+      "name": "complain?output_data ? search_key_results.json",
+      "capabilityIds": []
+    },
+    {
+      "id": "similarity",
+      "name": "complain???????????similarity_search?",
+      "capabilityIds": []
+    },
+    {
+      "id": "llm",
+      "name": "complain???? POST LLM???? return ???analyze_with_llm?",
+      "capabilityIds": []
+    }
+  ],
+  "edges": [
+    {
+      "from": "select-mode",
+      "to": "unknown-mode-return"
+    },
+    {
+      "from": "select-mode",
+      "to": "daily-read-current"
+    },
+    {
+      "from": "daily-read-current",
+      "to": "daily-clean"
+    },
+    {
+      "from": "daily-clean",
+      "to": "daily-split"
+    },
+    {
+      "from": "daily-split",
+      "to": "ensure-output"
+    },
+    {
+      "from": "select-mode",
+      "to": "complain-read-current"
+    },
+    {
+      "from": "complain-read-current",
+      "to": "complain-read-baseline"
+    },
+    {
+      "from": "complain-read-baseline",
+      "to": "complain-clean"
+    },
+    {
+      "from": "complain-clean",
+      "to": "complain-align"
+    },
+    {
+      "from": "complain-align",
+      "to": "ensure-output"
+    },
+    {
+      "from": "ensure-output",
+      "to": "basic-statistics"
+    },
+    {
+      "from": "basic-statistics",
+      "to": "categorical-statistics"
+    },
+    {
+      "from": "categorical-statistics",
+      "to": "compare-outliers"
+    },
+    {
+      "from": "compare-outliers",
+      "to": "correlation"
+    },
+    {
+      "from": "correlation",
+      "to": "sample-ids"
+    },
+    {
+      "from": "sample-ids",
+      "to": "pca"
+    },
+    {
+      "from": "pca",
+      "to": "extract-features"
+    },
+    {
+      "from": "extract-features",
+      "to": "weighted-rank"
+    },
+    {
+      "from": "weighted-rank",
+      "to": "serialize"
+    },
+    {
+      "from": "serialize",
+      "to": "topology"
+    },
+    {
+      "from": "topology",
+      "to": "rag"
+    },
+    {
+      "from": "rag",
+      "to": "ng-daily"
+    },
+    {
+      "from": "rag",
+      "to": "ng-complain"
+    },
+    {
+      "from": "ng-complain",
+      "to": "compile"
+    },
+    {
+      "from": "compile",
+      "to": "compile-write-again"
+    },
+    {
+      "from": "compile-write-again",
+      "to": "search-key"
+    },
+    {
+      "from": "search-key",
+      "to": "search-key-write"
+    },
+    {
+      "from": "search-key-write",
+      "to": "similarity"
+    },
+    {
+      "from": "similarity",
+      "to": "llm"
+    }
+  ]
+}
