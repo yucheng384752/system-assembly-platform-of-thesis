@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { preparePlan, type PrepResult } from '../../../libs/aov-integration/publishPrep';
+import type { FormLibrary } from '../../../libs/aov-integration/formLibrary';
 import type { ProjectDetails } from '../../../libs/aov-integration/projectDetails';
 import { Column } from './Column';
 import { downloadJson } from './fileTransfer';
@@ -13,7 +14,7 @@ const logicsOf = (graph: AovGraphDocument): Logic[] => graph.factories.flatMap(f
   return logic ? [{ key: `${factory.id}/${graphId}`, factoryId: factory.id, graphId, name, label: `${factory.name.trim() || '（未命名工廠）'} / ${name || '（未命名生產邏輯）'}` }] : [];
 }));
 
-export function PublishPrepPage({ graph, details }: { graph: AovGraphDocument; details: ProjectDetails }) {
+export function PublishPrepPage({ graph, details, forms }: { graph: AovGraphDocument; details: ProjectDetails; forms: FormLibrary }) {
   const logics = logicsOf(graph);
   const [choice, setChoice] = useState('');
   const [projectName, setProjectName] = useState('');
@@ -28,7 +29,7 @@ export function PublishPrepPage({ graph, details }: { graph: AovGraphDocument; d
     if (!logic) return;
     setBusy(true);
     try {
-      setResult(await preparePlan({ doc: graph, factoryId: logic.factoryId, graphId: logic.graphId, details, projectId: projectId.trim(), projectName, version: Number(version) }));
+      setResult(await preparePlan({ doc: graph, factoryId: logic.factoryId, graphId: logic.graphId, details, forms, projectId: projectId.trim(), projectName, version: Number(version) }));
     } finally { setBusy(false); }
   }
 

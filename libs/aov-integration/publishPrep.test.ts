@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { emptyGraph, type AovGraphDocument, type GraphNode } from '../../apps/composer-gui/src/workflowGraph';
 import { validateExecutablePlan, verifyPlanId } from './executablePlan';
 import { emptyProjectDetails, type ProjectDetails } from './projectDetails';
+import { checkFormBundle } from './formBundle';
 import { preparePlan, type PrepInput } from './publishPrep';
 
 const node = (id: string, name: string): GraphNode => ({ id, kind: 'node', name, when: '', owner: '', actionId: null, params: {}, formId: null, childGraphId: null });
@@ -63,5 +64,20 @@ describe('發布準備：畫布到計畫檔', () => {
     expect(await issues({ version: 1.5 })).toEqual(['版本必須是 1 以上的整數。']);
     expect(await issues({ projectId: '錫棒' })).toEqual(['專案識別碼只能用英文字母、數字、底線與連字號，且必須以英文字母開頭。']);
     expect(await issues({ projectName: '  ' })).toEqual(['請填寫專案名稱。']);
+  });
+
+  it('有填單節點時一併產生表單檔包，檔包通過檢查且檔名與計畫成對', async () => {
+    const slip = { id: 'stock-in-slip', name: '入庫單', subject: ['lot.ingot'], fields: { lot: { label: '批號', type: 'string' as const } } };
+    const withSlip: AovGraphDocument = { ...doc, graphs: [{ ...doc.graphs[0], nodes: [node('n1', '領料'), node('n3', '填入庫單'), node('n2', '入庫')], edges: [{ id: 'e1', from: 'n1', to: 'n3' }, { id: 'e2', from: 'n3', to: 'n2' }] }] };
+    const r = await preparePlan(input({
+      doc: withSlip, forms: { format: 'composer-form-library', version: 1, forms: [slip] },
+      details: { ...details, nodes: { ...details.nodes, n3: { kind: 'fill', material: 'ingot', form: 'stock-in-slip', requires: { lot: { type: 'string' } } } } },
+    }));
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(r.summary.forms).toBe(1);
+    expect(r.forms?.name).toBe(r.plan.name.replace('.plan.json', '.forms.json'));
+    expect(await checkFormBundle(JSON.parse(r.forms!.text))).toEqual([]);
+    const plan = JSON.parse(r.plan.text);
+    expect(JSON.parse(r.forms!.text).forms[0].contentSha256).toBe(plan.nodes.find((n: any) => n.nodeId === 'n3').form.contentSha256);
   });
 });

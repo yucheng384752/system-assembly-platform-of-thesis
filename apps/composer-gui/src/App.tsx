@@ -20,6 +20,7 @@ import { WorkflowTransfer } from './WorkflowTransfer';
 import { NodeDetailsStep, nodeDetailsError } from './NodeDetailsStep';
 import { PublishPrepPage } from './PublishPrepPage';
 import { emptyProjectDetails } from '../../../libs/aov-integration/projectDetails';
+import { emptyFormLibrary } from '../../../libs/aov-integration/formLibrary';
 
 export function withSelection(recipe: Recipe, enabledKits: string[]): Recipe {
   return { ...recipe, enabledKits, selectedSubfeatures: { ...recipe.selectedSubfeatures,
@@ -38,6 +39,7 @@ export function App() {
   const [manual, setManual] = useState<string[]>([]);
   const [graph, setGraph] = useState(emptyGraph);
   const [details, setDetails] = useState(emptyProjectDetails);
+  const [formLibrary, setFormLibrary] = useState(emptyFormLibrary);
   const [graphSession, setGraphSession] = useState(0);
   const [canvasPath, setCanvasPath] = useState<string[]>([]);
   const [session, setSession] = useState(0);
@@ -56,7 +58,7 @@ export function App() {
   ][step] ?? '';
   // The step flow stays mounted (only hidden) so switching pages never loses the confirmed steps.
   const steps = <StepShell stepError={stepError} renderStep={(step, navigate) => step === 0 ? <WorkflowCanvas locate={locate} resetKey={graphSession} value={graph} onChange={setGraph} path={canvasPath} onPathChange={setCanvasPath} toolbarExtra={<WorkflowTransfer onChange={next => { setGraph(next); setCanvasPath([]); setGraphSession(s => s + 1); }} />} />
-    : step === 1 ? <NodeDetailsStep graph={graph} details={details} onChange={setDetails} />
+    : step === 1 ? <NodeDetailsStep graph={graph} details={details} forms={formLibrary} onChange={setDetails} onFormsChange={setFormLibrary} />
     : step === 2 ? <FlowPage simulation={simulation} onSimulationChange={setSimulation} graph={graph} derived={derived} site={site?.site} recipe={recipe} onChange={setRecipe} requested={requested} manual={manual} session={session} onSelect={(nextFlows, nextKits) => {
       setRequested(nextFlows); setManual(nextKits);
     }} />
@@ -73,7 +75,7 @@ export function App() {
   return <AppShell page={page} onNavigate={setPage}>
     {page === 'home' && <HomePage aov={graph} enabledKits={recipe.enabledKits.length} onNavigate={setPage} />}
     <div hidden={page !== 'flow'}>{steps}</div>
-    <div hidden={page !== 'publish'}><PublishPrepPage graph={graph} details={details} /></div>
+    <div hidden={page !== 'publish'}><PublishPrepPage graph={graph} details={details} forms={formLibrary} /></div>
     {page === 'datasets' && <PlaceholderPage title="資料集" lead="集中管理設定用與執行用資料集。" items={['資料集列表與版本', 'CSV 匯入與欄位對應', '引用此資料集的系統清單']} />}
     {page === 'runs' && <PlaceholderPage title="執行記錄" lead="目前只做設定期（D16），尚無執行期；此頁日後顯示驗證紀錄。" items={['驗證紀錄列表', '節點時間線與錯誤位置']} />}
     {page === 'settings' && <PlaceholderPage title="系統設定" lead="場域、相容性與資料遷移。" items={['Migration 變更分析', 'Migration 計畫與演練', '相容性檢查']} />}

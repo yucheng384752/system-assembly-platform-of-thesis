@@ -1,5 +1,6 @@
 import { isUnit, unitDim, type Dimension } from '../aov-core';
-import { KEY_PATTERN } from './formLibrary';
+import { FORM_ID_PATTERN, KEY_PATTERN } from './formLibrary';
+import { checkRequirement, type FormRequirement } from './formRequirement';
 
 // What the canvas does not say: which material flows through a node and how the node touches the outside world.
 // Kept apart from the canvas document, keyed by canvas node id, so the canvas format does not change.
@@ -20,7 +21,9 @@ export type NodeBehavior =
   /** 領料: material enters the flow from a warehouse, which is the flow's boundary. */
   | { kind: 'pick'; location: string; material: string }
   /** 入庫 / 出庫: material leaves the flow; the direction says to where. */
-  | { kind: 'sink'; direction: SinkDirection | ''; location: string; material: string };
+  | { kind: 'sink'; direction: SinkDirection | ''; location: string; material: string }
+  /** 填單: material passes through while a form is filled in (e.g. the stock-in slip before stocking in). Aov-core ends cannot carry a form, so this is its own step. */
+  | { kind: 'fill'; material: string; form: string; requires: FormRequirement };
 // '' (direction, and the empty location or material of a node being filled in) is a form not yet complete:
 // checkProjectDetails reports it, and nothing converts a project while it is reported.
 
@@ -53,10 +56,14 @@ function checkBehavior(nodeId: string, raw: unknown, materials: Set<string>): De
   if (!isObject(raw)) return [{ code: 'behavior-shape', message: `節點「${nodeId}」的物料流設定必須是一個物件。`, nodeId }];
   const issues: DetailIssue[] = [];
   const add = (code: string, message: string, field?: string) => issues.push({ code, message: `節點「${nodeId}」${message}`, nodeId, field });
-  if (raw.kind !== 'pick' && raw.kind !== 'sink') return [{ code: 'behavior-kind', message: `節點「${nodeId}」的物料流類別不明。`, nodeId }];
+  if (raw.kind !== 'pick' && raw.kind !== 'sink' && raw.kind !== 'fill') return [{ code: 'behavior-kind', message: `節點「${nodeId}」的物料流類別不明。`, nodeId }];
   if (raw.kind === 'sink' && !(typeof raw.direction === 'string' && Object.hasOwn(SINK_DIRECTIONS, raw.direction))) add('behavior-direction', '尚未選擇入庫或出庫的方向。', 'direction');
-  if (typeof raw.location !== 'string' || !LOCATION_PATTERN.test(raw.location)) add('behavior-location', '的倉位代碼只能用英文字母開頭，含英文、數字、底線、句點與連字號。', 'location');
+  if (raw.kind !== 'fill' && (typeof raw.location !== 'string' || !LOCATION_PATTERN.test(raw.location))) add('behavior-location', '的倉位代碼只能用英文字母開頭，含英文、數字、底線、句點與連字號。', 'location');
   if (typeof raw.material !== 'string' || !materials.has(raw.material)) add('behavior-material', '選擇的物料型別不存在。', 'material');
+  if (raw.kind === 'fill') {
+    if (typeof raw.form !== 'string' || !FORM_ID_PATTERN.test(raw.form)) add('behavior-form', '尚未選擇要填的表單。', 'form');
+    issues.push(...checkRequirement(raw.requires, { nodeId }).map(i => ({ code: i.code, message: i.message, nodeId, field: i.field })));
+  }
   return issues;
 }
 

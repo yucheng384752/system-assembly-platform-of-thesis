@@ -2,6 +2,7 @@ import type { AovGraphDocument } from '../../apps/composer-gui/src/workflowGraph
 import { convertCanvas } from './canvasToProject';
 import { buildExecutablePlan, type CapabilityMap, type PlanBuildError } from './executablePlan';
 import { makeFormBundle } from './formBundle';
+import type { FormLibrary } from './formLibrary';
 import type { ProjectDetails } from './projectDetails';
 
 // Publishing preparation: one production logic of the canvas becomes a plan file and the form bundle the plan names.
@@ -11,6 +12,7 @@ export interface PrepInput {
   factoryId: string;
   graphId: string;
   details: ProjectDetails;
+  forms?: FormLibrary;
   /** English identifier of the project the plan is built from. */
   projectId: string;
   projectName: string;
@@ -35,7 +37,7 @@ export async function preparePlan(input: PrepInput): Promise<PrepResult> {
   if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(projectId)) return { ok: false, issues: [{ message: '專案識別碼只能用英文字母、數字、底線與連字號，且必須以英文字母開頭。' }] };
   if (!projectName.trim()) return { ok: false, issues: [{ message: '請填寫專案名稱。' }] };
 
-  const converted = convertCanvas({ doc, factoryId, graphId, details, meta: { id: projectId, name: projectName.trim(), version, status: 'published' } });
+  const converted = convertCanvas({ doc, factoryId, graphId, details, forms: input.forms, meta: { id: projectId, name: projectName.trim(), version, status: 'published' } });
   if (!converted.ok) return { ok: false, issues: converted.issues.map(i => ({ message: i.message, nodeId: i.nodeId })) };
 
   const built = await buildExecutablePlan({ project: converted.project, mapping: input.mapping ?? noCapabilities, scope: { factoryId, graphId } });

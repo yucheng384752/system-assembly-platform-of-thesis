@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { compile, type ProjectMeta } from '../aov-core';
+import { compile, type FormDef, type ProjectMeta } from '../aov-core';
 import { emptyGraph, type AovGraphDocument, type GraphNode } from '../../apps/composer-gui/src/workflowGraph';
 import { convertCanvas, reportLogics, type ConvertResult } from './canvasToProject';
 import { buildExecutablePlan, validateExecutablePlan, verifyPlanId, type CapabilityMap } from './executablePlan';
-import { emptyProjectDetails, type NodeBehavior, type ProjectDetails } from './projectDetails';
+import { checkFormBundle, makeFormBundle } from './formBundle';
+import { checkProjectDetails, emptyProjectDetails, type NodeBehavior, type ProjectDetails } from './projectDetails';
 
 const node = (id: string, name: string, kind: GraphNode['kind'] = 'node', childGraphId: string | null = null): GraphNode =>
   ({ id, kind, name, when: '', owner: '', actionId: null, params: {}, formId: null, childGraphId });
@@ -149,5 +150,73 @@ describe('畫面用的逐生產邏輯報告', () => {
   });
   it('細項本身還沒填完時不報告轉換結果，避免同一個錯誤重複出現', () => {
     expect(reportLogics(simple, details({ n1: { kind: 'sink', direction: '', location: '', material: '' } }))).toEqual([]);
+  });
+});
+
+describe('填單節點：入庫單是入庫前的獨立步驟', () => {
+  const slip: FormDef = { id: 'stock-in-slip', name: '入庫單', subject: ['lot.ingot'], fields: {
+    lot: { label: '批號', type: 'string' as const, required: true },
+    weight: { label: '總重量', type: 'quantity' as const, unit: 'kg' },
+    note: { label: '備註', type: 'string' as const },
+  } };
+  const library = { format: 'composer-form-library' as const, version: 1 as const, forms: [slip] };
+  const need = { weight: { type: 'quantity' as const, unit: 'kg' }, lot: { type: 'string' as const } };
+  const fill: NodeBehavior = { kind: 'fill', material: 'ingot', form: 'stock-in-slip', requires: need };
+  const flow = canvas([node('n1', '領料'), node('n2', '填入庫單'), node('n3', '入庫')], [edge('start', 'n1'), edge('n1', 'n2'), edge('n2', 'n3'), edge('n3', 'end')]);
+  const run3 = (nodes: Record<string, NodeBehavior>, forms: typeof library | null = library) => convertCanvas({ doc: flow, factoryId: 'f1', graphId: 'g1', details: details(nodes), meta, forms: forms ?? undefined });
+  const all: Record<string, NodeBehavior> = { n1: pick, n2: fill, n3: stockIn };
+
+  it('領料、填單、入庫串起來能編譯：填單是量測，物料原樣穿過，表單是它的紀錄', () => {
+    const r = run3(all);
+    if (!r.ok) throw new Error(messages(r).join('；'));
+    const filled = r.project.nodes.find(n => n.id === 'n2')!;
+    expect(filled).toMatchObject({ category: 'measure', form: 'stock-in-slip', inputs: [{ id: 'in', type: 'lot.ingot' }], outputs: expect.arrayContaining([{ id: 'out', type: 'lot.ingot', role: 'main' }]) });
+    expect(filled.boundary).toBeUndefined();
+    expect(r.project.flows.map(f => [f.from.node, f.to.node])).toEqual([['n1', 'n2'], ['n2', 'n3']]);
+    expect(r.project.forms).toEqual([slip]);
+    expect(compile(r.project).ok).toBe(true);
+  });
+
+  it('只帶用到的表單；不用表單時專案檔沒有 forms 欄位', () => {
+    const unused = { ...library, forms: [slip, { ...slip, id: 'other-slip' }] };
+    const r = run3(all, unused);
+    expect(r.ok && r.project.forms?.map(f => f.id)).toEqual(['stock-in-slip']);
+    const plain = run({ ...canvas([node('n1', '領料'), node('n2', '入庫')], [edge('n1', 'n2')]) }, { n1: pick, n2: stockIn });
+    expect(plain.ok && 'forms' in plain.project).toBe(false);
+  });
+
+  it('表單不在表單庫、沒有表單庫：指出是哪個節點選了哪張表單', () => {
+    expect(messages(run3(all, { ...library, forms: [] }))).toEqual(['節點「填入庫單」選擇的表單「stock-in-slip」不在表單庫裡。']);
+    expect(messages(run3(all, null))).toEqual(['節點「填入庫單」選擇的表單「stock-in-slip」不在表單庫裡。']);
+  });
+
+  it('表單不再提供流程需要的欄位（刪除、改單位、改型別）就不能轉換，並說明哪個欄位', () => {
+    const { weight: _w, ...without } = slip.fields;
+    expect(messages(run3(all, { ...library, forms: [{ ...slip, fields: without }] }))[0]).toContain('沒有流程需要的欄位「weight」');
+    expect(messages(run3(all, { ...library, forms: [{ ...slip, fields: { ...slip.fields, weight: { type: 'quantity', unit: 'g' } } }] }))[0]).toContain('單位是「g」，流程需要「kg」');
+  });
+
+  it('加欄位、改標籤不影響轉換：流程只依賴它宣告的欄位', () => {
+    const edited = { ...slip, fields: { ...slip.fields, weight: { label: '重量（公斤）', type: 'quantity' as const, unit: 'kg' }, extra: { type: 'string' as const } } };
+    expect(run3(all, { ...library, forms: [edited] }).ok).toBe(true);
+  });
+
+  it('表單庫本身有錯時先回報，不嘗試轉換', () => {
+    expect(messages(run3(all, { ...library, forms: [{ ...slip, subject: [] }] }))[0]).toContain('尚未指定描述的對象');
+  });
+
+  it('填單節點前面接著物料、後面可以接終點；沒有選表單的填單節點在細項檔就被擋下', () => {
+    expect(checkProjectDetails(details({ n2: { kind: 'fill', material: 'ingot', form: '', requires: {} } })).map(i => i.code)).toEqual(['behavior-form']);
+  });
+
+  it('端對端：表單進入計畫並被釘住雜湊，表單檔包與計畫一致', async () => {
+    const r = run3(all);
+    if (!r.ok) throw new Error('expected ok');
+    const built = await buildExecutablePlan({ project: { ...r.project, meta: { ...r.project.meta, status: 'published' } }, mapping: { format: 'composer-action-capability-map', version: 1, entries: [] }, scope: { factoryId: 'f1', graphId: 'g1' } });
+    if (!built.ok) throw new Error(JSON.stringify(built.errors));
+    const node2 = (built.plan as Record<string, any>).nodes.find((n: any) => n.nodeId === 'n2');
+    expect(node2.form.formId).toBe('stock-in-slip');
+    expect(built.forms).toEqual([{ contentSha256: node2.form.contentSha256, definition: slip }]);
+    expect(await checkFormBundle(makeFormBundle(built.forms))).toEqual([]);
   });
 });

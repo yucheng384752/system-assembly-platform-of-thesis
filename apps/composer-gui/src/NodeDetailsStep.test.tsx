@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { afterEach, expect, test } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { emptyFormLibrary, type FormLibrary } from '../../../libs/aov-integration/formLibrary';
 import { emptyProjectDetails, type ProjectDetails } from '../../../libs/aov-integration/projectDetails';
 import { App } from './App';
 import { NodeDetailsStep, nodeDetailsError } from './NodeDetailsStep';
@@ -19,10 +20,12 @@ const graph: AovGraphDocument = {
 const base: ProjectDetails = { ...emptyProjectDetails, materials: [{ key: 'ingot', name: '原料錫錠', dimension: 'mass', baseUnit: 'kg' }] };
 
 let latest: ProjectDetails = base;
-function Harness({ initial = base }: { initial?: ProjectDetails }) {
+let latestForms: FormLibrary = emptyFormLibrary;
+function Harness({ initial = base, library = emptyFormLibrary }: { initial?: ProjectDetails; library?: FormLibrary }) {
   const [details, setDetails] = useState(initial);
-  latest = details;
-  return <NodeDetailsStep graph={graph} details={details} onChange={setDetails} />;
+  const [forms, setForms] = useState(library);
+  latest = details; latestForms = forms;
+  return <NodeDetailsStep graph={graph} details={details} forms={forms} onChange={setDetails} onFormsChange={setForms} />;
 }
 const card = (name: string) => screen.getByRole('group', { name });
 const choose = (label: string, value: string, scope: HTMLElement = document.body) => fireEvent.change(within(scope).getByLabelText(label), { target: { value } });
@@ -91,7 +94,7 @@ test('新增物料型別給一個不會重複的英文識別碼，名稱留白�
 });
 
 test('沒有工廠時提示先建立，而不是顯示空白', () => {
-  render(<NodeDetailsStep graph={emptyGraph} details={emptyProjectDetails} onChange={() => {}} />);
+  render(<NodeDetailsStep graph={emptyGraph} details={emptyProjectDetails} forms={emptyFormLibrary} onChange={() => {}} onFormsChange={() => {}} />);
   expect(screen.getByText('請先在「流程畫布」建立工廠與生產邏輯。')).toBeTruthy();
 });
 
