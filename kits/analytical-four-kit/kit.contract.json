@@ -46,6 +46,36 @@
         "capability": "analytical-four.results.get",
         "method": "GET",
         "path": "/api/analytical-four/runs/{run_id}/result"
+      },
+      {
+        "capability": "analytical-four.feedback.submit",
+        "method": "POST",
+        "path": "/api/analytical-four/feedback"
+      },
+      {
+        "capability": "analytical-four.feedback.import",
+        "method": "POST",
+        "path": "/api/analytical-four/feedback/import"
+      },
+      {
+        "capability": "analytical-four.feedback.list",
+        "method": "GET",
+        "path": "/api/analytical-four/feedback"
+      },
+      {
+        "capability": "analytical-four.feedback.decide",
+        "method": "POST",
+        "path": "/api/analytical-four/feedback/{feedback_id}/decision"
+      },
+      {
+        "capability": "analytical-four.library.publish",
+        "method": "POST",
+        "path": "/api/analytical-four/library/publish"
+      },
+      {
+        "capability": "analytical-four.library.versions",
+        "method": "GET",
+        "path": "/api/analytical-four/library/versions"
       }
     ]
   },
@@ -94,6 +124,16 @@
           "capability": "analytical-four.results.get",
           "method": "GET",
           "path": "/api/analytical-four/runs/{run_id}/result"
+        },
+        {
+          "capability": "analytical-four.feedback.list",
+          "method": "GET",
+          "path": "/api/analytical-four/feedback"
+        },
+        {
+          "capability": "analytical-four.library.versions",
+          "method": "GET",
+          "path": "/api/analytical-four/library/versions"
         }
       ]
     },
@@ -131,6 +171,49 @@
           "capability": "analytical-four.demo.load",
           "method": "POST",
           "path": "/api/analytical-four/demo"
+        }
+      ]
+    },
+    {
+      "key": "analytical_four.feedback_submit",
+      "label": "提交分析後的確認結果",
+      "access": "write",
+      "defaultRoles": [
+        "admin",
+        "manager",
+        "operator"
+      ],
+      "routes": [
+        {
+          "capability": "analytical-four.feedback.submit",
+          "method": "POST",
+          "path": "/api/analytical-four/feedback"
+        },
+        {
+          "capability": "analytical-four.feedback.import",
+          "method": "POST",
+          "path": "/api/analytical-four/feedback/import"
+        }
+      ]
+    },
+    {
+      "key": "analytical_four.feedback_approve",
+      "label": "核可回饋並發布案例庫版本",
+      "access": "write",
+      "defaultRoles": [
+        "admin",
+        "manager"
+      ],
+      "routes": [
+        {
+          "capability": "analytical-four.feedback.decide",
+          "method": "POST",
+          "path": "/api/analytical-four/feedback/{feedback_id}/decision"
+        },
+        {
+          "capability": "analytical-four.library.publish",
+          "method": "POST",
+          "path": "/api/analytical-four/library/publish"
         }
       ]
     }

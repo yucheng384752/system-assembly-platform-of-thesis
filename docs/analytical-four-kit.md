@@ -16,7 +16,7 @@
 
 規則：B、C 需要 A；客訴模式的 C 需要 B（彙整步驟讀 B 的預測）。每日模式的 C 不執行彙整、相似案例與 LLM（沿用原專案 `main()` 的行為），這些階段在執行紀錄標為 `skipped`。
 
-不在範圍：人工回饋寫回案例庫（原專案 `event_feedback_record`）、預測模型（`analysis/predictive`）、繪圖、Gemini 直連分析。
+不在範圍：預測模型（`analysis/predictive`）、繪圖、Gemini 直連分析、原專案 `ErrorAnalysis` 的誤判統計（回饋與案例庫見第 8 節，錯誤原因欄位目前留空）。
 
 ## 2. 資料模型
 
@@ -85,11 +85,17 @@ llm       { endpointSet: bool, apiKeyEnv }      不保存位址本身與金鑰
 | `analytical-four.runs.get` | GET `/runs/{run_id}` | 同上 |
 | `analytical-four.results.list` | GET `/runs/{run_id}/results` | 同上 |
 | `analytical-four.results.get` | GET `/runs/{run_id}/result?name=` | 同上 |
+| `analytical-four.feedback.list` | GET `/feedback?status=&limit=` | 同上 |
+| `analytical-four.library.versions` | GET `/library/versions` | 同上 |
 | `analytical-four.runs.create` | POST `/runs`（202） | `analytical_four.run`（admin、manager、operator） |
+| `analytical-four.feedback.submit` | POST `/feedback`（201） | `analytical_four.feedback_submit`（admin、manager、operator） |
+| `analytical-four.feedback.import` | POST `/feedback/import`（201） | 同上 |
+| `analytical-four.feedback.decide` | POST `/feedback/{feedback_id}/decision` | `analytical_four.feedback_approve`（admin、manager） |
+| `analytical-four.library.publish` | POST `/library/publish`（201） | 同上 |
 | `analytical-four.settings.put` | PUT `/settings` | `analytical_four.configure`（admin） |
 | `analytical-four.demo.load` | POST `/demo`（201） | 同上 |
 
-錯誤：401 沒有身分；404 找不到該次分析或結果檔；409 未就緒或另一次分析進行中；422 設定不合法或 `settings.json` 無法使用。
+錯誤：401 沒有身分；404 找不到該次分析、結果檔、事件或回饋；409 未就緒、另一次分析進行中、或操作與目前狀態衝突；413 匯入內容過大；422 設定或輸入不合法；500 回饋或版本檔損毀。
 
 ## 5. 示範資料
 
@@ -106,7 +112,52 @@ llm       { endpointSet: bool, apiKeyEnv }      不保存位址本身與金鑰
 
 - 容器映像未建置；依賴固定版本（pandas 2.2.3、numpy 2.1.3 為系統包既有，其餘見 `requirements.txt`）只在 Windows、Python 3.10 的測試環境以相同版本驗證過，Linux、Python 3.12 未驗證。
 - 預設向量模型 `intfloat/multilingual-e5-large-instruct` 未在測試中載入（需下載約數 GB）；測試與示範用 `builtin-hash`，只比對字詞。
-- 真實 LLM 服務未連線；測試用本機假服務，驗證請求內容、逾時與錯誤處理。
+- 真實 LLM 服務：2026-11-01 以本機 Ollama（qwen3:14b）經 Analytical-Four 的 `local_llm_server.py` 轉接層驗證過一輪（未修改該轉接層，只綁定回送位址），見第 9 節；自動化測試仍用本機假服務。公司內的實際 LLM 服務未連線。
 - 引擎本身仍有未改的行為：序列化器把單一事件的失敗寫入事件而不丟例外（已由 `diagnostic_stage` 檢查）、不良診斷輸出大量 print、向量庫只以筆數判斷是否重建。
 - 單一行程單一執行；多個 worker 同時服務時，執行互斥只在行程內有效（系統包的容器為單一 worker）。
 - 推論品質只用合成資料驗證了「不良代碼推估能還原資料中植入的缺陷」，沒有真實資料的準確度數字。
+
+## 8. 回饋與案例庫版本
+
+分析後可對客訴診斷的事件提交「確認結果」，經核可後發布成案例庫新版本；下一次分析的相似案例搜尋與誤判提示讀的就是這份案例庫。
+
+### 8.1 資料模型（資料目錄內，只追加、不修改、不刪除）
+
+| 檔案 | 每行內容 |
+|---|---|
+| `feedback/entries.jsonl` | `feedbackId`（16 位十六進位）、`submittedAt`、`submittedBy`、`submittedRole`、`source`（`run` 或 `import`）、`runId`、`note`、`isNewCode`（確認的代碼不在不良代碼定義內為 true，定義讀不到為 null）、`record`（完整案例紀錄，格式見下） |
+| `feedback/decisions.jsonl` | `feedbackId`、`approve`、`decidedBy`、`decidedRole`、`decidedAt`、`note` |
+| `feedback/library/vNNNN/` | `llm_records.jsonl`、`llm_error_records.jsonl`、`manifest.json`（`version`、`createdAt`、`createdBy`、`baseVersion`、`startedFromExistingFile`、`addedFeedbackIds`、`replacedEventIds`、`recordCount`、`errorRecordCount`、各檔 sha256） |
+
+案例紀錄沿用相似案例搜尋讀取的格式（`schema_version` 2.0 的事件紀錄）：`event_id`、`summary`（`anomaly_features`、`sop_keys`、`categorical`）、`diagnosis_results`（含 `score_breakdown` 的 `anomaly`、`metrics`、`env`）、`conclusion`、`feedback`（`confirmed_ng`、`actual_cause`、`confirmed_by`、`confirmed_at`、`was_correct`、`label_source`）、`error_analysis`（`was_correct`；`error_reasons` 與 `delta` 目前為空）。`was_correct` 由 `conclusion.final_ng`（沒有則 `suggested_ng_code`）與 `confirmed_ng` 比對得出。`confirmed_by` 一律取自提交者的身分，不採用匯入檔自己寫的。
+
+### 8.2 規則
+
+- 誰可提交：預設管理員、經理、操作員（入口 `analytical_four.feedback_submit`，可在入口權限調整）。誰可核可與發布：預設管理員、經理（入口 `analytical_four.feedback_approve`）。
+- 經理或管理員提交的回饋在提交時同時核可，核可紀錄的備註註明；操作員提交的維持待核可，核可後才可進案例庫。經理與管理員可核可自己的提交（暫定規則，之後如要禁止，只需改核可處）。
+- 每筆回饋只有一次決定（核可或駁回）；要更正請重新提交。同一個 `event_id` 在新版本中以最後核可者取代，舊版本不動。
+- 確認的不良代碼可以是新的（不在定義內），只限英數字、底線與連字號、最長 50 字；新代碼要等每日模式的 B 層用該代碼的樣本訓練後，才會成為 B 層可推估的類別。
+- 匯入：一次最多 500 筆、5 MB，每筆最多 100 KB；任何一筆不合法整批不寫入。匯入的紀錄走相同的核可規則。
+- 發布：把「已核可且尚未發布」的回饋加進最新版本的內容，產生下一個版本；第一個版本以設定指定的案例檔現有內容為起點。發布後，分析設定指定的兩個案例檔（`case_data.llm_records`、`llm_error_records`）被替換為最新版本的內容。`llm_error_records` 只放 `was_correct` 為 false 的紀錄。分析進行中不可發布（409）；沒有新的已核可回饋也不可發布（409）。
+- 歷史檔損毀（無法解析的行）時，讀取與發布都以 500 回報行號，不略過。
+
+### 8.3 限制
+
+- 沒有回復到舊版本的操作；舊版本檔案完整保留，需要時可由維運人員手動複製。
+- LLM 服務若回傳完整填寫的事件紀錄，回饋會以它為底；否則以搜尋關鍵紀錄為底。真實 LLM 服務的回傳格式未驗證。
+- 兩個案例檔的替換各自是原子的，兩個檔之間不是；因此發布時禁止分析進行。
+- 單一行程內以鎖保護；多個 worker 同時發布不受保護（系統包為單一 worker）。
+
+## 9. 以本機 LLM 的實測（2026-11-01）
+
+環境：Ollama 的 qwen3:14b，Analytical-Four 的 `local_llm_server.py`（`POST /diagnose`，回傳完整事件紀錄，只改寫 `llm_analysis` 與 `conclusion`）。Kit 設定 `llm.endpoint` 指向它，`timeoutSeconds` 600，示範資料，客訴模式，A、B、C 全開。
+
+| 項目 | 結果 |
+|---|---|
+| 第一輪（案例庫為空） | 成功，6 筆事件約 100 秒；6 筆回應都是模型產生的審核意見，無保底結果；模型引用了 SOP 條目，並指出沒有歷史案例可參考 |
+| 對 6 筆事件提交確認結果並發布案例庫 v0001 | 成功；案例紀錄帶有模型的審核意見，`confirmed_by` 為提交者 |
+| 第二輪 | 成功，約 36 秒；相似案例被帶進請求，模型引用歷史案例編號，`case_agreement` 為 true，信心度 high，不需人工 |
+
+這證實：回傳完整事件紀錄是這個 LLM 服務的實際契約，回饋以它為底的假設成立；回饋進案例庫確實改變下一次的診斷內容。
+
+已知風險：轉接層在 Ollama 呼叫失敗時回傳 HTTP 200 與保底結果（`llm_analysis.uncertainty` 寫明失敗、`conclusion.confidence` 為 low、`needs_human` 為 true），已用不存在的模型名稱驗證。Kit 無法由回應格式分辨這是失敗，這次分析會顯示 `llm` 階段完成。建議轉接層改回 5xx，Kit 就會把該階段標為失敗；在那之前，請以 `needs_human` 與 `uncertainty` 判讀。這個修改在 Analytical-Four 專案，未動。
