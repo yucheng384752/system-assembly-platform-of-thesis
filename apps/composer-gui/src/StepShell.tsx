@@ -5,9 +5,10 @@ export interface StepInfo { number: string; title: string; lead: string; hint: s
 // The Workflow is the configuration entry point and every step is required (D17, D30).
 export const steps: StepInfo[] = [
   { number: '01', title: '流程畫布', lead: '建立節點、標準表單與關聯，設定先後順序及子流程。', hint: '請使用職務名稱，勿填個資。' },
-  { number: '02', title: '功能選配', lead: '確認流程所需功能，調整其他選配與畫面設定。', hint: '目前為設定與模擬預覽。' },
-  { number: '03', title: '參數設定', lead: '設定批號格式、產品與初始檢驗規格。', hint: '變更會同步影響模擬與下載設定。' },
-  { number: '04', title: '輸出', lead: '把設定打包成設定交付包，交付時只需要這一個檔案。', hint: '個別的流程規格與系統設定檔放在「進階」，用來重新載入設定。' },
+  { number: '02', title: '節點細項', lead: '設定每個節點處理的物料、倉位，以及入庫或出庫的方向。', hint: '尚未設定的節點不會擋下本步驟，但轉成專案時會被指出。' },
+  { number: '03', title: '功能選配', lead: '確認流程所需功能，調整其他選配與畫面設定。', hint: '目前為設定與模擬預覽。' },
+  { number: '04', title: '參數設定', lead: '設定批號格式、產品與初始檢驗規格。', hint: '變更會同步影響模擬與下載設定。' },
+  { number: '05', title: '輸出', lead: '把設定打包成設定交付包，交付時只需要這一個檔案。', hint: '個別的流程規格與系統設定檔放在「進階」，用來重新載入設定。' },
 ];
 // stepError: a non-empty message blocks confirming that step until the content is fixed.
 export function StepShell({ renderStep, stepError = () => '' }: { renderStep: (step: number, navigate: (step: number) => void) => ReactNode; stepError?: (step: number) => string }) {

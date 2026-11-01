@@ -17,6 +17,8 @@ import { emptyGraph, graphPath, graphActionIds, graphErrors, integrityErrors } f
 import { deriveKits } from '../../../libs/ui-runtime/actions';
 import { registry } from './registryData';
 import { WorkflowTransfer } from './WorkflowTransfer';
+import { NodeDetailsStep, nodeDetailsError } from './NodeDetailsStep';
+import { emptyProjectDetails } from '../../../libs/aov-integration/projectDetails';
 
 export function withSelection(recipe: Recipe, enabledKits: string[]): Recipe {
   return { ...recipe, enabledKits, selectedSubfeatures: { ...recipe.selectedSubfeatures,
@@ -34,6 +36,7 @@ export function App() {
   const [requested, setRequested] = useState<string[]>([]);
   const [manual, setManual] = useState<string[]>([]);
   const [graph, setGraph] = useState(emptyGraph);
+  const [details, setDetails] = useState(emptyProjectDetails);
   const [graphSession, setGraphSession] = useState(0);
   const [canvasPath, setCanvasPath] = useState<string[]>([]);
   const [session, setSession] = useState(0);
@@ -46,16 +49,17 @@ export function App() {
   const conflict = siteError(recipe, catalog, site);
   const workflowProblems = [...integrityErrors(graph), ...graphErrors(graph)];
   const stepError = (step: number) => [
-    workflowProblems[0], conflict,
+    workflowProblems[0], nodeDetailsError(details), conflict,
     [...productionErrors(recipe.productionSettings ?? emptyProduction), ...productionBindings(recipe.productionSettings ?? emptyProduction, graph)][0],
     conflict || productionErrors(recipe.productionSettings ?? emptyProduction)[0] || productionBindings(recipe.productionSettings ?? emptyProduction, graph)[0] || (!recipe.clientName?.trim() ? '請填寫客戶代稱。' : workflowProblems.length ? `流程規格尚未完成：${workflowProblems[0]}` : ''),
   ][step] ?? '';
   // The step flow stays mounted (only hidden) so switching pages never loses the confirmed steps.
   const steps = <StepShell stepError={stepError} renderStep={(step, navigate) => step === 0 ? <WorkflowCanvas locate={locate} resetKey={graphSession} value={graph} onChange={setGraph} path={canvasPath} onPathChange={setCanvasPath} toolbarExtra={<WorkflowTransfer onChange={next => { setGraph(next); setCanvasPath([]); setGraphSession(s => s + 1); }} />} />
-    : step === 1 ? <FlowPage simulation={simulation} onSimulationChange={setSimulation} graph={graph} derived={derived} site={site?.site} recipe={recipe} onChange={setRecipe} requested={requested} manual={manual} session={session} onSelect={(nextFlows, nextKits) => {
+    : step === 1 ? <NodeDetailsStep graph={graph} details={details} onChange={setDetails} />
+    : step === 2 ? <FlowPage simulation={simulation} onSimulationChange={setSimulation} graph={graph} derived={derived} site={site?.site} recipe={recipe} onChange={setRecipe} requested={requested} manual={manual} session={session} onSelect={(nextFlows, nextKits) => {
       setRequested(nextFlows); setManual(nextKits);
     }} />
-      : step === 2 ? <ProductionPage recipe={recipe} onChange={setRecipe} graph={graph} /> : <OutputPage onLocate={issue => { const g = graph.graphs.find(g => g.id === issue.graphId || g.nodes.some(n => n.id === issue.nodeId)); setCanvasPath(g ? graphPath(graph, g.id) : []); setLocate(issue.nodeId ? { nodeId: issue.nodeId, fieldId: issue.fieldId, request: Date.now() } : undefined); navigate(0); }} site={site} siteConflict={conflict} onSiteChange={next => {
+      : step === 3 ? <ProductionPage recipe={recipe} onChange={setRecipe} graph={graph} /> : <OutputPage onLocate={issue => { const g = graph.graphs.find(g => g.id === issue.graphId || g.nodes.some(n => n.id === issue.nodeId)); setCanvasPath(g ? graphPath(graph, g.id) : []); setLocate(issue.nodeId ? { nodeId: issue.nodeId, fieldId: issue.fieldId, request: Date.now() } : undefined); navigate(0); }} site={site} siteConflict={conflict} onSiteChange={next => {
         setSite(next);
         setRecipe(previous => { const { siteRef: _siteRef, ...rest } = previous; return next ? { ...rest, siteRef: { path: 'site.profile.json', sha256: next.sha256 } } : rest; });
       }} recipe={recipe} workflow={graph} selectedFlows={selection.selectedFlows} onChange={setRecipe} onImport={next => {

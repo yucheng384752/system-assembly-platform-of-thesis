@@ -20,7 +20,9 @@ export type NodeBehavior =
   /** 領料: material enters the flow from a warehouse, which is the flow's boundary. */
   | { kind: 'pick'; location: string; material: string }
   /** 入庫 / 出庫: material leaves the flow; the direction says to where. */
-  | { kind: 'sink'; direction: SinkDirection; location: string; material: string };
+  | { kind: 'sink'; direction: SinkDirection | ''; location: string; material: string };
+// '' (direction, and the empty location or material of a node being filled in) is a form not yet complete:
+// checkProjectDetails reports it, and nothing converts a project while it is reported.
 
 export interface ProjectDetails { format: 'composer-project-details'; version: 1; materials: MaterialType[]; nodes: Record<string, NodeBehavior> }
 export interface DetailIssue { code: string; message: string; nodeId?: string; field?: string }

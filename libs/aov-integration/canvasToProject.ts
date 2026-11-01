@@ -62,3 +62,17 @@ export function convertCanvas(input: ConvertInput): ConvertResult {
   if (errors.length) return { ok: false, issues: errors.map(d => ({ message: d.message, nodeId: d.nodeId, edgeId: d.flowId })) };
   return { ok: true, project };
 }
+
+export interface LogicReport { factoryId: string; graphId: string; label: string; ok: boolean; issues: ConvertIssue[] }
+
+/** Every production logic of the canvas against the current details, for the screen. Empty while the details themselves are incomplete. */
+export function reportLogics(doc: AovGraphDocument, details: ProjectDetails): LogicReport[] {
+  if (checkProjectDetails(details).length) return [];
+  return doc.factories.flatMap(factory => factory.logicGraphIds.flatMap(graphId => {
+    const graph = doc.graphs.find(g => g.id === graphId);
+    if (!graph) return [];
+    const result = convertCanvas({ doc, factoryId: factory.id, graphId, details, meta: { id: graphId, name: graph.name, version: 1, status: 'draft' } });
+    const label = `${factory.name.trim() || '（未命名工廠）'} / ${graph.name.trim() || '（未命名生產邏輯）'}`;
+    return [{ factoryId: factory.id, graphId, label, ok: result.ok, issues: result.ok ? [] : result.issues }];
+  }));
+}

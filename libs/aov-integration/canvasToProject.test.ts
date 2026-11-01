@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { compile, type ProjectMeta } from '../aov-core';
 import { emptyGraph, type AovGraphDocument, type GraphNode } from '../../apps/composer-gui/src/workflowGraph';
-import { convertCanvas, type ConvertResult } from './canvasToProject';
+import { convertCanvas, reportLogics, type ConvertResult } from './canvasToProject';
 import { buildExecutablePlan, validateExecutablePlan, verifyPlanId, type CapabilityMap } from './executablePlan';
 import { emptyProjectDetails, type NodeBehavior, type ProjectDetails } from './projectDetails';
 
@@ -137,5 +137,17 @@ describe('畫布到可執行計畫（端對端）', () => {
     const a = await buildExecutablePlan({ project: converted(), mapping, scope });
     const b = await buildExecutablePlan({ project: converted(), mapping, scope });
     expect(a).toEqual(b);
+  });
+});
+
+describe('畫面用的逐生產邏輯報告', () => {
+  it('每個生產邏輯各自回報可否轉換與原因', () => {
+    const doc = { ...simple, factories: [{ id: 'f1', name: '岱暉', logicGraphIds: ['g1', 'g9'] }], graphs: [...simple.graphs, { id: 'g9', name: '另一條', nodes: [node('m1', '加工')], edges: [] }] };
+    const report = reportLogics(doc, details({ n1: pick, n2: stockIn }));
+    expect(report.map(r => [r.label, r.ok])).toEqual([['岱暉 / 生產邏輯', true], ['岱暉 / 另一條', false]]);
+    expect(report[1].issues[0].message).toBe('節點「加工」還沒有設定物料流類別（領料、入庫或出庫）。');
+  });
+  it('細項本身還沒填完時不報告轉換結果，避免同一個錯誤重複出現', () => {
+    expect(reportLogics(simple, details({ n1: { kind: 'sink', direction: '', location: '', material: '' } }))).toEqual([]);
   });
 });
