@@ -9,6 +9,7 @@ sources:
   - kits/analytical-four-kit/src/backend/app/analytical_four/settings.py
   - kits/analytical-four-kit/src/backend/app/analytical_four/runs.py
   - kits/analytical-four-kit/src/backend/app/analytical_four/feedback.py
+  - kits/analytical-four-kit/src/backend/app/analytical_four/data_checks.py
 ---
 
 ## 用途
@@ -21,7 +22,7 @@ sources:
 
 ## 可設定項目
 
-settings.json 位於資料目錄：layers（a、b、c）、mode（daily 或 complain）、analysisConfig（資料目錄內的相對路徑）、llm.endpoint、llm.timeoutSeconds、llm.apiKeyEnv。金鑰只存在環境變數，settings.json 與執行紀錄都不保存金鑰值。分析設定檔沿用 Analytical-Four 格式，路徑欄位一律相對於資料目錄。入口權限預設：檢視開放管理員、經理、操作員與稽核；啟動分析開放管理員、經理與操作員；調整設定與載入示範資料只開放管理員；提交回饋開放管理員、經理與操作員；核可回饋與發布案例庫開放管理員與經理。
+settings.json 位於資料目錄：layers（a、b、c）、mode（daily 或 complain）、analysisConfig（資料目錄內的相對路徑）、llm.endpoint、llm.timeoutSeconds、llm.apiKeyEnv、columnMapping（場域欄名對到引擎欄名；兩個欄位不可對到同一個名稱）。金鑰只存在環境變數，settings.json 與執行紀錄都不保存金鑰值。分析設定檔沿用 Analytical-Four 格式，路徑欄位一律相對於資料目錄。入口權限預設：檢視開放管理員、經理、操作員與稽核；啟動分析開放管理員、經理與操作員；調整設定與載入示範資料只開放管理員；提交回饋開放管理員、經理與操作員；核可回饋與發布案例庫開放管理員與經理。
 
 ## 操作步驟
 
@@ -33,4 +34,4 @@ settings.json 位於資料目錄：layers（a、b、c）、mode（daily 或 comp
 
 ## 常見錯誤與復原
 
-409 表示尚有項目未就緒或另一次分析仍在執行；422 表示設定檔無法使用或內容不合法；404 表示找不到該次分析或結果檔。分析失敗不會自動重試。服務重新啟動時，未完成的分析會被標為失敗。這個 Kit 沒有資料庫表格，備份資料目錄即可。授權效果的測試目前標為未涵蓋。
+409 表示尚有項目未就緒、資料檢查未通過（原因逐項列出）或另一次分析仍在執行；422 表示設定檔無法使用或內容不合法；404 表示找不到該次分析或結果檔。分析失敗不會自動重試。服務重新啟動時，未完成的分析會被標為失敗。這個 Kit 沒有資料庫表格，備份資料目錄即可。授權效果的測試目前標為未涵蓋。

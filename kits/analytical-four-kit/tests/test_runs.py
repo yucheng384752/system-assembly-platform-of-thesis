@@ -95,16 +95,13 @@ def test_a_run_is_refused_while_a_layer_is_not_ready(client):
     assert client.get(f'{API}/runs').json()['runs'] == []  # nothing was started
 
 
-def test_complaint_run_with_an_empty_known_base_fails_loudly(client, data, llm):
+def test_complaint_run_with_an_empty_known_base_is_refused_before_it_starts(client, data, llm):
     # An empty library would otherwise produce an error dict per event and a confident-looking but empty result.
     put(client, layers={'a': True, 'b': True, 'c': False}, mode='complain', analysisConfig=COMPLAIN_CONFIG)
     (data / 'known_base.json').write_text('{}', encoding='utf-8')
-    record = run_and_wait(client)
-    assert record['state'] == 'failed' and record['error']['stage'] == 'ng-code'
-    assert '分布庫是空的' in record['error']['message']
-    assert stages(record)['diagnostic'] == 'done' and stages(record)['ng-code'] == 'failed'
-    names = client.get(f'{API}/runs/{record["runId"]}/results').json()['results']
-    assert 'pca_spe_t2.json' in names  # what finished before the failure stays readable
+    answer = client.post(f'{API}/runs')
+    assert answer.status_code == 409 and '不良特徵分布庫' in answer.json()['detail']
+    assert client.get(f'{API}/runs').json()['runs'] == []
 
 
 def test_llm_error_status_fails_the_llm_stage_without_hiding_earlier_results(client, llm):
@@ -118,12 +115,11 @@ def test_llm_error_status_fails_the_llm_stage_without_hiding_earlier_results(cli
     assert 'LLM_responses.json' not in client.get(f'{API}/runs/{record["runId"]}/results').json()['results']
 
 
-def test_data_without_the_target_column_fails_at_read_data_and_names_it(client, data):
+def test_data_without_the_target_column_is_refused_and_names_it(client, data):
     put(client)
     (data / 'data' / 'current_daily.csv').write_text('a,b\n1,2\n', encoding='utf-8')
-    record = run_and_wait(client)
-    assert record['state'] == 'failed' and record['error']['stage'] == 'read-data'
-    assert 'Finish' in record['error']['message']
+    answer = client.post(f'{API}/runs')
+    assert answer.status_code == 409 and 'Finish' in answer.json()['detail']
 
 
 def test_a_configured_feature_missing_from_the_data_is_reported_not_silently_dropped(client, data):

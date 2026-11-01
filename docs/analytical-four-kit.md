@@ -41,6 +41,7 @@ layers         { a: bool = true, b: bool = true, c: bool = false }
 mode           "daily" | "complain"            預設 daily
 analysisConfig 資料目錄內的相對路徑             預設 config/analysis_config.json
 llm            { endpoint: string = "" (最長 500)，timeoutSeconds: 1..900 = 120，apiKeyEnv: 環境變數名稱或空字串 }
+columnMapping  { 場域欄名: 引擎欄名 }，預設空（見第 10 節）
 ```
 
 驗證（寫入時與讀取時相同，不合法一律 422）：B 或 C 開啟時 A 必須開啟；客訴模式開啟 C 時 B 必須開啟；`llm.endpoint` 空字串或 http／https 網址，不含空白、控制字元、帳號密碼；`apiKeyEnv` 須為大寫英數底線名稱（金鑰值只存在環境變數，`secret_ref`）；`analysisConfig` 不可是絕對路徑、不可含 `..`，解析後必須在資料目錄內。
@@ -58,6 +59,7 @@ runId, state (queued|running|succeeded|failed), createdAt, startedAt, finishedAt
 mode, layers
 stages[]  { id, layer, name, state (pending|running|done|skipped|failed|interrupted), detail }
 error     null 或 { stage, message }
+warnings[] { layer, code, message }：啟動時的資料檢查警告，加上執行中被引擎改動的事（見第 10 節）
 llm       { endpointSet: bool, apiKeyEnv }      不保存位址本身與金鑰
 ```
 
@@ -81,6 +83,7 @@ llm       { endpointSet: bool, apiKeyEnv }      不保存位址本身與金鑰
 |---|---|---|
 | `analytical-four.settings.get` | GET `/settings` | `analytical_four.view`（admin、manager、operator、audit） |
 | `analytical-four.status.get` | GET `/status` | 同上 |
+| `analytical-four.data.check` | GET `/data-check` | 同上 |
 | `analytical-four.runs.list` | GET `/runs` | 同上 |
 | `analytical-four.runs.get` | GET `/runs/{run_id}` | 同上 |
 | `analytical-four.results.list` | GET `/runs/{run_id}/results` | 同上 |
@@ -163,3 +166,51 @@ llm       { endpointSet: bool, apiKeyEnv }      不保存位址本身與金鑰
 這證實：回傳完整事件紀錄是這個 LLM 服務的實際契約，回饋以它為底的假設成立；回饋進案例庫確實改變下一次的診斷內容。
 
 已知風險與處理：轉接層原本在 Ollama 呼叫失敗時回 HTTP 200 加保底結果（已用不存在的模型名稱驗證），Kit 分辨不出失敗，`llm` 階段會顯示完成。同日已改轉接層（在 Analytical-Four 專案，未提交）：失敗、逾時或回應無法解析時回 HTTP 502。以不存在的模型名稱重測：轉接層回 502，Kit 的 `llm` 階段標為失敗，錯誤訊息為「LLM 服務回應 HTTP 502」，前面階段的結果檔保留。Analytical-Four 自己的 `main.py` 的 `analyze_with_llm()` 沒有檢查狀態碼，收到 502 的內容會當成回應收下；那是該專案的程式，這次未改。
+
+## 10. 欄位對照與資料檢查
+
+新場域的欄位名稱通常和引擎讀取的不同，而引擎遇到不合的資料常常是悄悄略過或悄悄退化。這一節的功能把它們變成事前的明確回報（動機與實驗見 `docs/analytical-four-site-onboarding.md`）。
+
+### 10.1 欄位對照
+
+`settings.json` 的 `columnMapping`：`{ 場域欄名: 引擎欄名 }`。每個 CSV（待分析資料、正常基準）讀進來後立刻改名，所以分析設定檔的 `feature` 一律寫改名後的名稱。需要對照的主要是引擎寫死的情境欄位：`P1.Machine_No.`、`P1.Material`、`Slitting machine`、`Winder number`、`Quality inspection`、`Quality control`、`P3.Machine_No.`，以及不良代碼欄位（`P3.NG_code`，observer 為 P2 時是 `P2.NG_code`）。數值特徵的名稱可以是任何名字，不必對照，但拓樸檔裡的特徵 `name` 要和（改名後的）欄名一致。
+
+規則：最多 200 筆；名稱不可空白、不可前後有空白、最長 100 字；兩個場域欄位不可對到同一個名稱（422）；對照後會與檔案裡已有的欄名重複則檢查報錯；對照中的欄位在某個檔案不存在只警告（不同檔案的欄位可以不同）。
+
+### 10.2 資料檢查
+
+`GET /data-check`（`analytical-four.data.check`）回傳 `{ ok, errors[], warnings[], summary }`，每項有 `layer`、`code`、`message`。啟動分析時會先做同一個檢查：有 error 回 409 並列出原因，不啟動；warning 存進該次執行紀錄的 `warnings`。檢查不寫任何檔案。
+
+| 嚴重度 | code | 內容 |
+|---|---|---|
+| error | `observer`、`method`、`serializer`、`observer-group` | 引擎會悄悄改用預設值的設定，或 observer 指向不存在的特徵組 |
+| error | `target`、`categorical`、`numeric` | 缺目標欄位、缺設定的類別欄位（一次列出全部）、數值特徵一個也找不到 |
+| error | `not-numeric` | 數值欄位有文字（指出欄位與例子；CSV 讀入時 `n/a`、空字串等已被視為空值，不算文字） |
+| error | `id-duplicate` | 會變成事件的列（客訴模式為全部待分析列，每日模式為待查組）ID 重複，引擎會把它們合併 |
+| error | `baseline-empty-cells`、`baseline-missing-feature`、`baseline-rows` | 客訴模式的基準不會被引擎清理，有空值會讓 PCA 失敗（指出欄位與筆數）；基準缺待分析資料有的特徵；基準少於 2 列 |
+| error | `target-groups` | 每日模式清理後目標欄位少於 2 種值 |
+| error | `ng-column`、`known-base` | 每日模式 B 層缺不良代碼欄位；客訴模式 B 層的不良特徵分布庫不存在或是空的 |
+| error | `case-json`、`mapping-collision`、`cleaning`、`csv`、`config` | 案例檔有無效 JSON 行、對照造成重複欄名、清理後沒有資料、CSV 無法讀取、設定無法使用 |
+| warning | `rows-dropped` | 清理（刪除含空值的列）會刪掉幾列，哪些欄位有空值 |
+| warning | `numeric-missing`、`id-missing` | 部分數值特徵不在資料中；沒有 ID 欄位（以列號識別） |
+| warning | `baseline-small`、`baseline-constant` | 基準列數不多於特徵數；基準中整欄同一個值 |
+| warning | `target-extra-groups` | 每日模式目標欄位多於兩種值，只用最小的兩組 |
+| warning | `ng-labels` | 每日模式待查樣本沒有任何有效不良代碼，分布庫會是空的 |
+| warning | `context-missing` | 事件情境欄位不在資料中或沒列入設定的類別欄位（B、C 層會退化） |
+| warning | `topology-unmatched`、`topology-uncovered`、`topology-format` | 拓樸特徵名稱不是欄名（會被略過）；數值特徵不在拓樸中；拓樸結構不符 |
+| warning | `sop-fields` | SOP 檔有列的欄位數與標題列不同（常見為欄位內含逗號） |
+| warning | `mapping-unused` | 對照中的欄位在該檔案不存在 |
+
+`summary` 含欄位數、列數、清理後列數；每日模式另有 `sampleGroup`、`baselineGroup`、`sampleRows`、`baselineRows`，也就是目標欄位的哪個值被當成待查、哪個值被當成基準（較小的值是待查，顛倒時整個結果會反過來，所以明講）。
+
+### 10.3 執行紀錄的 `warnings`
+
+`status.json` 多一個 `warnings`：啟動時檢查留下的警告，加上執行中引擎自己做了、使用者沒要求的事（目前是清理刪除的列數，`code` 為 `run-note`）。
+
+### 10.4 限制
+
+- 最少列數沒有固定標準：只擋 2 列以下（無法算標準差），基準列數不多於特徵數時警告；3 列的基準在實驗中仍然「成功」，檢查不會替你判斷統計意義。
+- 檢查在每次啟動與每次呼叫 `/data-check` 時讀整個 CSV；很大的檔案會慢，狀態檢查（`/status`）不做資料檢查。
+- 沒有上傳介面：檔案仍由部署端放入資料目錄。
+- 檢查只涵蓋 UT 序列化器與現有引擎的假設；換序列化器需要重寫對應檢查。
+- 引擎本身的行為沒有改（清理仍會刪除含空值的列），只是現在會說出來。

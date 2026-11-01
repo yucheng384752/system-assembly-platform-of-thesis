@@ -76,6 +76,11 @@
         "capability": "analytical-four.library.versions",
         "method": "GET",
         "path": "/api/analytical-four/library/versions"
+      },
+      {
+        "capability": "analytical-four.data.check",
+        "method": "GET",
+        "path": "/api/analytical-four/data-check"
       }
     ]
   },
@@ -134,6 +139,11 @@
           "capability": "analytical-four.library.versions",
           "method": "GET",
           "path": "/api/analytical-four/library/versions"
+        },
+        {
+          "capability": "analytical-four.data.check",
+          "method": "GET",
+          "path": "/api/analytical-four/data-check"
         }
       ]
     },

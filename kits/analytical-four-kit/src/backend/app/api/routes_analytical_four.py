@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import ValidationError
 
 from app.analytical_four.feedback import FeedbackError, FeedbackStore
+from app.analytical_four.data_checks import inspect
 from app.analytical_four.runs import RunError, RunStore, problems_as_json
 from app.analytical_four.seed_demo import seed
 from app.analytical_four.settings import Settings, SettingsError, data_dir, load_settings, readiness, save_settings
@@ -91,6 +92,12 @@ def get_status(request: Request):
     settings = settings_or_422()
     return {'enabledLayers': settings.enabled(), 'mode': settings.mode, 'llmEndpointSet': bool(settings.llm.endpoint),
             'activeRun': store().active, 'readiness': problems_as_json(readiness(settings))}
+
+
+@router.get('/api/analytical-four/data-check')
+def check_data(request: Request):
+    actor_id(request)
+    return inspect(settings_or_422()).as_json()
 
 
 @router.post('/api/analytical-four/demo', status_code=201)
