@@ -112,7 +112,7 @@ llm       { endpointSet: bool, apiKeyEnv }      不保存位址本身與金鑰
 
 - 容器映像未建置；依賴固定版本（pandas 2.2.3、numpy 2.1.3 為系統包既有，其餘見 `requirements.txt`）只在 Windows、Python 3.10 的測試環境以相同版本驗證過，Linux、Python 3.12 未驗證。
 - 預設向量模型 `intfloat/multilingual-e5-large-instruct` 未在測試中載入（需下載約數 GB）；測試與示範用 `builtin-hash`，只比對字詞。
-- 真實 LLM 服務未連線；測試用本機假服務，驗證請求內容、逾時與錯誤處理。
+- 真實 LLM 服務：2026-11-01 以本機 Ollama（qwen3:14b）經 Analytical-Four 的 `local_llm_server.py` 轉接層驗證過一輪（未修改該轉接層，只綁定回送位址），見第 9 節；自動化測試仍用本機假服務。公司內的實際 LLM 服務未連線。
 - 引擎本身仍有未改的行為：序列化器把單一事件的失敗寫入事件而不丟例外（已由 `diagnostic_stage` 檢查）、不良診斷輸出大量 print、向量庫只以筆數判斷是否重建。
 - 單一行程單一執行；多個 worker 同時服務時，執行互斥只在行程內有效（系統包的容器為單一 worker）。
 - 推論品質只用合成資料驗證了「不良代碼推估能還原資料中植入的缺陷」，沒有真實資料的準確度數字。
@@ -147,3 +147,17 @@ llm       { endpointSet: bool, apiKeyEnv }      不保存位址本身與金鑰
 - LLM 服務若回傳完整填寫的事件紀錄，回饋會以它為底；否則以搜尋關鍵紀錄為底。真實 LLM 服務的回傳格式未驗證。
 - 兩個案例檔的替換各自是原子的，兩個檔之間不是；因此發布時禁止分析進行。
 - 單一行程內以鎖保護；多個 worker 同時發布不受保護（系統包為單一 worker）。
+
+## 9. 以本機 LLM 的實測（2026-11-01）
+
+環境：Ollama 的 qwen3:14b，Analytical-Four 的 `local_llm_server.py`（`POST /diagnose`，回傳完整事件紀錄，只改寫 `llm_analysis` 與 `conclusion`）。Kit 設定 `llm.endpoint` 指向它，`timeoutSeconds` 600，示範資料，客訴模式，A、B、C 全開。
+
+| 項目 | 結果 |
+|---|---|
+| 第一輪（案例庫為空） | 成功，6 筆事件約 100 秒；6 筆回應都是模型產生的審核意見，無保底結果；模型引用了 SOP 條目，並指出沒有歷史案例可參考 |
+| 對 6 筆事件提交確認結果並發布案例庫 v0001 | 成功；案例紀錄帶有模型的審核意見，`confirmed_by` 為提交者 |
+| 第二輪 | 成功，約 36 秒；相似案例被帶進請求，模型引用歷史案例編號，`case_agreement` 為 true，信心度 high，不需人工 |
+
+這證實：回傳完整事件紀錄是這個 LLM 服務的實際契約，回饋以它為底的假設成立；回饋進案例庫確實改變下一次的診斷內容。
+
+已知風險：轉接層在 Ollama 呼叫失敗時回傳 HTTP 200 與保底結果（`llm_analysis.uncertainty` 寫明失敗、`conclusion.confidence` 為 low、`needs_human` 為 true），已用不存在的模型名稱驗證。Kit 無法由回應格式分辨這是失敗，這次分析會顯示 `llm` 階段完成。建議轉接層改回 5xx，Kit 就會把該階段標為失敗；在那之前，請以 `needs_human` 與 `uncertainty` 判讀。這個修改在 Analytical-Four 專案，未動。
