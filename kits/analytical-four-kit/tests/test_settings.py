@@ -87,3 +87,22 @@ def test_save_and_load_round_trip(tmp_path):
     s = make(llm={'endpoint': 'http://host/x', 'timeoutSeconds': 45})
     save_settings(s, tmp_path)
     assert load_settings(tmp_path) == s
+
+
+def test_atomic_replace_waits_out_a_reader_instead_of_failing(tmp_path, monkeypatch):
+    # On Windows a status poll that has the file open makes os.replace raise PermissionError for a moment.
+    import os
+    from app.analytical_four import settings as module
+    real, attempts = os.replace, {'n': 0}
+
+    def flaky(source, target):
+        attempts['n'] += 1
+        if attempts['n'] < 4:
+            raise PermissionError('in use')
+        return real(source, target)
+
+    monkeypatch.setattr(module.os, 'replace', flaky)
+    (tmp_path / 'a.tmp').write_text('new', encoding='utf-8')
+    (tmp_path / 'a').write_text('old', encoding='utf-8')
+    module.atomic_replace(tmp_path / 'a.tmp', tmp_path / 'a')
+    assert (tmp_path / 'a').read_text(encoding='utf-8') == 'new' and attempts['n'] == 4

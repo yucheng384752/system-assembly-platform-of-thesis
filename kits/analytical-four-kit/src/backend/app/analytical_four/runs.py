@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 
 from app.analytical_four.pipeline import Analytical_Four_System, PipelineError
 from app.analytical_four.settings import (
-    Problem, Settings, SettingsError, data_dir, derive_config, readiness,
+    Problem, Settings, SettingsError, atomic_replace, data_dir, derive_config, readiness,
 )
 
 log = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ def _now() -> str:
 def _write_json(path: Path, value: Any) -> None:
     temporary = path.with_suffix(path.suffix + '.tmp')
     temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding='utf-8')
-    os.replace(temporary, path)
+    atomic_replace(temporary, path)
 
 
 class RunStore:

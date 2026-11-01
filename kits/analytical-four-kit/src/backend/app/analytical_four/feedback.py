@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from app.analytical_four.runs import RunError, RunStore
-from app.analytical_four.settings import Settings, SettingsError, derive_config
+from app.analytical_four.settings import Settings, SettingsError, atomic_replace, derive_config
 
 NG_CODE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_-]{0,49}$')
 FEEDBACK_ID = re.compile(r'^[0-9a-f]{16}$')
@@ -75,7 +75,7 @@ def _replace(path: Path, rows: List[Dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + '.tmp')
     _write_jsonl(temporary, rows)
-    os.replace(temporary, path)
+    atomic_replace(temporary, path)
 
 
 def text_field(value: Any, label: str, required: bool = False) -> str:

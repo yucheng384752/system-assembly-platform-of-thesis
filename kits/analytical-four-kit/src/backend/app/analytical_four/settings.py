@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Literal
@@ -31,6 +32,19 @@ PATH_FIELDS = (
 
 class SettingsError(Exception):
     """The settings or the analysis configuration cannot be used. The message is for the operator."""
+
+
+def atomic_replace(source: Path, target: Path) -> None:
+    """os.replace that waits out a reader. On Windows the target cannot be replaced while another thread has it open
+    (a status poll reading the file), which is a moment, not an error; elsewhere the first attempt succeeds."""
+    for attempt in range(40):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if attempt == 39:
+                raise
+            time.sleep(0.05)
 
 
 def data_dir() -> Path:
@@ -119,7 +133,7 @@ def save_settings(settings: Settings, root: Path | None = None) -> None:
     target = root / SETTINGS_FILE
     temporary = root / f'{SETTINGS_FILE}.tmp'
     temporary.write_text(settings.model_dump_json(indent=2), encoding='utf-8')
-    os.replace(temporary, target)
+    atomic_replace(temporary, target)
 
 
 def read_analysis_config(settings: Settings, root: Path | None = None) -> Dict[str, Any]:
