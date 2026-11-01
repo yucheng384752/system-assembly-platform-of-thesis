@@ -795,6 +795,8 @@ class Analytical_Four_System:
             response = requests.post(self.llm_api, json=payload, headers=headers, timeout=self.llm_timeout)
             response.raise_for_status()
             return response.json()
+        except requests.HTTPError as error:
+            raise PipelineError(f"LLM 服務回應 HTTP {error.response.status_code}") from error
         except requests.RequestException as error:
             raise PipelineError(f"LLM 服務呼叫失敗：{type(error).__name__}") from error
         except ValueError as error:

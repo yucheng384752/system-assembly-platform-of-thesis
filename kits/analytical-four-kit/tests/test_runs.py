@@ -113,7 +113,7 @@ def test_llm_error_status_fails_the_llm_stage_without_hiding_earlier_results(cli
         llm={'endpoint': llm.url, 'timeoutSeconds': 30, 'apiKeyEnv': ''})
     record = run_and_wait(client)
     assert record['state'] == 'failed' and record['error']['stage'] == 'llm'
-    assert 'LLM 服務呼叫失敗' in record['error']['message']
+    assert record['error']['message'] == 'LLM 服務回應 HTTP 500'  # the status code is what tells an operator the service, not the network, said no
     assert stages(record)['similarity'] == 'done'
     assert 'LLM_responses.json' not in client.get(f'{API}/runs/{record["runId"]}/results').json()['results']
 
