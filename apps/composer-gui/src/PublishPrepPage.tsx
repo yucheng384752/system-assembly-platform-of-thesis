@@ -71,7 +71,7 @@ export function PublishPrepPage({ graph, details, forms }: { graph: AovGraphDocu
     <Column id="publish-notes" title="說明" scroll>
       <p>計畫檔產生後內容不會再改變；同一份流程與設定每次產生的結果相同。要修改請回到前面的步驟，再重新產生並提高版本。</p>
       <p>領料、入庫與出庫目前沒有對應的系統功能，產生的計畫會把這些節點標為不可執行。</p>
-      <p>設定保留在本次工作階段，尚未納入設定交付包。</p>
+      <p>節點細項與表單庫會放進設定交付包，也可以在「輸出」的「進階」個別下載。</p>
     </Column>
     </div></div>
   </main>;

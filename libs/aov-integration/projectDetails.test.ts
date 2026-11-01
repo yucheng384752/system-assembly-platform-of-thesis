@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkProjectDetails, emptyProjectDetails, materialTypeId, type ProjectDetails } from './projectDetails';
+import { checkProjectDetails, emptyProjectDetails, exportProjectDetails, isEmptyProjectDetails, materialTypeId, orphanNodeIds, parseProjectDetails, type ProjectDetails } from './projectDetails';
 
 const details = (patch: Partial<ProjectDetails> = {}): ProjectDetails => ({
   ...emptyProjectDetails,
@@ -57,5 +57,26 @@ describe('專案細項檔：物料型別與節點的物料流設定', () => {
     for (const raw of [null, [], {}, { ...emptyProjectDetails, version: 2 }, { ...emptyProjectDetails, materials: {} }, { ...emptyProjectDetails, nodes: { a: 5 } }]) {
       expect(checkProjectDetails(raw).length, JSON.stringify(raw)).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('專案細項檔的輸出與載入', () => {
+  it('輸出再載入得到相同內容；載入含 BOM 的檔案也可以', () => {
+    const text = exportProjectDetails(details());
+    expect(parseProjectDetails(text)).toEqual({ ok: true, details: details() });
+    expect(parseProjectDetails('﻿' + text).ok).toBe(true);
+    expect(exportProjectDetails(details())).toBe(text); // the same session always writes the same bytes
+  });
+  it('有問題的檔案整份拒絕並說明原因，不是只載入一部分', () => {
+    const bad = JSON.stringify({ ...details(), nodes: { n1: { kind: 'pick', location: '倉', material: 'ghost' } } });
+    const result = parseProjectDetails(bad);
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.errors).toHaveLength(2);
+    expect(parseProjectDetails('{oops')).toEqual({ ok: false, errors: ['專案細項檔必須是有效的 JSON。'] });
+  });
+  it('空的細項不需要放進交付包；指向已不在流程裡的節點會被列出', () => {
+    expect(isEmptyProjectDetails(emptyProjectDetails)).toBe(true);
+    expect(isEmptyProjectDetails(details())).toBe(false);
+    expect(orphanNodeIds(details(), new Set(['n1']))).toEqual(['n2']);
   });
 });

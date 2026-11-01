@@ -83,3 +83,21 @@ export function checkProjectDetails(raw: unknown): DetailIssue[] {
   for (const [nodeId, behavior] of Object.entries(raw.nodes)) issues.push(...checkBehavior(nodeId, behavior, keys));
   return issues;
 }
+
+export const PROJECT_DETAILS_FILE = 'project-details.json';
+export const isEmptyProjectDetails = (details: ProjectDetails) => !details.materials.length && !Object.keys(details.nodes).length;
+export const exportProjectDetails = (details: ProjectDetails) => JSON.stringify(details, null, 2) + '\n';
+
+export type DetailsParse = { ok: true; details: ProjectDetails } | { ok: false; errors: string[] };
+/** A candidate only: the caller keeps what it has until the whole file passes. */
+export function parseProjectDetails(text: string): DetailsParse {
+  let raw: unknown;
+  try { raw = JSON.parse(text.replace(/^﻿/, '')); } catch { return { ok: false, errors: ['專案細項檔必須是有效的 JSON。'] }; }
+  const issues = checkProjectDetails(raw);
+  return issues.length ? { ok: false, errors: issues.map(i => i.message) } : { ok: true, details: raw as ProjectDetails };
+}
+
+/** Settings whose node is no longer on the canvas: kept in the file, but they describe nothing. */
+export function orphanNodeIds(details: ProjectDetails, nodeIds: Set<string>): string[] {
+  return Object.keys(details.nodes).filter(id => !nodeIds.has(id)).sort();
+}

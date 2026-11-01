@@ -65,3 +65,15 @@ export function checkFormLibrary(raw: unknown): LibraryIssue[] {
   }
   return issues;
 }
+
+export const FORM_LIBRARY_FILE = 'form-library.json';
+export const exportFormLibrary = (library: FormLibrary) => JSON.stringify(library, null, 2) + '\n';
+
+export type LibraryParse = { ok: true; library: FormLibrary } | { ok: false; errors: string[] };
+/** A candidate only: the caller keeps what it has until the whole file passes. */
+export function parseFormLibrary(text: string): LibraryParse {
+  let raw: unknown;
+  try { raw = JSON.parse(text.replace(/^﻿/, '')); } catch { return { ok: false, errors: ['表單庫檔案必須是有效的 JSON。'] }; }
+  const issues = checkFormLibrary(raw);
+  return issues.length ? { ok: false, errors: issues.map(i => i.message) } : { ok: true, library: raw as FormLibrary };
+}

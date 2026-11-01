@@ -65,7 +65,7 @@ export function App() {
       : step === 3 ? <ProductionPage recipe={recipe} onChange={setRecipe} graph={graph} /> : <OutputPage onLocate={issue => { const g = graph.graphs.find(g => g.id === issue.graphId || g.nodes.some(n => n.id === issue.nodeId)); setCanvasPath(g ? graphPath(graph, g.id) : []); setLocate(issue.nodeId ? { nodeId: issue.nodeId, fieldId: issue.fieldId, request: Date.now() } : undefined); navigate(0); }} site={site} siteConflict={conflict} onSiteChange={next => {
         setSite(next);
         setRecipe(previous => { const { siteRef: _siteRef, ...rest } = previous; return next ? { ...rest, siteRef: { path: 'site.profile.json', sha256: next.sha256 } } : rest; });
-      }} recipe={recipe} workflow={graph} selectedFlows={selection.selectedFlows} onChange={setRecipe} onImport={next => {
+      }} recipe={recipe} workflow={graph} selectedFlows={selection.selectedFlows} onChange={setRecipe} details={details} forms={formLibrary} onDetailsImport={setDetails} onFormsImport={setFormLibrary} onImport={next => {
         // Validate required flow membership before replacing any part of the session.
         const importedFlows = flows.filter(f => f.kits.every(id => next.enabledKits.includes(id))).map(f => f.id);
         const selection = selectKits(catalog.kits, importedFlows, [], flows, derivedIds);

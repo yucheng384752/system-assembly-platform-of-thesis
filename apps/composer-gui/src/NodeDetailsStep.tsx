@@ -1,7 +1,7 @@
 import { UNITS } from '../../../libs/aov-core';
 import { reportLogics } from '../../../libs/aov-integration/canvasToProject';
 import {
-  checkProjectDetails, MATERIAL_DIMENSIONS, SINK_DIRECTIONS, type MaterialDimension, type MaterialType, type NodeBehavior, type ProjectDetails, type SinkDirection,
+  checkProjectDetails, MATERIAL_DIMENSIONS, orphanNodeIds, SINK_DIRECTIONS, type MaterialDimension, type MaterialType, type NodeBehavior, type ProjectDetails, type SinkDirection,
 } from '../../../libs/aov-integration/projectDetails';
 import type { FormLibrary } from '../../../libs/aov-integration/formLibrary';
 import type { FormRequirement } from '../../../libs/aov-integration/formRequirement';
@@ -21,6 +21,7 @@ export function NodeDetailsStep({ graph, details, forms, onChange, onFormsChange
   graph: AovGraphDocument; details: ProjectDetails; forms: FormLibrary; onChange: (next: ProjectDetails) => void; onFormsChange: (next: FormLibrary) => void;
 }) {
   const issues = checkProjectDetails(details);
+  const orphans = orphanNodeIds(details, new Set(graph.graphs.flatMap(g => g.nodes.map(n => n.id))));
   const reports = reportLogics(graph, details, forms);
   const used = new Set(Object.values(details.nodes).map(b => b.material));
   const usedForms = new Set(Object.values(details.nodes).flatMap(b => b.kind === 'fill' && b.form ? [b.form] : []));
@@ -92,7 +93,8 @@ export function NodeDetailsStep({ graph, details, forms, onChange, onFormsChange
           {report.ok ? <p><Icon name="check" />可以轉成專案。</p> : <><p><Icon name="warning" />尚不能轉成專案：</p><ul>{report.issues.map((issue, i) => <li key={i}>{issue.message}</li>)}</ul></>}
         </div>)}
       </div>
-      <p>設定保留在本次工作階段，尚未納入設定交付包。</p>
+      {orphans.length > 0 && <p role="status"><Icon name="warning" />有 {orphans.length} 個設定對應的節點已不在目前的流程中（{orphans.join('、')}），轉成專案時不會用到。載入了別的流程的設定嗎？</p>}
+      <p>設定會放進設定交付包；也可以到「輸出」的「進階」個別下載與載入。重新整理頁面會清空，請先下載。</p>
     </Column>
   </div>;
 }

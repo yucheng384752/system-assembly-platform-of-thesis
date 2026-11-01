@@ -105,3 +105,9 @@ test('步驟條在「流程畫布」與「功能選配」之間多了「節點�
   fireEvent.click(screen.getByRole('button', { name: /02 節點細項/ }));
   expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('節點細項');
 });
+
+test('載入了別的流程的設定：對應的節點已不在流程中時，右側列出節點識別碼', () => {
+  render(<Harness initial={{ ...base, nodes: { n1: { kind: 'pick', location: 'wh.raw', material: 'ingot' }, gone: { kind: 'pick', location: 'wh.raw', material: 'ingot' } } }} />);
+  expect(screen.getByText(/有 1 個設定對應的節點已不在目前的流程中（gone）/)).toBeTruthy();
+});
+
