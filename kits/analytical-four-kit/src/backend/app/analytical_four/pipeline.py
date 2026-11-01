@@ -112,11 +112,18 @@ class Analytical_Four_System:
         self.llm_timeout = 120
         self.llm_api_key = None
         self.missing_features: List[str] = []
+        # Site column name -> engine column name, applied to every CSV right after it is read (settings.columnMapping).
+        self.column_mapping: Dict[str, str] = {}
+        # Things the run changed without being asked, e.g. rows dropped by cleaning; the runner copies them into the run record.
+        self.notes: List[str] = []
 
     def read_data(
         self, manager: Union[CSVDataManager, JSONDataManager], data_path: str
     ) -> Tuple[pd.DataFrame, pd.DataFrame, dict, dict]:
-        return manager.load(input_path=data_path)["data"]
+        loaded = manager.load(input_path=data_path)["data"]
+        if self.column_mapping and isinstance(loaded, pd.DataFrame):
+            loaded = loaded.rename(columns={site: engine for site, engine in self.column_mapping.items() if site in loaded.columns})
+        return loaded
 
     def data_cleaning(self, data: pd.DataFrame) -> pd.DataFrame:
         data = self.csv_data_manager.select(data, self.feature_list)["data"]
@@ -804,17 +811,25 @@ class Analytical_Four_System:
 
     # ---- Kit stage runner -------------------------------------------------------------------------------------------
 
+    def _note_dropped_rows(self, label: str, before: int, after: int) -> None:
+        if after < before:
+            self.notes.append(f"{label}有 {before - after} 列因含空值被刪除（{before} 列變 {after} 列）")
+
     def prepare_data(self) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """Returns (current_data, sample_data, baseline_data) the way main() builds them for each mode."""
         current_data = self.read_data(self.csv_data_manager, self.current_data_path)
         if self.target_feature not in current_data.columns:
             raise PipelineError(f"待分析資料沒有目標欄位「{self.target_feature}」")
         if self.mode == "daily":
+            rows_before = len(current_data)
             current_data = self.data_cleaning(current_data)
+            self._note_dropped_rows("待分析資料", rows_before, len(current_data))
             sample_data, baseline_data = self.data_splitting(current_data)
         elif self.mode == "complain":
             baseline_data = self.read_data(self.csv_data_manager, self.descriptive_baseline_path)
+            rows_before = len(current_data)
             current_data = self.data_cleaning(current_data)
+            self._note_dropped_rows("待分析資料", rows_before, len(current_data))
             baseline_data = self.align_features(baseline_data, current_data)
             sample_data = current_data
         else:

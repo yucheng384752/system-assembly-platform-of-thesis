@@ -9,11 +9,12 @@ sources:
   - kits/analytical-four-kit/src/backend/app/analytical_four/settings.py
   - kits/analytical-four-kit/src/backend/app/analytical_four/runs.py
   - kits/analytical-four-kit/src/backend/app/analytical_four/feedback.py
+  - kits/analytical-four-kit/src/backend/app/analytical_four/data_checks.py
 ---
 
 ## 用途
 
-app/analytical_four/ 內含：engine（自 Analytical-Four 複製的分析程式，匯入路徑改為本 Kit 套件）、pipeline.py（原 main.py 的方法本體，加上階段方法）、settings.py（設定與就緒檢查）、runs.py（背景執行與執行紀錄）、offline_vectors.py（不需下載模型的向量建構器）、feedback.py（回饋、核可、案例庫版本）、seed_demo.py 與 demo_data/。路由在 app/api/routes_analytical_four.py。
+app/analytical_four/ 內含：engine（自 Analytical-Four 複製的分析程式，匯入路徑改為本 Kit 套件）、pipeline.py（原 main.py 的方法本體，加上階段方法）、settings.py（設定與就緒檢查）、runs.py（背景執行與執行紀錄）、offline_vectors.py（不需下載模型的向量建構器）、feedback.py（回饋、核可、案例庫版本）、data_checks.py（啟動前的資料檢查與欄位對照，不寫任何檔案）、seed_demo.py 與 demo_data/。路由在 app/api/routes_analytical_four.py。
 
 ## 前置條件
 

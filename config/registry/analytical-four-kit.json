@@ -2,7 +2,7 @@
   "format": "composer-kit-registry",
   "version": 1,
   "kitId": "analytical-four-kit",
-  "scope": "登錄製造數據分析的 15 個路由：設定、就緒檢查、示範資料、啟動與查看分析、取得結果、回饋與案例庫版本。分析本身是背景執行，階段對應引擎的 pipeline 方法。",
+  "scope": "登錄製造數據分析的 16 個路由：設定、就緒檢查、示範資料、啟動與查看分析、取得結果、回饋與案例庫版本。分析本身是背景執行，階段對應引擎的 pipeline 方法。",
   "capabilities": [
     {
       "id": "analytical-four.settings.get",
@@ -37,6 +37,18 @@
       "implementedBy": {
         "kitId": "analytical-four-kit",
         "mService": "analytical-four-status-get"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.data.check",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytical-four/data-check",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-data-check"
       },
       "verified": true
     },
@@ -246,6 +258,25 @@
       ],
       "functions": [
         "analytical-four-status-get"
+      ],
+      "failure": "401 未登入；422 settings.json 無法使用"
+    },
+    {
+      "id": "analytical-four-data-check",
+      "name": "檢查資料檔與欄位對照",
+      "responsibility": "檢查資料檔與欄位對照",
+      "provides": [
+        "analytical-four.data.check"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "report",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-data-check"
       ],
       "failure": "401 未登入；422 settings.json 無法使用"
     },
@@ -632,6 +663,25 @@
       "source": {
         "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
         "symbol": "get_status"
+      }
+    },
+    {
+      "id": "analytical-four-data-check",
+      "primitive": "analytical-four-data-check",
+      "input": [],
+      "output": [
+        {
+          "name": "report",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；422 settings.json 無法使用"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "check_data"
       }
     },
     {

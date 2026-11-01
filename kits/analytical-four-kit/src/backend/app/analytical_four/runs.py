@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from app.analytical_four.data_checks import inspect
 from app.analytical_four.pipeline import Analytical_Four_System, PipelineError
 from app.analytical_four.settings import (
     Problem, Settings, SettingsError, atomic_replace, data_dir, derive_config, readiness,
@@ -113,6 +114,9 @@ class RunStore:
         blocked = [p for layer in problems.values() for p in layer]
         if blocked:
             raise RunError(409, '尚有項目未就緒：' + '；'.join(p.message for p in blocked))
+        report = inspect(settings)
+        if report.errors:
+            raise RunError(409, '資料檢查未通過：' + '；'.join(f.message for f in report.errors))
         with self.lock:
             if self.active is not None:
                 raise RunError(409, f'分析 {self.active} 仍在執行，請等它結束')
@@ -128,6 +132,8 @@ class RunStore:
             record = {
                 'runId': run_id, 'state': 'queued', 'createdAt': _now(), 'startedAt': None, 'finishedAt': None,
                 'createdBy': actor, 'mode': settings.mode, 'layers': settings.layers.model_dump(), 'stages': stages, 'error': None,
+                # What the check found that did not stop the run, and what the run itself changed (rows dropped, ...).
+                'warnings': [f.as_json() for f in report.warnings],
                 # What the run used, without the secret: whether an address was set and which variable holds the key.
                 'llm': {'endpointSet': bool(settings.llm.endpoint), 'apiKeyEnv': settings.llm.apiKeyEnv},
             }
@@ -166,6 +172,7 @@ class RunStore:
             if manager.load_config() is None:
                 raise PipelineError('分析設定檔無法載入')
             system = Analytical_Four_System(manager)
+            system.column_mapping = dict(settings.columnMapping)
             system.llm_timeout = settings.llm.timeoutSeconds
             system.llm_api_key = os.environ.get(settings.llm.apiKeyEnv) if settings.llm.apiKeyEnv else None
             out = (directory / 'results').as_posix() + '/'
@@ -185,6 +192,8 @@ class RunStore:
                     'read-data', system.prepare_data,
                     lambda v: f'待分析 {len(v[1])} 筆，基準 {len(v[2])} 筆'
                               + (f'；{len(system.missing_features)} 個設定的數值特徵在資料中找不到' if system.missing_features else ''))
+                if system.notes:
+                    self._update(run_id, lambda r: r['warnings'].extend({'layer': 'a', 'code': 'run-note', 'message': n} for n in system.notes))
                 compare = stage('descriptive', lambda: system.descriptive_stage(current_data, sample, baseline, out))
                 events = stage('diagnostic', lambda: system.diagnostic_stage(sample, baseline, compare, out), lambda v: f'事件 {len(v)} 件')
             ng_results: Dict[str, Any] = {}

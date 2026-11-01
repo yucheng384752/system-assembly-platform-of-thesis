@@ -87,10 +87,28 @@ class Settings(BaseModel):
     mode: Literal['daily', 'complain'] = 'daily'
     analysisConfig: str = Field(default='config/analysis_config.json', min_length=1, max_length=200)
     llm: Llm = Field(default_factory=Llm)
+    # Site column name -> the name the analysis configuration and the engine use. Applied to every CSV right after it is read.
+    columnMapping: Dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode='after')
+    def mapping_is_one_to_one(self):
+        if len(self.columnMapping) > 200:
+            raise ValueError('欄位對照最多 200 筆')
+        for site, engine in self.columnMapping.items():
+            for name in (site, engine):
+                if not name.strip() or name != name.strip() or len(name) > 100:
+                    raise ValueError('欄位對照的欄名不可空白、不可前後有空白、最長 100 字')
+        targets = list(self.columnMapping.values())
+        duplicated = sorted({x for x in targets if targets.count(x) > 1})
+        if duplicated:
+            raise ValueError(f'欄位對照有多個欄位對到同一個名稱：{"、".join(duplicated)}')
+        return self
 
     @model_validator(mode='after')
     def layers_are_consistent(self):
         on = self.layers
+        if not (on.a or on.b or on.c):
+            raise ValueError('至少要啟用一個分析層級')
         if on.b and not on.a:
             raise ValueError('B 層（不良類型診斷）需要先啟用 A 層')
         if on.c and not on.a:
