@@ -13,7 +13,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from app.factory_api.deploy import deployed_environment, evaluator_for, make_engine, open_state
+from app.factory_api.deploy import deployed_environment, evaluator_for, load_packaged_forms, make_engine, open_state
 from app.factory_api.support import (MAX_FORM_BYTES, MAX_PLAN_BYTES, AcknowledgeBody, Actor, AlarmBody, DecisionBody, Environment, OrderBody,
                                  ProposeBody, _alarm, _decision, _form, _order, _set, actor, guarded, utc_now)
 from app.factory_core.alarms import AlarmService
@@ -164,7 +164,9 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[3]
 
 @lru_cache(maxsize=1)
 def _state() -> FactoryState:
-    return open_state(make_engine(os.environ["DATABASE_URL"]))
+    state = open_state(make_engine(os.environ["DATABASE_URL"]))
+    load_packaged_forms(state, PACKAGE_ROOT, utc_now())  # raises when the package's forms are bad: better a loud start than orders that cannot be created
+    return state
 
 
 @lru_cache(maxsize=1)

@@ -50,9 +50,12 @@ const factoryInit = `    # factory-core-kit: tables and append-only guards (Alem
 const evaluatorStage = 'FROM node:22.12.0-bookworm-slim AS evaluator-node\n';
 const evaluatorCopy = 'COPY --from=evaluator-node /usr/local/bin/node /usr/local/bin/node\nCOPY evaluator/ /system/evaluator/\n';
 
-/** @param {string} kits @param {string[]} selected @param {string[]} sources
+// Forms ride in the package as forms/<hash>.json and are registered by the factory on start (factory_api.deploy.load_packaged_forms).
+const formsCopy = 'COPY forms/ /system/forms/\n';
+
+/** @param {string} kits @param {string[]} selected @param {string[]} sources @param {{forms?: boolean}} [options]
  * @returns {Promise<Map<string, string>>} */
-export async function deploymentArtifacts(kits, selected, sources) {
+export async function deploymentArtifacts(kits, selected, sources, { forms = false } = {}) {
   const webhook = selected.includes('mod-subscription-kit');
   const factory = selected.includes('factory-core-kit');
   const routers = sources.filter(n => /^app\/api\/routes_[^/]+\.py$/.test(n)).sort().map(name => {
@@ -74,6 +77,7 @@ export async function deploymentArtifacts(kits, selected, sources) {
       .replaceAll('@@FACTORY_INIT@@\n', factory ? factoryInit : '')
       .replaceAll('@@EVALUATOR_NODE@@\n', factory ? evaluatorStage : '')
       .replaceAll('@@EVALUATOR_COPY@@\n', factory ? evaluatorCopy : '')
+      .replaceAll('@@FORMS_COPY@@\n', forms ? formsCopy : '')
       .replaceAll('@@WEBHOOK_ENV@@', webhook ? '      MOD_WEBHOOK_SECRET: ${MOD_WEBHOOK_SECRET:?MOD_WEBHOOK_SECRET is required}\n' : '')
       .replaceAll('@@WEBHOOK_EXAMPLE@@', webhook ? '# MOD_WEBHOOK_SECRET: required external MOD webhook shared secret\nMOD_WEBHOOK_SECRET=\n' : ''));
   }

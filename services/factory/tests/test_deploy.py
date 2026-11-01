@@ -8,12 +8,63 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from unittest import mock
 
 from evaluator_support import NODE, fake, real_command
-from fixtures import PLAN_DIR, load, text
+from fixtures import FORM_UPLOAD, NOW, PLAN_DIR, load, text
 from sqlalchemy import create_engine, inspect
 
-from factory_api.deploy import deployed_environment, evaluator_for, init_schema, open_state, sync_database_url
+from factory_api.deploy import PackagedFormError, deployed_environment, evaluator_for, init_schema, load_packaged_forms, open_state, sync_database_url
 from factory_core.evaluator import Evaluator
 from factory_core.plan import PlanRejected
+from factory_core.store import MemoryStore
+from factory_core.workorder import FactoryState
+
+
+class PackagedFormTests(unittest.TestCase):
+    """Forms ride in the system package as `forms/<hash>.json`, each exactly an upload body, and are registered on start."""
+
+    def setUp(self):
+        self.root = tempfile.TemporaryDirectory()
+        self.addCleanup(self.root.cleanup)
+        self.directory = Path(self.root.name) / 'forms'
+        self.state = FactoryState(MemoryStore())
+        self.form_hash = load('forms.json')['forms'][0]['contentSha256']
+
+    def ship(self, name, body):
+        self.directory.mkdir(exist_ok=True)
+        (self.directory / name).write_text(body, encoding='utf-8')
+
+    def test_a_package_without_forms_registers_nothing_and_is_not_an_error(self):
+        self.assertEqual(load_packaged_forms(self.state, Path(self.root.name), NOW), [])
+        self.assertEqual(set(self.state.store.form_hashes()), set())
+
+    def test_a_shipped_form_is_registered_under_the_system_package_and_a_restart_changes_nothing(self):
+        self.ship(f'{self.form_hash}.json', FORM_UPLOAD)
+        self.assertEqual(load_packaged_forms(self.state, Path(self.root.name), NOW), [self.form_hash])
+        record = self.state.store.get_form(self.form_hash)
+        self.assertEqual((record.uploaded_by, record.uploaded_at), ('system-package', NOW))
+        load_packaged_forms(self.state, Path(self.root.name), '2026-11-02T00:00:00Z')
+        self.assertEqual(self.state.store.get_form(self.form_hash).uploaded_at, NOW)  # the first registration stands
+
+    def test_a_form_that_does_not_prove_its_hash_is_never_registered_and_the_start_says_so(self):
+        tampered = FORM_UPLOAD.replace('"fields"', '"fields"', 1).replace(self.form_hash, '0' * 64)
+        self.ship(f'{"0" * 64}.json', tampered)
+        with self.assertRaisesRegex(PackagedFormError, 'form-hash-mismatch'):
+            load_packaged_forms(self.state, Path(self.root.name), NOW)
+        self.assertEqual(set(self.state.store.form_hashes()), set())
+
+    def test_a_file_named_for_another_hash_is_refused_so_the_package_listing_cannot_lie(self):
+        self.ship(f'{"1" * 64}.json', FORM_UPLOAD)
+        with self.assertRaisesRegex(PackagedFormError, 'file name must be the form hash'):
+            load_packaged_forms(self.state, Path(self.root.name), NOW)
+
+    def test_every_bad_file_is_reported_together_and_the_good_one_is_still_registered(self):
+        self.ship(f'{self.form_hash}.json', FORM_UPLOAD)
+        self.ship('broken.json', '{not json')
+        self.ship('empty.json', '{}')
+        with self.assertRaises(PackagedFormError) as raised:
+            load_packaged_forms(self.state, Path(self.root.name), NOW)
+        self.assertIn('broken.json', str(raised.exception))
+        self.assertIn('empty.json', str(raised.exception))
+        self.assertEqual(set(self.state.store.form_hashes()), {self.form_hash})
 
 
 class DeployTests(unittest.TestCase):

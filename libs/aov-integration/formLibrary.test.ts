@@ -22,6 +22,11 @@ describe('表單庫的檢查（表單獨立於流程）', () => {
     expect(checkFormLibrary(emptyFormLibrary satisfies FormLibrary)).toEqual([]);
   });
 
+  it('表單識別碼可含連字號（aov-core 與畫布都這樣編號），但不可數字開頭或含空白', () => {
+    expect(checkFormDef(form({ id: 'mix-record' }))).toEqual([]);
+    for (const id of ['1form', 'a b', '', '入庫單']) expect(codes(checkFormDef(form({ id })))).toEqual(['form-id']);
+  });
+
   it('欄位鍵必須是英文識別碼：中文鍵會讓計畫雜湊與運算式引用都不可靠', () => {
     const issues = checkFormDef(form({ fields: { '重量_實測值': { type: 'number' } } }));
     expect(codes(issues)).toEqual(['field-key']);

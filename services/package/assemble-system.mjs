@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { adapt, inventory, policyData, pythonCheck, directory as preview, repository } from '../preview/assemble.mjs';
 import { deploymentArtifacts, entryDirectory } from './deployment.mjs';
 import { bundleEvaluator } from '../evaluator/build.mjs';
+import { formEntries } from './forms.mjs';
 
 /** @typedef {(command: string, args: string[], options: import('node:child_process').SpawnSyncOptionsWithStringEncoding) =>
  * {status?: number | null, stdout?: string | Buffer | null, stderr?: string | Buffer | null, error?: Error}} Run */
@@ -60,9 +61,9 @@ export function scanExclusions(tree) {
 /** Assemble deployment artifacts without executing installation or network calls.
  * run is the same synchronous process boundary used by preview tests.
  * @param {string} output
- * @param {{recipe?: string, kits?: string, run?: Run}} [options]
+ * @param {{recipe?: string, kits?: string, run?: Run, forms?: string}} [options] forms: a Composer form bundle, carried into the package as forms/<hash>.json
  */
-export async function assembleSystem(output, { recipe: recipeFile, kits = path.join(repository, 'kits'), run = spawnSync } = {}) {
+export async function assembleSystem(output, { recipe: recipeFile, kits = path.join(repository, 'kits'), run = spawnSync, forms: formsFile } = {}) {
   if (!recipeFile) throw new Error('必須提供 Recipe 檔案');
   const recipe = await readJson(recipeFile);
   const all = await inventory(kits, null, systemExcluded);
@@ -119,10 +120,15 @@ export async function assembleSystem(output, { recipe: recipeFile, kits = path.j
     }
   }
   if (plan.included.includes('factory-core-kit')) put('evaluator/evaluator.cjs', await bundleEvaluator(), 'evaluator-bundle');
+  if (formsFile) {
+    // Only a factory loads forms; shipping them without one would be files nothing reads.
+    if (!plan.included.includes('factory-core-kit')) throw new Error('表單隨系統包帶出需要選用 factory-core-kit');
+    for (const [name, data] of await formEntries(formsFile)) put(name, data, 'form-definition');
+  }
   put('config/system.recipe.json', json(recipe), 'recipe');
   put('permissions/endpoint_permissions.json', await readFile(path.join(kits, 'platform-core-kit/src/backend/app/config/endpoint_permissions.json')), 'permission-declarations');
   put('permissions/entry_points.json', json(await entryDirectory(kits, plan.included)), 'permission-directory');
-  for (const [name, data] of await deploymentArtifacts(kits, plan.included, [...plan.sources.keys()])) {
+  for (const [name, data] of await deploymentArtifacts(kits, plan.included, [...plan.sources.keys()], { forms: Boolean(formsFile) })) {
     put(name, Buffer.from(data), name.startsWith('deployment/') ? 'deployment' : 'backend-entry');
   }
   put('database/migrations/plan.json', json({ status: 'not-provided', migrations: [], reason: '正式 migration 與執行流程待 WP3；不以 create_all 冒充 migration' }), 'migration-plan');
@@ -173,7 +179,9 @@ export async function assembleSystem(output, { recipe: recipeFile, kits = path.j
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    if (process.argv.length !== 5 || process.argv[3] !== '--recipe') throw new Error('用法：node services/package/assemble-system.mjs <新目錄> --recipe <檔案>');
-    await assembleSystem(path.resolve(process.argv[2]), { recipe: process.argv[4] });
+    const usage = '用法：node services/package/assemble-system.mjs <新目錄> --recipe <檔案> [--forms <表單檔包>]';
+    const [, , output, flag, recipe, formsFlag, forms, ...extra] = process.argv;
+    if (!output || flag !== '--recipe' || !recipe || extra.length || (formsFlag !== undefined && (formsFlag !== '--forms' || !forms))) throw new Error(usage);
+    await assembleSystem(path.resolve(output), { recipe, forms });
   } catch (error) { console.error(error instanceof Error ? error.message : error); process.exitCode = 1; }
 }
