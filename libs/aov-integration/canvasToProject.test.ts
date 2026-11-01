@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { compile, type ProjectMeta } from '../aov-core';
 import { emptyGraph, type AovGraphDocument, type GraphNode } from '../../apps/composer-gui/src/workflowGraph';
 import { convertCanvas, type ConvertResult } from './canvasToProject';
+import { buildExecutablePlan, validateExecutablePlan, verifyPlanId, type CapabilityMap } from './executablePlan';
 import { emptyProjectDetails, type NodeBehavior, type ProjectDetails } from './projectDetails';
 
 const node = (id: string, name: string, kind: GraphNode['kind'] = 'node', childGraphId: string | null = null): GraphNode =>
@@ -88,5 +89,53 @@ describe('畫布轉成 aov-core 專案檔（領料、入庫、出庫）', () => 
     expect(messages(run(simple, {}, { factoryId: 'zz' }))).toEqual(['找不到要轉換的生產邏輯。']);
     expect(messages(run(canvas([], []), {}))).toEqual(['這個生產邏輯還沒有任何節點。']);
     expect(messages(run(simple, { n1: { ...pick, material: 'ghost' }, n2: stockIn }))[0]).toContain('物料型別不存在');
+  });
+});
+
+describe('畫布到可執行計畫（端對端）', () => {
+  // Test data only: which Kit function a pick or a stock-in lands on is not decided yet.
+  const mapping: CapabilityMap = {
+    format: 'composer-action-capability-map', version: 1, entries: [],
+    categoryDefaults: [
+      { category: 'source', capability: 'test.work-step', kitId: 'test-kit', executor: 'manual' },
+      { category: 'sink', capability: 'test.work-step', kitId: 'test-kit', executor: 'manual' },
+    ],
+  };
+  const scope = { factoryId: 'f1', graphId: 'g1' };
+  const converted = (direction: 'stock-in' | 'ship-customer' | 'ship-external' = 'stock-in') => {
+    const r = run(simple, { n1: pick, n2: { ...stockIn, direction } });
+    if (!r.ok) throw new Error(messages(r).join('；'));
+    return { ...r.project, meta: { ...r.project.meta, status: 'published' as const } };
+  };
+
+  it('轉出的專案檔能建成計畫，通過計畫檔的結構檢查，planId 可重算', async () => {
+    const built = await buildExecutablePlan({ project: converted(), mapping, scope });
+    if (!built.ok) throw new Error(JSON.stringify(built.errors));
+    expect(validateExecutablePlan(built.plan)).toEqual([]);
+    expect(await verifyPlanId(built.plan)).toBe(true);
+    const nodes = (built.plan as Record<string, any>).nodes;
+    expect(nodes.map((n: any) => [n.nodeId, n.category, n.executable])).toEqual([['n1', 'source', true], ['n2', 'sink', true]]);
+  });
+
+  it('沒有 Kit 功能可對應的節點不會被當成可執行：缺少對應時計畫保留節點並標為不可執行', async () => {
+    const built = await buildExecutablePlan({ project: converted(), mapping: { ...mapping, categoryDefaults: [] }, scope });
+    if (!built.ok) throw new Error(JSON.stringify(built.errors));
+    const nodes = (built.plan as Record<string, any>).nodes;
+    expect(nodes.every((n: any) => n.executable === false)).toBe(true);
+  });
+
+  it('入庫與出庫的方向會改變計畫內容，因此得到不同的 planId', async () => {
+    const ids = await Promise.all((['stock-in', 'ship-customer', 'ship-external'] as const).map(async d => {
+      const built = await buildExecutablePlan({ project: converted(d), mapping, scope });
+      if (!built.ok) throw new Error(JSON.stringify(built.errors));
+      return built.plan.planId;
+    }));
+    expect(new Set(ids).size).toBe(3);
+  });
+
+  it('同一份畫布與細項轉兩次、建兩次得到相同的計畫', async () => {
+    const a = await buildExecutablePlan({ project: converted(), mapping, scope });
+    const b = await buildExecutablePlan({ project: converted(), mapping, scope });
+    expect(a).toEqual(b);
   });
 });
