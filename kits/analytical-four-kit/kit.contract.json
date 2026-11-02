@@ -91,6 +91,31 @@
         "capability": "analytical-four.templates.get",
         "method": "GET",
         "path": "/api/analytical-four/templates/{name}"
+      },
+      {
+        "capability": "analytical-four.uploads.create",
+        "method": "POST",
+        "path": "/api/analytical-four/uploads"
+      },
+      {
+        "capability": "analytical-four.uploads.list",
+        "method": "GET",
+        "path": "/api/analytical-four/uploads"
+      },
+      {
+        "capability": "analytical-four.uploads.get",
+        "method": "GET",
+        "path": "/api/analytical-four/uploads/{upload_id}"
+      },
+      {
+        "capability": "analytical-four.uploads.accept",
+        "method": "POST",
+        "path": "/api/analytical-four/uploads/{upload_id}/accept"
+      },
+      {
+        "capability": "analytical-four.uploads.discard",
+        "method": "DELETE",
+        "path": "/api/analytical-four/uploads/{upload_id}"
       }
     ]
   },
@@ -164,6 +189,16 @@
           "capability": "analytical-four.templates.get",
           "method": "GET",
           "path": "/api/analytical-four/templates/{name}"
+        },
+        {
+          "capability": "analytical-four.uploads.list",
+          "method": "GET",
+          "path": "/api/analytical-four/uploads"
+        },
+        {
+          "capability": "analytical-four.uploads.get",
+          "method": "GET",
+          "path": "/api/analytical-four/uploads/{upload_id}"
         }
       ]
     },
@@ -244,6 +279,32 @@
           "capability": "analytical-four.library.publish",
           "method": "POST",
           "path": "/api/analytical-four/library/publish"
+        }
+      ]
+    },
+    {
+      "key": "analytical_four.upload",
+      "label": "上傳檔案、接受或丟棄上傳",
+      "access": "write",
+      "defaultRoles": [
+        "admin",
+        "manager"
+      ],
+      "routes": [
+        {
+          "capability": "analytical-four.uploads.create",
+          "method": "POST",
+          "path": "/api/analytical-four/uploads"
+        },
+        {
+          "capability": "analytical-four.uploads.accept",
+          "method": "POST",
+          "path": "/api/analytical-four/uploads/{upload_id}/accept"
+        },
+        {
+          "capability": "analytical-four.uploads.discard",
+          "method": "DELETE",
+          "path": "/api/analytical-four/uploads/{upload_id}"
         }
       ]
     }

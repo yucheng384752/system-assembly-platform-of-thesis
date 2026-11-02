@@ -154,10 +154,11 @@ def save_settings(settings: Settings, root: Path | None = None) -> None:
     atomic_replace(temporary, target)
 
 
-def read_analysis_config(settings: Settings, root: Path | None = None) -> Dict[str, Any]:
-    """The analysis configuration exactly as stored, checked for the sections the engine cannot start without."""
+def read_analysis_config(settings: Settings, root: Path | None = None, config_file: Path | None = None) -> Dict[str, Any]:
+    """The analysis configuration exactly as stored (or the given file, e.g. an upload not yet accepted), checked for the
+    sections the engine cannot start without."""
     root = root or data_dir()
-    path = resolve_inside(root, settings.analysisConfig, '分析設定檔')
+    path = config_file or resolve_inside(root, settings.analysisConfig, '分析設定檔')
     if not path.is_file():
         raise SettingsError(f'找不到分析設定檔：{settings.analysisConfig}')
     try:
@@ -181,10 +182,10 @@ def read_analysis_config(settings: Settings, root: Path | None = None) -> Dict[s
     return config
 
 
-def derive_config(settings: Settings, root: Path | None = None) -> Dict[str, Any]:
+def derive_config(settings: Settings, root: Path | None = None, config_file: Path | None = None) -> Dict[str, Any]:
     """The configuration handed to the engine: absolute paths inside the data directory, the Kit's mode and LLM address."""
     root = root or data_dir()
-    config = read_analysis_config(settings, root)
+    config = read_analysis_config(settings, root, config_file)
     source = config['data_source']
     for section, key in PATH_FIELDS:
         value = source[section].get(key)

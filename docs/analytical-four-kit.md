@@ -244,3 +244,49 @@ llm       { endpointSet: bool, apiKeyEnv }      不保存位址本身與金鑰
 | 案例檔（C 層，客訴模式） | 某行不是 JSON；某筆缺相似案例搜尋讀取的欄位（`event_id`、`summary`、`diagnosis_results.score_breakdown`、`conclusion`、`feedback`），搜尋會在這筆失敗 | 無 |
 
 案例紀錄驗證與回饋匯入共用同一個函式。這一節之前，案例檔裡可解析但缺欄位的紀錄會讓相似案例階段以 `KeyError` 失敗；現在在啟動前指出檔案與行號。
+
+## 13. 上傳與驗證報告
+
+檔案先上傳到暫存區、出驗證報告，通過後才由人接受並放到分析讀取的位置。放入前不會動到資料目錄裡的任何檔案。
+
+### 13.1 資料模型
+
+`uploads/<upload_id>/`（`upload_id` 為 16 位十六進位）內有 `content`（原始位元組）與 `meta.json`：
+
+```
+uploadId, kind, filename（只是標籤，取最後一段並清掉控制字元，最長 100 字）, bytes, sha256, createdAt, createdBy
+status      staged | accepted | discarded
+target      接受後會放的位置（資料目錄內的相對路徑，由分析設定決定，不由上傳者決定）
+report      { ok, errors[], warnings[], otherIssues[], summary }
+acceptedAt, acceptedBy, replacedBackup（被取代的檔案備份在 uploads/replaced/<upload_id>-<檔名>）
+discardedAt, discardedBy
+```
+
+`kind` 與放置位置：`current-data`（`current_data.descriptive`）、`baseline-data`（`baseline_data.descriptive`）、`ng-code`、`topology`、`knowledge`（`rag_knowledge`）、`case-records`（`llm_records`）、`case-errors`（`llm_error_records`）、`analysis-config`（設定中的 `analysisConfig`）。分析設定沒有指定該類檔案的路徑時，報告列為 error。
+
+### 13.2 規則
+
+- **用該檔案自己的問題判斷。** 報告是把上傳檔當作已在位置上，跑完整的資料檢查（不論該層目前有沒有開）；每個發現都標示來自哪個輸入（`source`）。`errors` 與 `warnings` 只放這個檔案自己的；其他檔案的 error 放在 `otherIssues`，提醒要處理，但不擋這次上傳。這樣壞掉的基準不會擋住修好的待分析檔，反過來也一樣。
+- **有 error 的檔案不能接受（409）。** 接受時會重新驗證一次，因為這段時間資料集可能變了。
+- **取代既有檔案要明說。** 目標已存在時，`replace` 必須為 true（409 否則），原檔先備份到 `uploads/replaced/`。目標不存在時不需要 `replace`。
+- **分析進行中不能放入檔案（409）。**
+- **案例檔不能繞過版本。** 案例庫已有發布過的版本後，直接換 `case-records` 或 `case-errors` 會在下次發布時被最新版本蓋掉，所以拒絕（409），請改用匯入回饋。還沒有版本時可以放，它會成為第一個版本的起點。
+- **每次上傳只有一個決定**：接受或丟棄。丟棄會刪掉暫存的內容，只留 `meta.json`。
+- 單檔上限 100 MB，超過回 413 且不留半成品；空檔回 422；`kind` 不在清單回 422。
+
+### 13.3 介面
+
+| capability | 方法與路徑 | 入口（預設角色） |
+|---|---|---|
+| `analytical-four.uploads.create` | POST `/uploads?kind=&filename=`（本文為檔案位元組，201） | `analytical_four.upload`（admin、manager） |
+| `analytical-four.uploads.accept` | POST `/uploads/{upload_id}/accept`（`{ "replace": bool }`） | 同上 |
+| `analytical-four.uploads.discard` | DELETE `/uploads/{upload_id}` | 同上 |
+| `analytical-four.uploads.list` | GET `/uploads` | `analytical_four.view` |
+| `analytical-four.uploads.get` | GET `/uploads/{upload_id}` | 同上 |
+
+### 13.4 限制
+
+- 上傳是單次請求、整檔送出；沒有續傳。
+- 報告以目前的設定與資料目錄為準；欄位對照改了之後，已暫存的檔案接受時會依新設定重新驗證。
+- 暫存區不會自動清理；丟棄與備份都需要維運人員手動刪除舊檔。
+- 沒有檔案內容的病毒或巨集掃描；CSV 只是被當成資料讀取，不被執行。

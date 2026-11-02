@@ -9,12 +9,14 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import ValidationError
+from starlette.concurrency import run_in_threadpool
 
 from app.analytical_four.feedback import FeedbackError, FeedbackStore
 from app.analytical_four.data_checks import inspect
 from app.analytical_four.runs import RunError, RunStore, problems_as_json
 from app.analytical_four import templates_catalog
 from app.analytical_four.seed_demo import seed
+from app.analytical_four.uploads import UploadError, UploadStore
 from app.analytical_four.settings import Settings, SettingsError, data_dir, load_settings, readiness, save_settings
 
 router = APIRouter()
@@ -43,6 +45,19 @@ def _feedback(root: str) -> FeedbackStore:
 
 def feedback() -> FeedbackStore:
     return _feedback(str(data_dir()))
+
+
+@lru_cache(maxsize=4)
+def _uploads(root: str) -> UploadStore:
+    return UploadStore(Path(root), store(), feedback().versions)
+
+
+def uploads() -> UploadStore:
+    return _uploads(str(data_dir()))
+
+
+def rejected(error: UploadError) -> HTTPException:
+    return HTTPException(error.status, error.message)
 
 
 def actor_role(request: Request) -> str:
@@ -222,3 +237,55 @@ def library_versions(request: Request):
         return {'versions': feedback().versions()}
     except FeedbackError as error:
         raise refused(error) from error
+
+
+@router.post('/api/analytical-four/uploads', status_code=201)
+async def create_upload(request: Request, kind: str = Query(..., max_length=30), filename: str = Query('', max_length=200)):
+    who = actor_id(request)
+    settings = settings_or_422()
+    try:
+        upload_id, writer = uploads().begin(kind)
+        try:
+            async for chunk in request.stream():
+                writer.write(chunk)
+        except UploadError:
+            raise
+        except BaseException:
+            writer.abort()
+            raise
+        return await run_in_threadpool(uploads().finish, settings, upload_id, writer, kind, filename, who)
+    except UploadError as error:
+        raise rejected(error) from error
+
+
+@router.get('/api/analytical-four/uploads')
+def list_uploads(request: Request, limit: int = Query(50, ge=1, le=200)):
+    actor_id(request)
+    return {'uploads': uploads().list(limit)}
+
+
+@router.get('/api/analytical-four/uploads/{upload_id}')
+def get_upload(upload_id: str, request: Request):
+    actor_id(request)
+    try:
+        return uploads().get(upload_id)
+    except UploadError as error:
+        raise rejected(error) from error
+
+
+@router.post('/api/analytical-four/uploads/{upload_id}/accept')
+def accept_upload(upload_id: str, body: dict, request: Request):
+    who = actor_id(request)
+    try:
+        return uploads().accept(settings_or_422(), upload_id, body.get('replace', False), who)
+    except UploadError as error:
+        raise rejected(error) from error
+
+
+@router.delete('/api/analytical-four/uploads/{upload_id}')
+def discard_upload(upload_id: str, request: Request):
+    who = actor_id(request)
+    try:
+        return uploads().discard(upload_id, who)
+    except UploadError as error:
+        raise rejected(error) from error
