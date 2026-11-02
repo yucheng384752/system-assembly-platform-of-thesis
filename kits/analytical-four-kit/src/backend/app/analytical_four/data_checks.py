@@ -8,7 +8,7 @@ Nothing in this module writes anything.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -30,11 +30,42 @@ SOP_FIELDS = 7
 EXAMPLES = 5
 
 
+# upload kind -> (data_source section, key, source tag). The analysis configuration itself has no data_source entry.
+KIND_TARGETS = {
+    'current-data': ('current_data', 'descriptive', 'current'),
+    'baseline-data': ('baseline_data', 'descriptive', 'baseline'),
+    'ng-code': ('baseline_data', 'ng_code', 'ng-code'),
+    'topology': ('baseline_data', 'topology', 'topology'),
+    'knowledge': ('baseline_data', 'rag_knowledge', 'knowledge'),
+    'case-records': ('case_data', 'llm_records', 'cases'),
+    'case-errors': ('case_data', 'llm_error_records', 'cases'),
+    'analysis-config': (None, None, 'config'),
+}
+
+
+class _Tagger:
+    """Gives every finding added since the last call the name of the input it came from."""
+
+    def __init__(self, errors: List[Finding], warnings: List[Finding]):
+        self.lists, self.seen = (errors, warnings), [0, 0]
+
+    def close(self, source: str) -> None:
+        for number, items in enumerate(self.lists):
+            for index in range(self.seen[number], len(items)):
+                if not items[index].source:
+                    items[index] = replace(items[index], source=source)
+            self.seen[number] = len(items)
+
+
 @dataclass
 class Report:
     errors: List[Finding]
     warnings: List[Finding]
     summary: Dict[str, Any]
+
+    def own(self, source: str) -> 'Report':
+        """Only the findings about one input; the summary stays whole."""
+        return Report([f for f in self.errors if f.source == source], [f for f in self.warnings if f.source == source], self.summary)
 
     def as_json(self) -> Dict[str, Any]:
         return {'ok': not self.errors, 'errors': [f.as_json() for f in self.errors], 'warnings': [f.as_json() for f in self.warnings], 'summary': self.summary}
@@ -119,18 +150,26 @@ def _clean(frame: pd.DataFrame, columns: List[str]) -> pd.DataFrame:
     return kept.dropna(axis=1, how='all').dropna(axis=0, how='any')
 
 
-def inspect(settings: Settings, root: Optional[Path] = None) -> Report:
+def inspect(settings: Settings, root: Optional[Path] = None, overrides: Optional[Dict[str, Path]] = None) -> Report:
+    """`overrides` maps an upload kind to a file that is not in place yet, so it is judged as if it were."""
     errors: List[Finding] = []
     warnings: List[Finding] = []
     summary: Dict[str, Any] = {}
+    tags = _Tagger(errors, warnings)
+    overrides = overrides or {}
     try:
-        config = derive_config(settings, root)
+        config = derive_config(settings, root, overrides.get('analysis-config'))
     except SettingsError as error:
-        return Report([Finding('error', 'a', 'config', str(error))], [], {})
+        return Report([Finding('error', 'a', 'config', str(error), 'config')], [], {})
+    for kind, path in overrides.items():
+        section, key, _ = KIND_TARGETS[kind]
+        if section:
+            config['data_source'][section][key] = str(path)
     errors += [f for f in check_analysis_config(config) if f.severity == 'error']
     warnings += [f for f in check_analysis_config(config) if f.severity == 'warning']
     if not errors:
         errors += _config_problems(config)
+    tags.close('config')
     if errors:
         return Report(errors, warnings, summary)
     layers = settings.enabled()
@@ -181,6 +220,7 @@ def inspect(settings: Settings, root: Optional[Path] = None) -> Report:
         empty = [c for c in current.columns if c in numeric + categorical + [target] and current[c].isna().any()]
         warnings.append(Finding('warning', 'a', 'rows-dropped', f'待分析資料有 {dropped} 列因含空值被引擎刪除；有空值的欄位：{_names(empty)}'))
 
+    tags.close('current')
     baseline = None
     if complain:
         baseline_path = source['baseline_data'].get('descriptive', '')
@@ -202,6 +242,7 @@ def inspect(settings: Settings, root: Optional[Path] = None) -> Report:
                 if holes:
                     # complaint mode does not clean the baseline, so an empty cell reaches the principal component analysis
                     errors.append(Finding('error', 'a', 'baseline-empty-cells', '正常基準資料有空值，引擎不會清理基準：' + '；'.join(f'{c} {n} 筆' for c, n in list(holes.items())[:EXAMPLES])))
+        tags.close('baseline')
     elif target in current.columns and len(cleaned):
         groups = sorted(cleaned[target].unique().tolist()) if target in cleaned.columns else []
         if len(groups) < 2:
@@ -216,6 +257,7 @@ def inspect(settings: Settings, root: Optional[Path] = None) -> Report:
                             'otherGroups': groups[2:]})
             if len(groups) > 2:
                 warnings.append(Finding('warning', 'a', 'target-extra-groups', f'目標欄位有 {len(groups)} 種值，引擎只用最小的兩組（待查 {groups[0]}、基準 {groups[1]}），其餘 {_names(groups[2:])} 不會被分析'))
+        tags.close('current')
     if baseline is not None:
         usable = [c for c in numeric if c in baseline.columns]
         summary['baselineRows'] = len(baseline)
@@ -226,12 +268,14 @@ def inspect(settings: Settings, root: Optional[Path] = None) -> Report:
         flat = [c for c in usable if baseline[c].nunique(dropna=True) <= 1]
         if flat:
             warnings.append(Finding('warning', 'a', 'baseline-constant', f'正常基準中這些特徵的值全部相同，無法判斷偏離：{_names(flat)}'))
+        tags.close('baseline' if complain else 'current')
 
     if 'b' in layers or 'c' in layers:
         absent = [c for c in CONTEXT_COLUMNS if c not in current.columns or c not in categorical]
         if absent:
             warnings.append(Finding('warning', 'b' if 'b' in layers else 'c', 'context-missing',
                                     f'這些情境欄位不在資料中，或沒有列入設定的類別欄位：{_names(absent, 10)}。事件的這些欄位會是空的，不良類型的環境分數與相似案例的比對會退化；欄名不同時，請在設定的欄位對照中對到這些名稱'))
+    tags.close('current')
     if 'b' in layers:
         ng_path = source['baseline_data'].get('ng_code', '')
         if ng_path and Path(ng_path).is_file():
@@ -241,6 +285,7 @@ def inspect(settings: Settings, root: Optional[Path] = None) -> Report:
             defined = set(ng_categories(Path(ng_path)))
         else:
             defined = set()
+        tags.close('ng-code')
         ng_column = ng_code_column(config.get('observer', 'All'))
         if not complain:
             if ng_column not in categorical or ng_column not in current.columns:
@@ -252,7 +297,7 @@ def inspect(settings: Settings, root: Optional[Path] = None) -> Report:
                 used = set(rows[ng_column].astype(str).str.strip()) - {'0', '', 'nan', 'None', 'none', 'null'}
                 undefined = sorted(used - defined) if defined else []
                 if undefined:
-                    warnings.append(Finding('warning', 'b', 'ng-undefined', f'資料裡的不良代碼不在不良代碼定義中，診斷結果不會有原因與處置：{names(undefined)}'))
+                    warnings.append(Finding('warning', 'b', 'ng-undefined', f'資料裡的不良代碼不在不良代碼定義中，診斷結果不會有原因與處置：{names(undefined)}', 'ng-code'))
                 if labelled == 0:
                     warnings.append(Finding('warning', 'b', 'ng-labels', f'待查樣本的「{ng_column}」沒有任何有效的不良代碼，分布庫會是空的'))
         else:
@@ -262,9 +307,10 @@ def inspect(settings: Settings, root: Optional[Path] = None) -> Report:
             except (OSError, ValueError):
                 library = None
             if not library or not isinstance(library, dict):
-                errors.append(Finding('error', 'b', 'known-base', '不良特徵分布庫不存在、無法讀取或是空的；請先用每日模式與已標註的樣本建立'))
+                errors.append(Finding('error', 'b', 'known-base', '不良特徵分布庫不存在、無法讀取或是空的；請先用每日模式與已標註的樣本建立', 'known-base'))
             else:
                 summary['knownDefectCodes'] = len(library)
+    tags.close('current')
     if 'c' in layers:
         topology_path = source['baseline_data'].get('topology', '')
         if topology_path and Path(topology_path).is_file():
@@ -273,16 +319,19 @@ def inspect(settings: Settings, root: Optional[Path] = None) -> Report:
             warnings += [f for f in found if f.severity == 'warning']
             if not any(f.severity == 'error' for f in found):
                 warnings += _topology_matches(Path(topology_path), set(current.columns), numeric)
+        tags.close('topology')
         sop_path = source['baseline_data'].get('rag_knowledge', '')
         if sop_path and Path(sop_path).is_file():
             found = check_knowledge(Path(sop_path))
             errors += [f for f in found if f.severity == 'error']
             warnings += [f for f in found if f.severity == 'warning']
+        tags.close('knowledge')
         if complain:
             for key, label in (('llm_records', '歷史案例檔'), ('llm_error_records', '誤判案例檔')):
                 path = source['case_data'].get(key, '')
                 if path and Path(path).is_file():
                     errors += check_case_records(Path(path), label)
+        tags.close('cases')
     return Report(errors, warnings, summary)
 
 

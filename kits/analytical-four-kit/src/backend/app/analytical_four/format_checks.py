@@ -26,9 +26,12 @@ class Finding:
     layer: str
     code: str
     message: str
+    # Which input the finding is about (current, baseline, ng-code, topology, knowledge, cases, config, known-base), so an
+    # upload can be judged by the problems of its own file and not by those of the files around it.
+    source: str = ''
 
     def as_json(self) -> Dict[str, str]:
-        return {'layer': self.layer, 'code': self.code, 'message': self.message}
+        return {'layer': self.layer, 'code': self.code, 'message': self.message, 'source': self.source}
 
 
 def names(values, limit: int = EXAMPLES) -> str:
