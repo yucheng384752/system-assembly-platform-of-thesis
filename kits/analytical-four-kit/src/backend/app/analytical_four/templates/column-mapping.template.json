@@ -1,0 +1,10 @@
+{
+  "<你的資料裡 P1 押出機機台代碼的欄名>": "P1.Machine_No.",
+  "<你的資料裡 P1 材料代碼的欄名>": "P1.Material",
+  "<你的資料裡分條機的欄名>": "Slitting machine",
+  "<你的資料裡收卷軸編號的欄名>": "Winder number",
+  "<你的資料裡品質檢驗人員的欄名>": "Quality inspection",
+  "<你的資料裡品質管制人員的欄名>": "Quality control",
+  "<你的資料裡 P3 穿孔機台代碼的欄名>": "P3.Machine_No.",
+  "<你的資料裡 P3 不良代碼的欄名>": "P3.NG_code"
+}
