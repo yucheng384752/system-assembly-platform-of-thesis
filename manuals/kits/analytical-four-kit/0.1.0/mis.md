@@ -10,6 +10,7 @@ sources:
   - kits/analytical-four-kit/src/backend/app/analytical_four/runs.py
   - kits/analytical-four-kit/src/backend/app/analytical_four/feedback.py
   - kits/analytical-four-kit/src/backend/app/analytical_four/data_checks.py
+  - kits/analytical-four-kit/src/backend/app/analytical_four/uploads.py
 ---
 
 ## 用途
@@ -22,7 +23,7 @@ sources:
 
 ## 可設定項目
 
-settings.json 位於資料目錄：layers（a、b、c）、mode（daily 或 complain）、analysisConfig（資料目錄內的相對路徑）、llm.endpoint、llm.timeoutSeconds、llm.apiKeyEnv、columnMapping（場域欄名對到引擎欄名；兩個欄位不可對到同一個名稱）。金鑰只存在環境變數，settings.json 與執行紀錄都不保存金鑰值。分析設定檔沿用 Analytical-Four 格式，路徑欄位一律相對於資料目錄。入口權限預設：檢視開放管理員、經理、操作員與稽核；啟動分析開放管理員、經理與操作員；調整設定與載入示範資料只開放管理員；提交回饋開放管理員、經理與操作員；核可回饋與發布案例庫開放管理員與經理。
+settings.json 位於資料目錄：layers（a、b、c）、mode（daily 或 complain）、analysisConfig（資料目錄內的相對路徑）、llm.endpoint、llm.timeoutSeconds、llm.apiKeyEnv、columnMapping（場域欄名對到引擎欄名；兩個欄位不可對到同一個名稱）。金鑰只存在環境變數，settings.json 與執行紀錄都不保存金鑰值。分析設定檔沿用 Analytical-Four 格式，路徑欄位一律相對於資料目錄。入口權限預設：檢視開放管理員、經理、操作員與稽核；啟動分析開放管理員、經理與操作員；調整設定與載入示範資料只開放管理員；上傳與接受檔案開放管理員與經理；提交回饋開放管理員、經理與操作員；核可回饋與發布案例庫開放管理員與經理。
 
 ## 操作步驟
 
@@ -30,7 +31,7 @@ settings.json 位於資料目錄：layers（a、b、c）、mode（daily 或 comp
 
 ## 輸入輸出
 
-回饋與案例庫存在資料目錄的 feedback/：entries.jsonl 與 decisions.jsonl 只追加；library/vNNNN/ 為案例庫版本。發布會替換分析設定指定的兩個案例檔，分析進行中不可發布。每次分析建立 runs/<執行編號>/，內含 status.json、settings.snapshot.json、衍生的分析設定與 results/ 結果檔。每日模式會覆寫分析設定中指定的不良特徵分布庫。向量庫寫在設定指定的資料夾。客訴模式會把事件資料送到 AI 語言模型服務位址。
+回饋與案例庫存在資料目錄的 feedback/：entries.jsonl 與 decisions.jsonl 只追加；library/vNNNN/ 為案例庫版本。發布會替換分析設定指定的兩個案例檔，分析進行中不可發布。上傳的檔案暫存在 uploads/<編號>/，被取代的檔案備份在 uploads/replaced/，兩者都不會自動清理。每次分析建立 runs/<執行編號>/，內含 status.json、settings.snapshot.json、衍生的分析設定與 results/ 結果檔。每日模式會覆寫分析設定中指定的不良特徵分布庫。向量庫寫在設定指定的資料夾。客訴模式會把事件資料送到 AI 語言模型服務位址。
 
 ## 常見錯誤與復原
 
