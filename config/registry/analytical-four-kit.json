@@ -2,7 +2,7 @@
   "format": "composer-kit-registry",
   "version": 1,
   "kitId": "analytical-four-kit",
-  "scope": "登錄製造數據分析的 16 個路由：設定、就緒檢查、示範資料、啟動與查看分析、取得結果、回饋與案例庫版本。分析本身是背景執行，階段對應引擎的 pipeline 方法。",
+  "scope": "登錄製造數據分析的 18 個路由：設定、就緒檢查、示範資料、啟動與查看分析、取得結果、回饋與案例庫版本。分析本身是背景執行，階段對應引擎的 pipeline 方法。",
   "capabilities": [
     {
       "id": "analytical-four.settings.get",
@@ -49,6 +49,30 @@
       "implementedBy": {
         "kitId": "analytical-four-kit",
         "mService": "analytical-four-data-check"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.templates.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytical-four/templates",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-templates-list"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.templates.get",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytical-four/templates/{name}",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-templates-get"
       },
       "verified": true
     },
@@ -279,6 +303,49 @@
         "analytical-four-data-check"
       ],
       "failure": "401 未登入；422 settings.json 無法使用"
+    },
+    {
+      "id": "analytical-four-templates-list",
+      "name": "列出可下載的範本",
+      "responsibility": "列出可下載的範本",
+      "provides": [
+        "analytical-four.templates.list"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "templates",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-templates-list"
+      ],
+      "failure": "401 未登入"
+    },
+    {
+      "id": "analytical-four-templates-get",
+      "name": "下載一個範本",
+      "responsibility": "下載一個範本",
+      "provides": [
+        "analytical-four.templates.get"
+      ],
+      "inputs": [
+        {
+          "name": "name",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "template",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-templates-get"
+      ],
+      "failure": "401 未登入；404 沒有這個範本"
     },
     {
       "id": "analytical-four-demo-load",
@@ -682,6 +749,49 @@
       "source": {
         "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
         "symbol": "check_data"
+      }
+    },
+    {
+      "id": "analytical-four-templates-list",
+      "primitive": "analytical-four-templates-list",
+      "input": [],
+      "output": [
+        {
+          "name": "templates",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "list_templates"
+      }
+    },
+    {
+      "id": "analytical-four-templates-get",
+      "primitive": "analytical-four-templates-get",
+      "input": [
+        {
+          "name": "name",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "template",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；404 沒有這個範本"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "get_template"
       }
     },
     {

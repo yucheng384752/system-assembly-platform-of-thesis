@@ -7,12 +7,13 @@ without it. Nothing here touches the database: settings, runs and results live a
 from functools import lru_cache
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import ValidationError
 
 from app.analytical_four.feedback import FeedbackError, FeedbackStore
 from app.analytical_four.data_checks import inspect
 from app.analytical_four.runs import RunError, RunStore, problems_as_json
+from app.analytical_four import templates_catalog
 from app.analytical_four.seed_demo import seed
 from app.analytical_four.settings import Settings, SettingsError, data_dir, load_settings, readiness, save_settings
 
@@ -98,6 +99,22 @@ def get_status(request: Request):
 def check_data(request: Request):
     actor_id(request)
     return inspect(settings_or_422()).as_json()
+
+
+@router.get('/api/analytical-four/templates')
+def list_templates(request: Request):
+    actor_id(request)
+    return {'templates': templates_catalog.listing()}
+
+
+@router.get('/api/analytical-four/templates/{name}')
+def get_template(name: str, request: Request):
+    actor_id(request)
+    found = templates_catalog.read(name)
+    if found is None:
+        raise HTTPException(404, '沒有這個範本')
+    content, content_type = found
+    return Response(content=content, media_type=content_type, headers={'Content-Disposition': f'attachment; filename="{name}"'})
 
 
 @router.post('/api/analytical-four/demo', status_code=201)

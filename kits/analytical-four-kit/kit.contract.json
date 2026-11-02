@@ -81,6 +81,16 @@
         "capability": "analytical-four.data.check",
         "method": "GET",
         "path": "/api/analytical-four/data-check"
+      },
+      {
+        "capability": "analytical-four.templates.list",
+        "method": "GET",
+        "path": "/api/analytical-four/templates"
+      },
+      {
+        "capability": "analytical-four.templates.get",
+        "method": "GET",
+        "path": "/api/analytical-four/templates/{name}"
       }
     ]
   },
@@ -144,6 +154,16 @@
           "capability": "analytical-four.data.check",
           "method": "GET",
           "path": "/api/analytical-four/data-check"
+        },
+        {
+          "capability": "analytical-four.templates.list",
+          "method": "GET",
+          "path": "/api/analytical-four/templates"
+        },
+        {
+          "capability": "analytical-four.templates.get",
+          "method": "GET",
+          "path": "/api/analytical-four/templates/{name}"
         }
       ]
     },

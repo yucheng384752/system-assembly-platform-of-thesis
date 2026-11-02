@@ -84,6 +84,8 @@ llm       { endpointSet: bool, apiKeyEnv }      不保存位址本身與金鑰
 | `analytical-four.settings.get` | GET `/settings` | `analytical_four.view`（admin、manager、operator、audit） |
 | `analytical-four.status.get` | GET `/status` | 同上 |
 | `analytical-four.data.check` | GET `/data-check` | 同上 |
+| `analytical-four.templates.list` | GET `/templates` | 同上 |
+| `analytical-four.templates.get` | GET `/templates/{name}` | 同上 |
 | `analytical-four.runs.list` | GET `/runs` | 同上 |
 | `analytical-four.runs.get` | GET `/runs/{run_id}` | 同上 |
 | `analytical-four.results.list` | GET `/runs/{run_id}/results` | 同上 |
@@ -214,3 +216,17 @@ llm       { endpointSet: bool, apiKeyEnv }      不保存位址本身與金鑰
 - 沒有上傳介面：檔案仍由部署端放入資料目錄。
 - 檢查只涵蓋 UT 序列化器與現有引擎的假設；換序列化器需要重寫對應檢查。
 - 引擎本身的行為沒有改（清理仍會刪除含空值的列），只是現在會說出來。
+
+## 11. 範本
+
+`GET /templates` 列出可下載的範本，`GET /templates/{name}` 下載（`analytical-four.templates.list`、`analytical-four.templates.get`，入口 `analytical_four.view`）。名稱只取自內建清單，不會被當成路徑。
+
+| 範本 | 用途 |
+|---|---|
+| `requirements-form.md` | 導入需求表與最小資料清單 |
+| `column-dictionary.csv` | 欄位字典（原始欄名、分析欄名、意義、型別、單位、缺值意義、角色） |
+| `column-mapping.template.json` | 引擎寫死讀取的欄名清單，鍵是要換成場域欄名的佔位字串，貼進設定的 `columnMapping` |
+| `analysis_config.template.json`、`ng_code.template.json`、`topology.template.json`、`knowledge.template.csv` | 各設定與知識檔的範例，取自合成示範資料 |
+| `current-data.example.csv`、`baseline.example.csv` | 待分析與基準資料的範例（合成資料） |
+
+測試要求：欄位對照範本的值必須恰好是引擎寫死的情境欄位加不良代碼欄位（引擎清單改了，範本就要跟著改）；六個範例檔放在一起必須通過資料檢查且沒有警告。

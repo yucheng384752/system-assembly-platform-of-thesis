@@ -1,0 +1,5 @@
+﻿原始欄名,分析欄名,意義,型別,單位,缺值意義,角色
+LotNo,Produce_No.,產品識別碼,文字,,不可缺,ID
+MachineCode,P3.Machine_No.,穿孔機台代碼,文字,,未登錄機台,類別
+PasteIronTemp,pasteirontemp,貼膠烙鐵溫度,數值,攝氏度,感測器未回報,數值
+ResultFlag,Finish,品質結果（0 為不良、1 為良品）,數值,,未判定,目標

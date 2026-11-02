@@ -14,6 +14,14 @@
       ]
     },
     {
+      "id": "get-templates",
+      "name": "下載範本與需求表",
+      "capabilityIds": [
+        "analytical-four.templates.list",
+        "analytical-four.templates.get"
+      ]
+    },
+    {
       "id": "configure",
       "name": "調整分析設定",
       "capabilityIds": [
@@ -167,6 +175,10 @@
     }
   ],
   "edges": [
+    {
+      "from": "get-templates",
+      "to": "configure"
+    },
     {
       "from": "configure",
       "to": "check-ready"
