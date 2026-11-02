@@ -43,8 +43,16 @@ test('the tree has no excluded-Kit pages, tenant selection or admin key code', a
 
 test('without the upload Kit the upload page and its helpers are left out', async () => {
   const tree = await frontendTree(kits, ['platform-core-kit', 'entry-permission-kit', 'query-traceability-kit']);
-  assert.ok(![...tree.keys()].some(name => name.includes('UploadPage') || name.includes('pages/upload/') || name.includes('CSVEditor')));
+  assert.ok(![...tree.keys()].some(name => name.includes('UploadPage') || name.includes('upload-import')));
   assert.ok(tree.has('frontend/src/pages/QueryPage.tsx'));
+});
+
+test('the upload page imports into generic forms, so it is refused without them', async () => {
+  await assert.rejects(frontendTree(kits, ['platform-core-kit', 'entry-permission-kit', 'upload-validation-kit']), /generic-forms-kit/);
+  const tree = await frontendTree(kits, MINIMAL);
+  const page = tree.get('frontend/src/pages/UploadPage.tsx')?.toString('utf8') ?? '';
+  assert.match(page, /\/import\/\$\{step\}/);
+  assert.doesNotMatch(page, /v2\/import/);
 });
 
 test('a selection with no page cannot produce a frontend', async () => {

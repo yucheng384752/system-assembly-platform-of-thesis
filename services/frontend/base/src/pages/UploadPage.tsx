@@ -1,320 +1,124 @@
-﻿// src/pages/UploadPage.tsx
-import { useState, useCallback, useEffect } from "react";
-import { useTranslation } from "react-i18next";
-import { useToast } from "../components/common/ToastContext";
-import { Modal } from "../components/common/Modal";
-import { useUploadApi } from "./upload/useUploadApi";
-import { delay } from "./upload/uploadAsyncUtils";
-import type { CsvData } from "./upload/uploadTypes";
-import { runSaveCsvChangesWorkflow, runUpdateCsvCellWorkflow } from "./upload/uploadCsvEditWorkflow";
-import { runAddUploadFilesWorkflow } from "./upload/uploadFileAddWorkflow";
-import { parseCsv } from "./upload/uploadFileUtils";
-import { fileHasValidationErrors } from "./upload/uploadEligibility";
-import { requestBatchImportConfirmation, runBatchConversion, runBatchImportWorkflow, runBatchImport, runBatchValidation, runConfirmedSingleImportWorkflow, type ValidateOutcome } from "./upload/uploadBatchOrchestrator";
-import { runPdfConvertWorkflow } from "./upload/uploadPdfConversionOrchestrator";
-import { runValidateWorkflow } from "./upload/uploadValidationOrchestrator";
-import { scheduleBatchPostImportCleanup } from "./upload/uploadImportCleanupUtils";
-import { toImportProgress, toPdfConvertProgress, toValidateProgress } from "./upload/uploadProgress";
-import { BatchActionBar } from "./upload/BatchActionBar";
-import { BatchImportConfirmModal } from "./upload/BatchImportConfirmModal";
-import { FileDropArea } from "./upload/FileDropArea";
-import { UploadedFileCard } from "./upload/UploadedFileCard";
-import { useUploadWorkflow } from "./upload/useUploadWorkflow";
-import "./../styles/upload-page.css";
+﻿import { useEffect, useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
+import { getApiKeyHeaderName, getApiKeyValue } from '../services/auth'
+import '../styles/upload-import.css'
 
-const EDIT_ENABLED =
-  String((import.meta as any).env?.VITE_ENABLE_CSV_EDIT ?? "true").toLowerCase() === "true";
+interface FormType { code: string; name: string; schema_version: number | null }
+interface Preview { total: number; valid_count: number; duplicate_count: number; errors: { row: number; errors: string[] }[]; preview_rows: Record<string, unknown>[] }
+interface Result { total: number; imported: number; skipped: number; error_count: number; job_id: string | null }
 
-export function UploadPage() {
-  const { files, setFiles, filesRef, removeFile, toggleFileExpanded, beginPdfValidation, completePdfUpload, failPdfValidation, beginCsvValidation, setValidationUploadSource, setValidationProgress, prepareCsvValidationJob, updateValidationPoll, completeValidationFailure, completeValidationWithErrors, completeValidationPassed, failCsvValidation, beginPdfConvert, attachPdfConvertJob, updatePdfConvertProgress, replacePdfWithCsvFiles, failPdfConvert, beginImport, setImportProgress, completeImport, resetImport, removeImportedFiles } = useUploadWorkflow();
-  const [confirmTargetId, setConfirmTargetId] = useState<string | null>(null);
-  const [showBatchImportConfirm, setShowBatchImportConfirm] = useState(false);
-  const [isValidatingAll, setIsValidatingAll] = useState(false);
-  const [isConvertingAll, setIsConvertingAll] = useState(false);
-  const [availableForms, setAvailableForms] = useState<{ code: string; name: string }[]>([]);
-  const { t } = useTranslation();
-  const { showToast } = useToast();
-
-
-  const uploadApi = useUploadApi(t);
-
-  useEffect(() => {
-    uploadApi.fetchAvailableForms().then(setAvailableForms).catch(() => {});
-  }, [uploadApi]);
-
-  const handleSetFileTableCode = (fileId: string, code: string) => {
-    setFiles((prev) => prev.map((f) => f.id === fileId ? { ...f, type: code } : f));
-  };
-
-
-
-
-
-  const handleFiles = (fileList: FileList | null) => {
-    runAddUploadFilesWorkflow({
-      fileList,
-      existingFiles: files,
-      setFiles,
-      confirmLikelyDuplicate: (file) =>
-        window.confirm(t('upload.confirm.likelyDuplicate').replace('{{fileName}}', file.name)),
-      showToast,
-      t,
-      availableCodes: availableForms.map((f) => f.code),
-    });
-  };
-
-
-  const handleValidate = (fileId: string, options?: { silentToast?: boolean }): Promise<ValidateOutcome> =>
-    runValidateWorkflow({
-      fileId,
-      filesRef,
-      silentToast: options?.silentToast,
-      editEnabled: EDIT_ENABLED,
-      uploadPdf: uploadApi.uploadPdf,
-      createImportJob: uploadApi.createImportJob,
-      fetchImportJob: uploadApi.fetchImportJob,
-      fetchImportErrors: uploadApi.fetchImportErrors,
-      parseCsv,
-      toValidateProgress,
-      sleep: delay,
-      confirmDuplicate: (filename, duplicateOf) =>
-        window.confirm(
-          t('upload.confirm.duplicateFile')
-            .replace('{{filename}}', filename)
-            .replace('{{duplicateOf}}', duplicateOf)
-        ),
-      beginPdfValidation,
-      completePdfUpload,
-      failPdfValidation,
-      beginCsvValidation,
-      setValidationUploadSource,
-      setValidationProgress,
-      prepareCsvValidationJob,
-      updateValidationPoll,
-      completeValidationFailure,
-      completeValidationWithErrors,
-      completeValidationPassed,
-      failCsvValidation,
-      showToast,
-      t,
-    });
-
-  const handleValidateAll = () =>
-    runBatchValidation({
-      filesRef,
-      setIsValidatingAll,
-      handleValidate,
-      showToast,
-      t,
-    });
-
-  const handleConvertAll = () =>
-    runBatchConversion({
-      filesRef,
-      setIsConvertingAll,
-      handlePdfConvert,
-      showToast,
-      t,
-    });
-  const handlePdfConvert = (fileId: string): Promise<boolean> =>
-    runPdfConvertWorkflow({
-      fileId,
-      filesRef,
-      triggerPdfConvert: uploadApi.triggerPdfConvert,
-      fetchPdfConvertStatus: uploadApi.fetchPdfConvertStatus,
-      fetchPdfConvertedCsvOutputs: uploadApi.fetchPdfConvertedCsvOutputs,
-      sleep: delay,
-      attachPdfConvertJob,
-      updatePdfConvertProgress,
-      replacePdfWithCsvFiles,
-      failPdfConvert,
-      beginPdfConvert,
-      toPdfConvertProgress,
-      showToast,
-      t,
-    });
-  const updateCell = (
-    fileId: string,
-    rowIndex: number,
-    colIndex: number,
-    value: string
-  ) => {
-    runUpdateCsvCellWorkflow({
-      editEnabled: EDIT_ENABLED,
-      fileId,
-      rowIndex,
-      colIndex,
-      value,
-      setFiles,
-    });
-  };
-
-
-  const handleSaveChanges = async (fileId: string) => {
-    runSaveCsvChangesWorkflow({
-      editEnabled: EDIT_ENABLED,
-      files,
-      fileId,
-      setFiles,
-      showToast,
-      t,
-    });
-  };
-  const handleToggleExpand = toggleFileExpanded;
-
-  // 批次匯入所有已驗證的檔案
-  const handleBatchImportClick = () => {
-    if (requestBatchImportConfirmation({ files, showToast, t })) {
-      setShowBatchImportConfirm(true);
-    }
-  };
-  const performBatchImport = async () => {
-    setShowBatchImportConfirm(false);
-
-    await runBatchImportWorkflow({
-      files,
-      commitImportJob: uploadApi.commitImportJob,
-      fetchImportJob: uploadApi.fetchImportJob,
-      sleep: delay,
-      beginImport,
-      setImportProgress,
-      completeImport,
-      resetImport,
-      toImportProgress,
-      schedulePostImportCleanup: (ids) =>
-        scheduleBatchPostImportCleanup({
-          ids,
-          removeImportedFiles,
-          showToast,
-          t,
-        }),
-      logError: console.error,
-      showToast,
-      t,
-    });
-  };
-  const performImport = async () => {
-    const id = confirmTargetId;
-    setConfirmTargetId(null);
-
-    await runConfirmedSingleImportWorkflow({
-      id,
-      files,
-      commitImportJob: uploadApi.commitImportJob,
-      fetchImportJob: uploadApi.fetchImportJob,
-      sleep: delay,
-      filesRef,
-      beginImport,
-      setImportProgress,
-      completeImport,
-      resetImport,
-      removeImportedFiles,
-      toImportProgress,
-      showToast,
-      t,
-    });
-  };
-
-  const handleRemoveFile = removeFile;
-
-  return (
-    <div className="upload-page">
-      {/* 拖曳/選擇檔案區 */}
-      <section className="upload-drop-section">
-        <FileDropArea onFiles={handleFiles} />
-      </section>
-
-      {/* 已上傳檔案列表 */}
-      <section className="uploaded-list-section">
-        {!EDIT_ENABLED && (
-          <div style={{
-            margin: '8px 0 12px 0',
-            padding: '10px 12px',
-            border: '1px solid #fde68a',
-            backgroundColor: '#fffbeb',
-            borderRadius: '6px',
-            color: '#92400e',
-            fontSize: '14px'
-          }}>
-            {t('upload.editDisabledNotice')}
-          </div>
-        )}
-        <div className="section-header">
-          <h2 className="section-title">{t('upload.uploadedFiles')}</h2>
-          {files.length > 0 && (
-            <BatchActionBar
-              files={files}
-              isValidatingAll={isValidatingAll}
-              isConvertingAll={isConvertingAll}
-              onValidateAll={handleValidateAll}
-              onConvertAll={handleConvertAll}
-              onBatchImport={handleBatchImportClick}
-            />
-          )}
-        </div>
-        
-        {files.length === 0 && (
-          <p className="section-empty">{t('upload.empty')}</p>
-        )}
-
-        <div className="uploaded-list">
-          {[...files]
-            .map((f, idx) => ({ f, idx }))
-            .sort((a, b) => {
-              const ae = fileHasValidationErrors(a.f) ? 1 : 0;
-              const be = fileHasValidationErrors(b.f) ? 1 : 0;
-              if (be !== ae) return be - ae;
-              return a.idx - b.idx;
-            })
-            .map(({ f }) => (
-            <div key={f.id}>
-              {f.type === "UNKNOWN" && availableForms.length > 0 && (
-                <div style={{ padding: "6px 12px", background: "#fffbeb", border: "1px solid #fbbf24", borderRadius: "6px", marginBottom: "4px", display: "flex", alignItems: "center", gap: "8px", fontSize: "13px" }}>
-                  <span style={{ color: "#92400e" }}>未識別表單類型，請選擇：</span>
-                  <select
-                    value=""
-                    onChange={(e) => { if (e.target.value) handleSetFileTableCode(f.id, e.target.value); }}
-                    style={{ fontSize: "13px", padding: "2px 6px" }}
-                  >
-                    <option value="" disabled>請選擇目標表單...</option>
-                    {availableForms.map((form) => (
-                      <option key={form.code} value={form.code}>{form.name || form.code}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <UploadedFileCard
-                file={f}
-                onValidate={() => handleValidate(f.id)}
-                onConvertPdf={() => handlePdfConvert(f.id)}
-                onSaveChanges={() => handleSaveChanges(f.id)}
-                onToggleExpand={() => handleToggleExpand(f.id)}
-                onRemove={() => handleRemoveFile(f.id)}
-                onImport={(fileId) => setConfirmTargetId(fileId)}
-                onCellChange={updateCell}
-              />
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <Modal
-        open={confirmTargetId !== null}
-        title={t('upload.importConfirm.title')}
-        onClose={() => setConfirmTargetId(null)}
-        onConfirm={performImport}
-        confirmText={t('upload.importConfirm.confirmText')}
-      >
-        <p>{t('upload.importConfirm.body')}</p>
-      </Modal>
-      <BatchImportConfirmModal
-        open={showBatchImportConfirm}
-        files={files}
-        onClose={() => setShowBatchImportConfirm(false)}
-        onConfirm={performBatchImport}
-      />
-    </div>
-  );
+const authHeaders = (): HeadersInit => {
+  const value = getApiKeyValue()
+  return value ? { [getApiKeyHeaderName()]: value } : {}
 }
 
+/** Reads the reason the server gave for a failed call; never shows raw HTML or a stack trace. */
+async function failure(response: Response): Promise<string> {
+  const body = await response.json().catch(() => null)
+  return typeof body?.detail === 'string' ? body.detail : `HTTP ${response.status}`
+}
 
+/** CSV import into a generic form: preview first, nothing is written until the operator commits. */
+export function UploadPage() {
+  const { t } = useTranslation()
+  const [forms, setForms] = useState<FormType[] | null>(null)
+  const [code, setCode] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [preview, setPreview] = useState<Preview | null>(null)
+  const [result, setResult] = useState<Result | null>(null)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    let live = true
+    fetch('/api/forms', { headers: authHeaders() })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(await failure(response))
+        return response.json() as Promise<FormType[]>
+      })
+      .then((all) => { if (live) { setForms(all.filter((f) => f.schema_version !== null)); setError('') } })
+      .catch((e: unknown) => { if (live) { setForms([]); setError(String(e instanceof Error ? e.message : e)) } })
+    return () => { live = false }
+  }, [])
+
+  const run = async (step: 'preview' | 'commit') => {
+    if (!file || !code) return
+    setBusy(true)
+    setError('')
+    try {
+      const body = new FormData()
+      body.append('file', file)
+      const response = await fetch(`/api/forms/${encodeURIComponent(code)}/import/${step}`, { method: 'POST', headers: authHeaders(), body })
+      if (!response.ok) throw new Error(await failure(response))
+      const data = await response.json()
+      if (step === 'preview') { setPreview(data as Preview); setResult(null) } else { setResult(data as Result); setPreview(null) }
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const choose = (next: { code?: string; file?: File | null }) => {
+    if (next.code !== undefined) setCode(next.code)
+    if (next.file !== undefined) setFile(next.file)
+    setPreview(null)
+    setResult(null)
+    setError('')
+  }
+
+  const submit = (event: FormEvent) => { event.preventDefault(); void run('preview') }
+  const columns = preview?.preview_rows[0] ? Object.keys(preview.preview_rows[0]) : []
+
+  return (
+    <section className="upload-import" aria-labelledby="upload-import-title">
+      <h2 id="upload-import-title">{t('uploadImport.title')}</h2>
+      <p>{t('uploadImport.intro')}</p>
+      {forms !== null && forms.length === 0 && !error ? <p role="status">{t('uploadImport.noForms')}</p> : null}
+      <form onSubmit={submit} className="upload-import-form">
+        <label>
+          {t('uploadImport.form')}
+          <select value={code} onChange={(e) => choose({ code: e.target.value })} required>
+            <option value="">{t('uploadImport.choose')}</option>
+            {(forms ?? []).map((f) => <option key={f.code} value={f.code}>{f.name}（{f.code}）</option>)}
+          </select>
+        </label>
+        <label>
+          {t('uploadImport.file')}
+          <input type="file" accept=".csv,text/csv" onChange={(e) => choose({ file: e.target.files?.[0] ?? null })} required />
+        </label>
+        <button type="submit" className="btn-primary" disabled={busy || !file || !code}>{t('uploadImport.preview')}</button>
+      </form>
+      {error ? <p className="upload-import-error" role="alert">{error}</p> : null}
+
+      {preview ? (
+        <div className="upload-import-result" role="status">
+          <p>{t('uploadImport.summary', { total: preview.total, valid: preview.valid_count, duplicate: preview.duplicate_count, errors: preview.errors.length })}</p>
+          {preview.errors.length ? (
+            <ul className="upload-import-errors">
+              {preview.errors.slice(0, 20).map((row) => <li key={row.row}>{t('uploadImport.rowError', { row: row.row })}{row.errors.join('；')}</li>)}
+            </ul>
+          ) : null}
+          {columns.length ? (
+            <div className="upload-import-table" tabIndex={0} role="region" aria-label={t('uploadImport.sample')}>
+              <table>
+                <thead><tr>{columns.map((c) => <th key={c} scope="col">{c}</th>)}</tr></thead>
+                <tbody>{preview.preview_rows.map((r, i) => <tr key={i}>{columns.map((c) => <td key={c}>{String(r[c] ?? '')}</td>)}</tr>)}</tbody>
+              </table>
+            </div>
+          ) : null}
+          <button type="button" className="btn-primary" disabled={busy || preview.valid_count === 0} onClick={() => void run('commit')}>
+            {t('uploadImport.commit', { count: preview.valid_count })}
+          </button>
+          {preview.valid_count === 0 ? <p>{t('uploadImport.nothingToImport')}</p> : null}
+        </div>
+      ) : null}
+
+      {result ? (
+        <p className="upload-import-result" role="status">
+          {result.job_id ? t('uploadImport.queued', { id: result.job_id }) : t('uploadImport.done', { imported: result.imported, skipped: result.skipped, errors: result.error_count })}
+        </p>
+      ) : null}
+    </section>
+  )
+}

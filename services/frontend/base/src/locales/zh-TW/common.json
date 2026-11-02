@@ -1352,5 +1352,21 @@
     "mismatch": "兩次輸入的新密碼不一致",
     "rejected": "密碼未被接受：新密碼須超過 8 個字元且不得與目前密碼相同",
     "signOut": "登出"
+  },
+  "uploadImport": {
+    "title": "檔案上傳",
+    "intro": "選擇表單與 CSV 檔，先預覽檢查結果，確認後才會寫入資料。",
+    "noForms": "目前沒有已定義欄位的表單，請先到「通用表格」建立表單與欄位。",
+    "form": "表單",
+    "choose": "請選擇表單",
+    "file": "CSV 檔案",
+    "preview": "預覽檢查",
+    "sample": "前幾筆資料預覽",
+    "summary": "共 {{total}} 筆：可匯入 {{valid}} 筆，重複 {{duplicate}} 筆，有錯誤 {{errors}} 筆。",
+    "rowError": "第 {{row}} 列：",
+    "commit": "匯入 {{count}} 筆",
+    "nothingToImport": "沒有可匯入的資料。有錯誤的列不會被匯入，請修正檔案後重新預覽。",
+    "done": "匯入完成：新增 {{imported}} 筆，略過重複 {{skipped}} 筆，錯誤 {{errors}} 筆未匯入。",
+    "queued": "檔案較大，已排入背景匯入（編號 {{id}}）。"
   }
 }

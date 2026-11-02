@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import math
 import os
 import uuid
 from datetime import datetime, timezone
@@ -121,6 +122,10 @@ def _to_station_read(station: Station, schema: StationSchema | None) -> StationR
     )
 
 
+class CoerceError(ValueError):
+    """The cell cannot be read as the field's declared type."""
+
+
 def _coerce(value: Any, ftype: str) -> Any:
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return None
@@ -130,26 +135,32 @@ def _coerce(value: Any, ftype: str) -> Any:
     ftype_lower = ftype.lower()
     if ftype_lower == "integer":
         try:
-            return int(float(s))
-        except (ValueError, TypeError):
-            return s
+            number = float(s)
+            if not math.isfinite(number) or number != int(number):
+                raise ValueError(s)
+            return int(number)
+        except (ValueError, TypeError, OverflowError):
+            raise CoerceError(s)
     if ftype_lower in ("decimal", "float", "number"):
         try:
-            return float(s)
+            number = float(s)
         except (ValueError, TypeError):
-            return s
+            raise CoerceError(s)
+        if not math.isfinite(number):
+            raise CoerceError(s)
+        return number
     if ftype_lower == "boolean":
         normalized = s.lower()
         if normalized in {"true", "1", "yes", "y", "on"}:
             return True
         if normalized in {"false", "0", "no", "n", "off"}:
             return False
-        return s
+        raise CoerceError(s)
     if ftype_lower == "date":
         try:
             return datetime.fromisoformat(s).date().isoformat()
         except ValueError:
-            return s
+            raise CoerceError(s)
     return s
 
 
@@ -188,7 +199,11 @@ def _map_row(row_dict: dict, fields: list[dict]) -> tuple[dict, list[str]]:
         field_key = field.get("fieldKey") or field.get("name")
         source_name = field.get("sourceName") or field_key
         ftype = field.get("type", "string")
-        coerced = _coerce(row_dict.get(source_name), ftype)
+        try:
+            coerced = _coerce(row_dict.get(source_name), ftype)
+        except CoerceError as exc:
+            row_errors.append(f"'{source_name}' 的值「{exc}」不是有效的 {ftype}")
+            continue
         if field.get("required") and coerced is None:
             row_errors.append(f"'{source_name}' 為必填欄位")
         else:
@@ -745,21 +760,7 @@ async def upload_csv(
     errors: list[dict] = []
 
     for row_idx, row in enumerate(df.itertuples(index=False)):
-        row_dict = row._asdict()
-        row_data: dict[str, Any] = {}
-        row_errors: list[str] = []
-
-        for field in fields:
-            field_key = field.get("fieldKey") or field.get("name")  # DB storage key
-            source_name = field.get("sourceName") or field_key  # CSV column header
-            ftype = field.get("type", "string")
-            raw_val = row_dict.get(source_name)
-            coerced = _coerce(raw_val, ftype)
-
-            if field.get("required") and coerced is None:
-                row_errors.append(f"'{source_name}' 為必填欄位")
-            else:
-                row_data[field_key] = coerced
+        row_data, row_errors = _map_row(row._asdict(), fields)
 
         if row_errors:
             errors.append({"row": row_idx + 1, "errors": row_errors})

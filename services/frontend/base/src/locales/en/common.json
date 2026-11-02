@@ -1211,5 +1211,21 @@
     "mismatch": "The two new passwords differ",
     "rejected": "Password not accepted: it must be longer than 8 characters and differ from the current one",
     "signOut": "Sign out"
+  },
+  "uploadImport": {
+    "title": "File upload",
+    "intro": "Choose a form and a CSV file. The file is checked first; nothing is written until you confirm.",
+    "noForms": "No form has fields defined yet. Create a form and its fields under Generic Forms first.",
+    "form": "Form",
+    "choose": "Choose a form",
+    "file": "CSV file",
+    "preview": "Check file",
+    "sample": "Preview of the first rows",
+    "summary": "{{total}} rows: {{valid}} can be imported, {{duplicate}} duplicate, {{errors}} with errors.",
+    "rowError": "Row {{row}}: ",
+    "commit": "Import {{count}} rows",
+    "nothingToImport": "Nothing can be imported. Rows with errors are not imported; fix the file and check it again.",
+    "done": "Import finished: {{imported}} added, {{skipped}} duplicates skipped, {{errors}} rows with errors not imported.",
+    "queued": "Large file queued for background import (id {{id}})."
   }
 }

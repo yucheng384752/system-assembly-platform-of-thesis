@@ -20,7 +20,7 @@ export const KIT_PAGES = /** @type {Record<string, {id: string, component: strin
 });
 
 // Base files that only the upload page needs; they are left out when upload-validation-kit is not selected.
-const UPLOAD_ONLY = ['src/pages/UploadPage.tsx', 'src/pages/upload/', 'src/components/CSVEditor.tsx', 'src/components/FileUpload.tsx', 'src/hooks/useUpload.ts'];
+const UPLOAD_ONLY = ['src/pages/UploadPage.tsx', 'src/styles/upload-import.css'];
 
 /** @param {string} directory @returns {Promise<string[]>} */
 async function walk(directory) {
@@ -37,6 +37,9 @@ async function walk(directory) {
 export function selectedPages(selected) {
   if (selected.includes('generic-forms-kit') && !selected.includes('audit-edit-kit')) {
     throw new Error('generic-forms-kit 的通用表格頁在執行期使用 audit-edit-kit 的編輯視窗，前端無法單獨納入');
+  }
+  if (selected.includes('upload-validation-kit') && !selected.includes('generic-forms-kit')) {
+    throw new Error('upload-validation-kit 的檔案上傳頁把 CSV 匯入通用表單（D152），前端無法在沒有 generic-forms-kit 時納入');
   }
   return selected.flatMap(kit => KIT_PAGES[kit] ?? []);
 }
