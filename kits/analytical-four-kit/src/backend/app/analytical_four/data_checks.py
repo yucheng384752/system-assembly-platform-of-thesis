@@ -15,6 +15,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 
 from app.analytical_four.engine.config_manager import FeatureConfig
+from app.analytical_four.format_checks import (
+    Finding, check_analysis_config, check_case_records, check_knowledge, check_ng_code, check_topology, names, ng_categories, topology_features,
+)
 from app.analytical_four.settings import Settings, SettingsError, derive_config
 
 VALID_OBSERVERS = ('P1', 'P2', 'P3', 'All')
@@ -27,17 +30,6 @@ SOP_FIELDS = 7
 EXAMPLES = 5
 
 
-@dataclass(frozen=True)
-class Finding:
-    severity: str  # 'error' blocks a run; 'warning' is shown with the run
-    layer: str
-    code: str
-    message: str
-
-    def as_json(self) -> Dict[str, str]:
-        return {'layer': self.layer, 'code': self.code, 'message': self.message}
-
-
 @dataclass
 class Report:
     errors: List[Finding]
@@ -48,9 +40,7 @@ class Report:
         return {'ok': not self.errors, 'errors': [f.as_json() for f in self.errors], 'warnings': [f.as_json() for f in self.warnings], 'summary': self.summary}
 
 
-def _names(values, limit: int = EXAMPLES) -> str:
-    values = [str(v) for v in values]
-    return '、'.join(values[:limit]) + (f' 等 {len(values)} 個' if len(values) > limit else '')
+_names = names
 
 
 def ng_code_column(observer: str) -> str:
@@ -137,7 +127,10 @@ def inspect(settings: Settings, root: Optional[Path] = None) -> Report:
         config = derive_config(settings, root)
     except SettingsError as error:
         return Report([Finding('error', 'a', 'config', str(error))], [], {})
-    errors += _config_problems(config)
+    errors += [f for f in check_analysis_config(config) if f.severity == 'error']
+    warnings += [f for f in check_analysis_config(config) if f.severity == 'warning']
+    if not errors:
+        errors += _config_problems(config)
     if errors:
         return Report(errors, warnings, summary)
     layers = settings.enabled()
@@ -240,6 +233,14 @@ def inspect(settings: Settings, root: Optional[Path] = None) -> Report:
             warnings.append(Finding('warning', 'b' if 'b' in layers else 'c', 'context-missing',
                                     f'這些情境欄位不在資料中，或沒有列入設定的類別欄位：{_names(absent, 10)}。事件的這些欄位會是空的，不良類型的環境分數與相似案例的比對會退化；欄名不同時，請在設定的欄位對照中對到這些名稱'))
     if 'b' in layers:
+        ng_path = source['baseline_data'].get('ng_code', '')
+        if ng_path and Path(ng_path).is_file():
+            found = check_ng_code(Path(ng_path))
+            errors += [f for f in found if f.severity == 'error']
+            warnings += [f for f in found if f.severity == 'warning']
+            defined = set(ng_categories(Path(ng_path)))
+        else:
+            defined = set()
         ng_column = ng_code_column(config.get('observer', 'All'))
         if not complain:
             if ng_column not in categorical or ng_column not in current.columns:
@@ -248,6 +249,10 @@ def inspect(settings: Settings, root: Optional[Path] = None) -> Report:
                 rows = cleaned[cleaned[target] == summary['sampleGroup']] if 'sampleGroup' in summary else cleaned
                 labelled = int((~rows[ng_column].astype(str).str.strip().str.lower().isin(['0', '', 'nan', 'none', 'null'])).sum())
                 summary['labelledSamples'] = labelled
+                used = set(rows[ng_column].astype(str).str.strip()) - {'0', '', 'nan', 'None', 'none', 'null'}
+                undefined = sorted(used - defined) if defined else []
+                if undefined:
+                    warnings.append(Finding('warning', 'b', 'ng-undefined', f'資料裡的不良代碼不在不良代碼定義中，診斷結果不會有原因與處置：{names(undefined)}'))
                 if labelled == 0:
                     warnings.append(Finding('warning', 'b', 'ng-labels', f'待查樣本的「{ng_column}」沒有任何有效的不良代碼，分布庫會是空的'))
         else:
@@ -261,56 +266,34 @@ def inspect(settings: Settings, root: Optional[Path] = None) -> Report:
             else:
                 summary['knownDefectCodes'] = len(library)
     if 'c' in layers:
-        warnings += _topology_findings(source, set(current.columns), numeric)
-        warnings += _sop_findings(source)
+        topology_path = source['baseline_data'].get('topology', '')
+        if topology_path and Path(topology_path).is_file():
+            found = check_topology(Path(topology_path))
+            errors += [f for f in found if f.severity == 'error']
+            warnings += [f for f in found if f.severity == 'warning']
+            if not any(f.severity == 'error' for f in found):
+                warnings += _topology_matches(Path(topology_path), set(current.columns), numeric)
+        sop_path = source['baseline_data'].get('rag_knowledge', '')
+        if sop_path and Path(sop_path).is_file():
+            found = check_knowledge(Path(sop_path))
+            errors += [f for f in found if f.severity == 'error']
+            warnings += [f for f in found if f.severity == 'warning']
         if complain:
-            errors += _case_file_errors(source)
+            for key, label in (('llm_records', '歷史案例檔'), ('llm_error_records', '誤判案例檔')):
+                path = source['case_data'].get(key, '')
+                if path and Path(path).is_file():
+                    errors += check_case_records(Path(path), label)
     return Report(errors, warnings, summary)
 
 
-def _topology_findings(source: Dict[str, Any], columns: set, numeric: List[str]) -> List[Finding]:
-    path = source['baseline_data'].get('topology', '')
-    if not path or not Path(path).is_file():
-        return []
-    try:
-        topology = json.loads(Path(path).read_text(encoding='utf-8'))
-        names = [f['name'] for station in topology['topology'].values() for f in station.get('feature', [])]
-        ids = [f['id'] for station in topology['topology'].values() for f in station.get('feature', [])]
-    except (OSError, ValueError, KeyError, TypeError, AttributeError):
-        return [Finding('warning', 'c', 'topology-format', '製程拓樸檔的結構不符（需要 topology.<站點>.feature[].{id,name}）')]
+def _topology_matches(path: Path, columns: set, numeric: List[str]) -> List[Finding]:
+    """Topology features are matched to data columns by name; the ones that do not match are skipped by the engine."""
+    features = topology_features(path)
     found = []
-    unknown = [n for n in names if n not in columns]
+    unknown = [n for n in features['names'] if n not in columns]
     if unknown:
         found.append(Finding('warning', 'c', 'topology-unmatched', f'拓樸有 {len(unknown)} 個特徵的名稱不是資料的欄名，事件裡的對應特徵會被略過：{_names(unknown)}'))
-    unplaced = [c for c in numeric if c not in names and c not in ids]
+    unplaced = [c for c in numeric if c not in features['names'] and c not in features['ids']]
     if unplaced:
         found.append(Finding('warning', 'c', 'topology-uncovered', f'有 {len(unplaced)} 個數值特徵不在拓樸中，異常時無法對應到製程位置：{_names(unplaced)}'))
-    return found
-
-
-def _sop_findings(source: Dict[str, Any]) -> List[Finding]:
-    path = source['baseline_data'].get('rag_knowledge', '')
-    if not path or not Path(path).is_file():
-        return []
-    lines = [x for x in Path(path).read_text(encoding='utf-8-sig').splitlines() if x.strip()]
-    expected = len(lines[0].split(',')) if lines else SOP_FIELDS
-    odd = [n for n, line in enumerate(lines[1:], 2) if len(line.split(',')) != expected]
-    if odd:
-        return [Finding('warning', 'c', 'sop-fields', f'SOP 知識檔有 {len(odd)} 列的欄位數與標題列（{expected} 欄）不同，常見原因是欄位內含逗號；欄位數少於 {SOP_FIELDS} 的列不會出現在事件的 SOP 清單，其餘會錯位；第 {_names(odd, 3)} 列')]
-    return []
-
-
-def _case_file_errors(source: Dict[str, Any]) -> List[Finding]:
-    found = []
-    for key, label in (('llm_records', '歷史案例檔'), ('llm_error_records', '誤判案例檔')):
-        path = source['case_data'].get(key, '')
-        if not path or not Path(path).is_file():
-            continue
-        for number, line in enumerate(Path(path).read_text(encoding='utf-8').splitlines(), 1):
-            if line.strip():
-                try:
-                    json.loads(line)
-                except ValueError:
-                    found.append(Finding('error', 'c', 'case-json', f'{label}第 {number} 行不是有效的 JSON'))
-                    break
     return found

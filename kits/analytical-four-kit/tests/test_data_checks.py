@@ -183,9 +183,14 @@ def test_topology_and_sop_files_that_do_not_fit_are_reported(data):
 
 
 def test_a_broken_case_file_is_an_error_in_complaint_mode_only(data):
-    (data / 'cases' / 'llm_records.jsonl').write_text('{"ok": 1}\n{broken\n', encoding='utf-8')
+    (data / 'cases' / 'llm_records.jsonl').write_text('{broken\n', encoding='utf-8')
     assert codes(inspect(complaint(layers={'a': True, 'b': True, 'c': True})).errors) == ['case-json']
     assert inspect(make(layers={'a': True, 'b': True, 'c': True})).errors == []
+
+
+def test_a_case_that_parses_but_lacks_what_the_search_reads_is_an_error_too(data):
+    (data / 'cases' / 'llm_records.jsonl').write_text('{"ok": 1}\n', encoding='utf-8')
+    assert codes(inspect(complaint(layers={'a': True, 'b': True, 'c': True})).errors) == ['case-record']
 
 
 def test_settings_refuse_an_ambiguous_or_untidy_mapping():

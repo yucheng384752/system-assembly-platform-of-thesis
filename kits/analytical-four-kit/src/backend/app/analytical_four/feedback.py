@@ -18,15 +18,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from app.analytical_four.format_checks import validate_case_record
 from app.analytical_four.runs import RunError, RunStore
 from app.analytical_four.settings import Settings, SettingsError, atomic_replace, derive_config
 
 NG_CODE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_-]{0,49}$')
 FEEDBACK_ID = re.compile(r'^[0-9a-f]{16}$')
-EVENT_ID = re.compile(r'^[A-Za-z0-9._:-]{1,100}$')
 AUTO_APPROVE_ROLES = {'admin', 'manager'}
 MAX_IMPORT_RECORDS = 500
-MAX_RECORD_BYTES = 100_000
 MAX_TEXT = 500
 VERSION_DIR = re.compile(r'^v(\d{4})$')
 
@@ -92,33 +91,6 @@ def ng_code_field(value: Any) -> str:
     if not isinstance(value, str) or not NG_CODE.match(value):
         raise FeedbackError(422, '確認的不良代碼只能含英數字、底線與連字號，最長 50 字')
     return value
-
-
-def validate_case_record(record: Any, where: str) -> Optional[str]:
-    """The fields the similar-case search reads. Returns the first problem, or None."""
-    def need(ok: bool, what: str) -> Optional[str]:
-        return None if ok else f'{where}：{what}'
-    if not isinstance(record, dict):
-        return f'{where}：必須是物件'
-    if len(json.dumps(record, ensure_ascii=False)) > MAX_RECORD_BYTES:
-        return f'{where}：超過 {MAX_RECORD_BYTES} 位元組'
-    summary, diag = record.get('summary'), record.get('diagnosis_results')
-    feedback, conclusion = record.get('feedback'), record.get('conclusion')
-    checks = [
-        need(isinstance(record.get('event_id'), str) and bool(EVENT_ID.match(record['event_id'])), 'event_id 不合法'),
-        need(isinstance(summary, dict), '缺少 summary'),
-        need(isinstance(summary, dict) and isinstance(summary.get('anomaly_features'), list)
-             and all(isinstance(x, str) for x in summary['anomaly_features']), 'summary.anomaly_features 必須是文字清單'),
-        need(isinstance(summary, dict) and isinstance(summary.get('sop_keys'), list)
-             and all(isinstance(x, str) for x in summary['sop_keys']), 'summary.sop_keys 必須是文字清單'),
-        need(isinstance(summary, dict) and isinstance(summary.get('categorical'), dict), 'summary.categorical 必須是物件'),
-        need(isinstance(diag, dict) and isinstance(diag.get('score_breakdown'), dict)
-             and all(isinstance(diag['score_breakdown'].get(k), (int, float)) for k in ('anomaly', 'metrics', 'env')),
-             'diagnosis_results.score_breakdown 需有數值的 anomaly、metrics、env'),
-        need(isinstance(feedback, dict), '缺少 feedback'),
-        need(isinstance(conclusion, dict), '缺少 conclusion'),
-    ]
-    return next((c for c in checks if c), None)
 
 
 class FeedbackStore:

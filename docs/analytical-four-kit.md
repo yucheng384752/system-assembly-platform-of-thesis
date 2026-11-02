@@ -230,3 +230,17 @@ llm       { endpointSet: bool, apiKeyEnv }      不保存位址本身與金鑰
 | `current-data.example.csv`、`baseline.example.csv` | 待分析與基準資料的範例（合成資料） |
 
 測試要求：欄位對照範本的值必須恰好是引擎寫死的情境欄位加不良代碼欄位（引擎清單改了，範本就要跟著改）；六個範例檔放在一起必須通過資料檢查且沒有警告。
+
+## 12. 設定與知識檔的格式檢查
+
+`format_checks.py` 檢查除了量測 CSV 以外、場域提供的檔案。資料檢查（第 10 節）會呼叫它們，結果併入同一份報告；啟動分析前有 error 就不啟動。error 是引擎會當掉或結果會錯的情形，warning 是會被略過或變弱的情形。
+
+| 檔案 | error | warning |
+|---|---|---|
+| 分析設定檔 | `feature` 不是物件，或某組的 `numerical`、`categorical`、`target`、`id` 型別不對 | 同一組的數值特徵重複列出 |
+| 不良代碼定義（B 層） | 不是非空陣列；某筆沒有 `category`；`details` 不是非空的物件陣列；代碼重複定義（只有第一筆有效） | 第一筆 `details` 的機台、製程、現象、原因、處置有空白（診斷結果會是空的）；資料裡出現的不良代碼不在定義中 |
+| 製程拓樸（C 層） | 缺 `process.stations`（需有 id、name、整數 order）、站點 id 重複、特徵缺 id／name／role／level 任一項、level 不是整數、特徵 id 重複、完全沒有特徵 | `topology` 的站點不在 `process.stations`（整站略過）；角色不在 `roles`；特徵名稱重複；拓樸名稱不是資料欄名；數值特徵不在拓樸中 |
+| SOP 知識（C 層） | 只有標題列或是空的 | 標題列不是預期的七欄；某列欄位數與標題不同（常見為欄位內有逗號）；`Knowledge_ID` 重複；適用特徵空白 |
+| 案例檔（C 層，客訴模式） | 某行不是 JSON；某筆缺相似案例搜尋讀取的欄位（`event_id`、`summary`、`diagnosis_results.score_breakdown`、`conclusion`、`feedback`），搜尋會在這筆失敗 | 無 |
+
+案例紀錄驗證與回饋匯入共用同一個函式。這一節之前，案例檔裡可解析但缺欄位的紀錄會讓相似案例階段以 `KeyError` 失敗；現在在啟動前指出檔案與行號。
