@@ -1,0 +1,335 @@
+{
+  "note": "Hand-checked requests and the exact responses of the evaluator sidecar (aov-core commit in aovCommit). Run by the TypeScript handler tests and, through the real bundle, by the Python client tests.",
+  "aovCommit": "6a37dbba7dcf0563e60b1e2eb591966b09deb765",
+  "vectors": [
+    {
+      "name": "guard list on an artifact attribute, false with a located reason",
+      "request": {
+        "id": 1,
+        "op": "guards",
+        "guard": [
+          {
+            "label": "temperature in range",
+            "when": "in.in.temperature_c >= params.temp_min"
+          }
+        ],
+        "params": {
+          "temp_min": 15
+        },
+        "vars": {
+          "in": {
+            "in": {
+              "$artifact": {
+                "id": "A1",
+                "type": "lot.dough",
+                "version": 1,
+                "attrs": {
+                  "temperature_c": 12
+                },
+                "createdAt": 0
+              }
+            }
+          }
+        },
+        "artifactTypes": [
+          {
+            "id": "lot.dough"
+          }
+        ],
+        "now": "2026-10-29T00:00:00Z"
+      },
+      "response": {
+        "id": 1,
+        "ok": true,
+        "items": [
+          {
+            "label": "temperature in range",
+            "status": "false",
+            "message": "「in.in.temperature_c >= params.temp_min」不成立：12 >= 15"
+          }
+        ]
+      }
+    },
+    {
+      "name": "1 kg compared with 900 g converts units: false",
+      "request": {
+        "id": 2,
+        "op": "evaluate",
+        "mode": "guard",
+        "expr": "params.w >= 1 kg",
+        "params": {
+          "w": {
+            "value": 900,
+            "unit": "g"
+          }
+        },
+        "now": "2026-10-29T00:00:00Z"
+      },
+      "response": {
+        "id": 2,
+        "ok": true,
+        "status": "false",
+        "message": "「params.w >= 1 kg」不成立：900 g >= 1 kg"
+      }
+    },
+    {
+      "name": "1000 g equals 1 kg: true",
+      "request": {
+        "id": 3,
+        "op": "evaluate",
+        "mode": "guard",
+        "expr": "params.w == 1 kg",
+        "params": {
+          "w": {
+            "value": 1000,
+            "unit": "g"
+          }
+        },
+        "now": "2026-10-29T00:00:00Z"
+      },
+      "response": {
+        "id": 3,
+        "ok": true,
+        "status": "true"
+      }
+    },
+    {
+      "name": "1 kg + 500 g is 1.5 kg",
+      "request": {
+        "id": 4,
+        "op": "evaluate",
+        "mode": "value",
+        "expr": "params.a + 500 g",
+        "params": {
+          "a": {
+            "value": 1,
+            "unit": "kg"
+          }
+        },
+        "now": "2026-10-29T00:00:00Z"
+      },
+      "response": {
+        "id": 4,
+        "ok": true,
+        "value": {
+          "$qty": {
+            "value": 1.5,
+            "unit": "kg"
+          }
+        },
+        "text": "1.5 kg"
+      }
+    },
+    {
+      "name": "a named rule is called",
+      "request": {
+        "id": 5,
+        "op": "evaluate",
+        "mode": "guard",
+        "expr": "hot(params.t)",
+        "rules": [
+          {
+            "id": "hot",
+            "params": [
+              "x"
+            ],
+            "expr": "x > 30"
+          }
+        ],
+        "params": {
+          "t": 31
+        },
+        "now": "2026-10-29T00:00:00Z"
+      },
+      "response": {
+        "id": 5,
+        "ok": true,
+        "status": "true"
+      }
+    },
+    {
+      "name": "recursive rules are refused as a whole",
+      "request": {
+        "id": 6,
+        "op": "evaluate",
+        "mode": "guard",
+        "expr": "a(1)",
+        "rules": [
+          {
+            "id": "a",
+            "params": [
+              "x"
+            ],
+            "expr": "b(x)"
+          },
+          {
+            "id": "b",
+            "params": [
+              "x"
+            ],
+            "expr": "a(x)"
+          }
+        ],
+        "now": "2026-10-29T00:00:00Z"
+      },
+      "response": {
+        "id": 6,
+        "ok": false,
+        "error": {
+          "code": "bad-rules",
+          "message": "規則遞迴：a → b → a（規則之間不可循環引用）"
+        }
+      }
+    },
+    {
+      "name": "a guard that is not boolean is an error, not false",
+      "request": {
+        "id": 7,
+        "op": "evaluate",
+        "mode": "guard",
+        "expr": "1 + 1",
+        "now": "2026-10-29T00:00:00Z"
+      },
+      "response": {
+        "id": 7,
+        "ok": true,
+        "status": "error",
+        "message": "條件必須回傳 bool，實際為 number"
+      }
+    },
+    {
+      "name": "a syntax error is reported with its position",
+      "request": {
+        "id": 8,
+        "op": "evaluate",
+        "mode": "guard",
+        "expr": "params.x >",
+        "now": "2026-10-29T00:00:00Z"
+      },
+      "response": {
+        "id": 8,
+        "ok": true,
+        "status": "error",
+        "message": "語法錯誤（第 11 字元）：運算式不完整"
+      }
+    },
+    {
+      "name": "now must come from the caller",
+      "request": {
+        "id": 9,
+        "op": "evaluate",
+        "mode": "guard",
+        "expr": "true"
+      },
+      "response": {
+        "id": 9,
+        "ok": false,
+        "error": {
+          "code": "bad-request",
+          "message": "now must be an ISO date-time supplied by the caller"
+        }
+      }
+    },
+    {
+      "name": "an unknown marker is refused, not guessed",
+      "request": {
+        "id": 10,
+        "op": "evaluate",
+        "mode": "guard",
+        "expr": "true",
+        "vars": {
+          "x": {
+            "$bogus": 1
+          }
+        },
+        "now": "2026-10-29T00:00:00Z"
+      },
+      "response": {
+        "id": 10,
+        "ok": false,
+        "error": {
+          "code": "bad-value",
+          "message": "/vars/x: unknown marker $bogus"
+        }
+      }
+    },
+    {
+      "name": "now is the caller-supplied time",
+      "request": {
+        "id": 11,
+        "op": "evaluate",
+        "mode": "guard",
+        "expr": "now > self.createdAt",
+        "vars": {
+          "self": {
+            "$artifact": {
+              "id": "A1",
+              "type": "lot.dough",
+              "version": 1,
+              "attrs": {},
+              "createdAt": 0
+            }
+          }
+        },
+        "now": "2026-10-29T00:00:00Z"
+      },
+      "response": {
+        "id": 11,
+        "ok": true,
+        "status": "true"
+      }
+    },
+    {
+      "name": "now as a value is an ISO date-time",
+      "request": {
+        "id": 12,
+        "op": "evaluate",
+        "mode": "value",
+        "expr": "now",
+        "now": "2026-10-29T00:00:00Z"
+      },
+      "response": {
+        "id": 12,
+        "ok": true,
+        "value": {
+          "$datetime": "2026-10-29T00:00:00.000Z"
+        },
+        "text": "2026-10-29T00:00:00Z"
+      }
+    },
+    {
+      "name": "Chinese strings compare as written",
+      "request": {
+        "id": 13,
+        "op": "evaluate",
+        "mode": "guard",
+        "expr": "params.name == \"中文\"",
+        "params": {
+          "name": "中文"
+        },
+        "now": "2026-10-29T00:00:00Z"
+      },
+      "response": {
+        "id": 13,
+        "ok": true,
+        "status": "true"
+      }
+    },
+    {
+      "name": "an undefined name is an error, not false",
+      "request": {
+        "id": 14,
+        "op": "evaluate",
+        "mode": "guard",
+        "expr": "unknown_var > 1",
+        "now": "2026-10-29T00:00:00Z"
+      },
+      "response": {
+        "id": 14,
+        "ok": true,
+        "status": "error",
+        "message": "未定義的名稱「unknown_var」"
+      }
+    }
+  ]
+}

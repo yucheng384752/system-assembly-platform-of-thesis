@@ -20,5 +20,52 @@
     "category": "permission", "required": false,
     "businessCapability": "規劃使用者登入與使用權限；目前僅提供功能設定，尚未串接身分驗證。",
     "dependencies": ["platform-core-kit"], "subfeatures": []
+  }, {
+    "id": "factory-core-kit", "version": "0.1.0", "displayName": "工廠執行核心",
+    "category": "production", "required": false,
+    "businessCapability": "接收生產計畫、管理生產參數的提出與核准、建立工單，並在警報未確認時暫停對應步驟。",
+    "dependencies": ["platform-core-kit", "entry-permission-kit"], "subfeatures": []
+  }, {
+    "id": "analytical-four-kit",
+    "version": "0.1.0",
+    "displayName": "製造數據分析",
+    "category": "production",
+    "required": false,
+    "businessCapability": "分析製造數據：找出異常、判斷可能的不良類型，並結合 SOP 與案例提出處置建議。分析層級與模式可在設定中調整。",
+    "dependencies": [
+      "platform-core-kit",
+      "entry-permission-kit"
+    ],
+    "subfeatures": [
+      {
+        "id": "layer-a",
+        "displayName": "統計與異常診斷",
+        "businessCapability": "基準統計、超界檢測、多變量程序控制與特徵貢獻排名。",
+        "defaultSelected": true,
+        "dependencies": [],
+        "options": []
+      },
+      {
+        "id": "layer-b",
+        "displayName": "不良類型診斷",
+        "businessCapability": "依歷史不良樣本的特徵分布，推估可能的不良類型。",
+        "defaultSelected": true,
+        "dependencies": [
+          "layer-a"
+        ],
+        "options": []
+      },
+      {
+        "id": "layer-c",
+        "displayName": "完整 AI 診斷",
+        "businessCapability": "對應製程位置、檢索 SOP、比對相似案例，並由 AI 語言模型綜合建議。",
+        "defaultSelected": false,
+        "dependencies": [
+          "layer-a",
+          "layer-b"
+        ],
+        "options": []
+      }
+    ]
   }]
 }

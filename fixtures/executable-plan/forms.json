@@ -1,0 +1,42 @@
+{
+  "note": "Form definitions (AoV FormDef) with their contentSha256. libs/aov-integration/executablePlan.test.ts recomputes each hash in TypeScript; the factory tests upload these. The plan fixtures name the first form by this hash.",
+  "forms": [
+    {
+      "definition": {
+        "id": "mix-record",
+        "name": "混合記錄",
+        "subject": [
+          "info.batch"
+        ],
+        "fields": {
+          "mix_minutes": {
+            "label": "混合時間",
+            "type": "quantity",
+            "unit": "min",
+            "required": true,
+            "default": 12
+          },
+          "water_temp": {
+            "label": "水溫",
+            "type": "number",
+            "unit": "degC",
+            "default": 24.5
+          },
+          "grade": {
+            "label": "等級",
+            "type": "enum",
+            "values": [
+              "A",
+              "B",
+              "C"
+            ]
+          },
+          "operator_note": {
+            "type": "string"
+          }
+        }
+      },
+      "contentSha256": "49e49ff44235ec43fe0a0549d6193ddfc59e9d10af64f9181298807332e7a242"
+    }
+  ]
+}

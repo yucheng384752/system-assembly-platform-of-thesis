@@ -1,0 +1,1007 @@
+{
+  "format": "composer-kit-registry",
+  "version": 1,
+  "kitId": "factory-core-kit",
+  "scope": "登錄工廠執行核心的 15 個路由：計畫與表單接收、參數提出與核准、工單、警報。身分由入口權限中介層提供，路由不從請求內容取得身分。",
+  "capabilities": [
+    {
+      "id": "factory.plans.receive",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/factory/plans",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "factory-core-kit",
+        "mService": "factory-plans-receive"
+      },
+      "verified": true
+    },
+    {
+      "id": "factory.plans.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/factory/plans",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "factory-core-kit",
+        "mService": "factory-plans-list"
+      },
+      "verified": true
+    },
+    {
+      "id": "factory.plans.get",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/factory/plans/{plan_id}",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "factory-core-kit",
+        "mService": "factory-plans-get"
+      },
+      "verified": true
+    },
+    {
+      "id": "factory.forms.upload",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/factory/forms",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "factory-core-kit",
+        "mService": "factory-forms-upload"
+      },
+      "verified": true
+    },
+    {
+      "id": "factory.forms.get",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/factory/forms/{content_sha256}",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "factory-core-kit",
+        "mService": "factory-forms-get"
+      },
+      "verified": true
+    },
+    {
+      "id": "factory.params.propose",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/factory/plans/{plan_id}/parameter-sets",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "factory-core-kit",
+        "mService": "factory-params-propose"
+      },
+      "verified": true
+    },
+    {
+      "id": "factory.params.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/factory/plans/{plan_id}/parameter-sets",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "factory-core-kit",
+        "mService": "factory-params-list"
+      },
+      "verified": true
+    },
+    {
+      "id": "factory.params.decide",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/factory/plans/{plan_id}/parameter-sets/{set_version}/decision",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "factory-core-kit",
+        "mService": "factory-params-decide"
+      },
+      "verified": true
+    },
+    {
+      "id": "factory.orders.create",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/factory/work-orders",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "factory-core-kit",
+        "mService": "factory-orders-create"
+      },
+      "verified": true
+    },
+    {
+      "id": "factory.orders.get",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/factory/work-orders/{order_id}",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "factory-core-kit",
+        "mService": "factory-orders-get"
+      },
+      "verified": true
+    },
+    {
+      "id": "factory.orders.start",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/factory/work-orders/{order_id}/start",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "factory-core-kit",
+        "mService": "factory-orders-start"
+      },
+      "verified": true
+    },
+    {
+      "id": "factory.alarms.raise",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/factory/work-orders/{order_id}/alarms",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "factory-core-kit",
+        "mService": "factory-alarms-raise"
+      },
+      "verified": true
+    },
+    {
+      "id": "factory.alarms.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/factory/alarms",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "factory-core-kit",
+        "mService": "factory-alarms-list"
+      },
+      "verified": true
+    },
+    {
+      "id": "factory.alarms.acknowledge",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/factory/alarms/{alarm_id}/acknowledge",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "factory-core-kit",
+        "mService": "factory-alarms-acknowledge"
+      },
+      "verified": true
+    },
+    {
+      "id": "factory.alarms.remind",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/factory/alarms/reminders",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "factory-core-kit",
+        "mService": "factory-alarms-remind"
+      },
+      "verified": true
+    }
+  ],
+  "consumes": [],
+  "mServices": [
+    {
+      "id": "factory-plans-receive",
+      "name": "接收生產計畫",
+      "responsibility": "接收生產計畫",
+      "provides": [
+        "factory.plans.receive"
+      ],
+      "inputs": [
+        {
+          "name": "plan_document",
+          "type": "json"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "receipt",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "factory-plans-receive"
+      ],
+      "failure": "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+    },
+    {
+      "id": "factory-plans-list",
+      "name": "列出生產計畫",
+      "responsibility": "列出生產計畫",
+      "provides": [
+        "factory.plans.list"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "plans",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "factory-plans-list"
+      ],
+      "failure": "401 未登入"
+    },
+    {
+      "id": "factory-plans-get",
+      "name": "取得生產計畫",
+      "responsibility": "取得生產計畫",
+      "provides": [
+        "factory.plans.get"
+      ],
+      "inputs": [
+        {
+          "name": "plan_id",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "plan",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "factory-plans-get"
+      ],
+      "failure": "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+    },
+    {
+      "id": "factory-forms-upload",
+      "name": "上傳計畫引用的表單定義",
+      "responsibility": "上傳計畫引用的表單定義",
+      "provides": [
+        "factory.forms.upload"
+      ],
+      "inputs": [
+        {
+          "name": "form_document",
+          "type": "json"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "receipt",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "factory-forms-upload"
+      ],
+      "failure": "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+    },
+    {
+      "id": "factory-forms-get",
+      "name": "取得表單定義",
+      "responsibility": "取得表單定義",
+      "provides": [
+        "factory.forms.get"
+      ],
+      "inputs": [
+        {
+          "name": "content_sha256",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "form",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "factory-forms-get"
+      ],
+      "failure": "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+    },
+    {
+      "id": "factory-params-propose",
+      "name": "提出生產參數修改",
+      "responsibility": "提出生產參數修改",
+      "provides": [
+        "factory.params.propose"
+      ],
+      "inputs": [
+        {
+          "name": "plan_id",
+          "type": "string"
+        },
+        {
+          "name": "values",
+          "type": "json"
+        },
+        {
+          "name": "tables",
+          "type": "json"
+        },
+        {
+          "name": "alarm_intervals",
+          "type": "json"
+        },
+        {
+          "name": "reason",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "parameter_set",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "factory-params-propose"
+      ],
+      "failure": "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+    },
+    {
+      "id": "factory-params-list",
+      "name": "列出生產參數版本",
+      "responsibility": "列出生產參數版本",
+      "provides": [
+        "factory.params.list"
+      ],
+      "inputs": [
+        {
+          "name": "plan_id",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "parameter_sets",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "factory-params-list"
+      ],
+      "failure": "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+    },
+    {
+      "id": "factory-params-decide",
+      "name": "核准或駁回生產參數修改",
+      "responsibility": "核准或駁回生產參數修改",
+      "provides": [
+        "factory.params.decide"
+      ],
+      "inputs": [
+        {
+          "name": "plan_id",
+          "type": "string"
+        },
+        {
+          "name": "set_version",
+          "type": "integer"
+        },
+        {
+          "name": "approve",
+          "type": "boolean"
+        },
+        {
+          "name": "note",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "decision",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "factory-params-decide"
+      ],
+      "failure": "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+    },
+    {
+      "id": "factory-orders-create",
+      "name": "建立工單",
+      "responsibility": "建立工單",
+      "provides": [
+        "factory.orders.create"
+      ],
+      "inputs": [
+        {
+          "name": "order_id",
+          "type": "string"
+        },
+        {
+          "name": "plan_id",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "work_order",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "factory-orders-create"
+      ],
+      "failure": "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+    },
+    {
+      "id": "factory-orders-get",
+      "name": "取得工單與暫停中的節點",
+      "responsibility": "取得工單與暫停中的節點",
+      "provides": [
+        "factory.orders.get"
+      ],
+      "inputs": [
+        {
+          "name": "order_id",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "work_order",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "factory-orders-get"
+      ],
+      "failure": "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+    },
+    {
+      "id": "factory-orders-start",
+      "name": "開工並固定核准的參數集",
+      "responsibility": "開工並固定核准的參數集",
+      "provides": [
+        "factory.orders.start"
+      ],
+      "inputs": [
+        {
+          "name": "order_id",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "work_order",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "factory-orders-start"
+      ],
+      "failure": "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+    },
+    {
+      "id": "factory-alarms-raise",
+      "name": "回報超出範圍的警報並暫停節點",
+      "responsibility": "回報超出範圍的警報並暫停節點",
+      "provides": [
+        "factory.alarms.raise"
+      ],
+      "inputs": [
+        {
+          "name": "order_id",
+          "type": "string"
+        },
+        {
+          "name": "rule_id",
+          "type": "string"
+        },
+        {
+          "name": "detail",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "alarm",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "factory-alarms-raise"
+      ],
+      "failure": "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+    },
+    {
+      "id": "factory-alarms-list",
+      "name": "列出警報",
+      "responsibility": "列出警報",
+      "provides": [
+        "factory.alarms.list"
+      ],
+      "inputs": [
+        {
+          "name": "order_id",
+          "type": "string"
+        },
+        {
+          "name": "open_only",
+          "type": "boolean"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "alarms",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "factory-alarms-list"
+      ],
+      "failure": "401 未登入"
+    },
+    {
+      "id": "factory-alarms-acknowledge",
+      "name": "確認警報並解除暫停",
+      "responsibility": "確認警報並解除暫停",
+      "provides": [
+        "factory.alarms.acknowledge"
+      ],
+      "inputs": [
+        {
+          "name": "alarm_id",
+          "type": "string"
+        },
+        {
+          "name": "note",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "acknowledgement",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "factory-alarms-acknowledge"
+      ],
+      "failure": "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+    },
+    {
+      "id": "factory-alarms-remind",
+      "name": "收取到期的警報提醒",
+      "responsibility": "收取到期的警報提醒",
+      "provides": [
+        "factory.alarms.remind"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "due_alarms",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "factory-alarms-remind"
+      ],
+      "failure": "401 未登入"
+    }
+  ],
+  "functions": [
+    {
+      "id": "factory-plans-receive",
+      "primitive": "factory-plans-receive",
+      "input": [
+        {
+          "name": "plan_document",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "receipt",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+      ],
+      "sideEffects": [
+        "寫入計畫"
+      ],
+      "source": {
+        "path": "kits/factory-core-kit/src/backend/app/api/routes_factory.py",
+        "symbol": "receive_plan"
+      }
+    },
+    {
+      "id": "factory-plans-list",
+      "primitive": "factory-plans-list",
+      "input": [],
+      "output": [
+        {
+          "name": "plans",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/factory-core-kit/src/backend/app/api/routes_factory.py",
+        "symbol": "list_plans"
+      }
+    },
+    {
+      "id": "factory-plans-get",
+      "primitive": "factory-plans-get",
+      "input": [
+        {
+          "name": "plan_id",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "plan",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/factory-core-kit/src/backend/app/api/routes_factory.py",
+        "symbol": "get_plan"
+      }
+    },
+    {
+      "id": "factory-forms-upload",
+      "primitive": "factory-forms-upload",
+      "input": [
+        {
+          "name": "form_document",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "receipt",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+      ],
+      "sideEffects": [
+        "寫入表單定義"
+      ],
+      "source": {
+        "path": "kits/factory-core-kit/src/backend/app/api/routes_factory.py",
+        "symbol": "upload_form"
+      }
+    },
+    {
+      "id": "factory-forms-get",
+      "primitive": "factory-forms-get",
+      "input": [
+        {
+          "name": "content_sha256",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "form",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/factory-core-kit/src/backend/app/api/routes_factory.py",
+        "symbol": "get_form"
+      }
+    },
+    {
+      "id": "factory-params-propose",
+      "primitive": "factory-params-propose",
+      "input": [
+        {
+          "name": "plan_id",
+          "type": "string"
+        },
+        {
+          "name": "values",
+          "type": "json"
+        },
+        {
+          "name": "tables",
+          "type": "json"
+        },
+        {
+          "name": "alarm_intervals",
+          "type": "json"
+        },
+        {
+          "name": "reason",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "parameter_set",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+      ],
+      "sideEffects": [
+        "新增一版參數集"
+      ],
+      "source": {
+        "path": "kits/factory-core-kit/src/backend/app/api/routes_factory.py",
+        "symbol": "propose"
+      }
+    },
+    {
+      "id": "factory-params-list",
+      "primitive": "factory-params-list",
+      "input": [
+        {
+          "name": "plan_id",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "parameter_sets",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/factory-core-kit/src/backend/app/api/routes_factory.py",
+        "symbol": "list_sets"
+      }
+    },
+    {
+      "id": "factory-params-decide",
+      "primitive": "factory-params-decide",
+      "input": [
+        {
+          "name": "plan_id",
+          "type": "string"
+        },
+        {
+          "name": "set_version",
+          "type": "integer"
+        },
+        {
+          "name": "approve",
+          "type": "boolean"
+        },
+        {
+          "name": "note",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "decision",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+      ],
+      "sideEffects": [
+        "新增核准紀錄"
+      ],
+      "source": {
+        "path": "kits/factory-core-kit/src/backend/app/api/routes_factory.py",
+        "symbol": "decide"
+      }
+    },
+    {
+      "id": "factory-orders-create",
+      "primitive": "factory-orders-create",
+      "input": [
+        {
+          "name": "order_id",
+          "type": "string"
+        },
+        {
+          "name": "plan_id",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "work_order",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+      ],
+      "sideEffects": [
+        "新增工單並固定計畫"
+      ],
+      "source": {
+        "path": "kits/factory-core-kit/src/backend/app/api/routes_factory.py",
+        "symbol": "create_order"
+      }
+    },
+    {
+      "id": "factory-orders-get",
+      "primitive": "factory-orders-get",
+      "input": [
+        {
+          "name": "order_id",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "work_order",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/factory-core-kit/src/backend/app/api/routes_factory.py",
+        "symbol": "get_order"
+      }
+    },
+    {
+      "id": "factory-orders-start",
+      "primitive": "factory-orders-start",
+      "input": [
+        {
+          "name": "order_id",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "work_order",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+      ],
+      "sideEffects": [
+        "固定開工時的參數集"
+      ],
+      "source": {
+        "path": "kits/factory-core-kit/src/backend/app/api/routes_factory.py",
+        "symbol": "start_order"
+      }
+    },
+    {
+      "id": "factory-alarms-raise",
+      "primitive": "factory-alarms-raise",
+      "input": [
+        {
+          "name": "order_id",
+          "type": "string"
+        },
+        {
+          "name": "rule_id",
+          "type": "string"
+        },
+        {
+          "name": "detail",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "alarm",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+      ],
+      "sideEffects": [
+        "新增警報並暫停對應節點"
+      ],
+      "source": {
+        "path": "kits/factory-core-kit/src/backend/app/api/routes_factory.py",
+        "symbol": "raise_alarm"
+      }
+    },
+    {
+      "id": "factory-alarms-list",
+      "primitive": "factory-alarms-list",
+      "input": [
+        {
+          "name": "order_id",
+          "type": "string"
+        },
+        {
+          "name": "open_only",
+          "type": "boolean"
+        }
+      ],
+      "output": [
+        {
+          "name": "alarms",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/factory-core-kit/src/backend/app/api/routes_factory.py",
+        "symbol": "list_alarms"
+      }
+    },
+    {
+      "id": "factory-alarms-acknowledge",
+      "primitive": "factory-alarms-acknowledge",
+      "input": [
+        {
+          "name": "alarm_id",
+          "type": "string"
+        },
+        {
+          "name": "note",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "acknowledgement",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；領域錯誤依錯誤碼回 404、403、409 或 422"
+      ],
+      "sideEffects": [
+        "新增確認紀錄並解除節點暫停"
+      ],
+      "source": {
+        "path": "kits/factory-core-kit/src/backend/app/api/routes_factory.py",
+        "symbol": "acknowledge"
+      }
+    },
+    {
+      "id": "factory-alarms-remind",
+      "primitive": "factory-alarms-remind",
+      "input": [],
+      "output": [
+        {
+          "name": "due_alarms",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入"
+      ],
+      "sideEffects": [
+        "記錄提醒時間"
+      ],
+      "source": {
+        "path": "kits/factory-core-kit/src/backend/app/api/routes_factory.py",
+        "symbol": "collect_reminders"
+      }
+    }
+  ]
+}

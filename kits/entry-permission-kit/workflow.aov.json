@@ -1,0 +1,132 @@
+{
+  "format": "composer-kit-workflow",
+  "version": 1,
+  "kitId": "entry-permission-kit",
+  "kitVersion": "0.1.0",
+  "status": "draft",
+  "scope": "描述登入、個人資料、入口目錄、角色與授權、使用者管理。連線只畫需要前一步結果的前置：設定角色授權需有角色，設定使用者入口例外需有使用者。登入取得的憑證是其餘所有路由的共同條件，不逐條畫出。既有角色與使用者可直接使用，不強制先建立。入口層只決定可見性，舊的端點權限中介層仍可拒絕請求，實際可存取範圍為兩層交集。未涵蓋身分驗證以外的授權效果測試（標為未涵蓋）。尚未完成執行驗證。",
+  "nodes": [
+    {
+      "id": "login",
+      "name": "登入",
+      "capabilityIds": [
+        "auth.login"
+      ]
+    },
+    {
+      "id": "get-me",
+      "name": "查看自己的資料",
+      "capabilityIds": [
+        "auth.me.get"
+      ]
+    },
+    {
+      "id": "update-me",
+      "name": "修改自己的顯示名稱",
+      "capabilityIds": [
+        "auth.me.update"
+      ]
+    },
+    {
+      "id": "change-password",
+      "name": "變更自己的密碼",
+      "capabilityIds": [
+        "auth.change-password"
+      ]
+    },
+    {
+      "id": "list-entry-points",
+      "name": "查看全部入口",
+      "capabilityIds": [
+        "entry-points.list"
+      ]
+    },
+    {
+      "id": "my-entry-points",
+      "name": "查看自己可用的入口",
+      "capabilityIds": [
+        "entry-points.me"
+      ]
+    },
+    {
+      "id": "list-roles",
+      "name": "查詢角色",
+      "capabilityIds": [
+        "roles.list"
+      ]
+    },
+    {
+      "id": "create-role",
+      "name": "建立角色",
+      "capabilityIds": [
+        "roles.create"
+      ]
+    },
+    {
+      "id": "update-role",
+      "name": "修改角色",
+      "capabilityIds": [
+        "roles.update"
+      ]
+    },
+    {
+      "id": "delete-role",
+      "name": "刪除角色",
+      "capabilityIds": [
+        "roles.delete"
+      ]
+    },
+    {
+      "id": "set-role-grants",
+      "name": "設定角色的入口授權",
+      "capabilityIds": [
+        "roles.grants.put"
+      ]
+    },
+    {
+      "id": "list-users",
+      "name": "查詢使用者",
+      "capabilityIds": [
+        "ep.users.list"
+      ]
+    },
+    {
+      "id": "create-user",
+      "name": "建立使用者",
+      "capabilityIds": [
+        "ep.users.create"
+      ]
+    },
+    {
+      "id": "update-user",
+      "name": "修改使用者",
+      "capabilityIds": [
+        "ep.users.update"
+      ]
+    },
+    {
+      "id": "reset-password",
+      "name": "重設使用者密碼",
+      "capabilityIds": [
+        "ep.users.reset-password"
+      ]
+    },
+    {
+      "id": "set-user-overrides",
+      "name": "設定使用者的入口例外",
+      "capabilityIds": [
+        "ep.users.overrides.put"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "create-role",
+      "to": "set-role-grants"
+    },
+    {
+      "from": "create-user",
+      "to": "set-user-overrides"
+    }
+  ]
+}

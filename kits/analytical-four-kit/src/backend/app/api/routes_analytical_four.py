@@ -1,0 +1,291 @@
+"""Analytical-Four routes (docs/analytical-four-kit.md, section 4).
+
+Who may call which route is decided by the shared entry-permission middleware and permissions/entry_points.json, which is
+assembled from kit.contract.json. These routes trust only the actor that middleware sets on the request and answer 401
+without it. Nothing here touches the database: settings, runs and results live as files in the Kit data directory.
+"""
+from functools import lru_cache
+from pathlib import Path
+
+from fastapi import APIRouter, HTTPException, Query, Request, Response
+from pydantic import ValidationError
+from starlette.concurrency import run_in_threadpool
+
+from app.analytical_four.feedback import FeedbackError, FeedbackStore
+from app.analytical_four.data_checks import inspect
+from app.analytical_four.runs import RunError, RunStore, problems_as_json
+from app.analytical_four import templates_catalog
+from app.analytical_four.seed_demo import seed
+from app.analytical_four.uploads import UploadError, UploadStore
+from app.analytical_four.settings import Settings, SettingsError, data_dir, load_settings, readiness, save_settings
+
+router = APIRouter()
+
+
+def actor_id(request: Request) -> str:
+    user_id = getattr(request.state, 'actor_user_id', None)
+    if not user_id:
+        raise HTTPException(401, 'Unauthorized')  # the middleware did not run: refuse rather than guess
+    return str(user_id)
+
+
+@lru_cache(maxsize=4)
+def _store(root: str) -> RunStore:
+    return RunStore(Path(root))
+
+
+def store() -> RunStore:
+    return _store(str(data_dir()))  # keyed by directory so one process keeps one run lock per data directory
+
+
+@lru_cache(maxsize=4)
+def _feedback(root: str) -> FeedbackStore:
+    return FeedbackStore(Path(root), store())
+
+
+def feedback() -> FeedbackStore:
+    return _feedback(str(data_dir()))
+
+
+@lru_cache(maxsize=4)
+def _uploads(root: str) -> UploadStore:
+    return UploadStore(Path(root), store(), feedback().versions)
+
+
+def uploads() -> UploadStore:
+    return _uploads(str(data_dir()))
+
+
+def rejected(error: UploadError) -> HTTPException:
+    return HTTPException(error.status, error.message)
+
+
+def actor_role(request: Request) -> str:
+    role = getattr(request.state, 'actor_role', None)
+    if not isinstance(role, str) or not role:
+        raise HTTPException(401, 'Unauthorized')
+    return role
+
+
+def refused(error: FeedbackError) -> HTTPException:
+    return HTTPException(error.status, error.message)
+
+
+MAX_BODY_BYTES = 5_000_000
+
+
+def settings_or_422() -> Settings:
+    try:
+        return load_settings()
+    except SettingsError as error:
+        raise HTTPException(422, str(error)) from error
+
+
+def failing(error: RunError) -> HTTPException:
+    return HTTPException(error.status, error.message)
+
+
+@router.get('/api/analytical-four/settings')
+def get_settings(request: Request):
+    actor_id(request)
+    return settings_or_422().model_dump()
+
+
+@router.put('/api/analytical-four/settings')
+def put_settings(body: dict, request: Request):
+    actor_id(request)
+    try:
+        settings = Settings.model_validate(body)
+    except ValidationError as error:
+        raise HTTPException(422, [{'field': '.'.join(map(str, e['loc'])), 'message': e['msg']} for e in error.errors()]) from error
+    save_settings(settings)
+    return {'settings': settings.model_dump(), 'readiness': problems_as_json(readiness(settings))}
+
+
+@router.get('/api/analytical-four/status')
+def get_status(request: Request):
+    actor_id(request)
+    settings = settings_or_422()
+    return {'enabledLayers': settings.enabled(), 'mode': settings.mode, 'llmEndpointSet': bool(settings.llm.endpoint),
+            'activeRun': store().active, 'readiness': problems_as_json(readiness(settings))}
+
+
+@router.get('/api/analytical-four/data-check')
+def check_data(request: Request):
+    actor_id(request)
+    return inspect(settings_or_422()).as_json()
+
+
+@router.get('/api/analytical-four/templates')
+def list_templates(request: Request):
+    actor_id(request)
+    return {'templates': templates_catalog.listing()}
+
+
+@router.get('/api/analytical-four/templates/{name}')
+def get_template(name: str, request: Request):
+    actor_id(request)
+    found = templates_catalog.read(name)
+    if found is None:
+        raise HTTPException(404, '沒有這個範本')
+    content, content_type = found
+    return Response(content=content, media_type=content_type, headers={'Content-Disposition': f'attachment; filename="{name}"'})
+
+
+@router.post('/api/analytical-four/demo', status_code=201)
+def load_demo(request: Request):
+    actor_id(request)
+    return {'copied': seed()}
+
+
+@router.post('/api/analytical-four/runs', status_code=202)
+def create_run(request: Request):
+    who = actor_id(request)
+    try:
+        return store().create(settings_or_422(), who)
+    except RunError as error:
+        raise failing(error) from error
+
+
+@router.get('/api/analytical-four/runs')
+def list_runs(request: Request, limit: int = Query(50, ge=1, le=200)):
+    actor_id(request)
+    return {'runs': store().list(limit)}
+
+
+@router.get('/api/analytical-four/runs/{run_id}')
+def get_run(run_id: str, request: Request):
+    actor_id(request)
+    try:
+        return store().get(run_id)
+    except RunError as error:
+        raise failing(error) from error
+
+
+@router.get('/api/analytical-four/runs/{run_id}/results')
+def list_results(run_id: str, request: Request):
+    actor_id(request)
+    try:
+        store().get(run_id)
+        return {'runId': run_id, 'results': store().result_names(run_id)}
+    except RunError as error:
+        raise failing(error) from error
+
+
+@router.get('/api/analytical-four/runs/{run_id}/result')
+def get_result(run_id: str, request: Request, name: str = Query(..., min_length=1, max_length=300)):
+    actor_id(request)
+    try:
+        store().get(run_id)
+        return store().result(run_id, name)
+    except RunError as error:
+        raise failing(error) from error
+
+
+@router.post('/api/analytical-four/feedback', status_code=201)
+def submit_feedback(body: dict, request: Request):
+    who, role = actor_id(request), actor_role(request)
+    try:
+        return feedback().submit_from_run(settings_or_422(), str(body.get('runId', '')), str(body.get('eventId', '')),
+                                          body.get('confirmedNg'), body.get('actualCause'), body.get('note'), who, role)
+    except FeedbackError as error:
+        raise refused(error) from error
+
+
+@router.post('/api/analytical-four/feedback/import', status_code=201)
+def import_feedback(body: dict, request: Request):
+    who, role = actor_id(request), actor_role(request)
+    if int(request.headers.get('content-length') or 0) > MAX_BODY_BYTES:
+        raise HTTPException(413, f'一次匯入最多 {MAX_BODY_BYTES} 位元組')
+    try:
+        return {'feedback': feedback().import_records(settings_or_422(), body.get('records'), who, role)}
+    except FeedbackError as error:
+        raise refused(error) from error
+
+
+@router.get('/api/analytical-four/feedback')
+def list_feedback(request: Request, status: str = Query('', pattern='^(pending|approved|rejected)?$'), limit: int = Query(100, ge=1, le=500)):
+    actor_id(request)
+    try:
+        return {'feedback': feedback().list(status or None, limit)}
+    except FeedbackError as error:
+        raise refused(error) from error
+
+
+@router.post('/api/analytical-four/feedback/{feedback_id}/decision')
+def decide_feedback(feedback_id: str, body: dict, request: Request):
+    who, role = actor_id(request), actor_role(request)
+    try:
+        return feedback().decide(feedback_id, body.get('approve'), body.get('note'), who, role)
+    except FeedbackError as error:
+        raise refused(error) from error
+
+
+@router.post('/api/analytical-four/library/publish', status_code=201)
+def publish_library(request: Request):
+    who = actor_id(request)
+    try:
+        return feedback().publish(settings_or_422(), who)
+    except FeedbackError as error:
+        raise refused(error) from error
+
+
+@router.get('/api/analytical-four/library/versions')
+def library_versions(request: Request):
+    actor_id(request)
+    try:
+        return {'versions': feedback().versions()}
+    except FeedbackError as error:
+        raise refused(error) from error
+
+
+@router.post('/api/analytical-four/uploads', status_code=201)
+async def create_upload(request: Request, kind: str = Query(..., max_length=30), filename: str = Query('', max_length=200)):
+    who = actor_id(request)
+    settings = settings_or_422()
+    try:
+        upload_id, writer = uploads().begin(kind)
+        try:
+            async for chunk in request.stream():
+                writer.write(chunk)
+        except UploadError:
+            raise
+        except BaseException:
+            writer.abort()
+            raise
+        return await run_in_threadpool(uploads().finish, settings, upload_id, writer, kind, filename, who)
+    except UploadError as error:
+        raise rejected(error) from error
+
+
+@router.get('/api/analytical-four/uploads')
+def list_uploads(request: Request, limit: int = Query(50, ge=1, le=200)):
+    actor_id(request)
+    return {'uploads': uploads().list(limit)}
+
+
+@router.get('/api/analytical-four/uploads/{upload_id}')
+def get_upload(upload_id: str, request: Request):
+    actor_id(request)
+    try:
+        return uploads().get(upload_id)
+    except UploadError as error:
+        raise rejected(error) from error
+
+
+@router.post('/api/analytical-four/uploads/{upload_id}/accept')
+def accept_upload(upload_id: str, body: dict, request: Request):
+    who = actor_id(request)
+    try:
+        return uploads().accept(settings_or_422(), upload_id, body.get('replace', False), who)
+    except UploadError as error:
+        raise rejected(error) from error
+
+
+@router.delete('/api/analytical-four/uploads/{upload_id}')
+def discard_upload(upload_id: str, request: Request):
+    who = actor_id(request)
+    try:
+        return uploads().discard(upload_id, who)
+    except UploadError as error:
+        raise rejected(error) from error

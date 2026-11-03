@@ -1,0 +1,1734 @@
+{
+  "format": "composer-kit-registry",
+  "version": 1,
+  "kitId": "analytical-four-kit",
+  "scope": "登錄製造數據分析的 23 個路由：設定、就緒檢查、示範資料、啟動與查看分析、取得結果、回饋與案例庫版本。分析本身是背景執行，階段對應引擎的 pipeline 方法。",
+  "capabilities": [
+    {
+      "id": "analytical-four.settings.get",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytical-four/settings",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-settings-get"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.settings.put",
+      "kind": "api",
+      "method": "PUT",
+      "path": "/api/analytical-four/settings",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-settings-put"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.status.get",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytical-four/status",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-status-get"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.data.check",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytical-four/data-check",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-data-check"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.templates.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytical-four/templates",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-templates-list"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.templates.get",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytical-four/templates/{name}",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-templates-get"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.uploads.create",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/analytical-four/uploads",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-uploads-create"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.uploads.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytical-four/uploads",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-uploads-list"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.uploads.get",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytical-four/uploads/{upload_id}",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-uploads-get"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.uploads.accept",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/analytical-four/uploads/{upload_id}/accept",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-uploads-accept"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.uploads.discard",
+      "kind": "api",
+      "method": "DELETE",
+      "path": "/api/analytical-four/uploads/{upload_id}",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-uploads-discard"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.demo.load",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/analytical-four/demo",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-demo-load"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.runs.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytical-four/runs",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-runs-list"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.runs.get",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytical-four/runs/{run_id}",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-runs-get"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.results.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytical-four/runs/{run_id}/results",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-results-list"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.results.get",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytical-four/runs/{run_id}/result",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-results-get"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.feedback.submit",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/analytical-four/feedback",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-feedback-submit"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.feedback.import",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/analytical-four/feedback/import",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-feedback-import"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.feedback.list",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytical-four/feedback",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-feedback-list"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.feedback.decide",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/analytical-four/feedback/{feedback_id}/decision",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-feedback-decide"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.library.publish",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/analytical-four/library/publish",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-library-publish"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.library.versions",
+      "kind": "api",
+      "method": "GET",
+      "path": "/api/analytical-four/library/versions",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-library-versions"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.runs.create",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/analytical-four/runs",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-runs-create"
+      },
+      "verified": true
+    }
+  ],
+  "consumes": [],
+  "mServices": [
+    {
+      "id": "analytical-four-settings-get",
+      "name": "讀取分析設定",
+      "responsibility": "讀取分析設定",
+      "provides": [
+        "analytical-four.settings.get"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "settings",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-settings-get"
+      ],
+      "failure": "401 未登入；422 settings.json 無法使用"
+    },
+    {
+      "id": "analytical-four-settings-put",
+      "name": "更新分析設定",
+      "responsibility": "更新分析設定",
+      "provides": [
+        "analytical-four.settings.put"
+      ],
+      "inputs": [
+        {
+          "name": "settings",
+          "type": "json"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "readiness",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-settings-put"
+      ],
+      "failure": "401 未登入；422 設定不合法（層級相依、LLM 位址格式）"
+    },
+    {
+      "id": "analytical-four-status-get",
+      "name": "檢查各層級是否就緒",
+      "responsibility": "檢查各層級是否就緒",
+      "provides": [
+        "analytical-four.status.get"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "readiness",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-status-get"
+      ],
+      "failure": "401 未登入；422 settings.json 無法使用"
+    },
+    {
+      "id": "analytical-four-data-check",
+      "name": "檢查資料檔與欄位對照",
+      "responsibility": "檢查資料檔與欄位對照",
+      "provides": [
+        "analytical-four.data.check"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "report",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-data-check"
+      ],
+      "failure": "401 未登入；422 settings.json 無法使用"
+    },
+    {
+      "id": "analytical-four-templates-list",
+      "name": "列出可下載的範本",
+      "responsibility": "列出可下載的範本",
+      "provides": [
+        "analytical-four.templates.list"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "templates",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-templates-list"
+      ],
+      "failure": "401 未登入"
+    },
+    {
+      "id": "analytical-four-templates-get",
+      "name": "下載一個範本",
+      "responsibility": "下載一個範本",
+      "provides": [
+        "analytical-four.templates.get"
+      ],
+      "inputs": [
+        {
+          "name": "name",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "template",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-templates-get"
+      ],
+      "failure": "401 未登入；404 沒有這個範本"
+    },
+    {
+      "id": "analytical-four-uploads-create",
+      "name": "上傳一個檔案到暫存並出驗證報告",
+      "responsibility": "上傳一個檔案到暫存並出驗證報告",
+      "provides": [
+        "analytical-four.uploads.create"
+      ],
+      "inputs": [
+        {
+          "name": "kind",
+          "type": "string"
+        },
+        {
+          "name": "filename",
+          "type": "string"
+        },
+        {
+          "name": "content",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "upload",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-uploads-create"
+      ],
+      "failure": "401 未登入；413 超過大小；422 種類不合或檔案是空的"
+    },
+    {
+      "id": "analytical-four-uploads-list",
+      "name": "列出上傳",
+      "responsibility": "列出上傳",
+      "provides": [
+        "analytical-four.uploads.list"
+      ],
+      "inputs": [
+        {
+          "name": "limit",
+          "type": "integer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "uploads",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-uploads-list"
+      ],
+      "failure": "401 未登入；422 limit 超出範圍"
+    },
+    {
+      "id": "analytical-four-uploads-get",
+      "name": "查看一次上傳與它的驗證報告",
+      "responsibility": "查看一次上傳與它的驗證報告",
+      "provides": [
+        "analytical-four.uploads.get"
+      ],
+      "inputs": [
+        {
+          "name": "upload_id",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "upload",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-uploads-get"
+      ],
+      "failure": "401 未登入；404 找不到這次上傳"
+    },
+    {
+      "id": "analytical-four-uploads-accept",
+      "name": "把通過驗證的上傳放進分析讀取的位置",
+      "responsibility": "把通過驗證的上傳放進分析讀取的位置",
+      "provides": [
+        "analytical-four.uploads.accept"
+      ],
+      "inputs": [
+        {
+          "name": "upload_id",
+          "type": "string"
+        },
+        {
+          "name": "replace",
+          "type": "boolean"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "upload",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-uploads-accept"
+      ],
+      "failure": "401 未登入；404 找不到這次上傳；409 檔案有錯誤、分析進行中、目標檔已存在而未要求取代、或案例庫已有發布版本；422 replace 不是布林值"
+    },
+    {
+      "id": "analytical-four-uploads-discard",
+      "name": "丟棄尚未接受的上傳",
+      "responsibility": "丟棄尚未接受的上傳",
+      "provides": [
+        "analytical-four.uploads.discard"
+      ],
+      "inputs": [
+        {
+          "name": "upload_id",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "upload",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-uploads-discard"
+      ],
+      "failure": "401 未登入；404 找不到這次上傳；409 已經接受或丟棄"
+    },
+    {
+      "id": "analytical-four-demo-load",
+      "name": "載入合成示範資料",
+      "responsibility": "載入合成示範資料",
+      "provides": [
+        "analytical-four.demo.load"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "copied",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-demo-load"
+      ],
+      "failure": "401 未登入"
+    },
+    {
+      "id": "analytical-four-runs-list",
+      "name": "列出分析執行紀錄",
+      "responsibility": "列出分析執行紀錄",
+      "provides": [
+        "analytical-four.runs.list"
+      ],
+      "inputs": [
+        {
+          "name": "limit",
+          "type": "integer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "runs",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-runs-list"
+      ],
+      "failure": "401 未登入；422 limit 超出範圍"
+    },
+    {
+      "id": "analytical-four-runs-get",
+      "name": "查看一次分析的狀態",
+      "responsibility": "查看一次分析的狀態",
+      "provides": [
+        "analytical-four.runs.get"
+      ],
+      "inputs": [
+        {
+          "name": "run_id",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "run",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-runs-get"
+      ],
+      "failure": "401 未登入；404 找不到這次分析"
+    },
+    {
+      "id": "analytical-four-results-list",
+      "name": "列出一次分析的結果檔",
+      "responsibility": "列出一次分析的結果檔",
+      "provides": [
+        "analytical-four.results.list"
+      ],
+      "inputs": [
+        {
+          "name": "run_id",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "results",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-results-list"
+      ],
+      "failure": "401 未登入；404 找不到這次分析"
+    },
+    {
+      "id": "analytical-four-results-get",
+      "name": "取得一個結果檔",
+      "responsibility": "取得一個結果檔",
+      "provides": [
+        "analytical-four.results.get"
+      ],
+      "inputs": [
+        {
+          "name": "run_id",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-results-get"
+      ],
+      "failure": "401 未登入；404 找不到這次分析或結果檔"
+    },
+    {
+      "id": "analytical-four-feedback-submit",
+      "name": "對一次客訴診斷的事件提交確認結果",
+      "responsibility": "對一次客訴診斷的事件提交確認結果",
+      "provides": [
+        "analytical-four.feedback.submit"
+      ],
+      "inputs": [
+        {
+          "name": "run_id",
+          "type": "string"
+        },
+        {
+          "name": "event_id",
+          "type": "string"
+        },
+        {
+          "name": "confirmed_ng",
+          "type": "string"
+        },
+        {
+          "name": "actual_cause",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "feedback",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-feedback-submit"
+      ],
+      "failure": "401 未登入；404 找不到分析或事件；409 分析未成功或沒有客訴診斷結果；422 不良代碼或文字欄位不合"
+    },
+    {
+      "id": "analytical-four-feedback-import",
+      "name": "匯入已確認的案例紀錄",
+      "responsibility": "匯入已確認的案例紀錄",
+      "provides": [
+        "analytical-four.feedback.import"
+      ],
+      "inputs": [
+        {
+          "name": "records",
+          "type": "json"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "feedback",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-feedback-import"
+      ],
+      "failure": "401 未登入；413 內容過大；422 任一筆不合法時整批不寫入"
+    },
+    {
+      "id": "analytical-four-feedback-list",
+      "name": "列出回饋與核可狀態",
+      "responsibility": "列出回饋與核可狀態",
+      "provides": [
+        "analytical-four.feedback.list"
+      ],
+      "inputs": [
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "limit",
+          "type": "integer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "feedback",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-feedback-list"
+      ],
+      "failure": "401 未登入；422 參數不合；500 回饋檔損毀"
+    },
+    {
+      "id": "analytical-four-feedback-decide",
+      "name": "核可或駁回一筆回饋",
+      "responsibility": "核可或駁回一筆回饋",
+      "provides": [
+        "analytical-four.feedback.decide"
+      ],
+      "inputs": [
+        {
+          "name": "feedback_id",
+          "type": "string"
+        },
+        {
+          "name": "approve",
+          "type": "boolean"
+        },
+        {
+          "name": "note",
+          "type": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "decision",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-feedback-decide"
+      ],
+      "failure": "401 未登入；404 找不到回饋；409 已有決定；422 approve 不是布林值"
+    },
+    {
+      "id": "analytical-four-library-publish",
+      "name": "把已核可的回饋發布成新的案例庫版本",
+      "responsibility": "把已核可的回饋發布成新的案例庫版本",
+      "provides": [
+        "analytical-four.library.publish"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "manifest",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-library-publish"
+      ],
+      "failure": "401 未登入；409 分析進行中、沒有新的已核可回饋或沒有案例檔路徑"
+    },
+    {
+      "id": "analytical-four-library-versions",
+      "name": "列出案例庫的歷史版本",
+      "responsibility": "列出案例庫的歷史版本",
+      "provides": [
+        "analytical-four.library.versions"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "versions",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-library-versions"
+      ],
+      "failure": "401 未登入；500 版本資料損毀"
+    },
+    {
+      "id": "analytical-four-runs-create",
+      "name": "執行製造數據分析",
+      "responsibility": "依設定的層級依序執行分析並記錄每一階段的狀態",
+      "provides": [
+        "analytical-four.runs.create"
+      ],
+      "inputs": [
+        {
+          "name": "settings",
+          "type": "json"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "events",
+          "type": "json"
+        },
+        {
+          "name": "ng_results",
+          "type": "json"
+        },
+        {
+          "name": "llm_responses",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "create-run",
+        "prepare-data",
+        "descriptive",
+        "diagnostic",
+        "ng-code",
+        "topology",
+        "rag",
+        "compile",
+        "search-key",
+        "similarity",
+        "llm"
+      ],
+      "failure": "409 尚有項目未就緒或另一次分析仍在執行"
+    }
+  ],
+  "functions": [
+    {
+      "id": "analytical-four-settings-get",
+      "primitive": "analytical-four-settings-get",
+      "input": [],
+      "output": [
+        {
+          "name": "settings",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；422 settings.json 無法使用"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "get_settings"
+      }
+    },
+    {
+      "id": "analytical-four-settings-put",
+      "primitive": "analytical-four-settings-put",
+      "input": [
+        {
+          "name": "settings",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "readiness",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；422 設定不合法（層級相依、LLM 位址格式）"
+      ],
+      "sideEffects": [
+        "寫入 settings.json"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "put_settings"
+      }
+    },
+    {
+      "id": "analytical-four-status-get",
+      "primitive": "analytical-four-status-get",
+      "input": [],
+      "output": [
+        {
+          "name": "readiness",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；422 settings.json 無法使用"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "get_status"
+      }
+    },
+    {
+      "id": "analytical-four-data-check",
+      "primitive": "analytical-four-data-check",
+      "input": [],
+      "output": [
+        {
+          "name": "report",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；422 settings.json 無法使用"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "check_data"
+      }
+    },
+    {
+      "id": "analytical-four-templates-list",
+      "primitive": "analytical-four-templates-list",
+      "input": [],
+      "output": [
+        {
+          "name": "templates",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "list_templates"
+      }
+    },
+    {
+      "id": "analytical-four-templates-get",
+      "primitive": "analytical-four-templates-get",
+      "input": [
+        {
+          "name": "name",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "template",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；404 沒有這個範本"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "get_template"
+      }
+    },
+    {
+      "id": "analytical-four-uploads-create",
+      "primitive": "analytical-four-uploads-create",
+      "input": [
+        {
+          "name": "kind",
+          "type": "string"
+        },
+        {
+          "name": "filename",
+          "type": "string"
+        },
+        {
+          "name": "content",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "upload",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；413 超過大小；422 種類不合或檔案是空的"
+      ],
+      "sideEffects": [
+        "寫入暫存資料夾，不放進分析讀取的位置"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "create_upload"
+      }
+    },
+    {
+      "id": "analytical-four-uploads-list",
+      "primitive": "analytical-four-uploads-list",
+      "input": [
+        {
+          "name": "limit",
+          "type": "integer"
+        }
+      ],
+      "output": [
+        {
+          "name": "uploads",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；422 limit 超出範圍"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "list_uploads"
+      }
+    },
+    {
+      "id": "analytical-four-uploads-get",
+      "primitive": "analytical-four-uploads-get",
+      "input": [
+        {
+          "name": "upload_id",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "upload",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；404 找不到這次上傳"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "get_upload"
+      }
+    },
+    {
+      "id": "analytical-four-uploads-accept",
+      "primitive": "analytical-four-uploads-accept",
+      "input": [
+        {
+          "name": "upload_id",
+          "type": "string"
+        },
+        {
+          "name": "replace",
+          "type": "boolean"
+        }
+      ],
+      "output": [
+        {
+          "name": "upload",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；404 找不到這次上傳；409 檔案有錯誤、分析進行中、目標檔已存在而未要求取代、或案例庫已有發布版本；422 replace 不是布林值"
+      ],
+      "sideEffects": [
+        "寫入目標檔；取代時把原檔留在 uploads/replaced/"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "accept_upload"
+      }
+    },
+    {
+      "id": "analytical-four-uploads-discard",
+      "primitive": "analytical-four-uploads-discard",
+      "input": [
+        {
+          "name": "upload_id",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "upload",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；404 找不到這次上傳；409 已經接受或丟棄"
+      ],
+      "sideEffects": [
+        "刪除暫存的檔案內容"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "discard_upload"
+      }
+    },
+    {
+      "id": "analytical-four-demo-load",
+      "primitive": "analytical-four-demo-load",
+      "input": [],
+      "output": [
+        {
+          "name": "copied",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入"
+      ],
+      "sideEffects": [
+        "複製示範檔到資料目錄，已存在的檔案不覆蓋"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "load_demo"
+      }
+    },
+    {
+      "id": "analytical-four-runs-list",
+      "primitive": "analytical-four-runs-list",
+      "input": [
+        {
+          "name": "limit",
+          "type": "integer"
+        }
+      ],
+      "output": [
+        {
+          "name": "runs",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；422 limit 超出範圍"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "list_runs"
+      }
+    },
+    {
+      "id": "analytical-four-runs-get",
+      "primitive": "analytical-four-runs-get",
+      "input": [
+        {
+          "name": "run_id",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "run",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；404 找不到這次分析"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "get_run"
+      }
+    },
+    {
+      "id": "analytical-four-results-list",
+      "primitive": "analytical-four-results-list",
+      "input": [
+        {
+          "name": "run_id",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "results",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；404 找不到這次分析"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "list_results"
+      }
+    },
+    {
+      "id": "analytical-four-results-get",
+      "primitive": "analytical-four-results-get",
+      "input": [
+        {
+          "name": "run_id",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "result",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；404 找不到這次分析或結果檔"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "get_result"
+      }
+    },
+    {
+      "id": "analytical-four-feedback-submit",
+      "primitive": "analytical-four-feedback-submit",
+      "input": [
+        {
+          "name": "run_id",
+          "type": "string"
+        },
+        {
+          "name": "event_id",
+          "type": "string"
+        },
+        {
+          "name": "confirmed_ng",
+          "type": "string"
+        },
+        {
+          "name": "actual_cause",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "feedback",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；404 找不到分析或事件；409 分析未成功或沒有客訴診斷結果；422 不良代碼或文字欄位不合"
+      ],
+      "sideEffects": [
+        "追加一筆回饋；經理或管理員提交時同時追加核可"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "submit_feedback"
+      }
+    },
+    {
+      "id": "analytical-four-feedback-import",
+      "primitive": "analytical-four-feedback-import",
+      "input": [
+        {
+          "name": "records",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "feedback",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；413 內容過大；422 任一筆不合法時整批不寫入"
+      ],
+      "sideEffects": [
+        "追加回饋；經理或管理員提交時同時追加核可"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "import_feedback"
+      }
+    },
+    {
+      "id": "analytical-four-feedback-list",
+      "primitive": "analytical-four-feedback-list",
+      "input": [
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "limit",
+          "type": "integer"
+        }
+      ],
+      "output": [
+        {
+          "name": "feedback",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；422 參數不合；500 回饋檔損毀"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "list_feedback"
+      }
+    },
+    {
+      "id": "analytical-four-feedback-decide",
+      "primitive": "analytical-four-feedback-decide",
+      "input": [
+        {
+          "name": "feedback_id",
+          "type": "string"
+        },
+        {
+          "name": "approve",
+          "type": "boolean"
+        },
+        {
+          "name": "note",
+          "type": "string"
+        }
+      ],
+      "output": [
+        {
+          "name": "decision",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；404 找不到回饋；409 已有決定；422 approve 不是布林值"
+      ],
+      "sideEffects": [
+        "追加核可紀錄"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "decide_feedback"
+      }
+    },
+    {
+      "id": "analytical-four-library-publish",
+      "primitive": "analytical-four-library-publish",
+      "input": [],
+      "output": [
+        {
+          "name": "manifest",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；409 分析進行中、沒有新的已核可回饋或沒有案例檔路徑"
+      ],
+      "sideEffects": [
+        "新增案例庫版本資料夾並更新分析讀取的兩個案例檔"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "publish_library"
+      }
+    },
+    {
+      "id": "analytical-four-library-versions",
+      "primitive": "analytical-four-library-versions",
+      "input": [],
+      "output": [
+        {
+          "name": "versions",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；500 版本資料損毀"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "library_versions"
+      }
+    },
+    {
+      "id": "create-run",
+      "primitive": "create-run",
+      "input": [
+        {
+          "name": "settings",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "settings",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "409 尚有項目未就緒或另一次分析仍在執行",
+        "422 settings.json 無法使用"
+      ],
+      "sideEffects": [
+        "建立執行紀錄並在背景啟動分析"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "create_run"
+      }
+    },
+    {
+      "id": "prepare-data",
+      "primitive": "prepare-data",
+      "input": [
+        {
+          "name": "settings",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "current_data",
+          "type": "dataframe"
+        },
+        {
+          "name": "sample_data",
+          "type": "dataframe"
+        },
+        {
+          "name": "baseline_data",
+          "type": "dataframe"
+        }
+      ],
+      "failures": [
+        "資料檔讀取失敗或設定的數值特徵一個也找不到"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/analytical_four/pipeline.py",
+        "symbol": "prepare_data"
+      }
+    },
+    {
+      "id": "descriptive",
+      "primitive": "descriptive",
+      "input": [
+        {
+          "name": "current_data",
+          "type": "dataframe"
+        },
+        {
+          "name": "sample_data",
+          "type": "dataframe"
+        },
+        {
+          "name": "baseline_data",
+          "type": "dataframe"
+        }
+      ],
+      "output": [
+        {
+          "name": "outliers",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "寫入結果檔失敗"
+      ],
+      "sideEffects": [
+        "寫入 baseline、類別統計與超界結果"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/analytical_four/pipeline.py",
+        "symbol": "descriptive_stage"
+      }
+    },
+    {
+      "id": "diagnostic",
+      "primitive": "diagnostic",
+      "input": [
+        {
+          "name": "sample_data",
+          "type": "dataframe"
+        },
+        {
+          "name": "baseline_data",
+          "type": "dataframe"
+        },
+        {
+          "name": "outliers",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "events",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "沒有事件或事件缺診斷資料"
+      ],
+      "sideEffects": [
+        "寫入相關性、PCA、T2 與 SPE、事件檔"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/analytical_four/pipeline.py",
+        "symbol": "diagnostic_stage"
+      }
+    },
+    {
+      "id": "ng-code",
+      "primitive": "ng-code",
+      "input": [
+        {
+          "name": "events",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "ng_results",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "每日模式寫入分布庫失敗"
+      ],
+      "sideEffects": [
+        "每日模式更新不良特徵分布庫"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/analytical_four/pipeline.py",
+        "symbol": "ng_code_analysis"
+      }
+    },
+    {
+      "id": "topology",
+      "primitive": "topology",
+      "input": [
+        {
+          "name": "events",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "topology",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "拓樸檔讀取失敗"
+      ],
+      "sideEffects": [
+        "寫入每個事件的拓樸對應"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/analytical_four/pipeline.py",
+        "symbol": "topology_analysis"
+      }
+    },
+    {
+      "id": "rag",
+      "primitive": "rag",
+      "input": [
+        {
+          "name": "events",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "rag_results",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "向量庫建立或查詢失敗"
+      ],
+      "sideEffects": [
+        "建立或更新向量庫"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/analytical_four/pipeline.py",
+        "symbol": "rag_analysis"
+      }
+    },
+    {
+      "id": "compile",
+      "primitive": "compile",
+      "input": [
+        {
+          "name": "events",
+          "type": "json"
+        },
+        {
+          "name": "ng_results",
+          "type": "json"
+        },
+        {
+          "name": "rag_results",
+          "type": "json"
+        },
+        {
+          "name": "topology",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "compiled",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "拓樸結果檔讀取失敗"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/analytical_four/pipeline.py",
+        "symbol": "compilation_events"
+      }
+    },
+    {
+      "id": "search-key",
+      "primitive": "search-key",
+      "input": [
+        {
+          "name": "compiled",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "search_keys",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "無已知失敗模式"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/analytical_four/pipeline.py",
+        "symbol": "extract_search_key"
+      }
+    },
+    {
+      "id": "similarity",
+      "primitive": "similarity",
+      "input": [
+        {
+          "name": "search_keys",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "similar_cases",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "案例檔含無效的 JSON 行"
+      ],
+      "sideEffects": [],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/analytical_four/pipeline.py",
+        "symbol": "similarity_search"
+      }
+    },
+    {
+      "id": "llm",
+      "primitive": "llm",
+      "input": [
+        {
+          "name": "search_keys",
+          "type": "json"
+        },
+        {
+          "name": "similar_cases",
+          "type": "json"
+        }
+      ],
+      "output": [
+        {
+          "name": "llm_responses",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "LLM 位址未設定、服務逾時或回應不是 JSON"
+      ],
+      "sideEffects": [
+        "呼叫 LLM 服務，事件資料會送出"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/analytical_four/pipeline.py",
+        "symbol": "analyze_with_llm"
+      }
+    }
+  ]
+}

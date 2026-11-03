@@ -78,20 +78,22 @@ PlanEnvelope
 
 ### 4.3 `nodes[]`
 
-沿用 A 的 `PlanNode` 欄位（`nodeId`、`name`、`category`、`stage`、`inputs`、`outputs`），新增下列欄位。
+沿用 A 的 `PlanNode` 欄位（`nodeId`、`name`、`category`、`stage`、`inputs`、`outputs`），新增下列欄位。`inputs`/`outputs` 的每個埠位為 `{port, type, flows}`，`type` 是 A 作者填的 artifact 型別（可為 glob，如 `lot.*`），A 的 `PlanNode` 原本沒有，工廠端解析 `in.<埠位>.<屬性>` 與判定連線種類需要。
 
 | 欄位 | 型別 | 必填 | 說明 |
 |---|---|---|---|
 | nodeId | string | 是 | 在同一份計畫內唯一；跨工廠不混用，由 `scope` 區分 |
 | category | string | 是 | 沿用 A 的 `NodeCategory` |
-| executor | `manual`/`auto`/`system` | 是 | 沿用 A 的 `Executor`；未設定時編譯端填入 A 動作庫的預設值 |
+| executor | `manual`/`auto`/`system` | 條件 | 沿用 A 的 `Executor`；以節點值為先、其次動作庫預設值、再其次對應表的類別預設（4.3 binding），三者皆無則節點不可執行（`executable` 為 `false`，`reason` 說明），不由編譯端猜測。`executable` 為 `true` 時必填 |
 | role | string | 否 | 預期填寫者提示；僅顯示，不作授權（專案規範：角色只是提示） |
-| actionId | string | 是 | 引用的業務動作 id |
+| actionId | string | 條件 | 引用的業務動作 id；節點沒有引用動作時省略，此時只有對應表有該類別的預設對應才可執行 |
 | executable | boolean | 是 | `true` 才可被工廠端執行；`false` 的節點必須帶 `reason` |
 | reason | string | 條件 | `executable` 為 `false` 時必填，例如「找不到能力對應」 |
 | binding | 物件 | 條件 | `executable` 為 `true` 時必填，見下 |
+| route / decision / checks / verdicts | A 原型別 | 否 | 判定節點的決策邏輯，原樣沿用 A 的 `RouteRule`、`DecisionTable`、`CheckDef`、`VerdictRule`（已併入動作庫預設）。工廠端判定時需要，因此必須在計畫內（2026-10-27 補，原稿遺漏） |
+| boundary / nodeParams | A 原型別 | 否 | 沿用 A 的 `BoundaryDef`（倉儲位置）與 `NodeParams`（`minDuration`、`splitCount`、`toLocation` 等） |
 | guard | string 或陣列 | 否 | 原樣保留 A 的 guard 原文；只在工廠端求值（8.1 第 3 項），求值器實作見 8.2 第 1 項 |
-| form | `{formId, contentSha256}` | 條件 | 節點使用表單時必填；`contentSha256` 為表單內容的 sha256（沿用 D101 規則）；內容一變，舊工單仍指向原雜湊 |
+| form | `{formId, contentSha256}` | 條件 | 節點使用表單時必填；`contentSha256` 為整份 AoV `FormDef`（`id`、`name`、`subject`、`extends`、`fields`）正規化 JSON 的 sha256（沿用 D101 規則）；內容一變，舊工單仍指向原雜湊。表單內容不在計畫內，另以表單登錄交給工廠端（8.1 第 27 項） |
 | timing | 物件 | 否 | 見下 |
 | resource | `{capability?, operatorSkill?}` | 否 | 開工檢查用的資源需求（B 的 R03 修補需要） |
 | expandedFrom | string | 否 | 子 AoV 展開後的節點才有，值為上層子流程節點 id 與其引用（`<子流程節點 id>@<專案 id>@<版本>`）；A 的展開規則是內部節點 id 加前綴 `<子流程節點 id>/`，工廠端不需知道子流程，此欄位只供追溯與顯示 |
@@ -179,9 +181,8 @@ guard、判定節點的決策表與檢驗項目，在工廠端求值時需要下
 ## 5. `planId` 計算
 
 1. 取 `ExecutablePlan`，但將 `planId` 欄位本身排除。
-2. 物件鍵遞迴排序，陣列保持原順序；數字以最短十進位字串表示；字串以 UTF-8 正規化 NFC。
+2. 物件鍵遞迴排序，排序依 UTF-16 編碼單位（JS 預設；Python 須以 `key.encode('utf-16-be')` 排序，不可用預設的碼位排序）；陣列保持原順序；數字以最短十進位字串表示（`12` 不寫成 `12.0`）；字串**不做** Unicode 正規化，依原樣以 UTF-8 計算（8.1 第 24 項）。跨語言測試向量見 `fixtures/executable-plan/canonical-vectors.json`。
 3. 序列化為不含多餘空白的 JSON，計算 sha256，取小寫十六進位。
-4. `subplans` 內每個子計畫先各自算出 `planId`，再參與外層計算。
 
 信封欄位（發行時間、發布者、builder）不參與計算。
 
@@ -195,7 +196,7 @@ guard、判定節點的決策表與檢驗項目，在工廠端求值時需要下
 | 重新計算的 `planId` 與宣告不符 | 拒絕 |
 | 任一節點 `executable` 為 `false` | 計畫可儲存供檢視，但不得用於建立工單 |
 | `binding.kitId` 不在目前有效的 Kit 選配內 | 拒絕建立工單（受選配閘門限制） |
-| 表單 `contentSha256` 與工廠端實際取得的表單內容不符 | 拒絕 |
+| 節點的 `(formId, contentSha256)` 不在工廠端的表單登錄內 | 拒絕建立工單（`form-unavailable`）；上傳表單時工廠端自行重算雜湊，與宣告不符即拒絕（`form-hash-mismatch`），不存入 |
 | 參數集的值或表格不符合計畫宣告的型別、單位、允許範圍或欄位 | 整份拒絕，不得部分套用 |
 | 工單開工時沒有任何 `approved` 的參數集，且計畫含 `tunable` 參數 | 以計畫的預設值開工，並在工單上標示「使用預設值」；不得靜默套用 `pending` 或 `rejected` 的版本 |
 | 工廠端內建求值器的 commit 與 `source.aovCoreCommit` 不一致，且計畫含 guard 或判定節點 | 拒絕建立工單，避免同一條 guard 在設計期與執行期語意不同 |
@@ -208,8 +209,8 @@ guard、判定節點的決策表與檢驗項目，在工廠端求值時需要下
 | 本契約 | A（`libs/aov-core`） | B（`composer-refactor-2`） |
 |---|---|---|
 | `nodes[].nodeId/name/category/stage/inputs/outputs` | `compile/compiler.ts` 的 `PlanNode`，原樣沿用 | `route_snapshot` 的 `nodes`（欄位名不同，需轉接） |
-| `nodes[].timing` | 無，需由 W1 補來源（缺值狀態） | `Latency.setup/per_unit`，預設 0，需轉為缺值判定 |
-| `nodes[].resource` | 無 | `BusinessNode.resource` |
+| `nodes[].timing` | 無，需由 W1 補來源（缺值狀態） | `Latency.setup/per_unit`，預設 0；由 `migrateProcessDefinition` 轉為 `timing`，兩者皆 0 視為缺值（8.2 第 9 項） |
+| `nodes[].resource` | 無 | `BusinessNode.resource`；由 `migrateProcessDefinition` 轉為 `resource`（`operator_skill` 改名 `operatorSkill`） |
 | `nodes[].form` | `NodeDef.form` 只存 id，快照另存 | 產品級 `inspection_form`，需改為節點級 |
 | `flows[]` | `Flow`（port 到 port，帶 artifact 型別） | `Edge`（無 port），不可直接對應 |
 | 子 AoV 展開（`expandedFrom`） | `compile/subgraph.ts` 編譯期展開為平面圖 | `Subgraph`（form/validate/store/state 步驟），工單快照未保存；B 的子圖相當於「系統邏輯」，見 4.8 |
@@ -249,6 +250,12 @@ guard、判定節點的決策表與檢驗項目，在工廠端求值時需要下
 22. **`held` 的解除條件**（2026-10-27，user）：有人確認警報即解除。
 23. **警報重送間隔放在參數集**（2026-10-27，user）：以 `alarmIntervals` 保存，受 4.9 的核准與版本鎖定規則約束。
 
+24. **不做 Unicode NFC 正規化**（2026-10-27，user 同意建議）：使用者皆在繁體中文環境，漢字無分解式；`planId` 是版本識別而非安全機制，遇到非 NFC 字串的後果只是多出一個版本。`canonicalJson` 不需修改，也不影響既有整合包雜湊。真正會造成跨語言不一致的是鍵排序與數字格式，已寫入第 5 節並附測試向量。
+25. **動作對應表由產品方定義，客戶端只填寫與校正**（2026-10-28，user）：對應表（`CapabilityMap`）隨產品交付，內容的權威來源是我們；客戶端只補填自己的值或校正，不從零建立。校正後的對應表是一份新版本（`version` 遞增），其雜湊進入 `source.mapping` 與 `planId`。能力 id 與工廠端 Kit 實際提供的能力是否一致，於 W3 對照確認。
+26. **對應表支援依類別的預設對應**（2026-10-28，user）：`CapabilityMap.categoryDefaults[{category, capability, kitId, executor?}]`，類別不可重複。解析順序：節點引用動作時只查 `entries`，查不到即不可執行（**不退回類別預設**，否則漏對應的動作會被悄悄掩蓋）；節點沒有動作時才查該類別的預設。節點與動作庫都沒有執行者時，採用類別預設的 `executor`，仍無則不可執行。由類別預設對應的節點不帶 `actionId`，schema 已不再要求 `executable` 節點必有 `actionId`。
+
+27. **表單用內容定址的登錄交給工廠端**（2026-10-29，user）：表單由客戶端提前提供，由我方工程師在 Composer 頁面上傳並設定。工廠端不從自己的現場欄位重建表單，而是收下 Composer 的 `FormDef` 完整內容，以雜湊為鍵只增不改地保存；建單時檢查計畫要求的每個 `(formId, contentSha256)` 都已登錄。同一雜湊永遠對應同一份內容，所以不需要比對差異，也不改計畫格式與 `planId`。取代先前「部署端自行提供表單雜湊」的做法（該做法對通用表單的工作站欄位算雜湊，永遠不會等於 Composer 對 `FormDef` 算的值）。
+
 ### 8.2 開放問題
 
 1. **核准流程的現有機制檢查結果（2026-10-25，靜態閱讀設計文件與資料模型，尚未執行測試）。**
@@ -260,7 +267,34 @@ guard、判定節點的決策表與檢驗項目，在工廠端求值時需要下
    - 實測發現 2：中介層把 `actor_user_id` 與 `actor_role` 放進 `request.state`，服務可據此實作「提出者不得等於核准者（manager、admin 除外）」。同一使用者同時提出與核准能通過入口層，證實此規則須在參數集服務內。
    - 限制：未測工廠端真實路由、跨 worker、與正式部署；`entry_points.json` 為測試目錄。
 2. 無（原第 2、3 項已於 2026-10-27 決定，見 8.1 第 22、23 項）。
+3. 無（原第 3 項「NFC 正規化」已於 2026-10-27 決定不做，見 8.1 第 24 項）。
+4. **`alarmRules` 與 `paramTables` 的欄位細節。**第 4.6 節只寫概要，schema（`schemas/executable-plan.schema.json`）已依概要定出欄位（`alarmRules`: `ruleId`、`nodeId`、`expr`、`minRole`；`paramTables`: `tableId`、`columns`、`defaultRows`、`usedBy`）。`alarmIntervals` 的預設間隔尚未定義，schema 未含。
 
+5. **動作對應表的實際內容尚未撰寫。**格式與責任歸屬已定（8.1 第 25、26 項），內容由我們依工廠端 Kit 實際提供的能力撰寫；工廠端（W3）尚未存在，目前只有測試用假資料。待工廠端能力清單出來後，逐筆對照填入。
+6. 無（原「沒有 `action` 的節點」已於 2026-10-28 決定支援類別預設，見 8.1 第 26 項）。範例產線（麵包）在補齊類別預設後所有節點可執行，有測試涵蓋。
+7. **工時、資源、可調整參數的來源。**A 的專案檔沒有這些欄位，`buildExecutablePlan` 由呼叫端傳入（`timings`、`resources`、`tuning`），未傳入則工時為 `missing`、參數不可調整。B 的 Latency 與 `resource` 由 `migrateProcessDefinition` 帶進來（W1 第二個 PR，見第 9 項）；`buildExecutablePlan` 對 `timings`、`resources` 指到計畫沒有的節點、`tuning` 指到沒有的參數，一律整份拒絕（`unknown-node`、`unknown-param`）。`paramTables` 與 `alarmRules` 目前恆為空陣列，待 aov-project 修改（8.1 第 10、14 項）後才能由 A 產生。
+8. **契約補洞（2026-10-27）。**原稿 4.3 漏了判定節點的 `route`/`decision`/`checks`/`verdicts`、`boundary`、`nodeParams`，以及埠位的 `type`，工廠端無法在沒有它們的情況下判定與解析連線，已補入 4.3 與 schema。
+9. **B 工時遷移的判斷（2026-10-28，實作時的判斷，待 user 確認）。**`libs/aov-integration/processMigration.ts`：(a) B 的 `Latency` 預設就是 0，`setup` 與 `per_unit` 皆為 0 時分不出「真的 0」與「沒填」，一律視為缺值並列入報告，由人確認後直接提供工時；(b) B 沒有記錄 `per_unit` 乘的數量單位，由呼叫端提供 `quantityUnit`，沒提供則有工時的節點也視為缺值；(c) `time_unit` 不是 `min` 時不換算，全部缺值；(d) B 節點與計畫節點只靠呼叫端的 `nodeMap` 對應，不比對名稱，`nodeMap` 寫錯 id 或兩個 B 節點對到同一個計畫節點則整份拒絕；(e) 邊的 `transfer_time` 尚未帶入（B 的邊沒有埠位，與 A 的連線對應規則未定），報告標為延後。
+10. **流程預估（W2）的建模判斷（2026-10-28 實作，user 於同日確認 (a) 至 (g)）。**`libs/planning/ganttEstimate.ts` 依計畫估算，不依 B 的資料：(a) 實作放在 TS 的 `libs/planning/`，不另起 Python 服務，因為輸入是 TS 建置的計畫、不需要新的程序邊界（與 MERGE-PLAN 擬定的 `services/planning/` 不同）；(b) 判定節點（`judge`）有多個接線輸出時，呼叫端必須指定分支，只有被選分支的下游進入估算；其他節點的多個輸出視為平行；(c) 缺工時的活動節點沒有結束時間，下游起點也未知，總時長為 `null` 並另給已知部分的下限，不當成 0；(d) 邊界與結構類別（`source`、`sink`、`merge`、`broadcast`）沒填工時時視為里程碑、不佔時間，這是建模規則而非補值，結果條件中會說明；(e) 連線缺移轉時間預設算缺資料，呼叫端可明確選擇以 0 估算，結果會註明；(f) 隨數量增加的節點必須有一個共同的數量與一致的單位，否則拒絕；(g) 不含重工預覽、資源競用、排程；(h) 以 SVG 輸出並標示估算；PNG 見第 12 項。`buildExecutablePlan` 新增 `transfers` 輸入，沒給的連線標為 `missing`；B 邊的 `transfer_time` 仍未自動帶入（見第 9 項 (e)）。
+11. **W3 第一段的邊界（2026-10-28）。**(a) 已改為完整驗證：user 於 2026-10-28 核准新增 Python 依賴，接收端先用 `executable-plan.schema.json`（與 TS 端同一份檔）驗證，再做整合性與結構檢查；(b) `quantity` 型參數的值是以 `unit` 為單位的數字（user 於 2026-10-28 確認）；(c) 提出與核准的授權（誰能呼叫）由入口權限處理，服務只負責狀態與「提出者不得等於核准者」；(d) 參數集與工單已有 SQL 實作，見第 12 項。
+12. **W3 第二段、PNG 與 API 入口的判斷（2026-10-28，user 確認 (a) 至 (h)；(i) 起為 API 入口的新增細項，待確認）。**
+    (a) 警報間隔預設值 `DEFAULT_REPEAT_MINUTES = 30`（user 於 2026-10-28 確認合適），參數集沒有該規則的間隔時使用；它不在計畫雜湊內，改值不影響已發布的計畫。
+    (b) `held` 由「未確認的警報」推導，不另存旗標；解除只有「確認警報」一種途徑（8.1 第 22 項）。同一規則在警報未確認時再次觸發，回傳同一筆警報，不新增；確認後再觸發是新的一輪（`episode` 加一）並再次 hold。
+    (c) 確認警報的角色限 `manager` 與 `admin`（對應計畫的 `minRole: manager` 及以上）；是否擁有該入口的權限仍由入口權限在 API 層決定，目前 API 尚未存在。
+    (d) 提醒由 `collect_due(now)` 回傳到期的警報並記錄已通知；實際收件人（`admin` 與 `manager`，8.1 第 15 項）與送出動作由呼叫端負責，工廠核心不送出。
+    (e) 資料庫防護放在資料庫本身：只增不改的表以觸發器拒絕 `UPDATE`、`DELETE`、`TRUNCATE`，已開工的工單以觸發器鎖定。資料表與規則見 `services/factory/docs/data-model.md`；以 PostgreSQL 16.6 與 SQLite 各跑同一組測試，含併發的版本編號、單一決定與單一未確認警報。
+    (f) 工廠核心**不求值**運算式，所以警報由已求值的呼叫端觸發；求值器側車見 (p)。
+    (g) PNG：`libs/planning/ganttPng.ts` 的 `renderGanttPng` 只在 Node 端使用，新增開發依賴 `@resvg/resvg-js@2.6.2`（user 於 2026-10-28 同意做 SVG 轉 PNG 的功能；此為其依賴，請一併確認）。渲染器遇到缺字型時會**默默不畫文字**，所以輸出前先逐字探測，缺字即拒絕並列出缺字，不交出沒有文字的圖；可用 `fontFiles` 指定字型檔使各機器輸出一致。瀏覽器端的 PNG 與 Composer 畫面另開分支處理。
+    (h) 實測時發現並修正 W2 的 SVG 缺陷：起點已知但缺工時的列，標記與說明畫在圖外而看不見；座標軸現在涵蓋最晚的已知起點，並預留說明文字的空間。
+    (i) **API 與入口（`services/factory/factory_api/`）。**13 條路由（表單登錄於 (o) 增為 15 條），前綴 `/api/factory`：接收與檢視計畫、提出與決定參數集、建立與開工工單、回報與確認警報、收取到期提醒。入口宣告在 `services/factory/kit.contract.json`（kit id `factory-core-kit`），共 8 個入口，每個都含 `admin`；寫入入口不含 `audit`。預設角色是我的假設，待確認：檢視（`admin`、`manager`、`operator`、`audit`）；接收計畫、核准參數、確認警報、收提醒（`admin`、`manager`）；建立與開工工單、提出參數修改、回報警報（另含 `operator`）。
+    (j) **信任模型。**API 只信任共用入口權限中介層在請求上設定的 `actor_user_id` 與 `actor_role`，沒有時一律 401（忘了裝中介層時不開放任何東西）。提出者、核准者、確認者一律取自已驗證的使用者，時間取自伺服器時鐘，都不接受請求本文欄位（多餘欄位直接 422）。可用的 Kit 與求值器版本來自部署端的環境設定，不接受客戶端宣稱；表單來自表單登錄（第 12 項 (o)）。計畫以原始文字讀取（上限 8 MiB），數字才會維持與 `planId` 相同的讀法。
+    (k) **雙重鎖。**入口層放行後，領域規則仍會檢查：確認警報須為 `manager` 或 `admin`、核准須符合「提出者不得等於核准者」。因此入口層即使被個別授權放寬，也不會繞過這兩條。限制：自訂角色名稱不是 `manager` 或 `admin` 時，即使入口放行也無法確認警報或自行核准，與基線 Kit 寫死 `manager` 的限制相同。
+    (m) **納入系統包（2026-10-28）。**工廠核心是 `kits/factory-core-kit`，由 `services/factory/tools/sync_kit.py` 從 `services/factory` 產生（只改 `factory_core`、`factory_api` 的匯入根；路由模組放到 `app/api/routes_factory.py`，讓組裝器與套件測試掃得到），測試檢查副本與來源一致。該 Kit 已加入 `config/kits/overlay.json`（依賴 platform-core、entry-permission），因此也出現在 Composer 的 Kit 目錄並附三份草稿手冊；預覽排除它。系統初始化步驟在共用資料表之後執行工廠的遷移；路由不解析租戶；資料庫沿用系統的 PostgreSQL（非同步 `DATABASE_URL` 轉成 psycopg 同步連線）。部署的 Kit 清單取自系統包內的 `kits/`；求值器見 (p)；沒有求值器時，含判斷運算式的計畫不能建立工單（表單見 (o)）。
+    (n) **已部署驗證（2026-10-28）。**用含此 Kit 的配方組裝系統包，在 Ubuntu VM 以 Docker Compose 與 PostgreSQL 16.6 實跑：真實登入與入口權限中介層、35 項（角色矩陣、拒絕不改資料、雙重鎖、資料庫拒絕修改與刪除與清空、起訖與鎖定）加後端重啟後 7 項（工單仍鎖定同一版參數、節點仍被警報暫停、確認後釋放）全數通過；腳本為 `services/package/e2e/factory_e2e.py`。另在部署的相依版本（fastapi 0.115.0、pydantic 2.9.2）上跑 236 項單元測試通過。
+    (l) **測試涵蓋與未涵蓋。**入口測試使用 entry-permission-kit 的正式 `Directory` 與 `policy` 程式碼做允許與拒絕判定，只把憑證驗證（JWT 與使用者查詢）換成兩個測試標頭；涵蓋角色矩陣、預設拒絕、停用帳號、個別覆寫雙向、唯讀角色即使被角色授權也不能寫入、拒絕的請求不改變任何資料，並驗證每條實際路由恰好被一個入口涵蓋。**單元層未涵蓋的部分，已由 (n) 的部署驗證補上：**真實 JWT 與資料庫授權、組裝器實際組裝、啟動與部署整合、經 API 對真實 PostgreSQL 的端對端。仍未涵蓋：經 nginx 代理的路徑（驗證直接打後端）、多個後端程序並行、真實警報通知的送出。
+
+    (o) **表單登錄（2026-10-29，見 8.1 第 27 項）。**新增 `POST /api/factory/forms`（本文為 `{contentSha256, definition}`，上限 1 MiB）與 `GET /api/factory/forms/{content_sha256}`，路由共 15 條、入口仍是 8 個：上傳併入 `factory.plan_publish`（`admin`、`manager`，與發布計畫同一批人），讀取併入 `factory.plan_view`。工廠端收到後自行重算雜湊，與宣告不符回 422（`form-hash-mismatch`），結構錯誤回 422（`broken-structure`、`unknown-field-type`，欄位型別對應 A 的 `AttrValueType`）；重複上傳相同內容為冪等，保留第一次的上傳者與時間。資料表 `forms`（Alembic 修訂 0002）只增不改，由資料庫觸發器保證；讀取時重算雜湊，與鍵不符即 `StoreCorrupt`，不使用。建單時查登錄，缺少即 409 `form-unavailable`（取代原 `form-mismatch`；「換了內容」與「沒上傳」對工廠端是同一件事，因為計畫指名的是一份確切的內容）。`buildExecutablePlan` 的結果多回傳 `forms`（只含節點引用的表單，形狀即上傳本文），不進 `planId`。測試向量 `fixtures/executable-plan/forms.json` 由 TS 與 Python 各自重算雜湊。**未決**：`FormDef` 與通用表單的工作站欄位（哪個工作站記錄這張表單的資料）如何對應，這一步不處理；Composer 上傳表單的畫面屬 Composer 面板分支。
+    (p) **求值器側車（2026-10-29，8.1 第 16 項；user 同意「Node 執行檔放進後端映像、子程序加標準輸入輸出」與新增 esbuild 為直接開發依賴）。**`services/evaluator/`：A 的固定快照求值器（`evaluateGuard`、`evaluate`、具名規則、型別庫）包成逐行 JSON 的程序，由 esbuild 打成單一 `evaluator.cjs`（約 49 KB，位元組確定、不含建置機路徑）。操作三個：`hello`（回報 aov-core commit 與協定版本）、`evaluate`（`guard` 或 `value` 模式）、`guards`（一個節點的 guard，字串或 `{label, when}` 清單，逐條回傳）。求值器不讀時鐘、檔案與網路：`now`、`params`、`artifactTypes`、`rules` 都由呼叫端在請求中給，所以同一請求永遠同一答案。值的編碼：一般 JSON 即值，`{value, unit}` 為帶單位的量，`{$artifact}` 與 `{$datetime}` 是僅有的標記，其他 `$` 鍵一律拒絕；`vars` 不可覆寫 `params` 與 `now`。請求上限 4 MiB，超過回 `too-large` 並丟棄該行。Python 端 `factory_core/evaluator.py`：子程序死亡時重啟並重送一次（求值是純函式，重送安全）；逾時、亂碼、答非所問一律殺掉子程序並回 `EvaluatorError`，**絕不當成 true 或 false**；被求值器拒絕的請求（`EvaluatorRefused`）不重啟子程序。部署：`Environment.evaluator_commit` 改為每次建單時向執行中的求值器查詢（不快取），求值器缺失或無法重啟時為 `None`，含 guard 或判定節點的計畫就被 `evaluator-mismatch` 擋下，並與計畫的 `source.aovCoreCommit` 比對。後端映像用多階段建置只取 `node:22.12.0-bookworm-slim` 的 node 執行檔（120 MB，壓縮約 42 MB，與 python 基底同為 Debian bookworm），打包檔由組裝器放進 `evaluator/`，只在選用 factory-core-kit 時加入。**未做**：工廠端在工單進行中實際呼叫 guard、判定與警報規則的流程（工廠目前沒有節點完工、領料、品檢的執行流程）；沿襲查詢（`lineage`）未接，用到會得到 `error`；判定節點的 `route`／`decision` 表求值。
 
 ## 9. 驗收條件（契約層）
 
@@ -280,6 +314,13 @@ guard、判定節點的決策表與檢驗項目，在工廠端求值時需要下
 ## 10. 下一步
 
 1. 完成 8.2 第 1 項的核准入口實測，。
-2. 依回覆撰寫 `schemas/executable-plan.schema.json`（JSON Schema 2020-12）與 fixtures（合法、缺工時、無能力對應、`planId` 不符、未知版本）。
-3. 在 `libs/aov-integration/` 擴充編譯端產生計畫的轉接，並加入確定性測試。
-4. 工廠端的接收與驗證留待 W3。
+2. 已完成（`feature/executable-plan-schema`）：`schemas/executable-plan.schema.json`、`fixtures/executable-plan/`（合法、缺工時、不可執行、`planId` 不符、內容被改、未知版本）與 `libs/aov-integration/executablePlan.test.ts`。
+3. 已完成（W1 第一個 PR）：`libs/aov-integration/executablePlan.ts` 的 `buildExecutablePlan`、`validateExecutablePlan`、`computePlanId`、`verifyPlanId`，測試在 `executablePlanBuild.test.ts`。
+4. 已完成（W1 第二個 PR）：`libs/aov-integration/processMigration.ts` 的 `migrateProcessDefinition`，輸出可直接餵給 `buildExecutablePlan` 的 `timings`、`resources`，以及 B 每個欄位去向的逐欄報告；測試在 `processMigration.test.ts`，B 的樣本在 `fixtures/aov-merge/factory/process.machining.json`。
+5. 已完成（W2）：`libs/planning/ganttEstimate.ts` 的 `estimateGantt`、`ganttSvg.ts` 的 `renderGanttSvg`，測試在 `libs/planning/ganttEstimate.test.ts`。PNG 見第 12 項（Node 端已做）；Composer 畫面上的預估介面與瀏覽器端 PNG 另開分支。
+6. 已完成（W3 第一段）：`services/factory/`（只用標準函式庫）的計畫接收與驗證、參數集服務、工單鎖定，測試 47 項，另有 `canonical-vectors.json` 擴充數字格式與控制字元向量並以 3 萬筆隨機浮點數與 JS 交叉比對。
+7. 已完成（W3 第二段）：Python 端完整 schema 驗證、儲存介面與 SQL 實作（Alembic 修訂 0001、只增不改的資料庫觸發器）、警報與 `held` 狀態機，測試 167 項（Windows 與 PostgreSQL 16.6）。尚未做：HTTP API、入口權限接線、求值器側車、領料／品檢／入庫步驟；Composer 畫面另開分支。
+8. 已完成（W3 第三段）：HTTP API 與入口權限接線（見第 12 項 (i) 至 (l)）。尚未做：伺服器進入點與部署整合、組裝器納入、求值器側車、領料／品檢／入庫步驟、Composer 畫面。
+9. 已完成（W3 第四段）：納入系統包（`kits/factory-core-kit`、組裝器、初始化遷移、手冊草稿）與部署驗證，見第 12 項 (m)、(n)。尚未做：領料／品檢／入庫步驟、Composer 畫面。
+10. 已完成（W3 第五段）：表單登錄（見第 12 項 (o)）。表單不再是建單的固定阻擋條件；含判斷運算式的計畫仍因沒有求值器而不能建單。
+11. 已完成（W3 第六段）：求值器側車與部署接線（見第 12 項 (p)）。含 guard 或判定節點的計畫在附有求值器的部署上可以建單。

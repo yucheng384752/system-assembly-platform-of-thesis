@@ -5,7 +5,9 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { assembleSystem, systemSource, scanExclusions, systemExcluded } from '../assemble-system.mjs';
+import { spawnSync } from 'node:child_process';
 import { inventory, repository, files, prefixes, tenantFree } from '../../preview/assemble.mjs';
+import { deploymentArtifacts } from '../deployment.mjs';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const minimal = ['platform-core-kit', 'generic-forms-kit', 'audit-edit-kit', 'station-data-link-kit', 'upload-validation-kit', 'import-pipeline-kit', 'entry-permission-kit'];
@@ -26,9 +28,9 @@ async function recipeFile(temp, enabledKits) {
 // No Python or Docker process is launched. Real AST/FK verification is by Claude.
 const stub = () => ({ status: 0, stdout: '' });
 
-for (const size of [11, 7]) test(`${size} Kits: tree, manifest, T12, exclusions and identical output bytes`, async () => fixture(async temp => {
+for (const size of [13, 7]) test(`${size} Kits: tree, manifest, T12, exclusions and identical output bytes`, async () => fixture(async temp => {
   const before = await inventory(path.join(repository, 'kits'), null, systemExcluded);
-  const selected = size === 11 ? before.included : minimal;
+  const selected = size === 13 ? before.included : minimal;
   const recipe = await recipeFile(temp, selected);
   /** @type {{executable: string, args: string[], options: import('node:child_process').SpawnSyncOptionsWithStringEncoding}[]} */
   const calls = [];
@@ -45,7 +47,7 @@ for (const size of [11, 7]) test(`${size} Kits: tree, manifest, T12, exclusions 
   }
   assert.deepEqual(manifest.notIncluded.map(k => k.kit), ['station-admin-kit', 'tenant-auth-kit']);
   assert.ok(manifest.notIncluded.every(k => k.reason.length > 3));
-  assert.equal(manifest.notSelected.length, 11 - size);
+  assert.equal(manifest.notSelected.length, 13 - size);
   assert.ok(!manifest.notProvided.some(s => /formal entry file|deployment and startup/.test(s)));
   for (const item of ['TLS', 'machine API key authentication', 'executable upgrade migrations', 'frontend bundle (built at release by bundle-frontend.mjs)', 'hash-locked dependency file（建議 --require-hashes）']) assert.ok(manifest.notProvided.includes(item), item);
   assert.equal(manifest.installable, false);
@@ -253,4 +255,53 @@ test('default secret scan rejects credential values', () => {
   for (const value of ['SECRET_KEY="secret"', 'SECRET_KEY=secret', 'password: "password"', 'password: password', 'default="change-me"', 'postgresql://app:app_secure_password@localhost/db']) {
     assert.throws(() => scanExclusions(new Map([['injected', Buffer.from(value)]])), /預設秘密/);
   }
+});
+
+test('factory-core-kit: its migration runs in the init step only when the kit is selected, and its dependency pins merge', async () => {
+  const kits = path.join(repository, 'kits');
+  /** @param {string[]} selected */
+  const build = async selected => {
+    const plan = await inventory(kits, selected, systemExcluded);
+    return deploymentArtifacts(kits, plan.included, [...plan.sources.keys()]);
+  };
+  const on = await build([...minimal, 'factory-core-kit']), off = await build(minimal);
+  const init = /** @type {string} */ (on.get('backend/app/system_init.py')), plain = /** @type {string} */ (off.get('backend/app/system_init.py'));
+  assert.match(init, /from app\.factory_api\.deploy import init_schema, make_engine/);
+  assert.match(init, /init_schema\(factory_engine\)/);
+  assert.ok(init.indexOf('await database.close_db()') < init.indexOf('init_schema(factory_engine)'), 'the factory tables come after the shared schema');
+  assert.doesNotMatch(plain, /factory|@@/);
+  // The generated file must be valid Python in both forms (no interpreter is available to the stubbed package tests otherwise).
+  for (const source of [init, plain]) {
+    const result = spawnSync(process.env.PREVIEW_PYTHON ?? (process.platform === 'win32' ? 'python' : 'python3'),
+      ['-c', 'import sys; compile(sys.stdin.read(), "system_init.py", "exec")'], { input: source, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+  }
+  const main = /** @type {string} */ (on.get('backend/app/main.py'));
+  const line = main.split('\n').find(l => l.includes('app.api.routes_factory'));
+  assert.ok(line, 'the factory router is registered');
+  assert.ok(!line.includes('Depends(get_current_tenant)'), 'the factory resolves no tenant');
+  assert.ok(line.includes('prefix=""'));
+  const requirements = /** @type {string} */ (on.get('deployment/backend/requirements.txt')).trim().split('\n');
+  for (const pin of ['alembic==1.14.0', 'psycopg==3.2.3', 'psycopg-binary==3.2.3']) assert.ok(requirements.includes(pin), pin);
+  assert.ok(!(/** @type {string} */ (off.get('deployment/backend/requirements.txt'))).includes('alembic'));
+  assert.equal(new Set(requirements).size, requirements.length);
+});
+
+test('factory-core-kit: the evaluator reaches the image only with the kit (node binary from a build stage, bundle passes the exclusion scan)', async () => {
+  const kits = path.join(repository, 'kits');
+  /** @param {string[]} selected */
+  const dockerfile = async selected => {
+    const plan = await inventory(kits, selected, systemExcluded);
+    return /** @type {string} */ ((await deploymentArtifacts(kits, plan.included, [...plan.sources.keys()])).get('deployment/backend.Dockerfile'));
+  };
+  const on = await dockerfile([...minimal, 'factory-core-kit']), off = await dockerfile(minimal);
+  const froms = on.split('\n').filter(l => l.startsWith('FROM '));
+  assert.deepEqual(froms, ['FROM node:22.12.0-bookworm-slim AS evaluator-node', 'FROM python:3.12.8-slim-bookworm'], 'the python stage is last, so it is the image that runs');
+  assert.match(on, /COPY --from=evaluator-node \/usr\/local\/bin\/node \/usr\/local\/bin\/node/);
+  assert.match(on, /COPY evaluator\/ \/system\/evaluator\//);
+  assert.doesNotMatch(off, /node|evaluator|@@/);
+  const { bundleEvaluator } = await import('../../evaluator/build.mjs');
+  const bundle = await bundleEvaluator();
+  assert.doesNotThrow(() => scanExclusions(new Map([['evaluator/evaluator.cjs', bundle]])));
+  assert.ok(bundle.length > 1000 && bundle.length < 1_000_000);
 });

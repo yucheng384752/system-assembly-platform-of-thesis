@@ -4,6 +4,7 @@
 
 | ID | Title | Status | Owner | Reviewer | Updated |
 | --- | --- | --- | --- | --- | --- |
+| [20261101-aov-original-vs-kit](threads/20261101-aov-original-vs-kit.md) | Analytical-Four 改成 Kit 前後的 AoV 比較（原始版本與 Kit 版） | completed | codex | claude | 2026-11-01 |
 | [20261022-entry-permission-kit](threads/20261022-entry-permission-kit.md) | entry-permission-kit：由 daihui_project 抽離入口權限，取代 tenant-auth-kit（盤點完成，待 user 決定八項） | waiting_for_user | claude | user | 2026-10-22 |
 | [20261021-p2-executable-assembly](threads/20261021-p2-executable-assembly.md) | P2 可執行組裝：可啟動的系統包（後端、前端、安裝腳本）與設定交付包合併（D124） | in_progress | claude | user | 2026-10-21 |
 | [20261020-preview-wiring](threads/20261020-preview-wiring.md) | 畫面接上預覽後端：真實預覽偵測、Recipe 推送、第一批三個畫面（D116 至 D119） | completed | claude | claude | 2026-10-20 |

@@ -1,0 +1,312 @@
+{
+  "kit": "analytical-four-kit",
+  "provides": {
+    "api": [
+      {
+        "capability": "analytical-four.settings.get",
+        "method": "GET",
+        "path": "/api/analytical-four/settings"
+      },
+      {
+        "capability": "analytical-four.settings.put",
+        "method": "PUT",
+        "path": "/api/analytical-four/settings"
+      },
+      {
+        "capability": "analytical-four.status.get",
+        "method": "GET",
+        "path": "/api/analytical-four/status"
+      },
+      {
+        "capability": "analytical-four.demo.load",
+        "method": "POST",
+        "path": "/api/analytical-four/demo"
+      },
+      {
+        "capability": "analytical-four.runs.create",
+        "method": "POST",
+        "path": "/api/analytical-four/runs"
+      },
+      {
+        "capability": "analytical-four.runs.list",
+        "method": "GET",
+        "path": "/api/analytical-four/runs"
+      },
+      {
+        "capability": "analytical-four.runs.get",
+        "method": "GET",
+        "path": "/api/analytical-four/runs/{run_id}"
+      },
+      {
+        "capability": "analytical-four.results.list",
+        "method": "GET",
+        "path": "/api/analytical-four/runs/{run_id}/results"
+      },
+      {
+        "capability": "analytical-four.results.get",
+        "method": "GET",
+        "path": "/api/analytical-four/runs/{run_id}/result"
+      },
+      {
+        "capability": "analytical-four.feedback.submit",
+        "method": "POST",
+        "path": "/api/analytical-four/feedback"
+      },
+      {
+        "capability": "analytical-four.feedback.import",
+        "method": "POST",
+        "path": "/api/analytical-four/feedback/import"
+      },
+      {
+        "capability": "analytical-four.feedback.list",
+        "method": "GET",
+        "path": "/api/analytical-four/feedback"
+      },
+      {
+        "capability": "analytical-four.feedback.decide",
+        "method": "POST",
+        "path": "/api/analytical-four/feedback/{feedback_id}/decision"
+      },
+      {
+        "capability": "analytical-four.library.publish",
+        "method": "POST",
+        "path": "/api/analytical-four/library/publish"
+      },
+      {
+        "capability": "analytical-four.library.versions",
+        "method": "GET",
+        "path": "/api/analytical-four/library/versions"
+      },
+      {
+        "capability": "analytical-four.data.check",
+        "method": "GET",
+        "path": "/api/analytical-four/data-check"
+      },
+      {
+        "capability": "analytical-four.templates.list",
+        "method": "GET",
+        "path": "/api/analytical-four/templates"
+      },
+      {
+        "capability": "analytical-four.templates.get",
+        "method": "GET",
+        "path": "/api/analytical-four/templates/{name}"
+      },
+      {
+        "capability": "analytical-four.uploads.create",
+        "method": "POST",
+        "path": "/api/analytical-four/uploads"
+      },
+      {
+        "capability": "analytical-four.uploads.list",
+        "method": "GET",
+        "path": "/api/analytical-four/uploads"
+      },
+      {
+        "capability": "analytical-four.uploads.get",
+        "method": "GET",
+        "path": "/api/analytical-four/uploads/{upload_id}"
+      },
+      {
+        "capability": "analytical-four.uploads.accept",
+        "method": "POST",
+        "path": "/api/analytical-four/uploads/{upload_id}/accept"
+      },
+      {
+        "capability": "analytical-four.uploads.discard",
+        "method": "DELETE",
+        "path": "/api/analytical-four/uploads/{upload_id}"
+      }
+    ]
+  },
+  "consumes": {
+    "api": [],
+    "db": []
+  },
+  "entryPoints": [
+    {
+      "key": "analytical_four.view",
+      "label": "檢視分析設定、狀態與結果",
+      "access": "read",
+      "defaultRoles": [
+        "admin",
+        "manager",
+        "operator",
+        "audit"
+      ],
+      "routes": [
+        {
+          "capability": "analytical-four.settings.get",
+          "method": "GET",
+          "path": "/api/analytical-four/settings"
+        },
+        {
+          "capability": "analytical-four.status.get",
+          "method": "GET",
+          "path": "/api/analytical-four/status"
+        },
+        {
+          "capability": "analytical-four.runs.list",
+          "method": "GET",
+          "path": "/api/analytical-four/runs"
+        },
+        {
+          "capability": "analytical-four.runs.get",
+          "method": "GET",
+          "path": "/api/analytical-four/runs/{run_id}"
+        },
+        {
+          "capability": "analytical-four.results.list",
+          "method": "GET",
+          "path": "/api/analytical-four/runs/{run_id}/results"
+        },
+        {
+          "capability": "analytical-four.results.get",
+          "method": "GET",
+          "path": "/api/analytical-four/runs/{run_id}/result"
+        },
+        {
+          "capability": "analytical-four.feedback.list",
+          "method": "GET",
+          "path": "/api/analytical-four/feedback"
+        },
+        {
+          "capability": "analytical-four.library.versions",
+          "method": "GET",
+          "path": "/api/analytical-four/library/versions"
+        },
+        {
+          "capability": "analytical-four.data.check",
+          "method": "GET",
+          "path": "/api/analytical-four/data-check"
+        },
+        {
+          "capability": "analytical-four.templates.list",
+          "method": "GET",
+          "path": "/api/analytical-four/templates"
+        },
+        {
+          "capability": "analytical-four.templates.get",
+          "method": "GET",
+          "path": "/api/analytical-four/templates/{name}"
+        },
+        {
+          "capability": "analytical-four.uploads.list",
+          "method": "GET",
+          "path": "/api/analytical-four/uploads"
+        },
+        {
+          "capability": "analytical-four.uploads.get",
+          "method": "GET",
+          "path": "/api/analytical-four/uploads/{upload_id}"
+        }
+      ]
+    },
+    {
+      "key": "analytical_four.run",
+      "label": "啟動製造數據分析",
+      "access": "write",
+      "defaultRoles": [
+        "admin",
+        "manager",
+        "operator"
+      ],
+      "routes": [
+        {
+          "capability": "analytical-four.runs.create",
+          "method": "POST",
+          "path": "/api/analytical-four/runs"
+        }
+      ]
+    },
+    {
+      "key": "analytical_four.configure",
+      "label": "調整分析層級、模式與 LLM 服務位址",
+      "access": "write",
+      "defaultRoles": [
+        "admin"
+      ],
+      "routes": [
+        {
+          "capability": "analytical-four.settings.put",
+          "method": "PUT",
+          "path": "/api/analytical-four/settings"
+        },
+        {
+          "capability": "analytical-four.demo.load",
+          "method": "POST",
+          "path": "/api/analytical-four/demo"
+        }
+      ]
+    },
+    {
+      "key": "analytical_four.feedback_submit",
+      "label": "提交分析後的確認結果",
+      "access": "write",
+      "defaultRoles": [
+        "admin",
+        "manager",
+        "operator"
+      ],
+      "routes": [
+        {
+          "capability": "analytical-four.feedback.submit",
+          "method": "POST",
+          "path": "/api/analytical-four/feedback"
+        },
+        {
+          "capability": "analytical-four.feedback.import",
+          "method": "POST",
+          "path": "/api/analytical-four/feedback/import"
+        }
+      ]
+    },
+    {
+      "key": "analytical_four.feedback_approve",
+      "label": "核可回饋並發布案例庫版本",
+      "access": "write",
+      "defaultRoles": [
+        "admin",
+        "manager"
+      ],
+      "routes": [
+        {
+          "capability": "analytical-four.feedback.decide",
+          "method": "POST",
+          "path": "/api/analytical-four/feedback/{feedback_id}/decision"
+        },
+        {
+          "capability": "analytical-four.library.publish",
+          "method": "POST",
+          "path": "/api/analytical-four/library/publish"
+        }
+      ]
+    },
+    {
+      "key": "analytical_four.upload",
+      "label": "上傳檔案、接受或丟棄上傳",
+      "access": "write",
+      "defaultRoles": [
+        "admin",
+        "manager"
+      ],
+      "routes": [
+        {
+          "capability": "analytical-four.uploads.create",
+          "method": "POST",
+          "path": "/api/analytical-four/uploads"
+        },
+        {
+          "capability": "analytical-four.uploads.accept",
+          "method": "POST",
+          "path": "/api/analytical-four/uploads/{upload_id}/accept"
+        },
+        {
+          "capability": "analytical-four.uploads.discard",
+          "method": "DELETE",
+          "path": "/api/analytical-four/uploads/{upload_id}"
+        }
+      ]
+    }
+  ]
+}

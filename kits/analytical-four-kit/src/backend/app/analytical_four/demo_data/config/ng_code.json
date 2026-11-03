@@ -1,0 +1,50 @@
+[
+  {
+    "category": "NG-A",
+    "details": [
+      {
+        "machine": "Paste iron",
+        "process": "P3",
+        "phenomenon": "Poor bonding",
+        "cause": "Paste iron temperature too high",
+        "action": "Lower the paste iron set point and recheck"
+      }
+    ]
+  },
+  {
+    "category": "NG-B",
+    "details": [
+      {
+        "machine": "Punch",
+        "process": "P3",
+        "phenomenon": "Burr",
+        "cause": "Worn punch edge",
+        "action": "Replace the punch"
+      }
+    ]
+  },
+  {
+    "category": "NG-C",
+    "details": [
+      {
+        "machine": "Slitting machine",
+        "process": "P2",
+        "phenomenon": "Rough edge",
+        "cause": "Heat gun and rewind torque out of range",
+        "action": "Adjust the heat gun and rewind torque"
+      }
+    ]
+  },
+  {
+    "category": "NG-D",
+    "details": [
+      {
+        "machine": "Extruder",
+        "process": "P1",
+        "phenomenon": "Surface defect",
+        "cause": "Barrel zone temperature drift",
+        "action": "Recalibrate the barrel zone heaters"
+      }
+    ]
+  }
+]
