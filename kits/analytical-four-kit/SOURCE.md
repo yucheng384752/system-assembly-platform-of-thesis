@@ -26,4 +26,6 @@
 | `pipeline.py`（欄位對照與清理揭露） | `read_data` 在 CSV 讀入後依 `column_mapping` 改欄名；`prepare_data` 把清理刪掉的列數記入 `notes` | 讓場域欄名不必等於引擎欄名，並說出被刪的列 |
 | `pipeline.py`（新增） | `prepare_data`、`descriptive_stage`、`diagnostic_stage`、`_post_llm` | 把 `main()` 拆成可由 A、B、C 層個別執行的階段 |
 
+`tools/local_llm_adapter.py`：user 在 Analytical-Four 專案本機加的轉接層（該專案未提交此檔，不是原作者的程式），複製到這裡。與原檔的差異：Ollama 失敗時回 HTTP 502 不再回 200 加保底結果；預設綁 `127.0.0.1`，位址、埠與模型改由環境變數覆寫。
+
 Kit 自己新增（不是複製）：`settings.py`、`runs.py`、`offline_vectors.py`、`seed_demo.py`、`demo_data/`、`api/routes_analytical_four.py`、`tests/`、`demo/generate_demo.py`。

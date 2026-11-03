@@ -167,7 +167,7 @@ llm       { endpointSet: bool, apiKeyEnv }      不保存位址本身與金鑰
 
 這證實：回傳完整事件紀錄是這個 LLM 服務的實際契約，回饋以它為底的假設成立；回饋進案例庫確實改變下一次的診斷內容。
 
-已知風險與處理：轉接層原本在 Ollama 呼叫失敗時回 HTTP 200 加保底結果（已用不存在的模型名稱驗證），Kit 分辨不出失敗，`llm` 階段會顯示完成。同日已改轉接層（在 Analytical-Four 專案，未提交）：失敗、逾時或回應無法解析時回 HTTP 502。以不存在的模型名稱重測：轉接層回 502，Kit 的 `llm` 階段標為失敗，錯誤訊息為「LLM 服務回應 HTTP 502」，前面階段的結果檔保留。Analytical-Four 自己的 `main.py` 的 `analyze_with_llm()` 沒有檢查狀態碼，收到 502 的內容會當成回應收下；那是該專案的程式，這次未改。
+已知風險與處理：轉接層原本在 Ollama 呼叫失敗時回 HTTP 200 加保底結果（已用不存在的模型名稱驗證），Kit 分辨不出失敗，`llm` 階段會顯示完成。同日已改轉接層：失敗、逾時或回應無法解析時回 HTTP 502。這份轉接層現在放在本專案的 `kits/analytical-four-kit/tools/local_llm_adapter.py`（開發與測試工具，不隨系統包出貨，不修改也不提交到 Analytical-Four 專案）；預設只綁 `127.0.0.1:8001`，可用 `ADAPTER_HOST`、`ADAPTER_PORT`、`OLLAMA_URL`、`OLLAMA_MODEL` 覆寫。啟動：`python kits/analytical-four-kit/tools/local_llm_adapter.py`，需要 `requests` 與本機 Ollama；把 Kit 設定的 `llm.endpoint` 填成 `http://127.0.0.1:8001/diagnose`。測試用假的 Ollama 驗證 502、模型回答的處理與預設綁定位址。以不存在的模型名稱重測：轉接層回 502，Kit 的 `llm` 階段標為失敗，錯誤訊息為「LLM 服務回應 HTTP 502」，前面階段的結果檔保留。Analytical-Four 自己的 `main.py` 的 `analyze_with_llm()` 沒有檢查狀態碼，收到 502 的內容會當成回應收下；那是該專案的程式，這次未改。
 
 ## 10. 欄位對照與資料檢查
 
