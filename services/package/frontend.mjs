@@ -17,6 +17,7 @@ export const KIT_PAGES = /** @type {Record<string, {id: string, component: strin
   ],
   'audit-edit-kit': [{ id: 'editReasons', component: 'EditReasonsPage', file: 'EditReasonsPage', label: 'editReasons' }],
   'logs-ops-kit': [{ id: 'logs', component: 'DeveloperLogsPage', file: 'DeveloperLogsPage', label: 'logs' }],
+  'analytical-four-kit': [{ id: 'analyticalFour', component: 'AnalyticalFourPage', file: 'AnalyticalFourPage', label: 'analyticalFour' }],
 });
 
 // Base files that only the upload page needs; they are left out when upload-validation-kit is not selected.
