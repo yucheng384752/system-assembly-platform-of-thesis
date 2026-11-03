@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Icon, type IconName } from './Icons';
 import { workingNodes, type AovGraphDocument } from './workflowGraph';
 
-// Application shell (D63, D145): six navigation entries; the five required steps (D30) live inside the "流程" page.
+// Application shell (D63, D151): six navigation entries; the five required steps (D30) live inside the "流程" page.
 export type PageId = 'home' | 'flow' | 'publish' | 'datasets' | 'runs' | 'settings';
 export const pages: { id: PageId; title: string; icon: IconName }[] = [
   { id: 'home', title: '首頁', icon: 'logo' },
