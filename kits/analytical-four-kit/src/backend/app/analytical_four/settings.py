@@ -11,7 +11,7 @@ import os
 import re
 import time
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any, Dict, List, Literal
 from urllib.parse import urlsplit
 
@@ -125,8 +125,10 @@ def resolve_inside(root: Path, relative: str, label: str) -> Path:
     """A path from settings or from the analysis configuration, forced to stay inside the data directory."""
     if not isinstance(relative, str) or not relative.strip():
         raise SettingsError(f'{label} 沒有填寫')
-    candidate = Path(relative)
-    if candidate.is_absolute() or candidate.drive or '..' in candidate.parts:
+    # Both path flavours are checked on every platform: on Linux `C:/x` and `..\x` look like plain file names, but a
+    # setting that means a drive or a parent folder on the machine that wrote it should not be accepted on any machine.
+    candidate, windows = Path(relative), PureWindowsPath(relative)
+    if candidate.is_absolute() or windows.is_absolute() or candidate.drive or windows.drive or '..' in candidate.parts or '..' in windows.parts:
         raise SettingsError(f'{label} 必須是資料目錄內的相對路徑')
     resolved = (root / candidate).resolve()
     if root.resolve() != resolved and root.resolve() not in resolved.parents:
@@ -234,7 +236,7 @@ def readiness(settings: Settings, root: Path | None = None) -> Dict[str, List[Pr
             result['b'].append(Problem('b', 'known-base', '每日模式需要指定要寫入的不良特徵分布庫路徑'))
     if 'c' in result:
         from app.analytical_four import offline_vectors  # noqa: F401  (registers the builtin-hash builder)
-        from app.analytical_four.engine.analysis.prescriptive.RAG.vector_builder import VectorBuilderFactory
+        from app.analytical_four.engine.analysis.prescriptive.RAG.vector_builder.vectorbuilder_factory import VectorBuilderFactory
         _needs_file(result['c'], 'c', source['baseline_data'].get('topology', ''), '製程拓樸', 'topology')
         _needs_file(result['c'], 'c', source['baseline_data'].get('rag_knowledge', ''), 'SOP 知識', 'knowledge')
         builder = str(source['rag_setting'].get('builder_type', '')).lower()

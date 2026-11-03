@@ -37,15 +37,16 @@ from app.analytical_four.engine.analysis.models import (
     StatisticsSummary,
 )
 from app.analytical_four.engine.analysis.prescriptive.RAG.rag_analysis import feature_rag_analysis
-from app.analytical_four.engine.analysis.prescriptive.RAG.vector_builder import VectorBuilderFactory
+from app.analytical_four.engine.analysis.prescriptive.RAG.vector_builder.vectorbuilder_factory import VectorBuilderFactory
 from app.analytical_four.engine.analysis.prescriptive.calculate_rank import CalculateRank
 from app.analytical_four.engine.analysis.prescriptive.ng_diagnosis import NGDiagnosisSystem
 from app.analytical_four.engine.analysis.prescriptive.similar_searcher import SimilarSearcher
 from app.analytical_four.engine.analysis.prescriptive.topology_generator import TopologyGenerator
 from app.analytical_four.engine.config_manager import ConfigManager
-from app.analytical_four.engine.data_manager import CSVDataManager, JSONDataManager
+from app.analytical_four.engine.data_manager.csv_manager import CSVDataManager
+from app.analytical_four.engine.data_manager.json_manager import JSONDataManager
 from app.analytical_four.engine.data_preprocessor.data_splitter import DataSplitter
-from app.analytical_four.engine.serializer import SerializerFactory
+from app.analytical_four.engine.serializer.serializer_factory import SerializerFactory
 
 
 class PipelineError(Exception):
