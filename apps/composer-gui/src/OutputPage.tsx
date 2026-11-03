@@ -69,7 +69,7 @@ export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport
       <p className="column-foot"><Icon name="info" />必要功能一併保留，已包含於系統設定檔中。</p>
       <KitWorkflowSummary recipe={recipe} kits={catalog.kits} />
     </Column>
-    <Column scroll id="package" title="設定交付包" lead="交付時只需要這一個壓縮檔：它把流程規格、系統設定檔、檔案清單與檢查報告放在一起。內容是設定，不能直接安裝或部署。">
+    <Column scroll id="package" title="設定交付包" lead="這個壓縮檔把流程規格、系統設定檔、檔案清單與檢查報告放在一起，是發行端建置系統包的輸入；內容是設定，不能直接安裝或部署。客戶現場收到的是發行端簽章後的單一系統包，已併入這些內容。">
       <label htmlFor="client-name" className="field-label">客戶代稱</label>
       <input id="client-name" value={recipe.clientName ?? ''} maxLength={100} required aria-describedby="client-note client-error" onChange={e => onChange({ ...recipe, clientName: e.target.value })} />
       <p id="client-note" className="muted">使用去識別化代稱，勿包含個資或秘密值。</p>

@@ -3,8 +3,9 @@ services:
     image: postgres:16.6-bookworm
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+    secrets: [postgres_password]
     volumes:
       - database:/var/lib/postgresql/data
     networks: [data]
@@ -18,9 +19,9 @@ services:
       context: ..
       dockerfile: deployment/backend.Dockerfile
     environment: &backend-environment
-      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
-      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
-      ENTRY_PERMISSION_JWT_SECRET: ${ENTRY_PERMISSION_JWT_SECRET:?ENTRY_PERMISSION_JWT_SECRET is required}
+      DATABASE_URL_FILE: /run/secrets/database_url
+      SECRET_KEY_FILE: /run/secrets/secret_key
+      ENTRY_PERMISSION_JWT_SECRET_FILE: /run/secrets/entry_permission_jwt_secret
       DEFAULT_TENANT_ID: ${DEFAULT_TENANT_ID:?DEFAULT_TENANT_ID is required}
       SYSTEM_ID: ${SYSTEM_ID:?SYSTEM_ID is required}
 @@WEBHOOK_ENV@@      ENVIRONMENT: production
@@ -29,10 +30,25 @@ services:
       UPLOAD_TEMP_DIR: /system/data/uploads
       LOG_DIR: /system/data/logs
       ENDPOINT_PERMISSIONS_FILE: /system/permissions/endpoint_permissions.json
+      LICENSE_FILE: /system/license/license.lic
+      LICENSE_ROOT_KEY_FILE: /system/trust/root.pem
+      SYSTEM_MANIFEST_FILE: /system/manifest/system-manifest.json
+      GUARD_RESULT_FILE: /guard/result.json
+      LICENSE_STATE_FILE: /system/data/license-state.json
+      LICENSE_BLOCK_WINDOW: ${LICENSE_BLOCK_WINDOW:-mon-fri 09:00-15:00}
+      LICENSE_TIMEZONE: ${LICENSE_TIMEZONE:-Asia/Taipei}
     expose: ["8000"]
-    volumes: &backend-volumes
+    secrets: &backend-secrets
+      - database_url
+      - secret_key
+      - entry_permission_jwt_secret
+@@WEBHOOK_SECRET_REF@@    volumes:
       - files:/system/data
       - permissions:/system/permissions
+      - ${LICENSE_DIR:?LICENSE_DIR is required}:/system/license
+      - ${ROOT_KEY_FILE:?ROOT_KEY_FILE is required}:/system/trust/root.pem:ro
+      - ${MANIFEST_FILE:?MANIFEST_FILE is required}:/system/manifest/system-manifest.json:ro
+      - guard:/guard:ro
     networks: [data, edge]
     depends_on:
       postgres:
@@ -46,19 +62,46 @@ services:
     profiles: ["init"]
     build: *backend-build
     environment: *backend-environment
-    volumes: *backend-volumes
+    secrets: *backend-secrets
+    volumes:
+      - files:/system/data
+      - permissions:/system/permissions
     networks: [data]
     depends_on:
       postgres:
         condition: service_healthy
     command: ["python", "-m", "app.system_init"]
     restart: "no"
+  guard:
+    # D136, D143: the only component that sees the machine. Root is needed to read the DMI serials; everything else
+    # is taken away. It has no network and no published port, and only writes its report to the guard volume.
+    build: *backend-build
+    command: ["python", "-m", "app.guard"]
+    user: "0:0"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    network_mode: none
+    restart: unless-stopped
+    environment:
+      GUARD_SYS_ROOT: /host/sys
+      GUARD_RESULT_FILE: /guard/result.json
+    volumes:
+      - /sys:/host/sys:ro
+      - guard:/guard
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, sys, time; sys.exit(0 if time.time() - os.path.getmtime('/guard/result.json') < 900 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
   proxy:
     image: nginx:1.28.0-bookworm
     ports:
       - "${PROXY_BIND:-127.0.0.1}:${HTTP_PORT:-8080}:80"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../frontend/dist:/usr/share/nginx/html:ro
     networks: [edge]
     depends_on: [backend]
 networks:
@@ -69,3 +112,14 @@ volumes:
   database:
   files:
   permissions:
+  guard:
+secrets:
+  postgres_password:
+    file: ../secrets/postgres_password
+  database_url:
+    file: ../secrets/database_url
+  secret_key:
+    file: ../secrets/secret_key
+  entry_permission_jwt_secret:
+    file: ../secrets/entry_permission_jwt_secret
+@@WEBHOOK_SECRET_DEF@@

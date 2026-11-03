@@ -1,0 +1,34 @@
+:root {
+  --bg: #f6f8f9; --panel: #ffffff; --text: #172b3a; --muted: #40576a; --primary: #075e54;
+  --error: #a32222; --control: #718096; --card: #c7d0d8; --focus: #174ea6; --soft: #eef2f5; --warn: #fdf4e3;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 1rem/1.6 system-ui, "Microsoft JhengHei", sans-serif; }
+.top, main { max-width: 64rem; margin: 0 auto; padding: 1rem; }
+h1 { font-size: 2rem; margin: 0 0 .5rem; }
+h2 { font-size: 1.25rem; margin: 0 0 .5rem; }
+section { background: var(--panel); border: 1px solid var(--card); border-radius: .75rem; padding: 1.5rem; margin-bottom: 1rem; }
+.muted { color: var(--muted); }
+.note { background: var(--warn); border-radius: .5rem; padding: 1rem; margin-bottom: 1rem; }
+label { display: block; margin: 0 0 1rem; color: var(--muted); }
+label.check { display: flex; gap: .5rem; align-items: center; min-height: 44px; color: var(--text); }
+input[type=text], input[type=password], input[type=date] {
+  display: block; width: 100%; min-height: 44px; margin-top: .5rem; padding: .5rem; border: 1px solid var(--control);
+  border-radius: .5rem; font: inherit; color: var(--text); background: #fff;
+}
+input[type=checkbox] { width: 1.5rem; height: 1.5rem; }
+button { min-height: 44px; padding: .5rem 1.5rem; margin: 0 .5rem .5rem 0; border: 1px solid var(--primary); border-radius: .5rem;
+  background: #fff; color: var(--primary); font: inherit; cursor: pointer; }
+button.primary { background: var(--primary); color: #fff; }
+button.danger { border-color: var(--error); color: var(--error); }
+button:disabled { opacity: .55; cursor: not-allowed; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0 1.5rem; }
+.result { margin-top: 1rem; padding: 1rem; background: var(--soft); border-radius: .5rem; }
+.result.fail { border-left: .5rem solid var(--error); }
+.result.ok { border-left: .5rem solid var(--primary); }
+.result ul { margin: .5rem 0 0; padding-left: 1.5rem; }
+table { width: 100%; border-collapse: collapse; margin-top: .5rem; }
+th, td { text-align: left; padding: .5rem; border-bottom: 1px solid var(--card); vertical-align: top; }
+code { background: var(--soft); padding: 0 .25rem; border-radius: .25rem; word-break: break-all; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }

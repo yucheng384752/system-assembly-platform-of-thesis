@@ -104,5 +104,5 @@ PASS kit.derived.aov.json: schema; unique node IDs; existing edge endpoints; acy
 - 重跑 `node docs/aov-compare/validate.mjs`：三項 PASS（自我檢查、original 29 節點 29 邊、kit.derived 25 節點 34 邊、15 項能力）。
 - 抽查，全部與 Codex 的陳述相符：(1) `git ls-tree f49cfd3` 沒有 `ut_config_v7.json`（0 筆）；(2) f49cfd3 的 `compilation_events` 沒有 `topology_folder` 參數，工作樹的是 user 未提交的修改，Codex 以 commit 為準是對的；(3) f49cfd3 的 `__main__` 呼叫 `main(output_folder="outputs/complain/")`；(4) f49cfd3 的每日訓練寫死 `outputs/known_base.json`；(5) 出貨 `workflow.aov.json` 為 19 節點 19 邊。
 - Codex 發現、我已處理的事：Settings 允許三層全部關閉，這時分析不執行任何階段卻顯示成功。已在 `feature/analytical-four-site-mapping` 修正（至少啟用一層）。
-- 基準時點：比較文件的 Kit 側是 main 在 4c174bc 的狀態。之後新增的 `check-data` 節點、`columnMapping`、資料檢查（D144）與「至少啟用一層」不在內。
+- 基準時點：比較文件的 Kit 側是 main 在 4c174bc 的狀態。之後新增的 `check-data` 節點、`columnMapping`、資料檢查（D156）與「至少啟用一層」不在內。
 - Codex 提出、尚未處理的差異（留待決定）：出貨 AoV 的 fan-out／fan-in 邊表達的是相依，不是 `runs.py` 的實際順序（NG 先於拓樸與 RAG）；`compilation_events` 的 `topology_folder` 參數化沒列入 `SOURCE.md`；`overlay.json` 的 layer-c 依賴 A+B，與 runtime 在每日模式允許 A+C 的規則不一致。

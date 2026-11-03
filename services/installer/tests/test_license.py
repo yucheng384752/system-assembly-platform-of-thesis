@@ -137,16 +137,17 @@ class LicenseTests(unittest.TestCase):
                     self.assertNotIn(b'fixture-passphrase', path.read_bytes(), str(path))
                     self.assertNotIn(b'fixture-hardware-', path.read_bytes(), str(path))
             before = out.read_bytes()
-            self.rejected(lambda: self.issue(out), 17)
+            self.rejected(lambda: self.issue(out), 17, '已存在')
             self.assertEqual(out.read_bytes(), before)
 
-    def test_issue_rejections(self):
+    def test_issue_rejections_name_the_stage_without_echoing_inputs(self):
         with tempfile.TemporaryDirectory(dir=self.base) as tmp:
             out = Path(tmp) / 'license.lic'
-            self.rejected(lambda: self.issue(out, password='wrong-secret'), 17)
-            self.rejected(lambda: self.issue(out, current=self.data['sources'][:2]), 17)
-            self.rejected(lambda: self.issue(out, now=datetime(2027, 1, 1, tzinfo=timezone.utc)), 17)
-            self.rejected(lambda: self.issue(out, now=datetime(2026, 1, 1, tzinfo=timezone.utc)), 17)
+            self.rejected(lambda: self.issue(out, password='wrong-secret'), 17, '密碼錯誤')
+            self.rejected(lambda: self.issue(out, current=self.data['sources'][:2]), 17, '不足三項')
+            self.rejected(lambda: self.issue(out, now=datetime(2027, 1, 1, tzinfo=timezone.utc)), 17, '不在有效期內')
+            self.rejected(lambda: self.issue(out, now=datetime(2026, 1, 1, tzinfo=timezone.utc)), 17, '不在有效期內')
+            self.rejected(lambda: self.issue(out, password=''), 17, '到期日已過或格式不合法')
             self.assertFalse(out.exists())
             self.assertNotIn('wrong-secret', json.dumps(self.runner.commands))
 

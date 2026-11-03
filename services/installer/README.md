@@ -36,7 +36,9 @@ sh services/installer/install.sh rollback --system-id example --plan plan.json -
 sh services/installer/install.sh rollback --system-id example --plan plan.json --rollback-plan rollback.json --plan-sha256 HASH_FROM_ROLLBACK_PLAN --json
 ```
 
-`--input-file` 必須是目前使用者的普通檔案，權限正好 0600；讀完立即刪除，包括驗證失敗。省略時從 stdin 讀 JSON。輸入格式（以下是欄位說明，不是可用秘密）：
+已完整還原且沒有保留項目的失敗安裝，再次 `apply` 時會把舊的 `state.json` 與 `events.jsonl` 搬到 `<state-dir>/archive/<installId>/`；有保留項目（資料卷、秘密檔）或未還原的狀態仍會被拒絕，需先 `rollback` 並人工處理（D146）。`issue-license` 失敗時訊息會指出是哪個階段（例如密碼錯誤、憑證不在有效期內、輸出路徑已存在），不回顯輸入。
+
+`issue-license` 與 `apply` 請以一般使用者執行，不要整條加 `sudo`（`--input-file` 必須屬於執行者，引擎需要時自行提權）。`--input-file` 必須是目前使用者的普通檔案，權限正好 0600；讀完立即刪除，包括驗證失敗。省略時從 stdin 讀 JSON。輸入格式（以下是欄位說明，不是可用秘密）：
 
 `issue-license` 的輸入只含 `{"passphrase":"現場密碼","expiresAt":"2099-01-01T00:00:00Z"}`；實際到期日由人員決定。密碼、到期日都沒有命令列參數；子金鑰與憑證路徑可用 `--subkey`、`--certificate`。以下 env／admin 格式用於 `apply`：
 
@@ -56,7 +58,7 @@ sh services/installer/install.sh rollback --system-id example --plan plan.json -
 }
 ```
 
-含 MOD Kit 時 env 另需 `MOD_WEBHOOK_SECRET`。`SYSTEM_ID` 由 manifest 提供；`DATABASE_URL` 由引擎使用同一組 PostgreSQL 設定與百分比編碼密碼產生。env 值不可包含換行、NUL、單引號；Compose `.env` 使用單引號保留 `$` 的字面值。只建立一份安裝目錄 `.env`，權限 0600；管理員 JSON 直接傳入 create_admin 的 stdin。密碼不進參數、計畫、事件或狀態；子程序輸出不直接回顯。
+含 MOD Kit 時 env 另需 `MOD_WEBHOOK_SECRET`。`SYSTEM_ID` 由 manifest 提供；`DATABASE_URL` 由引擎使用同一組 PostgreSQL 設定與百分比編碼密碼產生。env 值不可包含換行、NUL、單引號；Compose `.env` 使用單引號保留 `$` 的字面值。選填的安裝輸入 `LICENSE_BLOCK_WINDOW`（例如 `mon-fri 09:00-15:00`，格式與星期於安裝前驗證，後端遇到無法解析的值會拒絕啟動）與 `LICENSE_TIMEZONE`（IANA 名稱，預設 Asia/Taipei）決定硬體不符且寬限期結束後，從哪個時段開始停止服務（D137、D143）。安裝目錄的 `.env`（0600）只放非秘密設定與三個宿主路徑（`LICENSE_DIR`、`ROOT_KEY_FILE`、`MANIFEST_FILE`）；秘密值寫成 `secrets/` 下的獨立檔案（目錄 0700、檔案 0400，後端使用的檔案擁有者為 UID 10001，`postgres_password` 為 root），由 Compose 以 file secrets 掛入容器的 `/run/secrets`，容器內以 `<NAME>_FILE` 指向，`docker inspect` 只看得到路徑而看不到值（D138、D142）。管理員 JSON 直接傳入 create_admin 的 stdin。密碼不進參數、計畫、事件或狀態；子程序輸出不直接回顯。
 
 路徑可覆寫：`--state-dir`（預設 `/var/lib/<system-id>/install`）、`--install-dir`（`/opt/<system-id>-<systemVersion>`）、`--trust-dir`（`/etc/<system-id>/trust`）。狀態目錄不可放在安裝目錄內；舊狀態不會被自動覆寫。測試可覆寫 `--sys-root`、`--proc-root`、`--etc-root`、`--lock-file`。一般操作不得另選鎖路徑來規避互斥。
 
@@ -66,9 +68,26 @@ detect 檢查 OS、架構、磁碟／記憶體、sudo、Docker／Compose、unive
 
 `verify` 未給 `--license` 時回 `license: skipped`，有給則完整驗鏈、到期日、manifest 與當前硬體。plan／apply 必須給授權；計畫只記授權檔 sha256、licensee.name、expiresAt，不含指紋雜湊。apply 開始與 license-install 步驟前都重驗，拒絕授權或硬體漂移。
 
+## 網頁精靈（WP3c）
+
+```sh
+sudo -v
+sh services/installer/install.sh wizard --system-id example [--state-dir ...] [--install-dir ...] [--trust-dir ...] [--wizard-port N]
+```
+
+只監聽 `127.0.0.1`；啟動時印出含一次性權杖的網址（`http://127.0.0.1:<埠>/<權杖>/`）與暫存目錄（存放授權與計畫，還原時需要）。每個畫面對應一個引擎子命令，精靈以子程序呼叫 `cli.py`，不含安裝邏輯：偵測、驗證安裝包、簽發授權、安裝設定、檢視計畫、進度與報告、還原。
+
+- **防護：**路徑權杖加 `Host` 標頭檢查（防 DNS rebinding）、POST 檢查 `Origin` 與 `Content-Type: application/json`、請求大小上限 128 KB、CSP `default-src 'none'`、不回應靜態檔案白名單以外的路徑、請求日誌不記錄（網址含權杖）。畫面文字一律以 `textContent` 呈現。
+- **秘密值：**子金鑰密碼與安裝設定只經子程序標準輸入傳給引擎，不進命令列；送出後畫面欄位立即清空。回應不回顯秘密值。
+- **確認綁定：**`apply` 與 `rollback` 的確認雜湊必須等於精靈剛顯示的計畫雜湊，否則 409；同一時間只允許一個 `apply`。
+- **sudo：**精靈不接收 sudo 密碼。開始安裝前以 `sudo -n true` 檢查，未取得時提示在終端機執行 `sudo -v`（契約第 7 節原寫「經標準輸入傳給 sudo -S」，改為此做法，見 D141）。
+- **背景執行：**`apply` 以獨立 session 啟動，關閉瀏覽器不會中斷；重新開啟精靈或用 `status` 可看進度。
+- **子金鑰與憑證：**以 USB 上的檔案路徑輸入（D140），不經瀏覽器上傳。
+- 驗證：`python3 -B -m unittest tests.test_wizard`、`python3 -B tests/wizard_mutations.py`（八項變異）。
+
 ## 狀態與還原
 
-固定十步：Docker、信任庫／新安裝目錄、映像、網路與卷、秘密檔、啟動 DB、首次建表與管理員、後端／代理、license-install、經代理 healthz。`migration` 只呼叫既有 `app.system_init` 與 `app.entry_permission.create_admin`，不冒充升級遷移。license-install 寫入 `license/license.lic`（目錄 0755、檔案 0644），state 記錄本次建立者；還原只刪本次授權檔與本次建立的空目錄，目錄內有其他檔案則保留並回報失敗。
+固定十一步：Docker、信任庫／新安裝目錄、映像、網路與卷、秘密檔、啟動 DB、首次建表與管理員、license-install、guard-up、後端／代理、經代理 healthz 與授權／硬體狀態檢查。guard-up 先啟動 guard 容器（沿用後端映像，manifest 的映像必須同時指派給 guard），讓後端啟動時已有第一份硬體回報；health-check 要求 `/api/license/status` 回 `valid: true` 且硬體為 `match`（最多等 60 秒），確認從宿主簽發授權到容器內比對的整條路徑。`migration` 只呼叫既有 `app.system_init` 與經 `app.secret_files` 載入秘密後的 `app.entry_permission.create_admin`，不冒充升級遷移。license-install 在服務啟動前寫入 `license/license.lic`（目錄 0755、檔案 0644，擁有者為後端使用者 10001，因為後端在上傳新授權時要能替換檔案），state 記錄本次建立者；後端啟動後 health-check 會要求 `/api/license/status` 回 `valid: true`，確認執行中的後端自己接受這份授權；還原只刪本次授權檔與本次建立的空目錄，目錄內有其他檔案則保留並回報失敗。
 
 `compose.override.yml` 是 JSON（合法 YAML），替每個服務、網路與卷加 install-id label，服務用 image ID 與 `pull_policy: never`；命令另加 `--no-build --pull never`。專案名 `<system-id>-<install-id>`。映像不加 label；state 記錄載入前存在與否、載入後 ID、載入標籤。遇到原有標籤指向其他映像就停止，不覆蓋。
 

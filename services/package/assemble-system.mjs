@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { adapt, inventory, policyData, pythonCheck, directory as preview, repository } from '../preview/assemble.mjs';
 import { deploymentArtifacts, entryDirectory } from './deployment.mjs';
+import { frontendTree } from './frontend.mjs';
 import { bundleEvaluator } from '../evaluator/build.mjs';
 
 /** @typedef {(command: string, args: string[], options: import('node:child_process').SpawnSyncOptionsWithStringEncoding) =>
@@ -50,7 +51,8 @@ export function scanExclusions(tree) {
     }
     const text = data.toString('utf8');
     // Unquoted Python names are variables, not credential literals; env/YAML values are strings.
-    if (/(?:default\s*=|[=:])\s*["'](?:change-me|password|secret)["']|:\/\/[^\s:]+:(?:password|secret|app_secure_password)@/i.test(text) ||
+    // type="password" is an HTML input kind, not a credential literal.
+    if (/(?:default\s*=|(?<!\btype)[=:])\s*["'](?:change-me|password|secret)["']|:\/\/[^\s:]+:(?:password|secret|app_secure_password)@/i.test(text) ||
         (!name.endsWith('.py') && /[=:][ \t]*(?:change-me|password|secret)[ \t]*(?:\r?\n|$)/i.test(text))) {
       throw new Error(`系統包含預設秘密：${name}`);
     }
@@ -125,6 +127,9 @@ export async function assembleSystem(output, { recipe: recipeFile, kits = path.j
   for (const [name, data] of await deploymentArtifacts(kits, plan.included, [...plan.sources.keys()])) {
     put(name, Buffer.from(data), name.startsWith('deployment/') ? 'deployment' : 'backend-entry');
   }
+  // The manual ships inside the package so the engineer has it offline; CRLF checkouts must not change its bytes.
+  put('docs/installation-operations-manual.md', Buffer.from((await readFile(path.join(repository, 'docs/installation-operations-manual.md'), 'utf8')).replaceAll('\r\n', '\n')), 'operations-manual');
+  for (const [name, data] of await frontendTree(kits, plan.included)) put(name, data, 'frontend-source');
   put('database/migrations/plan.json', json({ status: 'not-provided', migrations: [], reason: '正式 migration 與執行流程待 WP3；不以 create_all 冒充 migration' }), 'migration-plan');
   const manifest = {
     format: 'composer-system-assembly', schemaVersion: '1.0.0', installable: false,
@@ -132,7 +137,7 @@ export async function assembleSystem(output, { recipe: recipeFile, kits = path.j
     systemId: recipe.name, kits: versions,
     notIncluded: excluded,
     notSelected: all.included.filter(kit => !plan.included.includes(kit)),
-    notProvided: ['frontend build (WP2)', 'TLS', 'machine API key authentication',
+    notProvided: ['frontend bundle (built at release by bundle-frontend.mjs)', 'TLS', 'machine API key authentication',
       'hash-locked dependency file（建議 --require-hashes）', 'executable upgrade migrations',
       'authentication and authorization verification (WP3/WP5)',
       'manuals and merged delivery (WP4)', 'installation and field verification (WP5)', ...missingWorkflows],

@@ -52,11 +52,11 @@ def fixture(directory, extra=None):
     root = directory / 'source'
     root.mkdir()
     template = Path(os.environ.get('INSTALLER_PACKAGE_TEMPLATES', str(Path(__file__).resolve().parents[2] / 'package/templates')))
-    files = {'deployment/docker-compose.yml': (template / 'docker-compose.yml').read_bytes().replace(b'@@WEBHOOK_ENV@@', b''),
+    files = {'deployment/docker-compose.yml': (template / 'docker-compose.yml').read_bytes().replace(b'@@WEBHOOK_ENV@@', b'').replace(b'@@WEBHOOK_SECRET_REF@@', b'').replace(b'@@WEBHOOK_SECRET_DEF@@', b''),
              'deployment/.env.example': (template / 'env.example').read_bytes().replace(b'@@WEBHOOK_EXAMPLE@@', b''),
              'deployment/nginx.conf': (template / 'nginx.conf').read_bytes()}
     images = []
-    for name, services in [('postgres', ['postgres']), ('backend', ['backend', 'init']), ('proxy', ['proxy'])]:
+    for name, services in [('postgres', ['postgres']), ('backend', ['backend', 'init', 'guard']), ('proxy', ['proxy'])]:
         config = canonical({'fixture': name})
         config_name = digest(config) + '.json'
         tag = name + ':test'
@@ -98,12 +98,14 @@ class FakeRunner(Runner):
         self.wrong_id = False
         self.active_install_id = ''
         self.after = None
+        self.owners = {}
 
     def fs(self, action, path, **kwargs):
         self.commands.append(['fs', action, str(path)])
         if self.fail == 'fs-remove' and action == 'remove':
             raise Failure(13, 'fixture failure')
-        kwargs.pop('owner', None)
+        if 'owner' in kwargs:
+            self.owners[str(path)] = kwargs.pop('owner')  # fsops would chown; the fixture cannot, so it records the request
         fsops.execute(dict(action=action, path=str(path), **kwargs))
 
     def run(self, args, *, privileged=False, data=None, check=True):
@@ -132,7 +134,11 @@ class FakeRunner(Runner):
         elif args[:2] == ['docker', 'load']:
             with tarfile.open(args[-1]) as archive:
                 item = json.load(archive.extractfile('manifest.json'))[0]
-                image_id = 'sha256:' + digest(archive.extractfile(item['Config']).read())
+                # Like the containerd store, an OCI layout is identified by its index entry, not the config digest.
+                if 'index.json' in archive.getnames():
+                    image_id = json.load(archive.extractfile('index.json'))['manifests'][0]['digest']
+                else:
+                    image_id = 'sha256:' + digest(archive.extractfile(item['Config']).read())
                 self.images.add(image_id)
                 self.tags[item['RepoTags'][0]] = image_id
         elif args[:3] == ['docker', 'image', 'rm']:
@@ -294,11 +300,37 @@ class EngineTests(unittest.TestCase):
             for resource in config[group].values():
                 self.assertEqual(resource['labels'][LABEL], self.installer.install_id)
         self.assertEqual((target / '.env').stat().st_mode & 0o777, 0o600)
+        # D138: private values live only in the 0400 files under secrets/, never in .env or any other file.
+        env_text = (target / '.env').read_text()
+        for private in ('db$private', 'S' * 40, 'J' * 40, 'Admin-private-123', 'postgresql+asyncpg'):
+            self.assertNotIn(private, env_text)
+        self.assertIn("LICENSE_DIR='" + str(target / 'license') + "'", env_text)
+        self.assertIn("ROOT_KEY_FILE='" + str(self.base / 'trust/root.pem') + "'", env_text)
+        self.assertIn("MANIFEST_FILE='" + str(target / 'system-manifest.json') + "'", env_text)
+        secrets = target / 'secrets'
+        self.assertEqual(sorted(p.name for p in secrets.iterdir()),
+                         ['database_url', 'entry_permission_jwt_secret', 'postgres_password', 'secret_key'])
+        self.assertEqual((secrets / 'postgres_password').read_text(), 'db$private')
+        self.assertEqual((secrets / 'secret_key').read_text(), 'S' * 40)
+        self.assertTrue((secrets / 'database_url').read_text().startswith('postgresql+asyncpg://app:db%24private@postgres:5432/app'))
+        self.assertTrue(all((secrets / n).stat().st_mode & 0o777 == 0o400 for n in ('secret_key', 'database_url')))
+        # The backend user must own what the backend reads; PostgreSQL's file stays root-owned.
+        for name in ('database_url', 'secret_key', 'entry_permission_jwt_secret'):
+            self.assertEqual(self.runner.owners.get(str(secrets / name)), [10001, 10001], name)
+        self.assertNotIn(str(secrets / 'postgres_password'), self.runner.owners)
+        self.assertEqual(self.runner.owners.get(str(target / 'license')), [10001, 10001])
+        self.assertEqual(self.runner.owners.get(str(target / 'license/license.lic')), [10001, 10001])
+        allowed = {secrets / 'postgres_password', secrets / 'database_url'}
         for path in self.base.rglob('*'):
-            if path.is_file() and path != target / '.env':
+            if path.is_file() and path not in allowed:
                 self.assertNotIn(b'db$private', path.read_bytes(), str(path))
+                self.assertNotIn(b'db%24private', path.read_bytes(), str(path))
                 self.assertNotIn(b'Admin-private-123', path.read_bytes(), str(path))
         self.assertNotIn('db$private', json.dumps(self.runner.commands))
+        # create_admin must run through the secret loader, otherwise it cannot see DATABASE_URL.
+        self.assertTrue(any('app.secret_files' in c and 'app.entry_permission.create_admin' in c for c in self.runner.commands))
+        self.assertTrue(any('urlopen(' in ' '.join(c) and '/api/license/status' in ' '.join(c) for c in self.runner.commands),
+                        'health-check must confirm the running backend accepts the license')
         self.assertTrue(any('app.entry_permission.create_admin' in c for c in self.runner.commands))
         self.assertTrue(all('build' not in c for c in self.runner.commands))
         loaded = self.installer.state['steps']['images-load']['undo']
@@ -447,13 +479,15 @@ class EngineTests(unittest.TestCase):
 
     def test_license_install_drift_is_code_12(self):
         def after(args):
-            if args[:2] == ['docker', 'compose'] and args[-1] == 'proxy':
+            # license-install now runs right after the migration step, before the services start.
+            if args[:2] == ['docker', 'compose'] and 'app.entry_permission.create_admin' in args:
                 with self.license_path.open('ab') as stream:
                     stream.write(b'\n')
         self.runner.after = after
         self.assertEqual(self.installer.apply(self.root, self.body), 12)
         self.assertFalse((self.base / 'installed/license/license.lic').exists())
-        self.assertEqual(self.installer.state['steps']['compose-up']['status'], 'ok')
+        self.assertEqual(self.installer.state['steps']['migration']['status'], 'ok')
+        self.assertNotIn('compose-up', self.installer.state['steps'], 'services must not start without a verified license')
 
     def test_fingerprint_drift_before_license_install(self):
         original = self.runner.run
@@ -577,6 +611,132 @@ class EngineTests(unittest.TestCase):
         manifest = copy.deepcopy(self.manifest)
         manifest['images'][0]['tag'] = 'unexpected:tag'
         self.assert_code(11, lambda: validate_manifest(manifest, self.root))
+
+    def oci_archive(self, image, root_blob=b'{"mediaType": "application/vnd.oci.image.index.v1+json"}', index_digest=None, extra_entries=0, stored_blob=None):
+        """Archive as written by the containerd image store: docker-style manifest.json plus an OCI index."""
+        root_id = 'sha256:' + digest(root_blob)
+        config = canonical({'fixture': image['tag']})
+        config_name = 'blobs/sha256/' + digest(config)
+        entries = [{'mediaType': 'application/vnd.oci.image.index.v1+json', 'digest': index_digest or root_id, 'size': len(root_blob)}] * (1 + extra_entries)
+        data = tar_bytes({config_name: config, 'blobs/sha256/' + root_id[7:]: stored_blob or root_blob,
+                          'index.json': canonical({'schemaVersion': 2, 'manifests': entries}),
+                          'manifest.json': canonical([{'Config': config_name, 'RepoTags': [image['tag']], 'Layers': []}])})
+        (self.root / image['archive']).write_bytes(data)
+        return root_id
+
+    def test_containerd_oci_archive_is_identified_by_its_index_digest(self):
+        from package import validate_manifest
+        manifest = copy.deepcopy(self.manifest)
+        for image in manifest['images']:
+            image['id'] = self.oci_archive(image)
+            entry = next(f for f in manifest['files'] if f['path'] == image['archive'])
+            data = (self.root / image['archive']).read_bytes()
+            entry.update(sha256=digest(data), bytes=len(data))
+        validate_manifest(manifest, self.root)
+
+    def test_oci_archive_whose_root_blob_does_not_hash_to_its_digest_is_rejected(self):
+        from package import validate_manifest
+        # A forged ID must not pass just because a blob of that name exists: its bytes have to hash to the name.
+        for variant in (dict(stored_blob=b'{"swapped": true}'), dict(index_digest='sha256:' + 'e' * 64)):
+            manifest = copy.deepcopy(self.manifest)
+            image = manifest['images'][0]
+            image['id'] = self.oci_archive(image, **variant)
+            entry = next(f for f in manifest['files'] if f['path'] == image['archive'])
+            data = (self.root / image['archive']).read_bytes()
+            entry.update(sha256=digest(data), bytes=len(data))
+            self.assert_code(11, lambda: validate_manifest(manifest, self.root))
+
+    def test_oci_archive_with_more_than_one_index_entry_is_rejected(self):
+        from package import validate_manifest
+        manifest = copy.deepcopy(self.manifest)
+        image = manifest['images'][0]
+        image['id'] = self.oci_archive(image, extra_entries=1)
+        entry = next(f for f in manifest['files'] if f['path'] == image['archive'])
+        data = (self.root / image['archive']).read_bytes()
+        entry.update(sha256=digest(data), bytes=len(data))
+        self.assert_code(11, lambda: validate_manifest(manifest, self.root))
+
+    def test_manifest_must_assign_an_image_to_the_guard_too(self):
+        from package import validate_manifest
+        manifest = copy.deepcopy(self.manifest)
+        backend = next(image for image in manifest['images'] if 'backend' in image['services'])
+        backend['services'].remove('guard')
+        self.assert_code(11, lambda: validate_manifest(manifest, self.root))
+
+    def test_guard_starts_before_the_backend_and_health_check_waits_for_a_hardware_match(self):
+        self.assertEqual(self.installer.apply(self.root, self.body), 0)
+        started = [c[-1] for c in self.runner.commands if c[:2] == ['docker', 'compose'] and 'up' in c]
+        self.assertLess(started.index('guard'), started.index('backend'))
+        self.assertLess(STEPS.index('license-install'), STEPS.index('guard-up'))
+        self.assertLess(STEPS.index('guard-up'), STEPS.index('compose-up'))
+        probe = ' '.join(next(c for c in self.runner.commands if 'api/license/status' in ' '.join(c)))
+        self.assertIn("['hardware']['status'] == 'match'", probe)
+        self.assertIn("status.get('valid') is True", probe)
+
+    def seed_state(self, **changes):
+        state = {'installId': 'abc123', 'status': 'rolled-back', 'retained': [], 'steps': {'docker-ensure': {'status': 'rolled-back'}}}
+        state.update(changes)
+        (self.state_dir / 'state.json').write_text(json.dumps(state), encoding='utf-8')
+        (self.state_dir / 'events.jsonl').write_text(json.dumps({'seq': 7}) + chr(10), encoding='utf-8')
+
+    def test_state_with_nothing_left_behind_is_archived_so_apply_can_run_again(self):
+        from cli import archive_rolled_back_state
+        from common import Journal
+        self.seed_state()
+        journal = Journal(self.state_dir)
+        self.assertEqual(journal.seq, 7)
+        archive_rolled_back_state(self.state_dir, journal)
+        self.assertFalse((self.state_dir / 'state.json').exists())
+        self.assertTrue((self.state_dir / 'archive/abc123/state.json').exists())
+        self.assertTrue((self.state_dir / 'archive/abc123/events.jsonl').exists())
+        self.assertEqual(journal.seq, 0)
+
+    def test_state_that_may_hold_data_or_is_unfinished_is_never_archived(self):
+        from cli import archive_rolled_back_state
+        from common import Journal
+        cases = [dict(retained=[{'kind': 'database', 'name': 'x_database'}]), dict(status='ok'), dict(status='running'),
+                 dict(steps={'docker-ensure': {'status': 'rolled-back'}, 'trust-store': {'status': 'failed'}}), dict(steps={})]
+        for changes in cases:
+            self.seed_state(**changes)
+            self.assert_code(10, lambda: archive_rolled_back_state(self.state_dir, Journal(self.state_dir)))
+            self.assertTrue((self.state_dir / 'state.json').exists(), changes)
+            self.assertFalse((self.state_dir / 'archive').exists(), changes)
+
+    def test_compose_run_uses_only_flags_the_ubuntu_package_supports(self):
+        # Ubuntu 22.04 ships docker-compose-v2 2.40.3, whose `run` has --pull but no --no-build (found in the WP5 real-machine run).
+        self.assertEqual(self.installer.apply(self.root, self.body), 0)
+        runs = [c for c in self.runner.commands if c[:2] == ['docker', 'compose'] and 'run' in c]
+        self.assertEqual(len(runs), 2)
+        for command in runs:
+            self.assertNotIn('--no-build', command)
+            self.assertIn('--pull', command)
+
+    def test_guard_container_is_removed_by_rollback_like_the_other_services(self):
+        self.runner.fail = None
+        self.runner.after = lambda args: (self.state_dir / 'cancel.request').write_text('{}') if args[-1:] == ['guard'] and 'up' in args else None
+        self.assertEqual(self.installer.apply(self.root, self.body), 15)
+        self.assertEqual(self.installer.state['steps']['guard-up']['status'], 'ok')
+        self.runner.after = None
+        rollback = self.installer.rollback_plan()
+        self.assertIn('guard-up', rollback['steps'])
+
+    def test_block_window_and_time_zone_are_validated_and_written_only_when_given(self):
+        for key, bad in (('LICENSE_BLOCK_WINDOW', 'funday 09:00-10:00'), ('LICENSE_BLOCK_WINDOW', 'mon-fri 15:00-09:00'),
+                         ('LICENSE_BLOCK_WINDOW', 'mon-fri 09:00-09:00'), ('LICENSE_BLOCK_WINDOW', 'nonsense'),
+                         ('LICENSE_TIMEZONE', 'Mars/Base')):
+            body = copy.deepcopy(self.body)
+            body['env'][key] = bad
+            self.assert_code(10, lambda: private_input(body, self.plan))
+        self.assertEqual(self.installer.apply(self.root, self.body), 0)
+        self.assertNotIn('LICENSE_BLOCK_WINDOW', (self.base / 'installed/.env').read_text())
+
+    @unittest.skipUnless(os.path.exists('/usr/share/zoneinfo/Asia/Tokyo'), 'needs the system time zone database; 由 Claude 在 Ubuntu 執行')
+    def test_block_window_and_time_zone_reach_the_compose_environment_file(self):
+        self.body['env'].update(LICENSE_BLOCK_WINDOW='mon,wed 10:00-11:30', LICENSE_TIMEZONE='Asia/Tokyo')
+        self.assertEqual(self.installer.apply(self.root, self.body), 0)
+        text = (self.base / 'installed/.env').read_text()
+        self.assertIn("LICENSE_BLOCK_WINDOW='mon,wed 10:00-11:30'", text)
+        self.assertIn("LICENSE_TIMEZONE='Asia/Tokyo'", text)
 
     def test_unknown_deployment_or_upgrade_rejected(self):
         (self.base / 'installed').mkdir()

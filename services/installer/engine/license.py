@@ -163,7 +163,22 @@ def checked_license(runner, path, verified, current):
         raise Failure(11, '授權檔無法讀取') from None
 
 
+# Fixed texts only, so a failure says which stage broke without echoing any input or secret.
+ISSUE_REASONS = {
+    'input': '到期日已過或格式不合法，或密碼為空、含換行',
+    'sources': '這台機器可用的指紋來源不足三項或格式不合法',
+    'certificate': '子金鑰憑證無法讀取、格式不合法，或不是這把根公鑰簽發的',
+    'window': '子金鑰憑證不在有效期內',
+    'key': '子金鑰檔不是加密的 PKCS8 私鑰',
+    'sign': '子金鑰密碼錯誤或私鑰無法使用',
+    'selfcheck': '簽出的授權沒有通過自我驗證',
+    'write': '輸出路徑無法寫入',
+    'exists': '輸出路徑已存在，不覆寫',
+}
+
+
 def issue_license(runner, subkey, cert_path, out, body, verified, current, now=None):
+    stage = 'input'
     try:
         now = now or datetime.now(timezone.utc)
         shape(body, 'passphrase expiresAt')
@@ -171,17 +186,22 @@ def issue_license(runner, subkey, cert_path, out, body, verified, current, now=N
         text(password, 1, 65536)
         if any(c in password for c in '\r\n\x00') or timestamp(body['expiresAt']) <= now:
             raise ValueError('Invalid issuance input')
+        stage = 'sources'
         sources(current)
         if len(current) < 3:
             raise ValueError('Insufficient sources')
+        stage = 'certificate'
         cert_value = read_json(cert_path)
         with tempfile.TemporaryDirectory(prefix='composer-issue-') as tmp:
             directory = Path(tmp)
             cert = certificate(runner, cert_value, verified['keyPem'], directory)
+            stage = 'window'
             if not timestamp(cert['notBefore']) <= now <= timestamp(cert['notAfter']):
                 raise ValueError('Certificate outside issuance window')
+            stage = 'key'
             if not Path(subkey).read_bytes().startswith(b'-----BEGIN ENCRYPTED PRIVATE KEY-----'):
                 raise ValueError('Encrypted PKCS8 required')
+            stage = 'selfcheck'
             manifest = verified['manifest']
             payload = dict(schemaVersion='3.0', issuedAt=now.strftime('%Y-%m-%dT%H:%M:%SZ'), expiresAt=body['expiresAt'],
                            licensee=cert['licensee'], systemId=manifest['systemId'], recipe=manifest['systemId'],
@@ -190,17 +210,21 @@ def issue_license(runner, subkey, cert_path, out, body, verified, current, now=N
             payload_shape(payload)
             payload_file, signature_file = directory / 'payload', directory / 'signature'
             payload_file.write_bytes(canonical(payload))
+            stage = 'sign'
             runner.run(['openssl', 'dgst', '-sha256', '-sigopt', 'rsa_padding_mode:pss', '-sigopt', 'rsa_pss_saltlen:32',
                         '-sign', str(subkey), '-passin', 'stdin', '-out', str(signature_file), str(payload_file)],
                        data=(password + '\n').encode('utf-8'))
+            stage = 'selfcheck'
             value = dict(payload=canonical(payload).decode('utf-8'), signature=base64.b64encode(signature_file.read_bytes()).decode('ascii'),
                          algorithm='RSA-PSS-SHA256', issuerCertificate=cert_value)
             verify_license(runner, value, verified['keyPem'], verified['manifestSha256'], current, now)
             # Validate before publishing; exclusive creation also rejects dangling symlinks.
+            stage = 'write'
             with open(out, 'xb') as stream:
                 stream.write(canonical(value) + b'\n')
                 stream.flush()
                 os.fsync(stream.fileno())
         return value
-    except (Failure, OSError, ValueError, KeyError, TypeError):
-        raise Failure(17, '授權簽發失敗：請確認輸入、憑證有效期、至少三項指紋與未存在的輸出路徑') from None
+    except (Failure, OSError, ValueError, KeyError, TypeError) as error:
+        reason = ISSUE_REASONS['exists' if isinstance(error, FileExistsError) else stage]
+        raise Failure(17, '授權簽發失敗：' + reason) from None

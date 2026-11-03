@@ -367,7 +367,7 @@ async def validate_upload_job(
 
     if not upload_job.file_content:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="檔案內容為空"
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="檔案內容為空"
         )
 
     actor_api_key_id = getattr(
@@ -492,7 +492,7 @@ async def update_upload_content(
         csv_text = (request.csv_text or "").strip("\ufeff")
         if not csv_text.strip():
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="檔案內容為空",
             )
 
@@ -638,7 +638,7 @@ async def update_upload_content(
             await db.commit()
 
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=ve.message,
         )
 
@@ -833,7 +833,7 @@ async def upload_file(
         if not file or not file.filename:
             logger.warning("上傳失敗：未選擇檔案或檔案名稱為空")
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="未選擇檔案或檔案名稱為空",
             )
 
@@ -844,7 +844,7 @@ async def upload_file(
         if file_size == 0:
             logger.warning("上傳失敗：檔案內容為空", filename=file.filename)
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="檔案內容為空"
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="檔案內容為空"
             )
 
         if file_size > 10 * 1024 * 1024:  # 10MB
@@ -977,7 +977,7 @@ async def upload_file(
             )
 
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=ve.message
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=ve.message
             )
 
         except Exception as e:
@@ -1037,14 +1037,14 @@ async def upload_pdf(
 
     if not file or not file.filename:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="未選擇檔案或檔案名稱為空",
         )
 
     filename_lower = file.filename.lower()
     if not filename_lower.endswith(".pdf"):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="僅支援 PDF 檔案",
         )
 
@@ -1052,7 +1052,7 @@ async def upload_pdf(
     file_size = len(file_content)
     if file_size == 0:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="檔案內容為空",
         )
 
@@ -1064,7 +1064,7 @@ async def upload_pdf(
 
     if not _is_pdf_bytes(file_content):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="檔案內容不是有效的 PDF（缺少 %PDF- header）",
         )
 

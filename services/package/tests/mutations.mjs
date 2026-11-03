@@ -18,21 +18,23 @@ assert.equal(baseline.status, 0, `baseline must pass before mutation: ${baseline
 console.log('baseline: passed');
 /** @type {Array<[string, string, string, string, string]>} */
 const mutations = [
-  ['remove-required-compose', 'templates/docker-compose.yml', '${SECRET_KEY:?SECRET_KEY is required}', '${SECRET_KEY}', '11 Kits'],
-  ['remove-required-webhook', 'deployment.mjs', '${MOD_WEBHOOK_SECRET:?MOD_WEBHOOK_SECRET is required}', '${MOD_WEBHOOK_SECRET}', '11 Kits'],
+  ['remove-required-compose', 'templates/docker-compose.yml', '${DEFAULT_TENANT_ID:?DEFAULT_TENANT_ID is required}', '${DEFAULT_TENANT_ID}', '11 Kits'],
+  ['remove-required-webhook', 'deployment.mjs', "...(webhook ? ['MOD_WEBHOOK_SECRET'] : [])", '', '11 Kits'],
   ['remove-preview-exclusion', 'assemble-system.mjs', ".replace('\\nfrom app.preview_gate import require_access\\n', '')", '', '11 Kits'],
   ['remove-entry-directory', 'assemble-system.mjs', "put('permissions/entry_points.json', json(await entryDirectory(kits, plan.included)), 'permission-directory');", '', '11 Kits'],
-  ['remove-notProvided-update', 'assemble-system.mjs', "notProvided: ['frontend build (WP2)', 'TLS', 'machine API key authentication',", "notProvided: ['formal entry file (WP3)', 'deployment and startup (WP3)',", '11 Kits'],
+  ['remove-notProvided-update', 'assemble-system.mjs', "notProvided: ['frontend bundle (built at release by bundle-frontend.mjs)', 'TLS', 'machine API key authentication',", "notProvided: ['formal entry file (WP3)', 'deployment and startup (WP3)',", '11 Kits'],
   ['remove-entry-required', 'assemble-system.mjs', "if (!recipe.enabledKits.includes('entry-permission-kit')) throw new Error('必須選入 entry-permission-kit；機器 API key 替代認證尚未提供');", '', 'missing entry-permission Kit'],
   ['remove-startup-secret-check', 'templates/main.py', 'if not os.environ.get(name, "").strip():', 'if False:', '11 Kits'],
   ['remove-T12', 'assemble-system.mjs', 'adapt(name, original)', "(name === 'app/core/db_capabilities.py' ? original : adapt(name, original))", '11 Kits'],
+  ['remove-frontend-tree', 'assemble-system.mjs', "for (const [name, data] of await frontendTree(kits, plan.included)) put(name, data, 'frontend-source');", '', '11 Kits'],
   ['remove-notIncluded', 'assemble-system.mjs', 'notIncluded: excluded,', '', '11 Kits'],
 ];
 for (const [name, file, anchor, replacement, testName] of mutations) {
   const temp = await mkdtemp(path.join(here, '.mutation-'));
   try {
-    for (const module of ['assemble-system.mjs', 'deployment.mjs']) {
-      await writeFile(path.join(temp, module), (await readFile(path.join(root, module), 'utf8')).replace('../preview/assemble.mjs', shared));
+    for (const module of ['assemble-system.mjs', 'deployment.mjs', 'frontend.mjs']) {
+      await writeFile(path.join(temp, module), (await readFile(path.join(root, module), 'utf8')).replace('../preview/assemble.mjs', shared)
+        .replace("'../..'", JSON.stringify(path.resolve(root, '../..'))));
     }
     await cp(path.join(root, 'templates'), path.join(temp, 'templates'), { recursive: true });
     await writeFile(path.join(temp, 'package.test.mjs'), (await readFile(path.join(here, 'package.test.mjs'), 'utf8'))

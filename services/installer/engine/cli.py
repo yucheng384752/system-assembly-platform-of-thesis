@@ -18,10 +18,27 @@ class Arguments(argparse.ArgumentParser):
         raise Failure(10, '命令列參數不合法；請使用 --help')
 
 
+def archive_rolled_back_state(directory, journal):
+    """A state whose every step was rolled back and that retained nothing holds no data, so set it aside and allow a new apply."""
+    state_file = directory / 'state.json'
+    if not state_file.exists():
+        return
+    state = read_json(state_file)
+    steps = state.get('steps')
+    if (state.get('status') != 'rolled-back' or state.get('retained') or not steps
+            or any(step.get('status') != 'rolled-back' for step in steps.values())):
+        raise Failure(10, '已有安裝狀態；不覆寫或自動重跑，請先檢視 status／rollback')
+    archive = directory / 'archive' / str(state['installId'])
+    archive.mkdir(parents=True, exist_ok=False)
+    for name in ('state.json', 'events.jsonl'):
+        (directory / name).replace(archive / name)
+    journal.seq = 0
+
+
 def parser():
     result = Arguments(description='WP3b 首次安裝引擎')
     result.add_argument('command', choices=['detect', 'verify', 'plan', 'apply', 'status', 'cancel', 'rollback',
-                                            'issue-license', 'fingerprint', 'license-install', 'guard-up'])
+                                            'issue-license', 'fingerprint', 'license-install', 'guard-up', 'wizard'])
     result.add_argument('--json', action='store_true')
     for name in ('archive', 'signature', 'key', 'confirm-key-prefix', 'plan', 'plan-sha256', 'state-dir',
                  'install-dir', 'trust-dir', 'input-file', 'rollback-plan', 'checkpoint',
@@ -32,6 +49,7 @@ def parser():
     result.add_argument('--proc-root', default='/proc')
     result.add_argument('--etc-root', default='/etc')
     result.add_argument('--port', type=int, default=8080)
+    result.add_argument('--wizard-port', type=int, default=0)
     result.add_argument('--lock-file', default='/tmp/composer-installer.lock')
     return result
 
@@ -81,6 +99,16 @@ def source_args(args, trust=None):
 def run(args, runner, emit, stream):
     if args.command in ('license-install', 'guard-up'):
         raise Failure(10, 'license-install 僅由 apply 執行；guard 尚未提供，待 WP3e')
+    if args.command == 'wizard':
+        import re
+        from wizard import serve
+        if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,49}', args.system_id):
+            raise Failure(10, 'system-id 不合法')
+        forwarded = ['--system-id', args.system_id]
+        for name in ('state_dir', 'install_dir', 'trust_dir'):
+            if getattr(args, name):
+                forwarded += ['--' + name.replace('_', '-'), getattr(args, name)]
+        return serve(args.system_id, forwarded, port=args.wizard_port)
     if args.command == 'fingerprint':
         if not hasattr(os, 'geteuid') or os.geteuid() != 0:
             raise Failure(11, '指紋內部命令須以 root 執行')
@@ -104,8 +132,11 @@ def run(args, runner, emit, stream):
                               current_sources(runner, args.sys_root))
             emit({'command': 'issue-license', 'status': 'ok'})
             return 0
-        except (Failure, OSError, ValueError, KeyError, TypeError):
-            raise Failure(17, '授權簽發失敗；請檢查來源、輸入、憑證、硬體指紋與輸出路徑') from None
+        except Failure as error:
+            # Messages of Failure are fixed texts; keep the stage that issue_license named instead of hiding it.
+            raise Failure(17, str(error) if error.code == 17 else '授權簽發失敗：' + str(error)) from None
+        except (OSError, ValueError, KeyError, TypeError):
+            raise Failure(17, '授權簽發失敗：來源、輸入檔、憑證或輸出路徑無法讀寫（輸入檔須屬於目前使用者且權限為 0600）') from None
     import re
     if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,49}', args.system_id):
         raise Failure(10, 'system-id 不合法')
@@ -180,8 +211,7 @@ def run(args, runner, emit, stream):
                 return 0
             return installer.rollback(read_json(args.rollback_plan), args.plan_sha256)
         check_plan(plan, args.plan_sha256)
-        if (directory / 'state.json').exists():
-            raise Failure(10, '已有安裝狀態；不覆寫或自動重跑，請先檢視 status／rollback')
+        archive_rolled_back_state(directory, journal)
         if [s['id'] for s in plan['steps']] != STEPS:
             raise Failure(12, '計畫步驟不符')
         body = input_body(args, stream)

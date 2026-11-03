@@ -1120,3 +1120,175 @@ WP3b 第二階段驗收通過。
 - 驗收時修正一處：`test_hash_intersection_not_names` 的第一個驗證在變異下拋出 `Failure`，變成 ERROR 而非斷言失敗，`license_mutations.py` 因此誤判為未攔截；改為捕捉 `Failure` 後 `self.fail`，六項變異皆以斷言攔截。
 - 清除 Codex 留下的 `services/package/tests/.contracts-cycI5p` 暫存目錄（未提交）。
 - 未驗證（維持待辦）：需要 sudo 的真實指紋採集、實體機指紋穩定性、真實 USB、Docker 實機整合、Python 簽出授權對 Node CLI 的反向驗收；後端仍不讀授權，不能宣稱已防複製。
+
+## 2026-10-28 WP3c 與 WP3e 第一段（Claude 實作，D141、D142）
+
+user 指定這兩個工作包由 Claude 直接實作（不派 Codex）。在獨立 worktree（`feature/p2-executable-assembly`）進行，避免與另一個 session 共用工作樹互相切換分支。
+
+**WP3c 網頁精靈（commit 34ed098）：**`services/installer/engine/wizard.py` 與 `wizard_static/`，Python 標準庫。防護：一次性路徑權杖、Host 與 Origin 檢查、CSP、128 KB 上限、白名單靜態檔；秘密值只走子程序 stdin；apply 與 rollback 的確認雜湊綁定畫面所示；同時一個 apply；apply 獨立 session 啟動；apply 期間每 4 分鐘 `sudo -n -v` 刷新。驗證：精靈測試 15 項、8 項變異全被攔、Ubuntu 22.04 VM 實跑真引擎的 `detect`、Chrome 以 demo 引擎走完全流程無 console 錯誤。
+
+**WP3e 第一段（commit ffd1106、1547d2c 與本次）：**
+- `kits/platform-core-kit/.../core/license.py` 改為授權 3.0 驗證（憑證鏈、manifest 雜湊綁定、指紋集合交集函式 `fingerprint_matches` 備好但尚未接線）。`kits/` 實際只改這一個檔案與其測試；移除已過時的 `tests/linux_smoke.py`。執行期沿用既有釘選的 `cryptography==43.0.3`，沒有新增依賴（D142 更正了我提問時的誤判）。
+- 範本新增 `license_gate.py`（最外層 middleware：無效授權時除 `/healthz` 與授權路由外回 503；`/license` 狀態頁、`/api/license/status`、`/api/license/upload` 只安裝通過完整驗證的授權；上傳限流 10 次／分鐘、64 KB 上限）與 `secret_files.py`（`<NAME>_FILE` 載入、`python -m app.secret_files <module>` 包裝）；Compose 改 file secrets 並掛入授權目錄、根公鑰、manifest；nginx 轉送 `/license`；新增 `.dockerignore`。
+- 引擎：秘密值寫成 0400 檔案（後端用者擁有者 UID 10001），`.env` 只剩非秘密設定與三個路徑；`license-install` 提前到 `compose-up` 前並將授權目錄交給 UID 10001；health-check 另要求 `/api/license/status` 回 `valid: true`；create_admin 經 `app.secret_files`；還原範圍與保留規則涵蓋 `secrets/`。
+
+**驗證（Claude 實測）：**
+- Ubuntu 22.04 VM：installer 全部 74 項測試通過；引擎變異 10 項全被攔（新增 4 項：秘密進 `.env`、後端讀不到秘密、授權晚於服務、create_admin 缺載入器）。
+- 真實 Docker Compose（同一台 VM，由範本組裝出的 7 個 Kit 系統包，鏡像實際建置）：postgres 以 `POSTGRES_PASSWORD_FILE` 啟動；`system_init` 與 `create_admin`（經 `app.secret_files`）成功；backend healthy；`/api/license/status` 為 valid；容器環境變數只含 `*_FILE` 路徑；容器內 UID 10001 可讀 `/run/secrets`；換成「為別的安裝包簽發」的授權後 API 回 503 `manifest-mismatch`、`/healthz` 仍 200、狀態頁 200；上傳垃圾檔 400、上傳正確授權 200 並立即恢復服務，授權檔被後端以原子替換寫入。測試後已刪除容器、卷、建置映像與額外拉取的 nginx 映像。
+- 本機：package 14/14、security 19/19、vitest 498 通過、typecheck 通過；kit 授權測試 16 項、閘門與載入器測試 13 項（pytest/unittest，需 starlette、httpx、python-multipart、cryptography 的釘選版本）、閘門變異 7 項全被攔、Node 簽出授權對後端模組的跨語言測試 4 項。
+
+**限制與未驗證：**
+- 硬體綁定檢查與 guard 尚未提供（e2）。授權頁面明示「尚未啟用」；`notProvided` 仍列 guard 與硬體綁定，不得宣稱已防複製。
+- 真實引擎對 Docker 的完整 apply（`docker load` 載入打包映像、`--no-build`、compose override）仍未在實機跑過；本次整合是直接用 Compose 與同一份範本驗證。WP3a 的 `images` 離線欄位也尚未由組裝器輸出。
+- 未重跑 `services/package/e2e/system_e2e.py` 的 48 項檢查。
+- 精靈在長時間安裝中的 sudo 快取刷新、實體品牌機指紋穩定性、真實 USB 仍待實機。
+- Windows 本機的引擎測試仍有兩個已知平台假設失敗（0600 權限斷言、CPU 名稱）；Ubuntu 全數通過。
+
+## 2026-10-28 WP3e 第二段（Claude 實作，D143）
+
+**內容：**guard 容器（`guard.py`，沿用後端映像、root、`cap_drop ALL`、`no-new-privileges`、唯讀根檔案系統、`network_mode: none`、唯讀掛載宿主 `/sys`）；後端硬體政策（`license_hardware.py`：警告、24 小時寬限、封鎖時段、guard 失聯 24 小時視同不符、一旦停止服務持續到相符）；`license_gate.py` 整合（狀態 API 與頁面、`X-License-Warning` 標頭、重新綁定申請檔、上傳需通過目前硬體核對）；Compose 新增 guard 服務與 `guard` 卷；引擎新增 `guard-up` 步驟（共 11 步，在 `compose-up` 前）、manifest 映像須同時指派給 guard、health-check 要求硬體「相符」、時段與時區的安裝輸入與驗證；精靈新增兩個選填欄位。
+
+**驗證（Claude 實測）：**
+- 本機：package 14/14（新增 guard 強化設定斷言）、guard 對照測試 8 項（以同一份 sysfs 夾具比對引擎 `detect.py` 與 guard 採集，含 placeholder、虛擬網卡、可移除與 USB 碟、vpd 控制字元；USB 路徑規則的符號連結案例在 Windows 跳過，Ubuntu 執行）、閘門與政策測試 33 項、閘門與政策變異 20 項全被攔、vitest 與 security 測試維持通過。
+- Ubuntu 22.04 VM：installer 79 項全過（0 跳過）；引擎變異 14 項、授權變異 6 項、精靈變異 8 項全被攔。
+- **真實 Docker 與真實硬體（同一台 VM）：**組裝出的 7 個 Kit 系統包實際建置；guard 以 `user=0:0`、唯讀根檔案系統、`CapDrop ALL`、`no-new-privileges`、`network none`、無連接埠啟動，寫入失敗為 Read-only file system；guard 在 root 下讀到 `product_uuid`、`product_serial`、`mac:enp0s3`、`disk:sda`，非 root 的引擎採集器只讀得到後兩項，兩者對共同來源的雜湊完全一致。以 guard 回報的來源簽發授權後：後端狀態為相符（4 項）；換成「為別的硬體簽發」的授權後警告並進入寬限，回應帶 `X-License-Warning` 標頭、服務照常；把不符起算時間改成 25 小時前（時段設為全天）後停止服務，API 回 503 `hardware-mismatch`、`/healthz` 與 `/license` 仍 200，狀態檔持久；重新綁定申請檔列出 guard 回報的來源；上傳正確授權後解除、狀態檔清空；上傳別的硬體的授權被拒；停止 guard 後 24 小時容忍內仍沿用最後回報。測試後已清除容器、卷、建置映像與額外拉取的 nginx 映像。
+
+**限制與未驗證：**
+- 真實引擎對 Docker 的完整 apply（需 sudo 與打包映像）仍未在實機跑；封鎖的「時間」是以修改狀態檔的方式驗證，沒有真的等 24 小時。
+- 實體品牌機的指紋穩定性、guard 長時間失效、現場時段與時區設定、真實 USB 待實機。
+- 緊急臨時授權只是作業規則，程式不強制。
+- 沒有重跑 `services/package/e2e/system_e2e.py` 的 48 項檢查。
+
+## Claude: WP3a 離線映像（2026-10-28，D144）
+
+**內容：**
+- 新增 `services/package/bundle-images.mjs`：對已組裝目錄執行 `docker build`（backend、init、guard 共用一個映像）、`docker pull`（postgres、nginx）、`docker save`，把 `systemVersion`、`images` 與封存檔寫回 manifest；已含映像的目錄不覆寫，Docker 失敗時 manifest 不變。組裝器本身不變。
+- 引擎 `package.py` 新增 `archive_image_id`：containerd 儲存的 OCI 封存檔以 `index.json` 唯一項目的 digest 為映像 ID，並要求該 blob 的內容雜湊等於 digest。原本假設 ID 等於設定檔雜湊，在 Docker 29 預設的 containerd 儲存上必然不符，這是實測發現的缺陷。
+- 草案 schema 的 services 補上 guard。
+
+**驗證：**
+- 單元：`bundle-images.test.mjs` 5 項（Docker 替身）；package 測試共 19/19。引擎測試 45 項在 Ubuntu 全過，新增 3 項 OCI 測試；變異工具 16 項全被攔下（新增 2 項）。
+- 真實：在 Ubuntu 22.04（Docker 29.1.3、containerd 儲存）對 7 Kit 系統包跑 `bundle-images.mjs`（約 2 分 15 秒），引擎 `validate_manifest` 通過；將後端映像 `docker rmi` 後以封存檔 `docker load`，`image inspect`（以標籤與以 ID）與 `image ls --all --no-trunc` 的 ID 都等於 manifest；打成 338 MB tar.gz，以測試根金鑰簽章後，引擎 `verify`（真實 openssl）回報 ok。測試後已清除映像、建置快取與暫存目錄。
+
+**限制與未驗證：**
+- 完整引擎 apply（需 sudo）仍未在實機跑，所以 `images-load` 對真實包的整段流程只驗到 `docker load` 與 ID 比對，未經引擎執行。
+- 基底映像以標籤指定，未固定 digest；每次建置映像 ID 都不同。
+- 這次 Ubuntu 的完整 installer 探索測試有 2 個模組沒跑（`test_license`、`test_backend_license`，我沒把 kits 與 node_modules 送上 VM）；它們不受本次修改影響，上一輪已通過。Windows 上 `test_engine` 仍有 2 項已知平台失敗。
+- 沒有跑 package 的 JSDoc 型別檢查，也沒有重跑 `system_e2e.py`。
+
+## Claude: WP5 Ubuntu 實機驗證（2026-10-29，D145）
+
+**環境：**Ubuntu 22.04.5 VM（Docker 29.1.3 containerd 儲存、apt 的 docker-compose-v2 2.40.3、真實 DMI／網卡／磁碟）。user 在 VM 加了臨時 sudoers（免密碼與 `!authenticate`），測完需移除。7 Kit 系統包，映像由 `bundle-images.mjs` 建置（D144），以測試根金鑰簽章；授權與子金鑰為測試金鑰，非正式根金鑰。
+
+**通過（皆為引擎在實機執行，不是手動步驟）：**
+- 簽發：`issue-license` 在這台機器簽出綁定 4 個來源（product_uuid、product_serial、mac:enp0s3、disk:sda）的授權；`verify`、`plan` 正常。
+- 乾淨安裝：11 步全部完成，約 52 秒（`images-load` 12 秒，先刪掉預建映像確保真的載入）；`docker-ensure` 以 apt 安裝了缺少的 docker-compose-v2。健康檢查：授權有效、硬體相符（4 項）。
+- 安全狀態：秘密檔 0400（後端用 10001、postgres 為 root）、`.env` 0600，後端容器環境變數只有 `*_FILE` 路徑；guard 為 user 0:0、唯讀根檔案系統、CapDrop ALL、`network none`、`no-new-privileges`、無埠。
+- 讀寫冒煙：10/10（登入、強制改密碼擋業務端點、改密碼、讀 forms、建立使用者 201、讀回）。
+- 授權失敗路徑（改換已安裝的授權檔，閘門即時讀取）：無檔案 `license-missing`、亂碼 `malformed`、竄改內容 `signature`、綁別的 manifest `manifest-mismatch`，皆回 503，`/healthz` 與 `/license` 維持 200；別台硬體的授權進入 `grace`，回應帶 `X-License-Warning`，服務照常。
+- 硬體綁定：寬限用完（狀態檔改成 25 小時前）且時段開啟（週四 13:45 台北）→ `blocked`；上傳別台硬體的授權被拒 400 `hardware-mismatch` 且仍封鎖；上傳正確授權後解除、狀態檔清空；重新綁定申請檔含 4 個來源。
+- 安裝包被改：根公鑰前 8 碼錯、tar.gz 改一個位元組、簽章 payload 被改，皆被 `verify` 以 code 11 拒絕；子金鑰過期的授權簽發被拒（以除錯腳本確認原因是憑證有效期，同一路徑換成新子金鑰即簽出）。
+- 重複安裝：對執行中的系統再 apply 回 code 10「已有安裝狀態」，系統不受影響。
+- 還原：成功安裝的還原移除容器、本次載入的映像與信任庫，保留可能有資料的卷、秘密檔、安裝目錄與 apt 套件並逐項警告，結束碼 14；VM 上不屬於這次安裝的兩個容器未被動到。
+
+**實機發現：**
+1. `docker compose run --no-build` 在 Ubuntu 套件版 Compose 2.40.3 不存在，migration 步驟失敗（已修，加測試與變異，Ubuntu 上 46 項引擎測試 OK、17 項變異全攔下）。e1／e2 用 Compose 5.6.0 所以沒發現。
+2. 待決：失敗還原或還原後 `state.json` 仍在，無法直接重跑（要手動搬走狀態目錄）。
+3. 待決：`issue-license` 所有失敗共用 code 17 同一則訊息，現場難以判斷原因。
+4. 以整條 sudo 執行 `issue-license` 會因 `--input-file` 擁有者不是 root 而失敗；README 與 D145 已說明用一般使用者執行。
+5. 測試環境：`sudo -v` 在有「群組需密碼」規則的帳號上，即使有免密碼條目仍要密碼，需另加 `!authenticate`；正式流程是工程師先輸入密碼，不受影響。
+
+**未驗證：**
+- 精靈（WP3c）對真實引擎的完整 apply 與 sudo 保活；本次全部走命令列。
+- 緩衝期過後在「時段關閉」時不封鎖的行為（真實機器上沒有改時段重啟，只由單元測試涵蓋）；過期的授權檔（簽發工具拒絕簽過期授權，後端的過期路徑只由單元測試涵蓋）。
+- 24 小時是真的等滿，而不是改狀態檔；guard 長時間失效；實體品牌機指紋穩定性；真實 USB；`system_e2e.py` 的 48 項（其腳本寫死專案名與帳號，未改成適用於引擎安裝）。
+- 升級、機器 API key、前端、TLS（本來就未提供）。
+
+## Claude: WP5 後續（2026-10-29，D146、D147）
+
+- D146：已還原且無保留項目的狀態可封存後重跑；`issue-license` 失敗改為分類原因。Ubuntu 實機環境（Python 3.10）引擎測試 48 項 OK，變異 18 項全被攔下（新增 `archive-keeps-data-state`）；`test_license` 18 項在 Windows OK。`license_mutations.py` 的 `certificate-signature` 在 Windows 上「未被攔下」，改動前的 HEAD 上也一樣，這次沒在 Ubuntu 重跑（VM 上的 Node 已清掉），原因未查。
+- D147：依 user 要求改寫歷史以移除 Claude 貢獻者署名，提交雜湊全數改變；本串先前記載的舊雜湊（如 99275ef、e43e667、34ed098、ffd1106、1547d2c、e87eaea、5d8b902、8b3f161、70799eb）不再存在於分支上，內容以提交標題對照。尚未設定遠端：加入遠端被權限機制擋下，需 user 自行執行。
+
+## Claude: license 變異「未攔下」追查（2026-10-29，D148）
+
+原因不是授權程式：從 `services/installer/tests/` 目錄啟動 `license_mutations.py` 時，`python -m unittest` 把目前目錄放在 `sys.path` 最前面，匯入了真實的 `test_license.py` 及其未變異的引擎，所以變異沒有生效。手動套用同一變異並從暫存副本執行，測試以「Failure not raised」失敗（正確攔下）；從 repo 根目錄執行工具，6 項全部攔下。三個變異工具（引擎、授權、精靈）現在都以暫存副本的 `tests/` 為工作目錄，從 `tests/` 目錄啟動時授權 6 項與引擎 18 項皆攔下（授權在 Windows，引擎在 Ubuntu）。
+
+## Claude: WP2b 前端與 WP4 合併及手冊（2026-10-29，D149、D150）
+
+user 選方案 A（發行流程合併）、前端直接做、手冊用 Markdown。
+
+**完成：**
+- 前端：基線前端中 Kit 沒有的 50 個檔案放 `services/frontend/base/`，組裝時與所選 Kit 的頁面合併，`App.tsx` 依 Recipe 產生；認證改為入口權限登入（權杖在 sessionStorage，租戶由伺服器綁定，不含管理者金鑰、註冊、場域管理頁）；`generic-forms-kit` 缺 `audit-edit-kit` 時組裝階段拒絕。`bundle-frontend.mjs` 發行時建置 `frontend/dist`，nginx 唯讀掛載並對 `/assets/` 回 404。
+- 合併：`merge-delivery.mjs`；手冊 `docs/installation-operations-manual.md` 組裝時放進包內；輸出頁、StepShell、設定交付包 README 文字更新；spec 第 12 節、D21、D32 更新。
+
+**驗證：**
+- Node 套件測試 37/37；套件變異 10/10 攔下（修了兩個過期錨點：`remove-required-compose`、`remove-required-webhook` 在 WP3e 之後就已對不上，之前沒被發現）；`npm test` 498 通過 1 略過；typecheck 通過。
+- 11 Kit 全量與 7 Kit 最小組裝都能用真實 Vite 6.0.5 建置（98 個模組）。
+- Ubuntu 22.04 實機（Docker 29、Compose 5.6.0，無 sudo，手動 compose 流程，不是引擎安裝）：`/` 回前端、`/healthz` 200、登入、強制改密碼、已登入的編輯原因與通用表格頁正常、瀏覽器主控台無錯誤。Composer 輸出頁在 dev server 以瀏覽器確認新文字。
+
+**未驗證或限制（規則 12）：**
+- 前端沒有經過引擎的完整 apply（VM 的 sudoers 已移除，用手動 compose 流程驗證）；沒有測 11 Kit 全量的實機執行，只測 7 Kit。
+- 上傳頁、查詢、分析等分頁只確認能建置，沒有逐頁操作；`tsc` 對基線上傳頁有 10 個既有型別錯誤。
+- `merge-delivery.mjs` 只用符合 manifest 格式的測試資料驗證，沒有用瀏覽器實際產生的設定交付包 zip。
+- Kit 使用手冊（D52）沒有補寫；手冊中的重新綁定頁面按鈕未用瀏覽器操作過。
+- 掃描器的預設秘密規則改為排除 `type="password"`；英文語系中的 `Password` 標籤改為 `Account password`（基線字串，影響四處）。
+
+## Claude: 完整驗證補完（2026-10-29，接續 D149、D150）
+
+**範圍：**11 Kit 全量，走真實流程：Composer 測試以 `buildDeliveryPackage` 產生真實設定交付包（10 個檔案，含三份手冊）→ 以其 Recipe 組裝 → `bundle-frontend` → `merge-delivery` → `bundle-images`（Windows Docker 29.4.2，OCI 映像 ID）→ 打包 338 MB 並簽章（測試根金鑰）→ Ubuntu 22.04 VM 上用引擎 `verify`、`issue-license`、`plan`、`apply`。
+
+**通過：**
+- 合併：真實 zip 的內容併入 11 Kit 系統包，role 與雜湊正確，系統包自己的驗證報告保留（補上先前只用測試資料的缺口）。
+- 引擎：verify、簽發（綁 VM 實體硬體）、plan 都通過；apply 11 步全部完成，約 57 秒，`/healthz` 200、`/license` 200、`/` 200、不存在的 `/assets/` 回 404。
+- 瀏覽器：登入、強制改密碼、已登入後 7 個分頁（資料分析、編輯原因管理、通用表格、資料流管理、日誌、資料查詢、檔案上傳）都能開啟，主控台沒有錯誤（錯誤監看從開始切換分頁後才啟用，登入階段不在其內）。
+- 還原：計畫與執行；結束碼 14，容器移除，四個資料卷保留並警告，與設計一致。
+- VM 已清理：映像、卷、安裝與狀態目錄、測試檔；臨時 sudoers 已移除。
+
+**仍未驗證：**
+- 各分頁只確認載入，沒有實際上傳 CSV、送出表單或查詢資料；上傳到匯入的整條資料流沒測。
+- 引擎安裝時 VM 沒有預載映像，`images-load` 是真實載入；但 Docker 映像是在 Windows 建置，沒有在 Linux 建置過 11 Kit 的映像。
+- 網頁精靈、品牌機指紋、真實 USB、等滿 24 小時、升級仍未驗證。
+- Kit 使用手冊內容沒有審閱，只確認被併入包內。
+
+## Claude 實機資料流驗證（2026-10-29，Ubuntu 22.04，11 Kit 系統包）
+
+目的：補測先前未涵蓋的實際上傳、表單、查詢與資料流。方式：重新安裝後，以已登入帳號經 nginx 代理呼叫 API（未用瀏覽器操作這些頁面）。
+
+通過：
+- 安裝（verify、issue-license、plan、apply）與還原；子金鑰憑證有效期只有 24 小時，過期後須重簽（issue-subkey），`--input-file` 讀完即刪，重試前要重建。
+- 改密碼後登入；未帶權杖回 401。
+- 編輯原因建立、表單建立、欄位定義、CSV 上傳（3 筆）、列出、編輯一筆（`row_edits` 有 1 筆紀錄）、刪除一筆。
+- 匯入預覽與提交（5 筆中重複的被略過）；資料流連結建立與列出；依批號查詢；趨勢統計；舊版 `/api/upload` 驗批號格式（壞批號被標出）。
+
+發現（基線程式行為，未修改 Kit）：
+1. 上傳非 CSV/Excel 檔回 500：Kit 使用 `status.HTTP_422_UNPROCESSABLE_CONTENT`，鎖定的 starlette 0.38.6 沒有此常數（3 個檔案共 12 處：routes_upload、routes_import_v2、tenant_resolver），錯誤路徑會變成 500。
+2. 通用表單的上傳與匯入不檢查欄位型別：整數欄位寫入 `abc`、`x` 仍匯入。
+3. `audit_events` 在 JWT 登入下不會寫入（動作者欄位是 API key）；編輯稽核在 `row_edits`。系統管理者的稽核事件頁因此為空。
+4. v2 匯入（`/api/v2/import/jobs`）只接受已登錄的資料表代碼；通用表單建立的表單不在其中，且上傳歷史讀的是 v2 的 ImportJob，所以歷史頁在只用通用表單時為空。
+5. 查詢頁的 `/lot` 只讀通用表單紀錄，看不到舊版 `/api/upload` 的資料。
+
+未驗證：瀏覽器介面送出上傳與表單、v2 匯入的完整流程（需登錄資料表）、分析頁在有資料欄位數值時的圖形。
+
+## Claude 重建系統包與實機重測（2026-10-30，D151 修正後）
+
+重建：以交付包的 Recipe 組裝、前端建置、併入交付包、建置映像、簽章（338 MB）。注意：組裝必須用交付包內的 `config/system.recipe.json`，另用不同 Recipe 檔會被 `merge-delivery` 拒絕。
+
+實機結果（Ubuntu 22.04，apply 成功、還原結束碼 14 與設計一致）：
+- D151 修正通過：上傳 `x.exe` 回 422（原為 500）；空檔回 422。表單、匯入、資料流、查詢、統計流程與上一輪相同，無退步。
+- 四項問題全部重現，且更正一項判斷：
+  1. 欄位型別不檢查：`_coerce` 轉型失敗回傳原字串，`_map_row` 只檢查必填。
+  2. `audit_events` 不寫入的原因不是 JWT：`AUDIT_EVENTS_ENABLED` 預設 false，系統 `main.py` 沒有稽核中介層；只有 v2 匯入與 PDF 匯入路由會主動寫入。`/api/upload` 與通用表單、編輯都不寫（編輯稽核在 `row_edits`）。上一節把原因寫成 JWT 是錯的，以本節為準。
+  3. 檔案上傳分頁不可用：它呼叫 `/api/v2/import/jobs`，只接受 `table_registry` 內的資料表；實機 `table_registry` 筆數為 0，系統內沒有任何程式或種子建立它（`station-admin-kit` 在基線版無原始碼）。任何檔案都被拒（400），上傳歷史恆為空，也使 v2 匯入的稽核事件不會產生。
+  4. 查詢頁只讀通用表單紀錄，與舊版 `/api/upload` 的 `upload_jobs` 無關；上傳分頁不用 `/api/upload`，不需處理，文件說明即可。
+
+建議順序（待 user 決定）：先修第 3 項（上傳分頁改接通用表單的匯入預覽與提交，不動 table_registry），再修第 1 項（轉型失敗列為該列錯誤），第 2 項調整標示，第 4 項只寫文件。
+
+## Claude 四項問題修復與本機瀏覽器驗證（2026-11-02，D152）
+
+修改：通用表單型別嚴格化（routes_generic_forms.py）；上傳頁重寫為 CSV 匯入通用表單（預覽後提交），移除基線上傳流程與其前端檔案；前端組裝規則：上傳 Kit 需搭配通用表單 Kit；手冊補稽核範圍與資料去向。測試：Python 4 項（修正前失敗）、套件測試 39/39。
+
+實機（Ubuntu 22.04，重建系統包後 apply 成功，還原結束碼 14）：
+- API：預覽與舊 `/upload` 對 `abc`、`1.5` 都列為列錯誤，只收有效列。
+- 本機 Chrome 經 SSH 通道（127.0.0.1:18080）：登入；檔案上傳分頁選表單、上傳含錯誤列的 CSV，預覽顯示「共 4 筆：可匯入 2、重複 1、錯誤 1」與第 2 列錯誤訊息；按匯入後顯示「新增 2、略過重複 1、錯誤 1 未匯入」；資料查詢查 L101 查到該筆；主控台無錯誤。
+- 觀察到但未處理：預覽表格會連重複列一起列出（只有數量正確）；錯誤訊息含英文型別名稱（integer），未轉成業務語言；查詢頁沿用基線樣式，無版面。
+未驗證：v2 匯入與 PDF 轉檔（入口已移除）；分析頁圖形在有數值欄位時；映像仍在 Windows 建置。

@@ -7,7 +7,7 @@ export const steps: StepInfo[] = [
   { number: '01', title: '流程畫布', lead: '建立節點、標準表單與關聯，設定先後順序及子流程。', hint: '請使用職務名稱，勿填個資。' },
   { number: '02', title: '功能選配', lead: '確認流程所需功能，調整其他選配與畫面設定。', hint: '目前為設定與模擬預覽。' },
   { number: '03', title: '參數設定', lead: '設定批號格式、產品與初始檢驗規格。', hint: '變更會同步影響模擬與下載設定。' },
-  { number: '04', title: '輸出', lead: '把設定打包成設定交付包，交付時只需要這一個檔案。', hint: '個別的流程規格與系統設定檔放在「進階」，用來重新載入設定。' },
+  { number: '04', title: '輸出', lead: '把設定打包成設定交付包，交給發行端建置系統包；客戶現場只收發行端簽章後的單一系統包。', hint: '個別的流程規格與系統設定檔放在「進階」，用來重新載入設定。' },
 ];
 // stepError: a non-empty message blocks confirming that step until the content is fixed.
 export function StepShell({ renderStep, stepError = () => '' }: { renderStep: (step: number, navigate: (step: number) => void) => ReactNode; stepError?: (step: number) => string }) {

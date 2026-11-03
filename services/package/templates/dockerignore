@@ -1,0 +1,7 @@
+# Build context is the system root; keep installer-created private material out of it (D138).
+secrets/
+license/
+.env
+deployment/.env
+**/__pycache__
+frontend/

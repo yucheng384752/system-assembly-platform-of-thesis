@@ -5,6 +5,10 @@ from importlib import import_module
 from pathlib import Path
 from uuid import UUID
 
+# Secret values come from mounted files (<NAME>_FILE); load them before any Settings is instantiated.
+from app.secret_files import load_secret_files
+
+load_secret_files()
 # Check before router imports can instantiate baseline Settings.
 for name in @@REQUIRED@@:
     if not os.environ.get(name, "").strip():
@@ -19,6 +23,7 @@ from app.api.deps import get_current_tenant
 from app.core import database, monitoring
 from app.core.endpoint_permission_middleware import endpoint_permission_middleware
 from app.entry_permission.middleware import configure_entry_permission, entry_permission_middleware
+from app.license_gate import GATE, license_gate_middleware
 import app.models
 from app.models.core.tenant import Tenant
 
@@ -35,6 +40,7 @@ async def machine_access_unavailable(request, call_next):
 async def lifespan(app):
     configure_entry_permission(app, directory_path=PERMISSIONS / "entry_points.json",
                                default_tenant_id=TENANT_ID, machine_auth=machine_access_unavailable)
+    GATE.result()  # log the license state at startup; the gate re-checks on every request window
     await database.init_db()
     # Only logs-ops-kit's monitoring has a log writer; the platform-core no-op does not. Remote heartbeat stays off.
     if hasattr(monitoring, "_DDL_PG"):
@@ -70,3 +76,5 @@ async def healthz():
 app.middleware("http")(endpoint_permission_middleware)
 app.middleware("http")(entry_permission_middleware)
 @@ROUTERS@@
+# Added last so it is the outermost middleware: nothing is served while the license is invalid (D142).
+app.middleware("http")(license_gate_middleware)

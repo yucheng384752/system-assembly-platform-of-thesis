@@ -1,7 +1,7 @@
 # analytical-four-kit：資料模型與介面
 
 日期：2026-11-01
-對應：決議 D142；來源專案 Analytical-Four（commit f49cfd3）；Kit 目錄 `kits/analytical-four-kit/`。
+對應：決議 D154；來源專案 Analytical-Four（commit f49cfd3）；Kit 目錄 `kits/analytical-four-kit/`。
 狀態：已實作並以後端測試與系統包組裝測試驗證；容器映像未建置、實際 E5 向量模型與真實 LLM 服務未驗證（見第 7 節）。
 
 ## 1. 範圍

@@ -49,13 +49,14 @@ for (const size of [13, 7]) test(`${size} Kits: tree, manifest, T12, exclusions 
   assert.ok(manifest.notIncluded.every(k => k.reason.length > 3));
   assert.equal(manifest.notSelected.length, 13 - size);
   assert.ok(!manifest.notProvided.some(s => /formal entry file|deployment and startup/.test(s)));
-  for (const item of ['TLS', 'machine API key authentication', 'executable upgrade migrations', 'frontend build (WP2)', 'hash-locked dependency file（建議 --require-hashes）']) assert.ok(manifest.notProvided.includes(item), item);
+  for (const item of ['TLS', 'machine API key authentication', 'executable upgrade migrations', 'frontend bundle (built at release by bundle-frontend.mjs)', 'hash-locked dependency file（建議 --require-hashes）']) assert.ok(manifest.notProvided.includes(item), item);
   assert.equal(manifest.installable, false);
   for (const name of ['kits', 'config', 'database/migrations', 'permissions', 'aov', 'validation', 'backend', 'deployment']) assert.ok((await stat(path.join(one, name))).isDirectory());
   const names = await files(one);
   for (const required of ['backend/app/main.py', 'backend/app/system_init.py', 'permissions/entry_points.json',
     'deployment/docker-compose.yml', 'deployment/backend.Dockerfile', 'deployment/nginx.conf',
-    'deployment/.env.example', 'deployment/README.md', 'deployment/backend/requirements.txt']) assert.ok(names.includes(required), required);
+    'deployment/.env.example', 'deployment/README.md', 'deployment/backend/requirements.txt',
+    'docs/installation-operations-manual.md', 'frontend/package.json', 'frontend/package-lock.json', 'frontend/src/App.tsx', 'frontend/src/pages/LoginPage.tsx']) assert.ok(names.includes(required), required);
   assert.deepEqual(names, await files(two));
   assert.deepEqual(manifest.files.map(f => f.path), names.filter(n => n !== 'system-manifest.json').sort());
   for (const name of names) {
@@ -151,11 +152,37 @@ async function checkDeployment(out, selected) {
   assert.ok(expected.length > 0);
   const webhook = selected.includes('mod-subscription-kit');
   assert.deepEqual(entries.publicPaths, ['/healthz', '/api/auth/login', ...(webhook ? ['/api/mod/subscriptions/webhook'] : [])]);
-  for (const name of ['DATABASE_URL', 'SECRET_KEY', 'ENTRY_PERMISSION_JWT_SECRET', 'DEFAULT_TENANT_ID', ...(webhook ? ['MOD_WEBHOOK_SECRET'] : [])]) {
-    assert.ok(compose.includes('$' + '{' + name + ':?'), name);
-    assert.ok(main.includes('"' + name + '"'), name);
+  const secretNames = ['DATABASE_URL', 'SECRET_KEY', 'ENTRY_PERMISSION_JWT_SECRET', ...(webhook ? ['MOD_WEBHOOK_SECRET'] : [])];
+  for (const name of [...secretNames, 'DEFAULT_TENANT_ID']) assert.ok(main.includes('"' + name + '"'), name);
+  assert.ok(compose.includes('$' + '{DEFAULT_TENANT_ID:?'));
+  for (const name of secretNames) {
+    // D138/D142: private values reach the container only as mounted files, never as environment values.
+    assert.ok(compose.includes(name + '_FILE: /run/secrets/' + name.toLowerCase()), name);
+    assert.ok(!compose.includes('$' + '{' + name), name + ' must not be interpolated from the environment');
+    assert.ok(compose.includes('file: ../secrets/' + name.toLowerCase()), name);
   }
+  assert.ok(compose.includes('POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password'));
+  assert.ok(!compose.includes('$' + '{POSTGRES_PASSWORD'));
   if (!webhook) { assert.ok(!main.includes('MOD_WEBHOOK_SECRET')); assert.ok(!compose.includes('MOD_WEBHOOK_SECRET')); }
+  assert.ok(main.indexOf('load_secret_files()') < main.indexOf('Required environment variable'));
+  const gate = main.lastIndexOf('app.middleware("http")(license_gate_middleware)');
+  assert.ok(gate > main.lastIndexOf('app.include_router(') && gate > main.indexOf('app.middleware("http")(entry_permission_middleware)'),
+    'the license gate must be the outermost (last added) middleware');
+  for (const mount of ['/system/license', '/system/trust/root.pem:ro', '/system/manifest/system-manifest.json:ro']) assert.ok(compose.includes(mount), mount);
+  assert.match(compose, /LICENSE_DIR:\?/);
+  assert.match(await read('backend/app/license_gate.py'), /OPEN_PATHS = frozenset\(\{"\/healthz"\}\)/);
+  // D136: the guard is the only component that sees the machine, so it must stay as small and closed as designed.
+  const guard = compose.slice(compose.indexOf('\n  guard:'), compose.indexOf('\n  proxy:'));
+  for (const hardening of ['user: "0:0"', 'read_only: true', 'cap_drop: [ALL]', 'no-new-privileges:true', 'network_mode: none',
+    '- /sys:/host/sys:ro', '"app.guard"', 'GUARD_RESULT_FILE: /guard/result.json']) assert.ok(guard.includes(hardening), hardening);
+  for (const forbidden of ['ports:', 'networks:', 'expose:', '/system/license', 'secrets', 'DATABASE_URL', '/var/run/docker.sock', 'privileged']) {
+    assert.ok(!guard.includes(forbidden), 'guard must not have ' + forbidden);
+  }
+  assert.ok(compose.includes('guard:/guard:ro'), 'the backend reads the guard report read-only');
+  assert.equal(compose.match(/- \/sys:\/host\/sys:ro/g)?.length, 1, 'only the guard sees the host /sys');
+  assert.match(await read('backend/app/guard.py'), /def collect\(sys_root\)/);
+  assert.match(await read('backend/app/license_hardware.py'), /def evaluate\(/);
+  assert.match(await read('deployment/.env.example'), /LICENSE_BLOCK_WINDOW=/);
   assert.match(main, /if not os.environ.get\(name, ""\).strip\(\)/);
   assert.ok(main.indexOf('Required environment variable') < main.indexOf('from app.api.deps'));
   assert.ok(main.indexOf('app.middleware("http")(endpoint_permission_middleware)') < main.indexOf('app.middleware("http")(entry_permission_middleware)'));
@@ -194,8 +221,10 @@ async function checkDeployment(out, selected) {
   assert.match(dockerfile, /USER 10001:10001/);
   assert.match(dockerfile, /COPY kits\/ \/system\/kits\//);
   assert.match(proxy, /location \/api\//); assert.match(proxy, /location = \/healthz/);
-  assert.match(proxy, /return 503 "前端尚未納入此套件版本/);
-  assert.equal(proxy.match(/proxy_pass/g)?.length, 2);
+  assert.match(proxy, /location \/assets\/ \{\s+root [^;]+;\s+try_files \$uri =404;/);
+  assert.match(proxy, /root \/usr\/share\/nginx\/html;/); assert.match(proxy, /try_files \$uri \/index\.html;/);
+  assert.match(proxy, /location = \/license/);
+  assert.equal(proxy.match(/proxy_pass/g)?.length, 3);
   for (const line of (await read('deployment/.env.example')).split('\n').filter(s => s && !s.startsWith('#'))) assert.match(line, /^[A-Z_]+=$/);
   const requirements = (await read('deployment/backend/requirements.txt')).trim().split('\n');
   assert.ok(requirements.includes('PyJWT==2.15.1')); assert.ok(requirements.includes('bcrypt==5.0.0'));

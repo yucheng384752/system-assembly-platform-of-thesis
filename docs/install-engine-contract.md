@@ -65,16 +65,16 @@ status: D126 為正式決議；2026-10-25 依 D129 至 D133、D136、D137 修訂
 }
 ```
 
-`steps` 的標準順序（`id`）：`docker-ensure`、`trust-store`（首次安裝寫入根公鑰到 `/etc/<system-id>/trust/`）、`images-load`、`network-volumes`、`env-secrets`、`db-init`、`migration`、`compose-up`、`license-install`、`guard-up`、`health-check`。各步驟的內容見 `TODO.md` 第 8 項的引擎步驟。
+`steps` 的標準順序（`id`）：`docker-ensure`、`trust-store`（首次安裝寫入根公鑰到 `/etc/<system-id>/trust/`）、`images-load`、`network-volumes`、`env-secrets`、`db-init`、`migration`、`license-install`、`guard-up`、`compose-up`、`health-check`。各步驟的內容見 `TODO.md` 第 8 項的引擎步驟。
 
 - `reversible`：`yes`（可完整還原）、`partial`（部分還原，說明限制）、`no`（不可逆，必須在計畫畫面明確標示，並要求額外確認）。
 - 確認動作綁定 `planSha256`。`apply --plan plan.json --plan-sha256 <值>` 在檔案內容與雜湊不符時拒絕執行。
 
 ## 4. 輸入通道
 
-計畫之外的輸入（連線帳密、初始管理員帳號、連接埠、子金鑰密碼、授權到期日等）以 JSON 經標準輸入傳入，或由權限 0600 的暫存檔提供，用完立即刪除。不得出現在指令列。sudo 密碼沿用基線版做法：只經標準輸入傳給 `sudo -S`，不寫 log 或磁碟，用完立即清除。命令列模式直接使用 sudo 的密碼提示。
+計畫之外的輸入（連線帳密、初始管理員帳號、連接埠、子金鑰密碼、授權到期日等）以 JSON 經標準輸入傳入，或由權限 0600 的暫存檔提供，用完立即刪除。不得出現在指令列。sudo 密碼不經過精靈與瀏覽器：精靈啟動前由工程師在終端機執行 `sudo -v`，精靈只以 `sudo -n true` 檢查是否已取得，未取得就提示重試（D141）。命令列模式直接使用 sudo 的密碼提示。
 
-子金鑰檔與憑證檔從工程師插在客機的 USB 讀入，路徑不是秘密，以 `--subkey`、`--certificate` 傳入命令列（D140）；密碼由工程師在精靈輸入，只經標準輸入傳給 `issue-license`，不寫磁碟、事件或日誌。資料庫與後端的秘密值由引擎寫入安裝目錄的 `.env`（權限 0600，不進命令列、事件、log、`plan.json`），供 Compose 讀取；目前 WP3a 的部署檔與正式入口以容器環境變數接收，所以 `docker inspect` 對 root 與 docker 群組仍看得到，這是 WP3e 完成前的已知限制（D138 的改讀檔在 WP3e）。
+子金鑰檔與憑證檔從工程師插在客機的 USB 讀入，路徑不是秘密，以 `--subkey`、`--certificate` 傳入命令列（D140）；密碼由工程師在精靈輸入，只經標準輸入傳給 `issue-license`，不寫磁碟、事件或日誌。資料庫與後端的秘密值由引擎寫成安裝目錄 `secrets/` 下的獨立檔案（目錄 0700、檔案 0400，不進命令列、事件、log、`plan.json`），以 Compose file secrets 掛入容器 `/run/secrets`，後端由範本 `main.py` 的 `<NAME>_FILE` 載入器讀入程序環境，所以 `docker inspect` 只看得到路徑（D138、D142，WP3e 第一段已實作並在 Ubuntu 22.04 的 Docker 驗證）。`.env` 只放非秘密設定與授權目錄、根公鑰、manifest 的宿主路徑。root 與 docker 群組仍可讀宿主上的檔案。
 
 ## 5. 事件、狀態與還原
 
@@ -127,35 +127,39 @@ status: D126 為正式決議；2026-10-25 依 D129 至 D133、D136、D137 修訂
 ## 7. 精靈
 
 - 啟動時在終端機印出網址與一次性權杖；網址含權杖，請求檢查 `Host` 標頭與權杖，防止其他網站透過 DNS rebinding 操作本機精靈。
-- 每個畫面操作對應一個子命令，不另有專屬邏輯。畫面順序：環境偵測（含指紋來源有效性）→ 驗證安裝包（提示已完成手冊核對，並輸入公鑰指紋前 8 碼）→ 上傳子金鑰並輸入密碼、簽發授權 → 輸入設定 → 檢視計畫（標示不可逆項目）→ 確認 → 安裝進度 → 驗證報告；任何時候可看到還原入口。
+- 每個畫面操作對應一個子命令，不另有專屬邏輯。畫面順序：環境偵測（含指紋來源有效性）→ 驗證安裝包（提示已完成手冊核對，並輸入公鑰指紋前 8 碼）→ 輸入子金鑰與憑證的 USB 檔案路徑並輸入密碼、簽發授權（不經瀏覽器上傳，D141） → 輸入設定 → 檢視計畫（標示不可逆項目）→ 確認 → 安裝進度 → 驗證報告；任何時候可看到還原入口。
 - 文字以純文字呈現，不用 `innerHTML`（安全基準線）。
+- 實作於 `services/installer/engine/wizard.py` 與 `wizard_static/`（Python 標準庫）：以子程序呼叫 CLI、秘密值只走標準輸入、`apply` 與 `rollback` 的確認雜湊必須等於精靈剛顯示者、同時只允許一個 `apply`、`apply` 以獨立 session 啟動。啟動：`install.sh wizard --system-id <id>`。
 
 ## 8. 待決與未驗證
 
 - 引擎是否以 `systemd-run` 或自行 daemonize 的方式脫離終端機；兩者都要在 22.04 實測 SSH 斷線後仍會繼續。D126 說不用 systemd 執行服務，但引擎本身的脫離方式是另一件事。
 - `state.json` 與 `events.jsonl` 的存放位置與權限，要在實機驗證非 root 使用者可讀、秘密值不外洩。
 - 「原本就存在」的記錄邊界：Docker 元件、映像與具名卷，如何可靠地區分本次建立與原有。
+- 映像 ID（D144）：manifest `images[].id` 是目標 Docker 載入後回報的 ID。傳統映像儲存為設定檔 sha256；containerd 儲存（Docker 29 新安裝的預設）為封存檔 `index.json` 唯一項目的 digest，引擎要求 `blobs/sha256/<digest>` 的內容雜湊等於該 digest，否則拒絕。封存檔由 `services/package/bundle-images.mjs` 產生。實測 7 Kit 系統包：後端映像 114 MB、PostgreSQL 159 MB、nginx 76 MB，tar.gz 約 338 MB。
 - 映像來源：已決定打進安裝包（`docker save`，digest 記錄於 system-manifest 並隨簽章驗證），不線上拉取（user 於 2026-10-25 同意，D139）。實測預覽用後端映像壓縮後約 157 MB、PostgreSQL 16.6 約 152 MB，兩者共用基底層一起存約 281 MB；反向代理與 guard 未量。若某映像 digest 未變，升級時略過載入的優化留待之後。
 - Docker 最低可用版本、universe 未啟用時的處理（目前為停止並說明，不自動改 apt 來源）。
 - 不把工程師帳號加入 `docker` 群組（等同 root 權限），特權步驟用 sudo；客戶日常操作指令以 sudo 執行，需寫入操作手冊與威脅模型（user 於 2026-10-25 核准，D138）。
-- 資料庫與後端連線的秘密值以 0600 檔案提供，不放環境變數；後端目前以環境變數接 `DATABASE_URL`，改為讀檔須修改 `kits/` 基線副本，user 已於 2026-10-25 原則核准（D138），實際改動範圍於工作包中逐項回報。
+- 資料庫與後端連線的秘密值已改為 0400 檔案（D138、D142）；實作不需修改 `kits/` 的設定載入，由範本入口在匯入設定前讀入。`kits/` 實際只改 `platform-core-kit` 的 `license.py`（與其測試）。
 - 本契約的事件與計畫格式需有 JSON Schema（比照 `schemas/` 的做法），並以假引擎測試精靈。
 - 依賴檢查：精靈只可使用 Python 標準庫，若要新增套件須先經 user 核准。
 - 實機驗證：在全新客機以 sudo 實際執行 `apt install docker.io docker-compose-v2`、品牌機的指紋來源穩定性、USB 掛載。
 
-## 9. 安裝後的執行期元件（D136、D137）
+## 9. 安裝後的執行期元件（D136、D137、D143）
 
-這些元件不屬於安裝引擎，但安裝引擎負責部署，並在 `plan.json` 中有對應步驟。
+這些元件不屬於安裝引擎，但安裝引擎負責部署，`plan.json` 有對應步驟（`license-install`、`guard-up`）。第一段（授權閘門與狀態頁）與第二段（guard 與硬體綁定）都已實作，並在 Ubuntu 22.04 以真實 Docker 與真實硬體驗證。
 
-- **guard 容器：** root、`cap_drop ALL`、`no-new-privileges`、唯讀根檔案系統、不發布連接埠，唯讀掛載宿主 `/sys`。定期重算指紋（網卡只取有實體裝置者；空值、`0`、全零 UUID、`To Be Filled By O.E.M.` 等無效值於安裝時排除），與授權比對，結果寫入與後端共用的卷。後端為非 root，讀到不符即依下列規則處理。
-- **處理分流：** guard 失聯容忍 24 小時；指紋不符先顯示橫幅，寬限 24 小時；到期若不在 Site 設定的封鎖生效時段（預設平日 09:00 至 15:00）內，順延到下一個時段開始才拒絕服務。
-- **授權狀態頁：** 被擋時保留最小頁面，顯示原因（哪幾項來源符合、不符）、下載重新綁定申請檔、上傳新授權，其餘功能回 503；另有命令列 `status` 診斷。提供方式（由 guard 或後端提供、反向代理如何轉送、上傳端點的存取控制）待設計。
-- **緊急臨時授權：** 72 小時，只在上班時間受理，不接受夜間申請。
-- **未提供時：** guard 或狀態頁尚未實作時，manifest 的 `notProvided` 必須列出，啟動時僅檢查授權簽章、到期日與 manifest 雜湊，不得宣稱已防複製。
-- 尚未驗證：實體品牌機的指紋穩定性、guard 失效行為、狀態頁與反向代理的整合。
+- **guard 容器（D136、D143）：**沿用後端映像，命令 `python -m app.guard`；root、`cap_drop ALL`、`no-new-privileges`、唯讀根檔案系統、`network_mode: none`、不發布連接埠，唯讀掛載宿主 `/sys` 到 `/host/sys`。每 5 分鐘重算指紋（規則與引擎 `detect.py` 完全一致，由對照測試保證），先寫暫存檔再改名，寫到只有 guard 可寫的 `guard` 卷。結果檔只含時間與 `[{source, sha256}]`，不含原值，也不讀授權。後端以唯讀方式掛載該卷，所以被入侵的後端改不了 guard 的結果，root 容器也不解析後端可寫的授權檔。
+- **比對與處分（後端，D143 修訂 D136 的「guard 與授權比對」）：**後端取不同雜湊值的集合交集，至少 2 項符合才算相符。不符時：立即警告（回應標頭 `X-License-Warning`、狀態 API、狀態頁）；寬限 24 小時；寬限結束後只在封鎖生效時段（預設平日 09:00 至 15:00，時區預設 Asia/Taipei，經 `LICENSE_BLOCK_WINDOW`、`LICENSE_TIMEZONE`，安裝輸入可填）開啟時才開始停止服務，若寬限結束時不在時段內，順延到下一個時段開始。一旦開始停止服務，直到硬體再次相符或上傳符合的新授權才解除，guard 暫停也不會解除。guard 超過 24 小時沒回報（或回報檔過期、格式不符、時間在未來）視同不符；尚未回報的前 24 小時為「等待中」，不警告。不符起算時間與停止服務時間存在後端資料卷的 `license-state.json`，重啟不重置；後端被入侵時可被重置，這和 D44「只擋搬移與複製」的取捨一致。
+- **授權狀態頁與重新綁定：**被擋或警告時仍可開啟 `/license`（`/healthz` 也保持可用，其餘回 503）。頁面顯示授權狀態、符合來源數、寬限與預計停止時間，提供 `/api/license/rebind-request` 下載申請檔（系統代號、客戶、manifest 雜湊、guard 回報的 `[{source, sha256}]`，格式可直接作為發行端 `issue-license` 的 `--fingerprints` 輸入），並可上傳新授權。上傳不需登入，但只會安裝通過簽章鏈、manifest 雜湊與**目前硬體**核對的授權，且需要 guard 24 小時內的回報。
+- **緊急臨時授權：**72 小時，只在上班時間受理，不接受夜間申請。這是發行端的作業規則（以短到期日簽發），程式不強制，需寫入操作手冊。
+- **健康檢查：**安裝的最後一步要求執行中的後端回報授權有效且硬體為「相符」，確認從宿主簽發到容器內判斷整條路徑可用。
+- **仍須誠實說明：**只能防止搬移與複製，不保證所有情況；實體品牌機的指紋穩定性（BIOS 更新、換網卡）、guard 長時間失效的實際行為、封鎖時段與時區在現場的設定、真實引擎對 Docker 的完整 apply 尚待實機驗證。
 
 ## 10. 修訂紀錄
 
 - 2026-10-22（D126）：改為 Docker Compose 部署；契約升為正式決議；實作分為 WP3b（引擎與命令列）與 WP3c（網頁精靈），見 `.codex-claude-mailbox/threads/20261021-p2-executable-assembly.md`。
+- 2026-10-28（D143）：WP3e 第二段：guard 容器、硬體比對在後端、警告與 24 小時寬限、封鎖時段、重新綁定申請檔、`guard-up` 步驟（共 11 步）；第 9 節重寫。
+- 2026-10-28（D141）：WP3c 精靈實作；sudo 改為先 `sudo -v` 再由精靈檢查，不接收密碼；子金鑰以路徑輸入。
 - 2026-10-28（D140）：更正手冊核對值為檔案位元組 sha256、精靈確認碼為 SPKI 前 8 碼；子金鑰與憑證檔路徑可用命令列傳入，密碼與到期日不可。
 - 2026-10-25（D129 至 D133、D136、D137）：原第 9 節的修正整併入各節。新增 `issue-license` 與授權簽發流程、信任起點的手動核對、`trust-store` 與 `license-install` 步驟、退出碼 17、第 9 節的 guard 與狀態頁；apt 套件與 systemd 的還原列改為 Docker 物件。D133 撤銷 PostgreSQL 14 鎖定，改用容器內 PostgreSQL 16。
