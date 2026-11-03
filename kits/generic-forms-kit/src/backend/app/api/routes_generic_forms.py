@@ -122,6 +122,16 @@ def _to_station_read(station: Station, schema: StationSchema | None) -> StationR
     )
 
 
+_TYPE_LABELS = {
+    "integer": "整數",
+    "decimal": "數值",
+    "float": "數值",
+    "number": "數值",
+    "boolean": "是否(是/否)",
+    "date": "日期(YYYY-MM-DD)",
+}
+
+
 class CoerceError(ValueError):
     """The cell cannot be read as the field's declared type."""
 
@@ -202,7 +212,8 @@ def _map_row(row_dict: dict, fields: list[dict]) -> tuple[dict, list[str]]:
         try:
             coerced = _coerce(row_dict.get(source_name), ftype)
         except CoerceError as exc:
-            row_errors.append(f"'{source_name}' 的值「{exc}」不是有效的 {ftype}")
+            label = _TYPE_LABELS.get(ftype.lower(), ftype)
+            row_errors.append(f"'{source_name}' 的值「{exc}」不是有效的{label}")
             continue
         if field.get("required") and coerced is None:
             row_errors.append(f"'{source_name}' 為必填欄位")
@@ -862,7 +873,8 @@ async def import_preview(
             valid_rows.append((row_data, _key_val_for(row_data, key_fields)))
 
     duplicate_count = 0
-    for _, key_val in valid_rows:
+    new_rows: list[dict] = []
+    for row_data, key_val in valid_rows:
         exists = (
             await db.execute(
                 select(GenericRecord.id).where(
@@ -874,10 +886,12 @@ async def import_preview(
         ).scalar_one_or_none()
         if exists:
             duplicate_count += 1
+        else:
+            new_rows.append(row_data)
 
     return PreviewResult(
         total=len(df),
-        preview_rows=[r for r, _ in valid_rows[:10]],
+        preview_rows=new_rows[:10],
         errors=errors,
         duplicate_count=duplicate_count,
         valid_count=len(valid_rows) - duplicate_count,

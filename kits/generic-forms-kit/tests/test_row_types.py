@@ -23,6 +23,9 @@ def load() -> types.SimpleNamespace:
     wanted = {"CoerceError", "_coerce", "_map_row"}
     body = [node for node in tree.body if getattr(node, "name", None) in wanted]
     assert {node.name for node in body} == wanted
+    body += [node for node in tree.body
+             if isinstance(node, ast.Assign) and getattr(node.targets[0], "id", None) == "_TYPE_LABELS"]
+    assert len(body) == len(wanted) + 1
     pd = types.SimpleNamespace(isna=lambda value: value != value)
     scope: dict[str, Any] = {"pd": pd, "math": math, "datetime": datetime, "Any": Any}
     exec(compile(ast.Module(body=body, type_ignores=[]), str(SOURCE), "exec"), scope)
@@ -58,6 +61,14 @@ class RowTypes(unittest.TestCase):
         self.assertIn("Qty", errors[0])
         self.assertIn("abc", errors[0])
         self.assertNotIn("qty", data)
+
+    def test_error_message_uses_business_wording_not_type_names(self) -> None:
+        # Operators read this message in the upload preview; "integer" means nothing to them.
+        for ftype, label in [("integer", "整數"), ("decimal", "數值"), ("boolean", "是否"), ("date", "日期")]:
+            with self.subTest(ftype=ftype):
+                _, errors = self.m._map_row({"v": "zzz"}, [{"name": "v", "type": ftype}])
+                self.assertIn(label, errors[0])
+                self.assertNotIn(ftype, errors[0])
 
     def test_good_row_has_no_errors(self) -> None:
         fields = [{"name": "lot_no", "type": "string", "required": True}, {"name": "qty", "type": "integer"}]
