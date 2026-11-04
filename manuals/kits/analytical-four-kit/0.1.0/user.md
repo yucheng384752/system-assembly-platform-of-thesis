@@ -4,6 +4,7 @@ kitVersion: 0.1.0
 role: user
 status: draft
 sources:
+  - kits/analytical-four-kit/src/frontend/src/pages/AnalyticalFourPage.tsx
   - kits/analytical-four-kit/kit.contract.json
   - kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py
   - kits/analytical-four-kit/src/backend/app/analytical_four/settings.py
@@ -21,7 +22,7 @@ sources:
 
 ## 前置條件
 
-需同時選用「入口與使用權限」功能。分析前要先備妥資料：待分析資料與正常基準；B 層需要不良代碼定義與不良特徵分布庫；C 層需要製程拓樸與 SOP 知識，客訴分析模式還需要歷史案例檔與 AI 語言模型服務位址。系統內附合成示範資料，可由管理員一鍵載入。目前只提供後端介面，沒有操作畫面。
+需同時選用「入口與使用權限」功能。分析前要先備妥資料：待分析資料與正常基準；B 層需要不良代碼定義與不良特徵分布庫；C 層需要製程拓樸與 SOP 知識，客訴分析模式還需要歷史案例檔與 AI 語言模型服務位址。系統內附合成示範資料，可由管理員一鍵載入。操作畫面是「製造數據分析」頁，分成「資料準備」「分析設定」「執行分析」「回饋與案例庫」四個分頁。實測以示範資料跑每日監控（A、B 兩層）：資料檢查通過，分析在約 1 秒內完成，產生基準統計、超界結果、相關性與主成分、每個事件的診斷等結果檔，並更新不良特徵分布庫。客訴分析模式、C 層的 AI 診斷與「回饋與案例庫」的提交、核可、發布本次只看過畫面，沒有實際操作，內容依程式說明。
 
 ## 可設定項目
 
