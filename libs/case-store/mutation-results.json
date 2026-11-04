@@ -1,0 +1,250 @@
+{
+  "baselineTests": 38,
+  "mutations": 21,
+  "coveredTests": 38,
+  "uncovered": [],
+  "results": [
+    {
+      "rule": "JSON 正規化",
+      "failedTests": [
+        "批一資料契約 建立案例產生唯一 id，正規化 JSON、雜湊與版本摘要可往返"
+      ],
+      "coveredTests": [
+        "批一資料契約 建立案例產生唯一 id，正規化 JSON、雜湊與版本摘要可往返"
+      ]
+    },
+    {
+      "rule": "不可 UPDATE／DELETE",
+      "failedTests": [
+        "批一資料契約 flow_case 直接 SQL UPDATE 與 DELETE 都不能改歷史",
+        "批一資料契約 flow_version 直接 SQL UPDATE 與 DELETE 都不能改歷史",
+        "批一資料契約 node_lifecycle 直接 SQL UPDATE 與 DELETE 都不能改歷史",
+        "批一資料契約 node_alias 直接 SQL UPDATE 與 DELETE 都不能改歷史",
+        "批一資料契約 combo_lifecycle 直接 SQL UPDATE 與 DELETE 都不能改歷史",
+        "批一資料契約 content 損壞時讀取與使用處掃描回 E-CORRUPT"
+      ],
+      "coveredTests": [
+        "批一資料契約 flow_case 直接 SQL UPDATE 與 DELETE 都不能改歷史",
+        "批一資料契約 flow_version 直接 SQL UPDATE 與 DELETE 都不能改歷史",
+        "批一資料契約 node_lifecycle 直接 SQL UPDATE 與 DELETE 都不能改歷史",
+        "批一資料契約 node_alias 直接 SQL UPDATE 與 DELETE 都不能改歷史",
+        "批一資料契約 combo_lifecycle 直接 SQL UPDATE 與 DELETE 都不能改歷史"
+      ]
+    },
+    {
+      "rule": "不可 REPLACE",
+      "failedTests": [
+        "批一資料契約 flow_case 直接 SQL UPDATE 與 DELETE 都不能改歷史",
+        "批一資料契約 flow_version 直接 SQL UPDATE 與 DELETE 都不能改歷史",
+        "批一資料契約 node_lifecycle 直接 SQL UPDATE 與 DELETE 都不能改歷史",
+        "批一資料契約 node_alias 直接 SQL UPDATE 與 DELETE 都不能改歷史",
+        "批一資料契約 combo_lifecycle 直接 SQL UPDATE 與 DELETE 都不能改歷史"
+      ],
+      "coveredTests": [
+        "批一資料契約 flow_case 直接 SQL UPDATE 與 DELETE 都不能改歷史",
+        "批一資料契約 flow_version 直接 SQL UPDATE 與 DELETE 都不能改歷史",
+        "批一資料契約 node_lifecycle 直接 SQL UPDATE 與 DELETE 都不能改歷史",
+        "批一資料契約 node_alias 直接 SQL UPDATE 與 DELETE 都不能改歷史",
+        "批一資料契約 combo_lifecycle 直接 SQL UPDATE 與 DELETE 都不能改歷史"
+      ]
+    },
+    {
+      "rule": "執行 migration",
+      "failedTests": [
+        "批一資料契約 舊版檔經測試 v1→v2 migration 後內容逐位元組相同，正式 schema 仍為 v1",
+        "批一資料契約 migration 中途失敗時 DDL、資料與版本全部回復",
+        "批一資料契約 migration 每一步獨立提交：後步失敗保留前步，重試只跑尚未完成步驟"
+      ],
+      "coveredTests": [
+        "批一資料契約 舊版檔經測試 v1→v2 migration 後內容逐位元組相同，正式 schema 仍為 v1"
+      ]
+    },
+    {
+      "rule": "未知較新 schema",
+      "failedTests": [
+        "批一資料契約 未知較新資料庫拒絕開啟，檔內資料不被修改"
+      ],
+      "coveredTests": [
+        "批一資料契約 未知較新資料庫拒絕開啟，檔內資料不被修改"
+      ]
+    },
+    {
+      "rule": "migration 回復",
+      "failedTests": [
+        "批一資料契約 migration 中途失敗時 DDL、資料與版本全部回復",
+        "批一資料契約 migration 每一步獨立提交：後步失敗保留前步，重試只跑尚未完成步驟"
+      ],
+      "coveredTests": [
+        "批一資料契約 migration 中途失敗時 DDL、資料與版本全部回復",
+        "批一資料契約 migration 每一步獨立提交：後步失敗保留前步，重試只跑尚未完成步驟"
+      ]
+    },
+    {
+      "rule": "損壞偵測",
+      "failedTests": [
+        "批一資料契約 content 損壞時讀取與使用處掃描回 E-CORRUPT"
+      ],
+      "coveredTests": [
+        "批一資料契約 content 損壞時讀取與使用處掃描回 E-CORRUPT"
+      ]
+    },
+    {
+      "rule": "報告必須通過",
+      "failedTests": [
+        "批一資料契約 建立案例產生唯一 id，正規化 JSON、雜湊與版本摘要可往返",
+        "批一資料契約 報告 undefined 未通過時優先拒絕，且不寫版本",
+        "批一資料契約 報告 null 未通過時優先拒絕，且不寫版本",
+        "批一資料契約 報告 {} 未通過時優先拒絕，且不寫版本",
+        "批一資料契約 報告 {\"passed\":false} 未通過時優先拒絕，且不寫版本",
+        "批一資料契約 報告 {\"passed\":\"true\"} 未通過時優先拒絕，且不寫版本",
+        "批一資料契約 報告 {\"passed\":1} 未通過時優先拒絕，且不寫版本",
+        "批一資料契約 報告必須是可持久化的 JSON 物件，不能用繼承屬性或陣列假裝 passed"
+      ],
+      "coveredTests": [
+        "批一資料契約 報告 undefined 未通過時優先拒絕，且不寫版本",
+        "批一資料契約 報告 null 未通過時優先拒絕，且不寫版本",
+        "批一資料契約 報告 {} 未通過時優先拒絕，且不寫版本",
+        "批一資料契約 報告 {\"passed\":false} 未通過時優先拒絕，且不寫版本",
+        "批一資料契約 報告 {\"passed\":\"true\"} 未通過時優先拒絕，且不寫版本",
+        "批一資料契約 報告 {\"passed\":1} 未通過時優先拒絕，且不寫版本",
+        "批一資料契約 報告必須是可持久化的 JSON 物件，不能用繼承屬性或陣列假裝 passed"
+      ]
+    },
+    {
+      "rule": "完整整合包驗證與格式版本",
+      "failedTests": [
+        "批一資料契約 完整語意驗證必須執行：合法外殼但 checksum 錯誤不可存",
+        "批一資料契約 拒絕未知內嵌或外殼版本：bundle",
+        "批一資料契約 拒絕未知內嵌或外殼版本：platform",
+        "批一資料契約 拒絕未知內嵌或外殼版本：aov",
+        "批一資料契約 拒絕未知內嵌或外殼版本：library"
+      ],
+      "coveredTests": [
+        "批一資料契約 完整語意驗證必須執行：合法外殼但 checksum 錯誤不可存",
+        "批一資料契約 拒絕未知內嵌或外殼版本：bundle",
+        "批一資料契約 拒絕未知內嵌或外殼版本：platform",
+        "批一資料契約 拒絕未知內嵌或外殼版本：aov",
+        "批一資料契約 拒絕未知內嵌或外殼版本：library"
+      ]
+    },
+    {
+      "rule": "原始 UTF-8 大小",
+      "failedTests": [
+        "批一資料契約 UTF-8 原始內容恰好 10 MB 接受，多一 byte 拒絕"
+      ],
+      "coveredTests": [
+        "批一資料契約 UTF-8 原始內容恰好 10 MB 接受，多一 byte 拒絕"
+      ]
+    },
+    {
+      "rule": "node 自身淘汰與合併狀態",
+      "failedTests": [
+        "批一資料契約 淘汰只擋新版本；重啟讀取、再啟用與歷史原文保持一致",
+        "批一資料契約 每個命中的 node 與所在 graph 都列出",
+        "批一資料契約 多段合併解析終點，舊 id 拒絕並提示替代；歷史不改寫且循環被拒絕"
+      ],
+      "coveredTests": [
+        "批一資料契約 淘汰只擋新版本；重啟讀取、再啟用與歷史原文保持一致",
+        "批一資料契約 每個命中的 node 與所在 graph 都列出",
+        "批一資料契約 多段合併解析終點，舊 id 拒絕並提示替代；歷史不改寫且循環被拒絕"
+      ]
+    },
+    {
+      "rule": "合併循環",
+      "failedTests": [
+        "批一資料契約 多段合併解析終點，舊 id 拒絕並提示替代；歷史不改寫且循環被拒絕"
+      ],
+      "coveredTests": [
+        "批一資料契約 多段合併解析終點，舊 id 拒絕並提示替代；歷史不改寫且循環被拒絕"
+      ]
+    },
+    {
+      "rule": "合併雙方現況",
+      "failedTests": [
+        "批一資料契約 合併拒絕已 merged 的兩方與 deprecated 保留方，允許淘汰方合併"
+      ],
+      "coveredTests": [
+        "批一資料契約 合併拒絕已 merged 的兩方與 deprecated 保留方，允許淘汰方合併"
+      ]
+    },
+    {
+      "rule": "合併原子性",
+      "failedTests": [
+        "批一資料契約 合併第二筆寫入失敗時別名與事件一起回復"
+      ],
+      "coveredTests": [
+        "批一資料契約 合併第二筆寫入失敗時別名與事件一起回復"
+      ]
+    },
+    {
+      "rule": "SQL 別名循環",
+      "failedTests": [
+        "批一資料契約 直接 SQL 寫入間接循環也被拒絕"
+      ],
+      "coveredTests": [
+        "批一資料契約 直接 SQL 寫入間接循環也被拒絕"
+      ]
+    },
+    {
+      "rule": "組合直接相連",
+      "failedTests": [
+        "批一資料契約 組合只比有向直接連線，隔 node、無 action 節點與反向皆不命中",
+        "批一資料契約 三節點組合不能用分支湊成，兩側別名正規化後仍命中",
+        "批一資料契約 scanUsage 列出全部案例版本的原始引用，組合仍遵守直接相連"
+      ],
+      "coveredTests": [
+        "批一資料契約 組合只比有向直接連線，隔 node、無 action 節點與反向皆不命中",
+        "批一資料契約 三節點組合不能用分支湊成，兩側別名正規化後仍命中"
+      ]
+    },
+    {
+      "rule": "組合別名解析",
+      "failedTests": [
+        "批一資料契約 三節點組合不能用分支湊成，兩側別名正規化後仍命中",
+        "批一資料契約 組合每個命中 graph 都列出，最新狀態以原始 combo 文字分開計算"
+      ],
+      "coveredTests": [
+        "批一資料契約 三節點組合不能用分支湊成，兩側別名正規化後仍命中",
+        "批一資料契約 組合每個命中 graph 都列出，最新狀態以原始 combo 文字分開計算"
+      ]
+    },
+    {
+      "rule": "父版本與並行衝突",
+      "failedTests": [
+        "批一資料契約 拒絕過期父版本、不分岔、不消耗版本號",
+        "批一資料契約 兩個 worker 的連線同時儲存：一成功一衝突，重試後連續且持久化"
+      ],
+      "coveredTests": [
+        "批一資料契約 拒絕過期父版本、不分岔、不消耗版本號",
+        "批一資料契約 兩個 worker 的連線同時儲存：一成功一衝突，重試後連續且持久化"
+      ]
+    },
+    {
+      "rule": "全部歷史使用處",
+      "failedTests": [
+        "批一資料契約 scanUsage 列出全部案例版本的原始引用，組合仍遵守直接相連"
+      ],
+      "coveredTests": [
+        "批一資料契約 scanUsage 列出全部案例版本的原始引用，組合仍遵守直接相連"
+      ]
+    },
+    {
+      "rule": "輸入非空",
+      "failedTests": [
+        "批一資料契約 欄位長度、空值與找不到資料回可辨識錯誤，不留下版本"
+      ],
+      "coveredTests": [
+        "批一資料契約 欄位長度、空值與找不到資料回可辨識錯誤，不留下版本"
+      ]
+    },
+    {
+      "rule": "SQL 報告 passed",
+      "failedTests": [
+        "批一資料契約 資料庫同樣拒絕缺 passed 的報告與非字串組合元素"
+      ],
+      "coveredTests": [
+        "批一資料契約 資料庫同樣拒絕缺 passed 的報告與非字串組合元素"
+      ]
+    }
+  ]
+}

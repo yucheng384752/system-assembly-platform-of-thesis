@@ -1,0 +1,6 @@
+{
+  "name": "composer-case-store",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "vitest run --config vitest.config.ts --configLoader native" }
+}
