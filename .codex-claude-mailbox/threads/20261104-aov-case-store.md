@@ -69,6 +69,27 @@ cwd 必須是專案根目錄。Codex 只寫程式與測試，不執行 git、不
 
 # Codex Notes
 
+## 2026-11-04：批三契約核對停工，尚未實作
+
+已完整閱讀批三 Handoff、DESIGN.md（含案例庫頁）、services/case-store/README.md、D163 至 D169 與 CLAUDE.md。依 user 與 Handoff「有不明處或衝突就停工並寫進 Codex Notes，不自行裁決」停止於契約核對階段。
+
+待釐清事項（owner: user）：D169 第 6 項要求 GET /lifecycle；services/case-store/src/handler.ts 已呼叫 store.listLifecycle()，但 Handoff 指定作為「路由與回應」來源的 services/case-store/README.md 未列出此路由，也沒有其成功回應欄位契約。批三需要該回應顯示節點與組合現況、替代者及原因，並控制工具箱停用。請先補齊 README 的路由與回應契約，或明確指定可依現有 listLifecycle 型別與實作作為契約；本次不自行裁決。README 位於禁止修改的 services/，未更動。
+
+已確認 vite.config.ts 存在 /case-store-api 同源轉送，這部分沒有缺口；未更動設定。未新增或修改應用程式及測試，既有測試預期未動。
+
+驗證實際紀錄：
+- npm.cmd run typecheck：未執行，0 次；因規格釐清停工，無本次通過或失敗數字。
+- npm.cmd test：未執行，0 次；執行測試 0 項，無本次通過、失敗或測試框架跳過數字。整項驗證未進行的原因為上述停工條件；未將先前 security CLI EPERM 當成本次結果。
+- 新增行為測試與規則移除驗證：未執行，尚無實作。
+- 未執行 git、未連網、未新增依賴、未啟動伺服器或瀏覽器、未目視確認。分支僅沿用 user 提供資訊，未以 git 核對。
+
+本次變更檔案僅有：
+- .codex-claude-mailbox/threads/20261104-aov-case-store.md
+- .codex-claude-mailbox/index.md
+
+批三未完成；預計完成時間仍記為 2026-11-05 12:00，待上述契約釐清後再續作。
+
+
 ## 2026-11-04：契約核對後停工，尚未實作
 
 已完整閱讀 `docs/aov-case-store.md`、本 thread 與 `docs/decision-log.md`（含 D163 至 D167）。依 user 與批一 Handoff「有不明處或與現有程式衝突就停工」要求，以下問題未裁決前不新增程式或測試：
