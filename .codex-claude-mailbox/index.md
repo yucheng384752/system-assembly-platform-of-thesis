@@ -109,3 +109,5 @@
 2026-11-04 Codex：[AoV 案例庫批一](threads/20261104-aov-case-store.md) 實作交接：typecheck 0 錯誤，案例庫 38/38，變異 21/21（對應測試覆蓋 38/38）；根 npm.cmd test 為 642 通過、1 失敗、5 跳過（security EPERM／evaluator 沙箱限制），補跑 preview 14/14。新增檔案僅 libs/case-store/；待 Claude 審閱與沙箱外驗證，詳見 Codex Notes。
 
 2026-11-04 Codex：[AoV 案例庫批三](threads/20261104-aov-case-store.md) 契約核對停工：GET /lifecycle 已實作，但指定 README 缺路由與回應契約，待補齊或明確指定實作為契約；程式未改，typecheck 與 npm.cmd test 均未執行（0 次），詳見 Codex Notes。
+
+2026-11-04 Codex：[AoV 案例庫批三](threads/20261104-aov-case-store.md) 續作停工交接：新增 59/59 測試通過、3/3 變異檢出並還原、typecheck exit 0；完整 npm.cmd test 為 696 通過／6 失敗／5 跳過（45 檔通過、6 檔失敗）。五項非環境失敗為導覽、現況請求與工具卡片 DOM；另有 security EPERM 與 evaluator 打包 hook 權限問題。待 user 裁決既有預期衝突，未改既有測試；完整原因與檔案清單見 Codex Notes，批三未完成。

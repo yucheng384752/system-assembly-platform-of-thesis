@@ -9,9 +9,9 @@ afterEach(cleanup);
 const nav = () => screen.getByRole('navigation', { name: '主要導覽' });
 const go = (name: string) => fireEvent.click(screen.getByRole('button', { name }));
 
-test('the app opens on the home page with five navigation entries (D63)', () => {
+test('the app opens on the home page with six navigation entries, the case library right after the flow page (D63, D169)', () => {
   render(<App />);
-  expect([...nav().querySelectorAll('button')].map(b => b.textContent)).toEqual(['首頁', '流程', '資料集', '執行記錄', '系統設定']);
+  expect([...nav().querySelectorAll('button')].map(b => b.textContent)).toEqual(['首頁', '流程', '案例庫', '資料集', '執行記錄', '系統設定']);
   expect(screen.getByRole('button', { name: '首頁' }).getAttribute('aria-current')).toBe('page');
   expect(screen.getByRole('heading', { level: 1, name: '首頁' })).toBeTruthy();
 });

@@ -6,6 +6,17 @@
   --space-sm: .5rem; --space: 1rem; --space-lg: 1.5rem; --space-xl: 2rem; --radius: .5rem; --radius-lg: .75rem;
   --page-max: 100rem; --bar: 5.5rem;
 }
+.case-columns { display: grid; gap: var(--space); margin-block: var(--space); align-items: start; }
+.case-library form, .case-confirm { display: grid; gap: var(--space-sm); }
+.case-library form, .case-management > h2 { margin-block: var(--space); }
+.case-list, .case-tools { list-style: none; padding: 0; display: grid; gap: var(--space); }
+.case-list button { width: 100%; overflow-wrap: anywhere; }
+.case-library [aria-current=true] { background: var(--selected); border-color: var(--primary); }
+.case-timeline > li, .case-tools > li { border: 1px solid var(--card-border); border-radius: var(--radius); padding: var(--space); margin-block: var(--space); }
+.case-library pre, .case-library dd { white-space: pre-wrap; overflow-wrap: anywhere; }
+.case-library dd { margin-inline: 0; }
+.case-versions > button { margin-top: var(--space); }
+@media (min-width: 64rem) { .case-columns { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); } }
 .workflow-canvas { height: 32rem; min-width: 0; margin-block: var(--space); border: 1px solid var(--border); }
 .business-node { width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(--border); background: var(--surface); color: var(--ink); display: grid; place-items: center; padding: 4px; font-size: .75rem; line-height: 1.2; text-align: center; }
 .business-node-start, .business-node-end { border-width: 3px; font-weight: 600; }

@@ -1,7 +1,9 @@
 import { ProductionPage, productionBindings } from './ProductionPage';
 import { emptyProduction, productionErrors } from '../../../libs/ui-runtime/production';
 import { emptySimulation } from './simulation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { CaseLibraryPage } from './CaseLibraryPage';
+import { caseStoreClient, type Lifecycle } from './caseStoreClient';
 import type { Recipe } from '../../../libs/ui-runtime/types';
 import { flows, selectKits } from './catalog';
 import { catalog } from './previewCatalog';
@@ -39,6 +41,13 @@ export function App() {
   const [session, setSession] = useState(0);
   const [site, setSite] = useState<SiteSession>();
   const [page, setPage] = useState<PageId>('home');
+  const [caseLifecycle, setCaseLifecycle] = useState<Lifecycle>();
+  useEffect(() => {
+    if (page === 'cases') return;
+    let current = true;
+    void caseStoreClient.lifecycle().then(result => { if (current) setCaseLifecycle(result.ok ? result.value : undefined); });
+    return () => { current = false; };
+  }, [page]);
   const derived = deriveKits(graphActionIds(graph), actionCatalog, registry);
   const derivedIds = derived.kits.map(k => k.kitId);
   const selection = selectKits(catalog.kits, requested, manual, flows, derivedIds);
@@ -51,7 +60,7 @@ export function App() {
     conflict || productionErrors(recipe.productionSettings ?? emptyProduction)[0] || productionBindings(recipe.productionSettings ?? emptyProduction, graph)[0] || (!recipe.clientName?.trim() ? '請填寫客戶代稱。' : workflowProblems.length ? `流程規格尚未完成：${workflowProblems[0]}` : ''),
   ][step] ?? '';
   // The step flow stays mounted (only hidden) so switching pages never loses the confirmed steps.
-  const steps = <StepShell stepError={stepError} renderStep={(step, navigate) => step === 0 ? <WorkflowCanvas locate={locate} resetKey={graphSession} value={graph} onChange={setGraph} path={canvasPath} onPathChange={setCanvasPath} toolbarExtra={<WorkflowTransfer onChange={next => { setGraph(next); setCanvasPath([]); setGraphSession(s => s + 1); }} />} />
+  const steps = <StepShell stepError={stepError} renderStep={(step, navigate) => step === 0 ? <WorkflowCanvas lifecycle={caseLifecycle} locate={locate} resetKey={graphSession} value={graph} onChange={setGraph} path={canvasPath} onPathChange={setCanvasPath} toolbarExtra={<WorkflowTransfer onChange={next => { setGraph(next); setCanvasPath([]); setGraphSession(s => s + 1); }} />} />
     : step === 1 ? <FlowPage simulation={simulation} onSimulationChange={setSimulation} graph={graph} derived={derived} site={site?.site} recipe={recipe} onChange={setRecipe} requested={requested} manual={manual} session={session} onSelect={(nextFlows, nextKits) => {
       setRequested(nextFlows); setManual(nextKits);
     }} />
@@ -67,6 +76,7 @@ export function App() {
       }} />} />;
   return <AppShell page={page} onNavigate={setPage}>
     {page === 'home' && <HomePage aov={graph} enabledKits={recipe.enabledKits.length} onNavigate={setPage} />}
+    {page === 'cases' && <CaseLibraryPage onLifecycle={setCaseLifecycle} />}
     <div hidden={page !== 'flow'}>{steps}</div>
     {page === 'datasets' && <PlaceholderPage title="資料集" lead="集中管理設定用與執行用資料集。" items={['資料集列表與版本', 'CSV 匯入與欄位對應', '引用此資料集的系統清單']} />}
     {page === 'runs' && <PlaceholderPage title="執行記錄" lead="目前只做設定期（D16），尚無執行期；此頁日後顯示驗證紀錄。" items={['驗證紀錄列表', '節點時間線與錯誤位置']} />}

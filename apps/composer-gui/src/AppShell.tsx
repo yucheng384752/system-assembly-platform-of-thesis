@@ -3,10 +3,11 @@ import { Icon, type IconName } from './Icons';
 import { workingNodes, type AovGraphDocument } from './workflowGraph';
 
 // Application shell (D63): five navigation entries; the five required steps (D30) live inside the "流程" page.
-export type PageId = 'home' | 'flow' | 'datasets' | 'runs' | 'settings';
+export type PageId = 'home' | 'flow' | 'cases' | 'datasets' | 'runs' | 'settings';
 export const pages: { id: PageId; title: string; icon: IconName }[] = [
   { id: 'home', title: '首頁', icon: 'logo' },
   { id: 'flow', title: '流程', icon: 'link' },
+  { id: 'cases', title: '案例庫', icon: 'folder' },
   { id: 'datasets', title: '資料集', icon: 'folder' },
   { id: 'runs', title: '執行記錄', icon: 'file' },
   { id: 'settings', title: '系統設定', icon: 'lock' },

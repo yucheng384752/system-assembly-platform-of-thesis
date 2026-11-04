@@ -10,6 +10,7 @@ import { FactoryPage } from './FactoryPage';
 import { Icon } from './Icons';
 import { NodeDetails } from './NodeDetails';
 import { ExampleHintProvider, ExampleHintSwitch } from './ExampleHintSettings';
+import type { Lifecycle } from './caseStoreClient';
 
 // Press and release within this many pixels is a click (selects, opens the details); moving further is a drag (moves the node and nothing else).
 const DRAG_PX = 4;
@@ -24,7 +25,7 @@ function CircleNode({ data }: NodeProps<BusinessNode>) {
 const nodeTypes = { business: CircleNode };
 
 // path: the opened graphs, kept by the caller so leaving the step and coming back returns to the same flow; empty means the factory list (D79).
-interface CanvasProps { value: AovGraphDocument; onChange: (value: AovGraphDocument) => void; path: string[]; onPathChange: (path: string[]) => void; toolbarExtra?: ReactNode; resetKey?: number; locate?: { nodeId: string; fieldId?: string; request: number } }
+interface CanvasProps { value: AovGraphDocument; onChange: (value: AovGraphDocument) => void; path: string[]; onPathChange: (path: string[]) => void; toolbarExtra?: ReactNode; resetKey?: number; locate?: { nodeId: string; fieldId?: string; request: number }; lifecycle?: Lifecycle }
 export function WorkflowCanvas(props: CanvasProps) {
   return <ExampleHintProvider><ReactFlowProvider><Canvas {...props} /></ReactFlowProvider></ExampleHintProvider>;
 }
@@ -35,7 +36,12 @@ const toolGroups: [string, { id: string; name: string }[]][] = (() => {
   groups.set('一般', [...(groups.get('一般') ?? []), { id: '', name: '業務節點' }]);
   return [...groups];
 })();
-function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, resetKey = 0, locate }: CanvasProps) {
+function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, resetKey = 0, locate, lifecycle }: CanvasProps) {
+  const unavailable = (id: string | null) => {
+    const state = lifecycle?.nodes.find(n => n.node_id === id);
+    return state?.state === 'deprecated' ? `已淘汰：${state.reason}` : state?.state === 'merged'
+      ? `已合併，請改用 ${actionCatalog.actions.find(a => a.id === state.replaced_by)?.name ?? '替代節點'}：${state.reason}` : '';
+  };
   const [industry, setIndustry] = useState('');
   const [toolSearch, setToolSearch] = useState('');
   const [selected, setSelected] = useState('');
@@ -83,6 +89,7 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
   const place = graphPlaces(value).get(graph.id);
   const depth = place?.depth ?? 1;
   const add = (actionId: string | null, position?: { x: number; y: number }) => {
+    if (unavailable(actionId)) { setError(unavailable(actionId)); return; }
     if (graph.nodes.length >= MAX_NODES) { setError('每個流程最多 100 個節點。'); return; }
     if (actionId !== null && !actionCatalog.actions.some(a => a.id === actionId)) return;
     const next = addCanvasNode(value, graph.id, actionId, position);
@@ -107,7 +114,8 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
         <p>提供表單欄位起點；使用既有表單功能，不代表設備控制、庫存或簽核引擎。加入後請確認欄位型別、必填與規格。</p>
         <label>搜尋產業節點<input type="search" value={toolSearch} onChange={e => setToolSearch(e.target.value)} /></label>
         <label>產業分類<select value={industry} onChange={e => setIndustry(e.target.value)}><option value="">全部</option>{[...new Set(industryTemplates.map(t => t.industry))].map(i => <option key={i}>{i}</option>)}</select></label>
-        {industryTemplates.filter(t => (!industry || t.industry === industry) && t.name.includes(toolSearch)).map(t => <div className="tool-card" key={t.id}><span>{t.name}</span><button aria-label={`加入產業節點：${t.name}`} onClick={() => { try { const next = addIndustryTemplate(value, graph.id, t.id); if (commit(next)) { setSelected(next.graphs.find(g => g.id === graph.id)!.nodes.at(-1)!.id); centerRequest.current = true; } } catch (error) { setError(error instanceof Error ? error.message : '無法新增範本'); } }}>＋</button></div>)}
+        {unavailable('define-form') && <p role="status">{unavailable('define-form')}</p>}
+        {industryTemplates.filter(t => (!industry || t.industry === industry) && t.name.includes(toolSearch)).map(t => <div className="tool-card" key={t.id}><span>{t.name}</span><button disabled={Boolean(unavailable('define-form'))} aria-label={`加入產業節點：${t.name}`} onClick={() => { if (unavailable('define-form')) return; try { const next = addIndustryTemplate(value, graph.id, t.id); if (commit(next)) { setSelected(next.graphs.find(g => g.id === graph.id)!.nodes.at(-1)!.id); centerRequest.current = true; } } catch (error) { setError(error instanceof Error ? error.message : '無法新增範本'); } }}>＋</button></div>)}
       </details>
       {toolGroups.map(([group, tools], index) => {
         const open = openGroups.includes(group);
@@ -115,9 +123,9 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
           <h3><button aria-expanded={open} aria-controls={`tool-group-${index}`} onClick={() => setOpenGroups(open ? openGroups.filter(g => g !== group) : [...openGroups, group])}><Icon name="chevron" className="group-icon" />{group}</button></h3>
           <div id={`tool-group-${index}`} hidden={!open}>
             {tools.map(action => <section className="flow-card tool-card" key={action.id}
-              draggable onDragStart={e => { e.dataTransfer.setData('application/x-workflow-action', action.id || 'business'); e.dataTransfer.effectAllowed = 'copy'; }}>
-              <h4>{action.name}</h4>
-              <button className="icon-button" title={`加入到畫布：${action.name}`} disabled={graph.nodes.length >= MAX_NODES} onClick={() => add(action.id || null)}><Icon name="plus" /><span className="visually-hidden">加入到畫布：{action.name}</span></button>
+              draggable={!unavailable(action.id)} onDragStart={e => { if (unavailable(action.id)) { e.preventDefault(); return; } e.dataTransfer.setData('application/x-workflow-action', action.id || 'business'); e.dataTransfer.effectAllowed = 'copy'; }}>
+              {unavailable(action.id) ? <div><h4>{action.name}</h4><p role="status" id={`case-tool-${action.id}`}>{unavailable(action.id)}</p></div> : <h4>{action.name}</h4>}
+              <button className="icon-button" title={`加入到畫布：${action.name}`} aria-describedby={unavailable(action.id) ? `case-tool-${action.id}` : undefined} disabled={graph.nodes.length >= MAX_NODES || Boolean(unavailable(action.id))} onClick={() => add(action.id || null)}><Icon name="plus" /><span className="visually-hidden">加入到畫布：{action.name}</span></button>
             </section>)}
           </div>
         </section>;
@@ -150,7 +158,7 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
           fitView fitViewOptions={{ duration: 0 }} />
       </div>
       <p role={error ? 'alert' : undefined}>{error}</p>
-      {suggestActions(value).map(s => <div key={s.actionId} className="canvas-suggestion note" role="status"><div><p>{s.reason}</p><button disabled={graph.nodes.length >= MAX_NODES} onClick={() => add(s.actionId)}>加入「{actionCatalog.actions.find(a => a.id === s.actionId)!.name}」節點</button></div></div>)}
+      {suggestActions(value).map(s => <div key={s.actionId} className="canvas-suggestion note" role="status"><div><p>{s.reason}</p>{unavailable(s.actionId) && <p>{unavailable(s.actionId)}</p>}<button disabled={graph.nodes.length >= MAX_NODES || Boolean(unavailable(s.actionId))} onClick={() => add(s.actionId)}>加入「{actionCatalog.actions.find(a => a.id === s.actionId)!.name}」節點</button></div></div>)}
     </Column>
     {node && <Column id="node-details" title="節點細項" lead="設定內容、先後順序與子流程。" className="workflow-details" scroll aside={<button onClick={closeDetails}>關閉細項</button>}>
       <>

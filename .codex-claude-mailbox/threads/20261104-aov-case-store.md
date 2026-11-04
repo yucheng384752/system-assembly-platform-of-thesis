@@ -68,7 +68,81 @@ cwd 必須是專案根目錄。Codex 只寫程式與測試，不執行 git、不
 驗收（如實列出）：`npm.cmd run typecheck`、`npm.cmd test` 的實際數字；跳過與失敗項目及原因（沙箱 EPERM 照寫，不要宣稱通過）。瀏覽器實測由 Claude 做，Codex 不要宣稱已目視確認。
 
 # Codex Notes
+## 2026-11-04：批三進度（用量重置後續作）
 
+已完成並存在：caseStoreClient.ts、CaseLibraryPage.tsx，以及 App.tsx、AppShell.tsx、WorkflowCanvas.tsx、style.css 的導覽、資料接線與工具箱停用改動。上一輪 npm.cmd run typecheck 退出碼 0；尚不可據此宣稱批三完成。
+
+未完成：用戶端與管理頁測試、案例切換的舊回應隔離測試、工具箱所有新增路徑與離線相容測試、三項關鍵規則的變異驗證、最終 typecheck 與 npm.cmd test、最終檔案清單與索引更新。將先讀現有實作再補，不重寫已完成部分；每完成一大項更新本節後續紀錄。預計完成時間 2026-11-05 12:00。未啟動伺服器或瀏覽器，未目視確認。
+
+
+### 批三進度：新增測試完成（2026-11-04 18:26）
+
+已新增 caseStoreClient.test.ts 與 CaseLibraryPage.test.tsx，包含用戶端路由／回應驗證、離線與重新連線、案例建立、版本時間軸與下載、保存限制與驗證失敗／過期、引用數與淘汰／啟用／合併／有序組合、案例切換舊回應隔離、延遲讀檔不誤存、工具箱按鈕／拖放／範本／建議入口、既有節點保留及 App 離線恢復。未改既有測試預期。
+
+實際檢查：npm.cmd run typecheck 退出碼 0（兩組 tsc，0 型別錯誤）；npm.cmd exec --offline -- vitest run --configLoader native src/caseStoreClient.test.ts src/CaseLibraryPage.test.tsx 退出碼 0，2 檔通過、59 項通過、0 失敗、0 跳過。尚待三項變異驗證、完整 npm.cmd test 與最終交接；沒有目視驗證。
+
+### 批三進度：三項變異驗證完成（2026-11-04 18:27）
+
+逐項暫時移除規則、執行單項測試，再以 finally 還原原始位元組；三次還原比對均為 True。
+
+| 規則 | 移除後實際結果 | 檢出證據 |
+|---|---|---|
+| 用戶端成功回應格式驗證 | exit 1；1 失敗、29 因名稱篩選跳過 | 原本應拒絕的物件回應變成 ok: true，probe rejects 測試失敗 |
+| 舊請求回應隔離（current 檢查） | exit 1；1 失敗、28 因名稱篩選跳過 | 舊案例離線回應把新案例畫面換成離線區塊，case switch ignores stale list 測試失敗 |
+| 新增動作共同入口的淘汰檢查 | exit 1；1 失敗、28 因名稱篩選跳過 | 偽造拖放觸發 onChange 並新增已淘汰節點，forged drop 測試失敗 |
+
+合計 3/3 變異被測試抓到；以上失敗是刻意移除規則造成，不是還原後正式程式的測試結果。尚待還原後完整 npm.cmd test 與最終 typecheck。
+
+### 批三進度與停工交接：完整測試發現既有規則衝突（2026-11-04 18:29）
+
+批三尚未完成驗收。依 Handoff「既有測試需要修改預期才能通過」與 user「遇規格不明、衝突……就停工」停止程式修改；未修改任何既有測試預期，沒有為避開測試而改用其他傳輸方式或隱藏第六個導覽項。以下一次列出本輪已發現的全部問題。
+
+#### 待裁決與修復清單
+
+1. **導覽需求與既有預期衝突（owner: user）**：DESIGN.md／D169 要求「案例庫」為第六個導覽項、位於流程之後；shell.test.tsx:14 卻精確要求只有「首頁、流程、資料集、執行記錄、系統設定」五項。需要需求方決定如何更新既有驗收基準；目前禁止修改預期，不能自行裁決。
+2. **現況查詢與既有請求預期衝突（owner: user）**：App 依 Handoff 取得現況，會發出同源 GET /case-store-api/lifecycle；localData.test.tsx:49、output.test.tsx:109 與 :226 均只排除 /preview-api/healthz，要求其他 fetch 呼叫為空。本輪三項因此失敗（各看見 2 次 lifecycle GET）。這些 GET 沒有帶樣本資料，但既有斷言禁止該請求；需明確裁決現況探測是否為允許的讀取並更新相應驗收基準，或另定探測時機。未修改這三項測試、未自行規避 fetch 偵測。
+3. **工具卡片 DOM 回歸（實作待修，不需放寬既有測試）**：WorkflowCanvas.test.tsx:169 要求 h4 後緊接圖示按鈕，且按鈕是最後一個子元素；本批為顯示停用原因增加 div 包住 h4，離線時也改了 DOM，造成失敗。可在允許範圍內恢復原本 h4 與按鈕相鄰結構，將原因放在 h4 之前或保持離線原結構；因上述停止條件已觸發，本輪未繼續改程式。此項不能歸因沙箱。
+4. **security CLI 沙箱失敗**：security.test.mjs:128 的簽章步驟讀取暫存 signing-private-key.pem 得到 EPERM，exit 1；afterAll :107 清理暫存目錄也 EPERM。實際路徑 C:\Users\gslab\AppData\Local\Temp\composer-security-ZkmwtP。未繞過權限、未改 security 程式；暫存清理未完成，需外部環境處理。
+5. **evaluator 打包沙箱失敗**：beforeAll 的 esbuild 無法讀取 ../..（Access is denied），且無法解析 ./services/evaluator/src/main.ts；該套件失敗，四項程序測試未執行。未修改 evaluator 或 build 設定。
+
+#### 實際驗證數字
+
+| 指令／檢查 | 結果 |
+|---|---|
+| 新增兩檔定向 Vitest | exit 0；2 檔通過；59 通過、0 失敗、0 跳過（client 30、頁面／工具箱／App 29） |
+| 三項關鍵規則變異 | 3/3 被抓到；每次測試 exit 1、1 項預期失敗，其他 29／28／28 項因名稱篩選跳過；三次均逐位元組還原成功 |
+| 變異還原後 npm.cmd run typecheck | exit 0；兩組 tsc 通過、0 型別錯誤 |
+| 變異還原後根目錄 npm.cmd test | exit 1；Vitest：45 檔通過、6 檔失敗（共 51）；696 項通過、6 項失敗、5 項跳過（共 707）；另列 2 個 suite hook 失敗（evaluator beforeAll、security afterAll） |
+| 新增檔案靜態檢查 | caseStoreClient.ts、CaseLibraryPage.tsx 與兩個測試檔無 any、dangerouslySetInnerHTML、innerHTML；rg 無命中退出碼 1，非檢查失敗 |
+
+完整 Vitest 的 6 項測試失敗：shell 導覽 1、localData 請求斷言 1、output 請求斷言 2、WorkflowCanvas DOM 1、security CLI 1。新增 59 項在完整測試中亦通過。
+
+5 項跳過／未執行：
+- App.test.tsx 原有 1 項「未涵蓋：以 User 身分修改 MIS 項目由授權邊界拒絕（尚無身分機制）」是明確 test.skip。
+- evaluator 因 beforeAll 失敗，4 項未執行：「打包兩次位元組相同，且不含建置機的絕對路徑」、「經標準輸入輸出逐行回應；stdout 只有回應，結果與直接呼叫相同」、「過大的請求被拒絕且之後的請求仍正常處理」、「標準輸入關閉就結束」。Vitest 本次將它們列為 skipped。
+- 根目錄 test 以 && 串接，Vitest exit 1 後，preview 的 Node tests、libs/case-store tests、services/case-store tests 均未執行；本輪未另補跑，不把以往通過數字當成本次結果。
+
+#### 檔案清單與工作樹狀態
+
+本次續作實際新增：
+- apps/composer-gui/src/caseStoreClient.test.ts
+- apps/composer-gui/src/CaseLibraryPage.test.tsx
+
+本批前輪已存在、這輪只讀及暫時變異後完整還原：
+- apps/composer-gui/src/caseStoreClient.ts
+- apps/composer-gui/src/CaseLibraryPage.tsx
+- apps/composer-gui/src/WorkflowCanvas.tsx
+
+本批前輪已完成接線、這輪未更動：
+- apps/composer-gui/src/App.tsx
+- apps/composer-gui/src/AppShell.tsx
+- apps/composer-gui/src/style.css
+
+進度與停工紀錄：
+- .codex-claude-mailbox/threads/20261104-aov-case-store.md
+- .codex-claude-mailbox/index.md
+
+Icons.tsx 未需修改。未改 libs、services、vite.config.ts、DESIGN.md、schemas、config 或既有測試。未執行 git、未連網、未新增依賴、未啟動伺服器或瀏覽器；分支未以 git 驗證，沒有目視確認。預計完成時間仍為 2026-11-05 12:00，須先解除導覽／現況查詢與既有測試預期的衝突，再修復 DOM 回歸並重跑完整驗證。狀態保留 in_progress，不宣稱全部完成。
 ## 2026-11-04：批三契約核對停工，尚未實作
 
 已完整閱讀批三 Handoff、DESIGN.md（含案例庫頁）、services/case-store/README.md、D163 至 D169 與 CLAUDE.md。依 user 與 Handoff「有不明處或衝突就停工並寫進 Codex Notes，不自行裁決」停止於契約核對階段。
