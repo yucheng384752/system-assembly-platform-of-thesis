@@ -218,6 +218,23 @@ class EngineTests(unittest.TestCase):
         with patch('package.tarfile.open', side_effect=AssertionError('extracted before signature')):
             self.assert_code(11, self.verify_again)
 
+    @unittest.skipIf(os.name == 'nt', 'POSIX permission bits')
+    def test_extraction_ignores_callers_restrictive_umask(self):
+        # The backend runs as a non-root user; a 0600 manifest made it report manifest-missing.
+        old = os.umask(0o077)
+        try:
+            out = self.base / 'umask-out'
+            out.mkdir()
+            verify(self.runner, **self.source, destination=out)
+        finally:
+            os.umask(old)
+        files = [p for p in out.rglob('*') if p.is_file()]
+        self.assertTrue(files)
+        for path in files:
+            self.assertTrue(path.stat().st_mode & 0o004, path.name + ' is not world-readable')
+        for path in [out, *[p for p in out.rglob('*') if p.is_dir()]]:
+            self.assertEqual(path.stat().st_mode & 0o777, 0o755, str(path))
+
     def test_tar_hash_rejected_before_extraction(self):
         with open(self.source['archive'], 'ab') as stream:
             stream.write(b'tamper')

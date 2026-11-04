@@ -1,6 +1,7 @@
 """Authenticate before extraction; reject links, special files and unlisted data."""
 import base64
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
 import tarfile
@@ -141,11 +142,18 @@ def verify(runner, archive, signature, key, prefix, destination):
                     target = destination / member.name
                     if member.isdir():
                         target.mkdir(parents=True, exist_ok=True)
+                        target.chmod(0o755)
                     else:
                         target.parent.mkdir(parents=True, exist_ok=True)
                         with tar.extractfile(member) as src, open(target, 'xb') as dst:
                             import shutil
                             shutil.copyfileobj(src, dst)
+                        # Do not inherit the caller's umask: the backend runs as a non-root user and must read these files.
+                        target.chmod(0o755 if member.mode & 0o111 else 0o644)
+        # Directories created implicitly for file members also follow the caller's umask.
+        destination.chmod(0o755)
+        for directory, _, _ in os.walk(destination):
+            Path(directory).chmod(0o755)
         manifest_file = destination / 'system-manifest.json'
         if file_digest(manifest_file) != payload['systemManifestSha256']:
             raise Failure(11, 'system-manifest sha256 不符')
