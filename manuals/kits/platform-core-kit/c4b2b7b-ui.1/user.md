@@ -10,6 +10,8 @@ sources:
   - kits/platform-core-kit/src/backend/app/core/kit_broker.py
   - kits/platform-core-kit/src/backend/app/api/routes_kit_broker.py
   - kits/platform-core-kit/src/backend/app/core/license.py
+  - services/frontend/base/src/main.tsx
+  - services/frontend/base/src/locales/zh-TW/common.json
 ---
 
 ## 用途

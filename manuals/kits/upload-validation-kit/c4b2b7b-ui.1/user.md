@@ -6,6 +6,8 @@ status: draft
 sources:
   - kits/upload-validation-kit/src/backend/app/api/routes_upload.py
   - kits/generic-forms-kit/src/backend/app/api/routes_generic_forms.py
+  - services/frontend/base/src/pages/UploadPage.tsx
+  - services/frontend/base/src/locales/zh-TW/common.json
 ---
 
 ## 用途

@@ -7,6 +7,8 @@ sources:
   - kits/entry-permission-kit/src/backend/app/entry_permission/middleware.py
   - kits/entry-permission-kit/src/backend/app/entry_permission/lockout.py
   - kits/entry-permission-kit/src/backend/app/entry_permission/passwords.py
+  - services/frontend/base/src/pages/LoginPage.tsx
+  - services/frontend/base/src/locales/zh-TW/common.json
 ---
 
 ## 用途

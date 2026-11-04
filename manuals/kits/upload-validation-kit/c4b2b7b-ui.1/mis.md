@@ -9,6 +9,7 @@ sources:
   - kits/upload-validation-kit/src/backend/app/api/routes_upload.py
   - kits/generic-forms-kit/src/backend/app/api/routes_generic_forms.py
   - kits/form-analysis.kit-manifest.json
+  - services/frontend/base/src/pages/UploadPage.tsx
 ---
 
 ## 用途

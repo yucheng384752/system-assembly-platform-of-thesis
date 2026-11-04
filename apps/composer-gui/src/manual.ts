@@ -24,9 +24,9 @@ export function parseFragment(text: string): Fragment {
   const meta: Record<string, unknown> = {};
   let inSources = false;
   for (const line of lines.slice(1, end)) {
-    if (inSources && /^  - kits\/[A-Za-z0-9._/-]+$/.test(line)) {
+    if (inSources && /^  - (kits|services\/frontend)\/[A-Za-z0-9._/-]+$/.test(line)) {
       const source = line.slice(4);
-      if (source.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('sources 必須為 kits/ 下的檔案路徑');
+      if (source.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('sources 必須為 kits/ 或 services/frontend/ 下的檔案路徑');
       (meta.sources as string[]).push(source); continue;
     }
     const field = /^(kitId|kitVersion|role|status): ([A-Za-z0-9._-]+)$/.exec(line);
