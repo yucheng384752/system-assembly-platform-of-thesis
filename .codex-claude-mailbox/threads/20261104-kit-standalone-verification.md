@@ -1,7 +1,7 @@
 ---
 id: "20261104-kit-standalone-verification"
 title: "Kit 獨立執行性驗證：必要 Kit 加任一選配 Kit，組出系統包並在 VM 安裝與操作"
-status: "in_progress"
+status: "done"
 owner: "claude"
 reviewer: "user"
 priority: "high"
@@ -108,6 +108,36 @@ user 2026-11-04 的決定：相依補進 Kit 目錄；稽核事件待說明後�
 - 該 Kit 自己的流程：狀態與資料檢查在尚未載入範例時回報「找不到分析設定檔」並列出缺少項，屬預期；`POST /api/analytical-four/demo` 載入範例檔後資料檢查通過（60 列、12 個數值特徵）；`POST /api/analytical-four/runs` 回 202，輪詢到 succeeded，讀資料、描述統計、診斷、不良碼 4 階段全部完成。第三層（AI 診斷）預設關閉，未驗證。
 - 驅動腳本假設系統代號為 `kv-<組合名>`，此組合的配方名稱是 `kv-a4`，所以計畫步驟報「system-id 與 manifest 不符」；改用代號替換後的腳本副本接續完成，已清理。
 - 發現 5 結案：需要約 3 GB 以上的空間餘裕；可用 7.7 GB 時可裝。
+
+# 第三輪（user 決定後的修正與最終驗證）
+
+user 決定：稽核事件按建議（D165）、引擎解壓按建議（D166）、手冊 sources 放寬（D167）、發現 9 至 14 全部修（D168）、測試通過後合併、sudoers 測試完成後由 user 處理、a4 worktree 確認不影響後移除。決議編號 D163 至 D168（其他分支如 canvas-to-project 若也用 D163 以後須改號）。
+
+## 修正與驗證
+
+- 引擎解壓權限：`package.py` 解壓後明確 chmod；新增 umask 077 單元測試，在 VM 上驗證：未修正時失敗、修正後 49 項全過。
+- 稽核入口：`audit.events_read` 預設角色改為 admin。
+- 發現 9：通用表格、資料流、日誌、資料分析、資料查詢、檔案上傳、編輯視窗、編輯原因頁，被拒時顯示「您的角色沒有這項操作的權限，請洽管理者。」等業務語言；瀏覽器實測操作員建立表單，右下角出現紅色提示，日誌頁顯示「您的角色沒有查看日誌的權限」。
+- 發現 10、11：建立與刪除表單、儲存欄位定義、上傳、匯入、刪除紀錄、編輯紀錄都寫入稽核事件與日誌；日誌必須帶租戶代號才會出現在租戶查詢（第一次修正漏帶，功能測試抓到，已補）。
+- 發現 11、12、13：日誌頁中文化；資料查詢頁補上缺的 CSS（約 25 個類別原本沒有規則）；「Schema」「is_key」與英文型別改業務用語；儲存、新增、刪除成功顯示提示。
+- 發現 14：資料分析的「上傳紀錄」明列只含檔案上傳工作。沒有把表單匯入寫成上傳工作，因為 upload-validation 相依 generic-forms，反向相依會成環。
+- 發現 4（analytical-four 在 main 無法組裝）已隨 main 合入 519aff0 解決。
+
+## 最終結果（基底加 5 個選配同時安裝，含上述所有修正）
+
+- 組裝、前端建置、映像、安裝（apply 38 秒）通過；冒煙 31/31；功能操作 57/57（先前每組的唯一失敗改為預期行為並納入測試：稽核角色被拒，管理員可讀並含 forms.create、forms.schema.save、forms.import、records.edit；日誌可查到 forms.create 與 forms.import）；後端 5xx 0。
+- 本機：`npm test` 649 通過 1 略過；typecheck 通過；通用表單 Python 單元測試 5 通過。
+
+## 仍未涵蓋（誠實列出）
+
+- 第三輪的成功提示（「表單已建立」「欄位定義已儲存」「連結已新增」等）只由程式與建置驗證，沒有在瀏覽器逐一看過；被拒提示、日誌頁、查詢頁有在瀏覽器看過。
+- analytical-four-kit 前端頁（D161）我沒有在瀏覽器操作；其使用者手冊仍寫「目前只提供後端介面，沒有操作畫面」，已過時，需對照該頁後修正。
+- 備份還原、升級、`rollback` 與 `status` 子命令、網頁精靈、對外反向代理與加密連線、鎖定 5 次 15 分鐘的實際觸發、忘記密碼重設。
+- 手冊中 import-pipeline、mod-subscription、factory-core、station-admin（無來源）與各 Kit 的開發者版未重寫。
+
+## 手冊完成清單（狀態皆為 draft，待 user 審閱）
+
+使用者版：platform-core、entry-permission、station-data-link、upload-validation、generic-forms、audit-edit、query-traceability、analytics、logs-ops。管理者版：platform-core、entry-permission、station-data-link、upload-validation。
 
 # 環境與清理
 
