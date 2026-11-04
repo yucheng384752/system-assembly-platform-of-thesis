@@ -101,7 +101,9 @@
 1. `verified_report.passed` 必須為 true，否則 `E-NOT-VERIFIED`。儲存層不自己跑模擬，只認報告；報告缺 `passed` 或型別不對也算失敗。
 2. content 必須是 `composer-aov-bundle` v1 外殼且不超過大小上限，否則 `E-BAD-CONTENT`。完整語意驗證由 `validateAovBundle` 負責，儲存層呼叫它，不重寫一份。
 3. 抽出 content.platform 各 graph 的 node（取 `actionId`）與組合。node 的現況為 deprecated 或 merged，或命中現況為 deprecated 的組合，則 `E-DEPRECATED`，錯誤要列出每一個命中的 node 或組合與所在 graph。比對前先把 node 的 actionId 以別名解析到終點。
-4. parent_version 檢查與版本號遞增在同一交易內完成；並行存同一案例時，其中一方得到 `E-VERSION-CONFLICT`，不得出現重複版本號。
+4. `expectedParent` 比對與版本號遞增在同一交易內完成；並行存同一案例時，兩方帶相同 `expectedParent`，其中一方得到 `E-VERSION-CONFLICT`，不得出現重複版本號。
+
+第 3 項的判定順序：（a）先看 content 內每個 node 自身的現況，已是 merged 的直接 `E-DEPRECATED`，訊息指出別名終點應改用誰；已是 deprecated 的同樣 `E-DEPRECATED`；（b）通過 (a) 後比對組合時，內容的序列與 combo_lifecycle 紀錄的 combo 兩側都先以別名解析到終點再做全等比對，所以組合以舊 id 記錄、內容用保留方 id 時仍命中。
 
 淘汰與合併不影響已存版本：讀取版本永遠回傳原文。
 
@@ -111,7 +113,7 @@
 
 - `openCaseStore(path: string): CaseStore`，`:memory:` 供測試。
 - `createCase(name)`、`listCases()`。
-- `saveVersion({ caseId, content, verifiedReport, changeReason, author })`。
+- `saveVersion({ caseId, expectedParent, content, verifiedReport, changeReason, author })`：`expectedParent` 為呼叫端所依據的最新版本號，案例尚無版本時為 `null`。它必須等於該案例目前最新版本，否則 `E-VERSION-CONFLICT`；通過後新版本號 = 最新 + 1，`parent_version` = `expectedParent`。不支援從舊版本分岔。
 - `getVersion(caseId, version)`：重算 content_hash，不符回報 `E-CORRUPT`。
 - `listVersions(caseId)`：版本、父版本、修改原因、作者、時間，不含 content。
 - `deprecateNode(nodeId, reason)`、`reactivateNode(nodeId, reason)`。
