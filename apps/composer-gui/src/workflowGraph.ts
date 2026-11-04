@@ -12,8 +12,9 @@ export const MAX_LOGICS = 20;
 export const MAX_GRAPHS = 100;
 export interface Position { x: number; y: number }
 export type NodeKind = 'start' | 'end' | 'node';
-export interface GraphNode { id: string; kind: NodeKind; name: string; when: string; owner: string; actionId: string | null; params: Record<string, ParamValue>; formId: string | null; childGraphId: string | null }
-export interface GraphEdge { id: string; from: string; to: string }
+export interface GraphNode { id: string; kind: NodeKind; name: string; when: string; owner: string; actionId: string | null; params: Record<string, ParamValue>; formId: string | null; childGraphId: string | null; durationMin?: number }
+// durationMin and transferMin are optional minutes for the Gantt estimate; absent means not filled in, never 0.
+export interface GraphEdge { id: string; from: string; to: string; transferMin?: number }
 export interface Graph { id: string; name: string; nodes: GraphNode[]; edges: GraphEdge[] }
 // A factory is only a container: it has no nodes or edges of its own (D78).
 export interface Factory { id: string; name: string; logicGraphIds: string[] }
@@ -362,8 +363,8 @@ export function exportAovGraph(doc: AovGraphDocument): string {
     factories: doc.factories.map(({ id, name, logicGraphIds }) => ({ id, name, logicGraphIds: [...logicGraphIds] })),
     graphs: doc.graphs.map(g => ({
       id: g.id, name: g.name,
-      nodes: g.nodes.map(({ id, kind, name, when, owner, actionId, params, formId, childGraphId }) => ({ id, kind, name, when, owner, actionId, params: { ...params }, formId, childGraphId })),
-      edges: g.edges.map(({ id, from, to }) => ({ id, from, to })),
+      nodes: g.nodes.map(({ id, kind, name, when, owner, actionId, params, formId, childGraphId, durationMin }) => ({ id, kind, name, when, owner, actionId, params: { ...params }, formId, childGraphId, ...(durationMin !== undefined ? { durationMin } : {}) })),
+      edges: g.edges.map(({ id, from, to, transferMin }) => ({ id, from, to, ...(transferMin !== undefined ? { transferMin } : {}) })),
     })),
     layout: Object.fromEntries(Object.entries(doc.layout).map(([graphId, nodes]) => [graphId, Object.fromEntries(Object.entries(nodes).map(([id, { x, y }]) => [id, { x, y }]))])),
     forms: doc.forms.map(({ id, name, fields }) => ({ id, name, fields: fields.map(({ id, name, type, required, isKey, validation }) => ({ id, name, type, required, isKey, ...(validation ? { validation: { ...validation } } : {}) })) })),

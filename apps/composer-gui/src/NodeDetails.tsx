@@ -1,6 +1,6 @@
 import { actionCatalog } from './workflow';
 import { nodeErrors, type AovGraphDocument, type GraphNode } from './workflowGraph';
-import { patchCanvasNode } from './canvasEditing';
+import { patchCanvasNode, setEdgeTransfer } from './canvasEditing';
 import { NodeForm } from './NodeForm';
 import { NodeRelations } from './NodeRelations';
 import { exampleHints } from './exampleHints';
@@ -11,6 +11,10 @@ export function NodeDetails({ value, node, onChange }: { value: AovGraphDocument
   const action = actionCatalog.actions.find(a => a.id === node.actionId);
   const patch = (next: Partial<GraphNode>) => onChange(patchCanvasNode(value, node.id, next));
   const problems = nodeErrors(value, node);
+  const incoming = (value.graphs.find(g => g.nodes.some(n => n.id === node.id))?.edges ?? []).filter(e => e.to === node.id);
+  const nameOf = (id: string) => value.graphs.flatMap(g => g.nodes).find(n => n.id === id)?.name.trim() || '（未命名節點）';
+  // Empty means not filled in; the Gantt estimate asks for the minutes only when the node is on the required path.
+  const minutes = (text: string, apply: (n: number | undefined) => void) => { if (text === '') apply(undefined); else { const n = Number(text); if (Number.isFinite(n) && n >= 0 && n <= 525600) apply(n); } };
   return <>
     {(['name', 'when', 'owner'] as const).map((key, i) => <div key={key}>
       <label htmlFor={`node-${key}`}>{['名稱', '時機', '負責職務'][i]}</label>
@@ -32,6 +36,12 @@ export function NodeDetails({ value, node, onChange }: { value: AovGraphDocument
         patch({ params });
       }} />}</div>;
     })}
+    <label htmlFor="node-duration">標準工時（分鐘，甘特圖用）</label>
+    <input id="node-duration" type="number" min={0} max={525600} step="any" value={node.durationMin ?? ''} onChange={e => minutes(e.target.value, n => patch({ durationMin: n }))} />
+    {incoming.length > 0 && <fieldset><legend>移轉時間（分鐘，選填；未填以 0 計）</legend>{incoming.map(e => <div key={e.id}>
+      <label htmlFor={`transfer-${e.id}`}>自「{nameOf(e.from)}」移轉</label>
+      <input id={`transfer-${e.id}`} type="number" min={0} max={525600} step="any" value={e.transferMin ?? ''} onChange={ev => minutes(ev.target.value, n => onChange(setEdgeTransfer(value, e.id, n)))} />
+    </div>)}</fieldset>}
     <div role="status">{problems.length ? <><h3>尚未完成</h3><ul>{problems.map(p => <li key={p}>{p}</li>)}</ul></> : <p>節點基本設定已完成。</p>}</div>
     <NodeForm key={node.id} value={value} node={node} onChange={onChange} />
     {node.formId && <NodeRelations key={node.formId} value={value} formId={node.formId} onChange={onChange} />}
