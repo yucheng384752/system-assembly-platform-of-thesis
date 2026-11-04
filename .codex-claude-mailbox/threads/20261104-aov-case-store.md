@@ -120,4 +120,5 @@ cwd 必須是專案根目錄。Codex 只寫程式與測試，不執行 git、不
 # Claude Notes
 
 - 2026-11-04 批一審閱：Codex 第一次依停止條件停工（契約漏了 `expectedParent` 與 merged／別名檢查順序），已由 Claude 裁決並補進契約（f283e06）。Codex 續做後自述全過；Claude 在沙箱外重驗：根目錄 typecheck 通過、`libs/case-store` 38 項通過、根目錄 `npm.cmd test` 的 Vitest 結束碼 0 且 preview 14／14 通過。Codex 回報的 security CLI 與 evaluator 失敗是沙箱 EPERM，沙箱外不再出現。逐行審閱 `index.ts`：交易、觸發器、順序與契約一致。已知限制：`scanUsage` 會逐版本解析整份內容，版本很多時成本線性成長，批二若有效能需求再加索引表；組合比對以紀錄當下的 JSON 全等，不跨別名合併同一組合的不同寫法。Claude 補：根目錄 `test` script 接上 `libs/case-store` 的測試，否則回歸時不會被跑到。批一完成，待批二。
+- 2026-11-04 批二（Claude 自做，D168）：`libs/case-store/backup.ts` 加邏輯 JSON 備份匯出匯入；`services/case-store/` 為本機 HTTP 服務（純函式 handler 加 node:http 轉接、`npm run case-store` 啟動）。驗證：根目錄 typecheck 通過；`npm test` 全過（Vitest 49 檔 647 通過 1 跳過、preview 14／14、case-store 38／38、service 7／7）；實際以 esbuild 打包啟動並用 curl 打過（建立與列出案例、UTF-8 往返、外來 Origin 得 403），已停止該行程。發現並處理：Codex 夾具的 `aov` 是空殼，伺服器端 compile 正確地拒絕，測試改用 C 的通用範例專案。變異驗證：拿掉欄位白名單時原測試仍綠（SQLite 自己也會拒），故改斷言錯誤出自白名單後才能抓到。已知限制：服務測試的回應型別用了 `any`（僅測試檔，違反「不用 any」的精神，批三前補正）；驗證範圍不含瀏覽器互動模擬（D168 已明寫）。
 - 2026-11-04：分支已建，D163 至 D167 與契約文件已寫入。技術選型 `node:sqlite`（D164）是 Claude 建議，user 回覆未特別提及，若有異議可改。

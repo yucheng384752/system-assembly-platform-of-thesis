@@ -14,3 +14,5 @@ services/package/tests/.*/
 
 __pycache__/
 *.pyc
+
+/data/

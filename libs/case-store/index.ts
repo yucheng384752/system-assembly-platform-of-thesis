@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { canonicalJson, MAX_BUNDLE_BYTES, validateAovBundle, type AovBundle } from '../aov-integration';
+import { checkBackup, exportBackup, importRows, type BackupFile } from './backup';
 import { hasCombo } from './graph';
 import { migrate } from './migrations';
 
@@ -204,6 +205,25 @@ export class CaseStore {
   }
   deprecateCombo(combo: string[], reason: string): Result<null> { return this.comboEvent(combo, reason, 'deprecated'); }
   reactivateCombo(combo: string[], reason: string): Result<null> { return this.comboEvent(combo, reason, 'active'); }
+
+  exportBackup(): Result<BackupFile> { return ok(exportBackup(this.db)); }
+
+  /** Only into an empty store, so history is never merged or overwritten; every version hash is rechecked. */
+  importBackup(file: unknown): Result<null> {
+    const bad = checkBackup(file, Number(this.db.prepare('SELECT version FROM schema_meta WHERE id = 1').get()?.version));
+    if (bad) return fail('E-BAD-BACKUP', bad);
+    return this.transaction(() => {
+      if (this.db.prepare('SELECT 1 FROM flow_case LIMIT 1').get() || this.db.prepare('SELECT 1 FROM node_lifecycle LIMIT 1').get()
+        || this.db.prepare('SELECT 1 FROM combo_lifecycle LIMIT 1').get()) return fail('E-NOT-EMPTY', '只能匯入到空的案例庫。');
+      try { importRows(this.db, file as BackupFile); } catch (error) {
+        return fail('E-BAD-BACKUP', error instanceof Error ? error.message : '備份內容被資料庫規則拒絕。');
+      }
+      for (const row of this.db.prepare('SELECT case_id, version, content, content_hash FROM flow_version').all()) {
+        if (hash(String(row.content)) !== row.content_hash) return fail('E-CORRUPT', '匯入的版本內容雜湊不符。');
+      }
+      return ok(null);
+    });
+  }
 
   scanUsage(nodeIdOrCombo: string | string[]): Result<Usage[]> {
     if (!(id(nodeIdOrCombo) || comboValid(nodeIdOrCombo))) return fail('E-INVALID-INPUT', '請提供 nodeId 或至少兩個 nodeId 的組合。');
