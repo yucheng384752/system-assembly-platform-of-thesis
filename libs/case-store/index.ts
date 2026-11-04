@@ -16,6 +16,8 @@ export interface SaveVersionInput {
 type State = 'active' | 'deprecated' | 'merged';
 export interface Resolution { nodeId: string; state: State }
 export interface Usage { case_id: string; version: number; graph: string }
+export interface NodeState { node_id: string; state: State; reason: string; replaced_by: string | null; at: string }
+export interface ComboState { combo: string[]; state: 'active' | 'deprecated'; reason: string; at: string }
 const ok = <T>(value: T): Result<T> => ({ ok: true, value });
 const fail = (code: string, message: string): { ok: false; errors: StoreError[] } => ({ ok: false, errors: [{ code, message }] });
 const text = (value: unknown, max: number): value is string => typeof value === 'string' && value.trim().length > 0 && [...value].length <= max && !value.includes('\0');
@@ -205,6 +207,19 @@ export class CaseStore {
   }
   deprecateCombo(combo: string[], reason: string): Result<null> { return this.comboEvent(combo, reason, 'deprecated'); }
   reactivateCombo(combo: string[], reason: string): Result<null> { return this.comboEvent(combo, reason, 'active'); }
+
+  /** Latest event per node and per combination, so a screen needs one call instead of one per node. */
+  listLifecycle(): Result<{ nodes: NodeState[]; combos: ComboState[] }> {
+    const nodes = this.db.prepare(`SELECT node_id, state, reason, replaced_by, at FROM node_lifecycle
+      WHERE seq IN (SELECT MAX(seq) FROM node_lifecycle GROUP BY node_id) ORDER BY node_id`).all() as unknown as NodeState[];
+    const combos = this.db.prepare(`SELECT combo, state, reason, at FROM combo_lifecycle
+      WHERE seq IN (SELECT MAX(seq) FROM combo_lifecycle GROUP BY combo) ORDER BY seq`).all().map(row => {
+      const parsed: unknown = JSON.parse(String(row.combo));
+      if (!comboValid(parsed)) throw new Error('E-CORRUPT: 組合格式錯誤。');
+      return { combo: parsed, state: row.state as ComboState['state'], reason: String(row.reason), at: String(row.at) };
+    });
+    return ok({ nodes, combos });
+  }
 
   exportBackup(): Result<BackupFile> { return ok(exportBackup(this.db)); }
 

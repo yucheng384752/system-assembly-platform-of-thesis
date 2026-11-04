@@ -40,6 +40,7 @@ export async function handle(store: CaseStore, { method, path, body }: ApiReques
         verifiedReport: report, changeReason: str(b.changeReason), author: str(b.author) }), 201);
     }
   }
+  if (head === 'lifecycle' && method === 'GET' && parts.length === 1) return send(store.listLifecycle());
   if (head === 'nodes' && a && method === 'GET' && parts.length === 2) return send(store.resolveNode(a));
   if (head === 'nodes' && a === 'merge' && method === 'POST' && b) {
     return send(store.mergeNodes({ keep: str(b.keep), drop: str(b.drop), reason: str(b.reason) }));

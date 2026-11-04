@@ -100,6 +100,17 @@ describe('批二服務', () => {
     expect((await call('POST', '/usage', { nodeId: 'a' })).body).toEqual([{ case_id: id, version: 1, graph: expect.any(String) }]);
   });
 
+  it('現況清單只回每個 node 與組合的最新事件，重新啟用後不再顯示為淘汰', async () => {
+    const { call } = await start();
+    await call('POST', '/nodes/a/deprecate', { reason: '第一次' });
+    await call('POST', '/nodes/a/reactivate', { reason: '誤淘汰' });
+    await call('POST', '/nodes/b/deprecate', { reason: '停用' });
+    await call('POST', '/combos/deprecate', { combo: ['x', 'y'], reason: '改用新流程' });
+    const { nodes, combos } = (await call('GET', '/lifecycle')).body;
+    expect(nodes.map((n: { node_id: string; state: string }) => [n.node_id, n.state])).toEqual([['a', 'active'], ['b', 'deprecated']]);
+    expect(combos).toEqual([expect.objectContaining({ combo: ['x', 'y'], state: 'deprecated', reason: '改用新流程' })]);
+  });
+
   it('備份往返後內容相同，且只能匯入空庫', async () => {
     const first = await start(); const id = await newCase(first.call);
     await save(first.call, id, await content(), null);

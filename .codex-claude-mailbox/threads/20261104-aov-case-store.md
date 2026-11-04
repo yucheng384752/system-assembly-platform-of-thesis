@@ -51,6 +51,22 @@ cwd 必須是專案根目錄。Codex 只寫程式與測試，不執行 git、不
 
 驗收（Codex 須在 Notes 如實列出）：`npm.cmd run typecheck`、`npm.cmd test` 結果與數字；跳過或失敗的項目與原因（已知沙箱 security CLI 的 EPERM 照實寫）。
 
+# 批三 Handoff（Codex）
+
+**預計完成時間：2026-11-05 12:00。** 到期未完成由 Claude 接手（先確認 Codex 已停止）。cwd 為專案根目錄；Codex 只寫程式與測試，不執行 git、不連網、不裝依賴、不啟動伺服器或瀏覽器。規格唯一來源：`DESIGN.md` 最後一節「案例庫頁」、`services/case-store/README.md`（路由與回應）、D169；有不明處或衝突就停工並寫進 Codex Notes，不自行裁決。
+
+可動的檔案：新增 `apps/composer-gui/src/caseStoreClient.ts`、`CaseLibraryPage.tsx` 與其測試；修改 `AppShell.tsx`（`PageId`、`pages`）、`App.tsx`（接線）、`WorkflowCanvas.tsx`（工具箱停用已淘汰動作，改動要最小）、`Icons.tsx`（若需要一個新圖示，手寫 SVG）、`style.css`。不得動 `libs/`、`services/`、`vite.config.ts`、`DESIGN.md`、`schemas/`、`config/`。
+
+工作：
+1. `caseStoreClient.ts`：以可注入的 `Fetcher`（型別沿用 `previewBackend.ts`）包裝服務，基底路徑 `/case-store-api`（同源，不寫死埠）；每個方法回傳 `{ ok: true, value } | { ok: false, errors }`，網路失敗與非 JSON 回應也要變成可顯示的錯誤，不丟例外、不吞錯。連線探測要驗證回應本體是陣列，不能只看狀態碼（Vite 對不存在路徑可能回 HTML）。型別明確，不得用 `any`，包含測試檔。
+2. `CaseLibraryPage.tsx`：照 DESIGN.md 該節實作全部項目（案例清單與建立、版本時間軸、保存新版本、下載、節點與組合管理、淘汰前的引用查詢、服務未啟動的說明）。UI state、服務資料與衍生資料分開管理；`aria` 與鍵盤、44px、狀態文字依 DESIGN.md。動作清單來自 `config/actions.json`（用 `libs/ui-runtime/registry` 既有的 `parseActionCatalog`），不要另抄一份。使用者可編輯的文字一律以純文字節點呈現。
+3. 工具箱：App 取得現況後傳給 `WorkflowCanvas`，淘汰與合併的動作停用「加入到畫布」並標示原因；服務連不上時工具箱行為與現在完全相同（既有測試不得改動預期）。
+4. 測試（規則 9）：每個行為至少一個測試，且在規則被拿掉時會失敗，例如：服務連不上顯示說明而不是空清單；原因空白時淘汰與保存按鈕停用；驗證未通過時顯示逐條原因且不顯示成功；過期版本顯示重新載入；已合併的節點沒有操作按鈕；淘汰前顯示引用數；工具箱在已淘汰時停用而在服務離線時不停用；頁面沒有任何編輯或刪除已保存版本的控制項。
+
+停止條件：需要新增依賴；需要改動範圍外檔案；服務回應與 README 不符；既有測試需要修改預期才能通過。
+
+驗收（如實列出）：`npm.cmd run typecheck`、`npm.cmd test` 的實際數字；跳過與失敗項目及原因（沙箱 EPERM 照寫，不要宣稱通過）。瀏覽器實測由 Claude 做，Codex 不要宣稱已目視確認。
+
 # Codex Notes
 
 ## 2026-11-04：契約核對後停工，尚未實作
