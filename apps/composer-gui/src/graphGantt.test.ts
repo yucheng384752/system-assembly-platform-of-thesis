@@ -68,6 +68,49 @@ describe('estimateGraphGantt', () => {
   });
 });
 
+describe('transfer time in the drawing', () => {
+  const drawn = (choices: Record<string, string>) => {
+    const result = estimateGraphGantt(branching(), choices);
+    if (!result.ok) throw new Error('expected an estimate');
+    return renderGanttSvg(result);
+  };
+
+  // Why: the user wants transfer time told apart from work, and not by colour alone (DESIGN.md), so it is hatched and has a legend.
+  it('draws a transfer as its own hatched segment with a legend', () => {
+    const svg = drawn({ a: 'e2' });
+    expect(svg).toContain('fill="url(#gantt-transfer)"');
+    expect(svg).toContain('b：移轉 3 分鐘');
+    expect(svg).toContain('作業時間');
+    expect(svg).toContain('移轉時間');
+  });
+
+  // Why: with no transfer there is nothing to explain, so the drawing stays as it was and carries no legend.
+  it('adds no legend when no transfer is filled in', () => {
+    const svg = drawn({ a: 'e3' });
+    expect(svg).not.toContain('url(#gantt-transfer)"');
+    expect(svg).not.toContain('作業時間');
+  });
+
+  // Why: the segment must end exactly where the work bar starts, so a reader can add the two up to the bar's start.
+  it('puts the segment right before the bar it leads to', () => {
+    const result = estimateGraphGantt(branching(), { a: 'e2' });
+    if (!result.ok) throw new Error('expected an estimate');
+    const row = result.rows.find(r => r.nodeId === 'b')!;
+    expect(row.start! - row.transferIn).toBe(10);
+  });
+
+  // Why: when two lines lead in, the segment belongs to the line that decides the start, not the one with the longest transfer.
+  it('shows the transfer of the line that sets the start', () => {
+    const g = branching();
+    g.edges.push(edge('e6', 'c', 'b', 1));
+    g.edges.find(e => e.id === 'e2')!.transferMin = 0;
+    const result = estimateGraphGantt(g, {});
+    if (!result.ok) throw new Error('expected an estimate');
+    // a ends at 10; c ends at 15 and its transfer of 1 puts b at 16, later than a's 10 + 0.
+    expect(result.rows.find(r => r.nodeId === 'b')).toMatchObject({ start: 16, transferIn: 1 });
+  });
+});
+
 describe('branchPoints', () => {
   // Why: a branch the person already chose must stay listed, or the choice could never be changed or cleared.
   it('lists nodes that offer several lines, also after a choice, and skips nodes on a skipped branch', () => {
