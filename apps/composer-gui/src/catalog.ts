@@ -18,10 +18,12 @@ export function parseManifest(text: string): { kits: ManifestKit[] } {
 export function loadKits(text: string): Kit[] {
   const manifest = parseManifest(text);
   const replacements: Record<string, string> = overlay.replacements;
+  // Dependencies the baseline manifest omits but the assembled frontend needs.
+  const extraDependencies: Record<string, string[]> = overlay.extraDependencies;
   const presentation: Record<string, { displayName: string; businessCapability: string }> = overlay.presentation;
   const result = [...manifest.kits.filter(k => !Object.hasOwn(replacements, k.id)), ...overlay.add].map(k => ({
     ...k, ...presentation[k.id], version: k.version ?? overlay.version,
-    dependencies: k.dependencies.map(id => replacements[id] ?? id),
+    dependencies: [...new Set([...k.dependencies.map(id => replacements[id] ?? id), ...(extraDependencies[k.id] ?? [])])],
     subfeatures: (k.subfeatures ?? []).map(s => ({ ...s, defaultSelected: s.defaultSelected ?? false,
       // Baseline business options without UI targets remain in the readonly manifest.
       options: (s.options ?? []).filter(o => o.target),

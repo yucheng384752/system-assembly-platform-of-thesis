@@ -122,7 +122,7 @@ export async function policyData(plan, kits = path.join(repository, 'kits')) {
   for (const item of definitions.sort((a, b) => a.id.localeCompare(b.id))) {
     catalog.kits[item.id] = {
       available: plan.included.includes(item.id), assembled: plan.included.includes(item.id),
-      dependencies: item.dependencies.map(id => overlay.replacements[id] ?? id),
+      dependencies: [...new Set([...item.dependencies.map(id => overlay.replacements[id] ?? id), ...(overlay.extraDependencies?.[item.id] ?? [])])],
       subfeatures: Object.fromEntries((item.subfeatures ?? []).map(f => [f.id, !!f.defaultSelected])),
     };
     let registry, workflow;

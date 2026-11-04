@@ -6,9 +6,9 @@ import path from 'node:path';
 const repo = process.env.KV_REPO ?? process.cwd();
 const out = 'C:/Users/gslab/Desktop/kv-out';
 const python = 'C:/Users/gslab/Desktop/composer-refactor/services/preview/.test-venv/Scripts/python.exe';
-const required = ['platform-core-kit', 'entry-permission-kit', 'station-data-link-kit', 'upload-validation-kit', 'import-pipeline-kit'];
-// generic-forms-kit (upload page, D152) and audit-edit-kit (generic table page) are front-end couplings the catalog does not declare.
-const base = [...required, 'generic-forms-kit', 'audit-edit-kit'];
+// The required set as the catalog expands it (see catalog.test.ts): the required Kits plus the Kits they declare as dependencies.
+const required = ['platform-core-kit', 'entry-permission-kit', 'station-data-link-kit', 'upload-validation-kit', 'import-pipeline-kit', 'generic-forms-kit', 'audit-edit-kit'];
+const base = required;
 const optional = ['query-traceability-kit', 'analytics-kit', 'audit-edit-kit', 'logs-ops-kit',
   'mod-subscription-kit', 'factory-core-kit', 'analytical-four-kit', 'station-admin-kit'];
 const only = process.argv.slice(2);

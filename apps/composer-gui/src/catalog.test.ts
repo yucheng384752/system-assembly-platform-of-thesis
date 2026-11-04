@@ -20,6 +20,12 @@ test('selection expands required flows, required Kits, flow prerequisites and Ki
   expect(result.enabledKits).toEqual(expect.arrayContaining(['platform-core-kit', 'entry-permission-kit', 'upload-validation-kit', 'query-traceability-kit', 'analytics-kit']));
   expect(selectKits(kits, []).enabledKits).not.toContain('analytics-kit');
 });
+test('required Kits alone already carry the Kits their frontend needs (overlay extraDependencies)', () => {
+  const required = selectKits(kits, []).enabledKits;
+  // Upload page uses generic-forms; generic-forms table page uses the audit-edit dialog.
+  expect(required).toEqual(expect.arrayContaining(['upload-validation-kit', 'generic-forms-kit', 'audit-edit-kit']));
+  expect(parseManifest(raw).kits.find(k => k.id === 'upload-validation-kit')?.dependencies).not.toContain('generic-forms-kit');
+});
 test('missing references, duplicate IDs and cycles fail with paths', () => {
   const a = { ...kits[0], id: 'a', required: false, dependencies: ['b'] };
   const b = { ...a, id: 'b', dependencies: ['a'] };
