@@ -38,7 +38,7 @@ export function NodeDetails({ value, node, onChange }: { value: AovGraphDocument
     })}
     <label htmlFor="node-duration">標準工時（分鐘，甘特圖用）</label>
     <input id="node-duration" type="number" min={0} max={525600} step="any" value={node.durationMin ?? ''} onChange={e => minutes(e.target.value, n => patch({ durationMin: n }))} />
-    {incoming.length > 0 && <fieldset><legend>移轉時間（分鐘，選填；未填以 0 計）</legend>{incoming.map(e => <div key={e.id}>
+    {incoming.length > 0 && <fieldset className="transfer-times"><legend>移轉時間（分鐘，選填；未填以 0 計）</legend>{incoming.map(e => <div key={e.id}>
       <label htmlFor={`transfer-${e.id}`}>自「{nameOf(e.from)}」移轉</label>
       <input id={`transfer-${e.id}`} type="number" min={0} max={525600} step="any" value={e.transferMin ?? ''} onChange={ev => minutes(ev.target.value, n => onChange(setEdgeTransfer(value, e.id, n)))} />
     </div>)}</fieldset>}
