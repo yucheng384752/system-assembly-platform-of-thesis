@@ -12,7 +12,8 @@ import zlib
 
 import numpy as np
 
-from app.analytical_four.engine.analysis.prescriptive.RAG.vector_builder import BaseVectorBuilder, VectorBuilderFactory
+from app.analytical_four.engine.analysis.prescriptive.RAG.vector_builder.base_vectorbuilder import BaseVectorBuilder
+from app.analytical_four.engine.analysis.prescriptive.RAG.vector_builder.vectorbuilder_factory import VectorBuilderFactory
 
 BUILDER_NAME = 'builtin-hash'
 DIMENSIONS = 512

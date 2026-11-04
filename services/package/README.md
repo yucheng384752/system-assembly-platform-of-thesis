@@ -66,3 +66,7 @@ node node_modules/typescript/bin/tsc --noEmit --allowJs --checkJs --strict --tar
 ```
 
 此指令也追蹤到唯讀 preview/assemble.mjs 的既有型別診斷。需分別回報 package 診斷數與完整指令退出碼，不把完整指令稱為通過。
+
+## 依賴檔選項（2026-11-03）
+
+各 Kit 的 `requirements.txt` 每個套件都要用 `==` 固定版本。唯一允許的 pip 選項是 `--extra-index-url <https 網址>`（不可含帳密），用在需要自己的套件來源的 Kit；目前只有 `analytical-four-kit` 用它指向 PyTorch 的 CPU 輪子，避免映像裝進數 GB 的 CUDA 版。合併結果把網址排在檔案最前面，其他 pip 選項一律拒絕。測試見 `tests/requirements.test.mjs`。

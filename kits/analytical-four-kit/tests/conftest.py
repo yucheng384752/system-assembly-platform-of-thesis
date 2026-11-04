@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import threading
 import time
@@ -9,7 +10,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-BACKEND = Path(__file__).resolve().parents[1] / 'src' / 'backend'
+# A4_BACKEND points the tests at another copy of the backend, e.g. the one inside a built system image.
+BACKEND = Path(os.environ.get('A4_BACKEND') or Path(__file__).resolve().parents[1] / 'src' / 'backend')
 sys.path.insert(0, str(BACKEND))
 
 from app.analytical_four import seed_demo  # noqa: E402

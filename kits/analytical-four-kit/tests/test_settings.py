@@ -52,7 +52,7 @@ def test_api_key_is_a_variable_name_never_a_value():
     assert make(llm={'apiKeyEnv': 'LLM_API_KEY'}).llm.apiKeyEnv == 'LLM_API_KEY'
 
 
-@pytest.mark.parametrize('path', ['../outside.json', '/etc/passwd', 'C:/Windows/win.ini', 'a/../../b.json', ''])
+@pytest.mark.parametrize('path', ['../outside.json', '/etc/passwd', 'C:/Windows/win.ini', 'a/../../b.json', '', r'..\outside.json', r'a\..\..\b.json', r'\\server\share\x'])
 def test_paths_cannot_leave_the_data_directory(tmp_path, path):
     with pytest.raises(SettingsError):
         resolve_inside(tmp_path, path, 'x')
