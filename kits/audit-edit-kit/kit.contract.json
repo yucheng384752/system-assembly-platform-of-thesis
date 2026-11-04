@@ -23,9 +23,7 @@
       "label": "查看稽核事件",
       "access": "read",
       "defaultRoles": [
-        "admin",
-        "manager",
-        "audit"
+        "admin"
       ],
       "routes": [
         {
