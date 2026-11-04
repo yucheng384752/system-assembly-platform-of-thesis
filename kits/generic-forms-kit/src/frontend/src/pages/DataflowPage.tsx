@@ -28,8 +28,10 @@ function apiHeaders(extra: Record<string, string> = {}): HeadersInit {
 }
 
 async function detail(response: Response): Promise<string> {
+  if (response.status === 401) return "登入已逾時，請重新登入。";
+  if (response.status === 403) return "您的角色沒有這項操作的權限，請洽管理者。";
   const body = await response.json().catch(() => ({}));
-  return body.detail || `HTTP ${response.status}`;
+  return typeof body.detail === "string" && body.detail ? body.detail : `操作失敗（${response.status}）`;
 }
 
 const input: CSSProperties = { padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: 4 };
@@ -43,6 +45,7 @@ export function DataflowPage() {
   const [draft, setDraft] = useState(emptyLink());
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState("");
+  const [done, setDone] = useState("");
 
   async function load(flowCode = draft.flow_code) {
     setError("");
@@ -63,6 +66,7 @@ export function DataflowPage() {
   async function save(event: FormEvent) {
     event.preventDefault();
     setError("");
+    setDone("");
     const response = await fetch("/api/dataflows/links", {
       method: editing ? "PUT" : "POST",
       headers: apiHeaders({ "Content-Type": "application/json" }),
@@ -76,6 +80,7 @@ export function DataflowPage() {
     setDraft({ ...emptyLink(), flow_code: flowCode });
     setEditing(false);
     await load(flowCode);
+    setDone(editing ? "連結已更新。" : "連結已新增。");
   }
 
   async function remove(link: DataflowLink) {
@@ -84,8 +89,9 @@ export function DataflowPage() {
       `/api/dataflows/links/${encodeURIComponent(link.from_station_code)}/${encodeURIComponent(link.to_station_code)}?flow_code=${encodeURIComponent(link.flow_code)}`,
       { method: "DELETE", headers: apiHeaders() },
     );
+    setDone("");
     if (!response.ok) setError(await detail(response));
-    else await load(link.flow_code);
+    else { await load(link.flow_code); setDone("連結已刪除。"); }
   }
 
   function edit(link: DataflowLink) {
@@ -100,7 +106,8 @@ export function DataflowPage() {
   return (
     <div style={{ display: "grid", gap: 16 }}>
       <h2 style={{ margin: 0 }}>資料流管理</h2>
-      {error && <div style={{ color: "#b91c1c" }}>{error}</div>}
+      {error && <div role="alert" style={{ color: "#b91c1c" }}>{error}</div>}
+      {done && <div role="status" style={{ color: "#15803d" }}>{done}</div>}
       <form onSubmit={save} style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end" }}>
         <label>資料流<br /><input required value={draft.flow_code} onChange={(e) => setDraft({ ...draft, flow_code: e.target.value })} style={input} /></label>
         <label>上游站別<br /><select required disabled={editing} value={draft.from_station_code} onChange={(e) => setDraft({ ...draft, from_station_code: e.target.value })} style={input}><option value="">請選擇</option>{forms.map((form) => <option key={form.code} value={form.code}>{form.name} ({form.code})</option>)}</select></label>
@@ -117,7 +124,7 @@ export function DataflowPage() {
           {links.map((link) => <tr key={link.id}>
             <td>{link.flow_code}</td><td>{link.from_station_code}</td><td>{link.to_station_code}</td>
             <td>{link.parent_column || "—"} → {link.child_column || "—"}</td>
-            <td><button type="button" onClick={() => edit(link)}>編輯</button> <button type="button" onClick={() => void remove(link)}>刪除</button></td>
+            <td><button type="button" style={button()} onClick={() => edit(link)}>編輯</button> <button type="button" style={button("#ef4444")} onClick={() => void remove(link)}>刪除</button></td>
           </tr>)}
           {links.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", color: "#6b7280", padding: 16 }}>尚無連結</td></tr>}
         </tbody>

@@ -36,6 +36,14 @@ const LEVEL_COLOR: Record<string, string> = {
   CRITICAL: '#7c3aed',
 }
 
+const TYPE_LABEL: Record<string, string> = {
+  user_action: '使用者操作', system_error: '系統錯誤', system_warning: '系統警告', system: '系統',
+}
+
+const LEVEL_LABEL: Record<string, string> = {
+  INFO: '資訊', WARNING: '警告', ERROR: '錯誤', CRITICAL: '嚴重',
+}
+
 const TYPE_BADGE: Record<string, { bg: string; text: string }> = {
   user_action:     { bg: '#dbeafe', text: '#1e40af' },
   system_error:    { bg: '#fee2e2', text: '#991b1b' },
@@ -77,7 +85,9 @@ export function DeveloperLogsPage() {
       if (filterAction) params.set('action', filterAction)
 
       const res = await fetch(`/api/logs/?${params}`, { headers: apiHeaders() })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (res.status === 401) throw new Error('登入已逾時，請重新登入。')
+      if (res.status === 403) throw new Error('您的角色沒有查看日誌的權限，請洽管理者。')
+      if (!res.ok) throw new Error(`讀取日誌失敗（${res.status}）`)
       const data: LogsResponse = await res.json()
       setItems(data.items)
       setTotal(data.total)
@@ -107,13 +117,13 @@ export function DeveloperLogsPage() {
   return (
     <div style={{ padding: '1.5rem', fontFamily: 'sans-serif', maxWidth: 1100 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>System Logs</h2>
+        <h2 style={{ margin: 0 }}>系統日誌</h2>
         <span style={{ color: '#6b7280', fontSize: 13 }}>
-          {total} entries
+          共 {total} 筆
         </span>
         <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
           <input type="checkbox" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} />
-          Auto-refresh (10s)
+          每 10 秒自動更新
         </label>
       </div>
 
@@ -124,11 +134,11 @@ export function DeveloperLogsPage() {
           onChange={e => setFilterType(e.target.value as LogType)}
           style={selectStyle}
         >
-          <option value="">All types</option>
-          <option value="user_action">user_action</option>
-          <option value="system_error">system_error</option>
-          <option value="system_warning">system_warning</option>
-          <option value="system">system</option>
+          <option value="">全部類型</option>
+          <option value="user_action">{TYPE_LABEL.user_action}</option>
+          <option value="system_error">{TYPE_LABEL.system_error}</option>
+          <option value="system_warning">{TYPE_LABEL.system_warning}</option>
+          <option value="system">{TYPE_LABEL.system}</option>
         </select>
 
         <select
@@ -136,28 +146,28 @@ export function DeveloperLogsPage() {
           onChange={e => setFilterLevel(e.target.value as LogLevel)}
           style={selectStyle}
         >
-          <option value="">All levels</option>
-          <option value="INFO">INFO</option>
-          <option value="WARNING">WARNING</option>
-          <option value="ERROR">ERROR</option>
-          <option value="CRITICAL">CRITICAL</option>
+          <option value="">全部層級</option>
+          <option value="INFO">{LEVEL_LABEL.INFO}</option>
+          <option value="WARNING">{LEVEL_LABEL.WARNING}</option>
+          <option value="ERROR">{LEVEL_LABEL.ERROR}</option>
+          <option value="CRITICAL">{LEVEL_LABEL.CRITICAL}</option>
         </select>
 
         <input
-          placeholder="Filter by action…"
+          placeholder="依動作關鍵字篩選…"
           value={filterAction}
           onChange={e => setFilterAction(e.target.value)}
           style={{ ...selectStyle, width: 180 }}
         />
 
         <button onClick={() => load(0)} style={btnStyle} disabled={loading}>
-          {loading ? 'Loading…' : 'Search'}
+          {loading ? '載入中…' : '搜尋'}
         </button>
         <button
           onClick={() => { setFilterType(''); setFilterLevel(''); setFilterAction('') }}
           style={{ ...btnStyle, background: '#f3f4f6', color: '#374151' }}
         >
-          Clear
+          清除
         </button>
       </div>
 
@@ -172,7 +182,7 @@ export function DeveloperLogsPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ background: '#f9fafb', textAlign: 'left' }}>
-              {['Timestamp', 'Type', 'Level', 'Action', 'State', 'Description'].map(h => (
+              {['時間', '類型', '層級', '動作', '狀態', '說明'].map(h => (
                 <th key={h} style={thStyle}>{h}</th>
               ))}
             </tr>
@@ -181,7 +191,7 @@ export function DeveloperLogsPage() {
             {items.length === 0 && !loading && (
               <tr>
                 <td colSpan={6} style={{ textAlign: 'center', padding: '24px 0', color: '#9ca3af' }}>
-                  No logs found
+                  沒有符合的日誌
                 </td>
               </tr>
             )}
@@ -198,12 +208,12 @@ export function DeveloperLogsPage() {
                     color: TYPE_BADGE[row.log_type]?.text ?? '#374151',
                     padding: '2px 6px', borderRadius: 4, whiteSpace: 'nowrap',
                   }}>
-                    {row.log_type}
+                    {TYPE_LABEL[row.log_type] ?? row.log_type}
                   </span>
                 </td>
                 <td style={tdStyle}>
                   <span style={{ color: LEVEL_COLOR[row.level] ?? '#374151', fontWeight: 600 }}>
-                    {row.level}
+                    {LEVEL_LABEL[row.level] ?? row.level}
                   </span>
                 </td>
                 <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{row.action}</td>
@@ -225,17 +235,17 @@ export function DeveloperLogsPage() {
             disabled={offset === 0 || loading}
             style={btnStyle}
           >
-            ‹ Prev
+            ‹ 上一頁
           </button>
           <span style={{ color: '#6b7280' }}>
-            Page {currentPage} / {totalPages}
+            第 {currentPage} / {totalPages} 頁
           </span>
           <button
             onClick={() => load(offset + PAGE_SIZE)}
             disabled={offset + PAGE_SIZE >= total || loading}
             style={btnStyle}
           >
-            Next ›
+            下一頁 ›
           </button>
         </div>
       )}

@@ -166,8 +166,16 @@ if has("/api/forms"):
         check(f"admin deletes form {c_}", s in (200, 204), (s, j))
 
 if has("/api/audit/events"):
-    s, j = call("GET", "/api/audit/events", tok["aud"])
-    check("audit role reads audit events (200)", s == 200, (s, str(j)[:200]))
+    # The entry declaration and the endpoint now agree: only the system administrator reads audit events.
+    s, _ = call("GET", "/api/audit/events", tok["aud"])
+    check("audit role is refused audit events (403)", s == 403, s)
+    s, j = call("GET", "/api/audit/events?limit=200", adm)
+    events = j.get("items", j.get("events", [])) if isinstance(j, dict) else []
+    actions = {e.get("action") for e in events if isinstance(e, dict)}
+    check("admin reads audit events (200)", s == 200, (s, str(j)[:200]))
+    check("audit events record the form operations performed above", {"forms.create", "forms.schema.save", "forms.import"} <= actions, sorted(a for a in actions if a))
+    if has("/api/edit/records"):
+        check("audit events record the record edit", "records.edit" in actions, sorted(a for a in actions if a))
 
 if has("/api/analytics"):
     s, j = call("GET", "/api/analytics/trend?code=no-such-form", adm)
@@ -184,6 +192,9 @@ if has("/api/analytics"):
 if has("/api/logs"):
     s, j = call("GET", "/api/logs/", adm)
     check("logs: list answers (200)", s == 200, (s, str(j)[:200]))
+    s, j = call("GET", "/api/logs/?log_type=user_action&limit=200", adm)
+    logged = {e.get("action") for e in (j.get("items", []) if isinstance(j, dict) else [])}
+    check("logs: form operations appear as user actions", {"forms.create", "forms.import"} <= logged, sorted(a for a in logged if a))
     s, j = call("GET", "/api/logs/summary", adm)
     check("logs: summary answers (200)", s == 200, (s, str(j)[:200]))
     s, _ = call("GET", "/api/logs/", tok["op"])
