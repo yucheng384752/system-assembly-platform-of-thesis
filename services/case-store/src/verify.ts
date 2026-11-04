@@ -2,7 +2,7 @@ import { compile, type ActionLibrary, type ProjectFile } from '../../../libs/aov
 import version from '../../../libs/aov-core/VERSION.json';
 import { validateAovBundle } from '../../../libs/aov-integration';
 
-// The server runs this itself (D168): the browser never supplies the verified report, so a client cannot claim "passed".
+// The server runs this itself (D180): the browser never supplies the verified report, so a client cannot claim "passed".
 // Scope is the bundle contract plus the A core compile (which runs the full rule validation). The interactive
 // simulation in the GUI is a browser session and is not re-run here; the report says so instead of implying it was.
 export const VERIFY_SCOPE = 'bundle-contract+core-compile';

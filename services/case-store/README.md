@@ -1,6 +1,6 @@
 # 案例庫本機服務
 
-D164、D168。契約見 `docs/aov-case-store.md`。只綁 127.0.0.1，需 Node 22.13 以上。
+D176、D180。契約見 `docs/aov-case-store.md`。只綁 127.0.0.1，需 Node 22.13 以上。
 
 啟動：`npm run case-store`（環境變數 `CASE_STORE_PORT` 預設 18788、`CASE_STORE_DB` 預設 `data/case-store.sqlite3`）。測試：`npm --prefix services/case-store test`，已接進根目錄 `npm test`。
 

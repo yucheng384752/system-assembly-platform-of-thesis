@@ -2,7 +2,7 @@ import { createServer, type Server } from 'node:http';
 import type { CaseStore } from '../../../libs/case-store';
 import { handle } from './handler';
 
-// Adapts node:http to the pure handler. Loopback only (D164); the GUI reaches it through the Vite proxy, so no CORS.
+// Adapts node:http to the pure handler. Loopback only (D176); the GUI reaches it through the Vite proxy, so no CORS.
 export const HOST = '127.0.0.1';
 const MAX_BODY = 12_000_000; // a 10 MB bundle plus JSON string escaping and the other fields
 

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { canonicalJson } from '../aov-integration';
 
-// Logical backup (D168): plain JSON that stays readable without SQLite, so the history outlives the storage engine.
+// Logical backup (D180): plain JSON that stays readable without SQLite, so the history outlives the storage engine.
 const TABLES = ['flow_case', 'flow_version', 'node_lifecycle', 'node_alias', 'combo_lifecycle'] as const;
 type Table = (typeof TABLES)[number];
 type Row = Record<string, string | number | null>;

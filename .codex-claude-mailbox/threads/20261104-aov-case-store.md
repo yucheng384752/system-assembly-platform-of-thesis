@@ -22,7 +22,7 @@ artifacts:
 
 # Goal
 
-依 `docs/aov-case-store.md`（D163 至 D167）做 AoV 管理系統：保留已驗證流程的歷次版本與修改原因、淘汰舊 node 與 node 組合、合併功能重複的 node。分支 `feature/aov-case-store`。三批全部完成後才向 user 回報。
+依 `docs/aov-case-store.md`（D175 至 D179）做 AoV 管理系統：保留已驗證流程的歷次版本與修改原因、淘汰舊 node 與 node 組合、合併功能重複的 node。分支 `feature/aov-case-store`。三批全部完成後才向 user 回報。
 
 # 批次
 
@@ -53,7 +53,7 @@ cwd 必須是專案根目錄。Codex 只寫程式與測試，不執行 git、不
 
 # 批三 Handoff（Codex）
 
-**預計完成時間：2026-11-05 12:00。** 到期未完成由 Claude 接手（先確認 Codex 已停止）。cwd 為專案根目錄；Codex 只寫程式與測試，不執行 git、不連網、不裝依賴、不啟動伺服器或瀏覽器。規格唯一來源：`DESIGN.md` 最後一節「案例庫頁」、`services/case-store/README.md`（路由與回應）、D169；有不明處或衝突就停工並寫進 Codex Notes，不自行裁決。
+**預計完成時間：2026-11-05 12:00。** 到期未完成由 Claude 接手（先確認 Codex 已停止）。cwd 為專案根目錄；Codex 只寫程式與測試，不執行 git、不連網、不裝依賴、不啟動伺服器或瀏覽器。規格唯一來源：`DESIGN.md` 最後一節「案例庫頁」、`services/case-store/README.md`（路由與回應）、D181；有不明處或衝突就停工並寫進 Codex Notes，不自行裁決。
 
 可動的檔案：新增 `apps/composer-gui/src/caseStoreClient.ts`、`CaseLibraryPage.tsx` 與其測試；修改 `AppShell.tsx`（`PageId`、`pages`）、`App.tsx`（接線）、`WorkflowCanvas.tsx`（工具箱停用已淘汰動作，改動要最小）、`Icons.tsx`（若需要一個新圖示，手寫 SVG）、`style.css`。不得動 `libs/`、`services/`、`vite.config.ts`、`DESIGN.md`、`schemas/`、`config/`。
 
@@ -99,7 +99,7 @@ cwd 必須是專案根目錄。Codex 只寫程式與測試，不執行 git、不
 
 #### 待裁決與修復清單
 
-1. **導覽需求與既有預期衝突（owner: user）**：DESIGN.md／D169 要求「案例庫」為第六個導覽項、位於流程之後；shell.test.tsx:14 卻精確要求只有「首頁、流程、資料集、執行記錄、系統設定」五項。需要需求方決定如何更新既有驗收基準；目前禁止修改預期，不能自行裁決。
+1. **導覽需求與既有預期衝突（owner: user）**：DESIGN.md／D181 要求「案例庫」為第六個導覽項、位於流程之後；shell.test.tsx:14 卻精確要求只有「首頁、流程、資料集、執行記錄、系統設定」五項。需要需求方決定如何更新既有驗收基準；目前禁止修改預期，不能自行裁決。
 2. **現況查詢與既有請求預期衝突（owner: user）**：App 依 Handoff 取得現況，會發出同源 GET /case-store-api/lifecycle；localData.test.tsx:49、output.test.tsx:109 與 :226 均只排除 /preview-api/healthz，要求其他 fetch 呼叫為空。本輪三項因此失敗（各看見 2 次 lifecycle GET）。這些 GET 沒有帶樣本資料，但既有斷言禁止該請求；需明確裁決現況探測是否為允許的讀取並更新相應驗收基準，或另定探測時機。未修改這三項測試、未自行規避 fetch 偵測。
 3. **工具卡片 DOM 回歸（實作待修，不需放寬既有測試）**：WorkflowCanvas.test.tsx:169 要求 h4 後緊接圖示按鈕，且按鈕是最後一個子元素；本批為顯示停用原因增加 div 包住 h4，離線時也改了 DOM，造成失敗。可在允許範圍內恢復原本 h4 與按鈕相鄰結構，將原因放在 h4 之前或保持離線原結構；因上述停止條件已觸發，本輪未繼續改程式。此項不能歸因沙箱。
 4. **security CLI 沙箱失敗**：security.test.mjs:128 的簽章步驟讀取暫存 signing-private-key.pem 得到 EPERM，exit 1；afterAll :107 清理暫存目錄也 EPERM。實際路徑 C:\Users\gslab\AppData\Local\Temp\composer-security-ZkmwtP。未繞過權限、未改 security 程式；暫存清理未完成，需外部環境處理。
@@ -145,9 +145,9 @@ cwd 必須是專案根目錄。Codex 只寫程式與測試，不執行 git、不
 Icons.tsx 未需修改。未改 libs、services、vite.config.ts、DESIGN.md、schemas、config 或既有測試。未執行 git、未連網、未新增依賴、未啟動伺服器或瀏覽器；分支未以 git 驗證，沒有目視確認。預計完成時間仍為 2026-11-05 12:00，須先解除導覽／現況查詢與既有測試預期的衝突，再修復 DOM 回歸並重跑完整驗證。狀態保留 in_progress，不宣稱全部完成。
 ## 2026-11-04：批三契約核對停工，尚未實作
 
-已完整閱讀批三 Handoff、DESIGN.md（含案例庫頁）、services/case-store/README.md、D163 至 D169 與 CLAUDE.md。依 user 與 Handoff「有不明處或衝突就停工並寫進 Codex Notes，不自行裁決」停止於契約核對階段。
+已完整閱讀批三 Handoff、DESIGN.md（含案例庫頁）、services/case-store/README.md、D175 至 D181 與 CLAUDE.md。依 user 與 Handoff「有不明處或衝突就停工並寫進 Codex Notes，不自行裁決」停止於契約核對階段。
 
-待釐清事項（owner: user）：D169 第 6 項要求 GET /lifecycle；services/case-store/src/handler.ts 已呼叫 store.listLifecycle()，但 Handoff 指定作為「路由與回應」來源的 services/case-store/README.md 未列出此路由，也沒有其成功回應欄位契約。批三需要該回應顯示節點與組合現況、替代者及原因，並控制工具箱停用。請先補齊 README 的路由與回應契約，或明確指定可依現有 listLifecycle 型別與實作作為契約；本次不自行裁決。README 位於禁止修改的 services/，未更動。
+待釐清事項（owner: user）：D181 第 6 項要求 GET /lifecycle；services/case-store/src/handler.ts 已呼叫 store.listLifecycle()，但 Handoff 指定作為「路由與回應」來源的 services/case-store/README.md 未列出此路由，也沒有其成功回應欄位契約。批三需要該回應顯示節點與組合現況、替代者及原因，並控制工具箱停用。請先補齊 README 的路由與回應契約，或明確指定可依現有 listLifecycle 型別與實作作為契約；本次不自行裁決。README 位於禁止修改的 services/，未更動。
 
 已確認 vite.config.ts 存在 /case-store-api 同源轉送，這部分沒有缺口；未更動設定。未新增或修改應用程式及測試，既有測試預期未動。
 
@@ -166,10 +166,10 @@ Icons.tsx 未需修改。未改 libs、services、vite.config.ts、DESIGN.md、s
 
 ## 2026-11-04：契約核對後停工，尚未實作
 
-已完整閱讀 `docs/aov-case-store.md`、本 thread 與 `docs/decision-log.md`（含 D163 至 D167）。依 user 與批一 Handoff「有不明處或與現有程式衝突就停工」要求，以下問題未裁決前不新增程式或測試：
+已完整閱讀 `docs/aov-case-store.md`、本 thread 與 `docs/decision-log.md`（含 D175 至 D179）。依 user 與批一 Handoff「有不明處或與現有程式衝突就停工」要求，以下問題未裁決前不新增程式或測試：
 
 1. **父版本輸入與並行衝突的判準未定。** 契約 §4.4 要求檢查 `parent_version`，且並行存同一案例時一方須得到 `E-VERSION-CONFLICT`；但 §5 的 `saveVersion({ caseId, content, verifiedReport, changeReason, author })` 沒有父版本或預期版本參數。§3.3 只規定父版本指向同案例既有版本，未規定由誰選定、是否必須為最新版。需明訂父版本來源，以及並行衝突是依呼叫者預期版本、交易快照或鎖競爭判定；不能自行新增參數或採自動選最新版。
-2. **合併後的狀態檢查順序需明訂。** §4.3 要求「比對前先把 node 的 actionId 以別名解析到終點」，但 §6 與 D166 又要求以舊 id 儲存必須拒絕並指出保留方。若只檢查解析終點，原 id 的 merged 狀態會消失。需確認是否同時檢查原 id 的 merged 狀態與終點的淘汰狀態，以及組合兩端是否也要解析別名；未自行選定處理方式。
+2. **合併後的狀態檢查順序需明訂。** §4.3 要求「比對前先把 node 的 actionId 以別名解析到終點」，但 §6 與 D178 又要求以舊 id 儲存必須拒絕並指出保留方。若只檢查解析終點，原 id 的 merged 狀態會消失。需確認是否同時檢查原 id 的 merged 狀態與終點的淘汰狀態，以及組合兩端是否也要解析別名；未自行選定處理方式。
 
 驗證紀錄：
 - `npm.cmd run typecheck`：未執行（0 次）；契約核對階段即停工，無本批程式可驗證，無通過／失敗數字。
@@ -231,5 +231,5 @@ Icons.tsx 未需修改。未改 libs、services、vite.config.ts、DESIGN.md、s
 # Claude Notes
 
 - 2026-11-04 批一審閱：Codex 第一次依停止條件停工（契約漏了 `expectedParent` 與 merged／別名檢查順序），已由 Claude 裁決並補進契約（f283e06）。Codex 續做後自述全過；Claude 在沙箱外重驗：根目錄 typecheck 通過、`libs/case-store` 38 項通過、根目錄 `npm.cmd test` 的 Vitest 結束碼 0 且 preview 14／14 通過。Codex 回報的 security CLI 與 evaluator 失敗是沙箱 EPERM，沙箱外不再出現。逐行審閱 `index.ts`：交易、觸發器、順序與契約一致。已知限制：`scanUsage` 會逐版本解析整份內容，版本很多時成本線性成長，批二若有效能需求再加索引表；組合比對以紀錄當下的 JSON 全等，不跨別名合併同一組合的不同寫法。Claude 補：根目錄 `test` script 接上 `libs/case-store` 的測試，否則回歸時不會被跑到。批一完成，待批二。
-- 2026-11-04 批二（Claude 自做，D168）：`libs/case-store/backup.ts` 加邏輯 JSON 備份匯出匯入；`services/case-store/` 為本機 HTTP 服務（純函式 handler 加 node:http 轉接、`npm run case-store` 啟動）。驗證：根目錄 typecheck 通過；`npm test` 全過（Vitest 49 檔 647 通過 1 跳過、preview 14／14、case-store 38／38、service 7／7）；實際以 esbuild 打包啟動並用 curl 打過（建立與列出案例、UTF-8 往返、外來 Origin 得 403），已停止該行程。發現並處理：Codex 夾具的 `aov` 是空殼，伺服器端 compile 正確地拒絕，測試改用 C 的通用範例專案。變異驗證：拿掉欄位白名單時原測試仍綠（SQLite 自己也會拒），故改斷言錯誤出自白名單後才能抓到。已知限制：服務測試的回應型別用了 `any`（僅測試檔，違反「不用 any」的精神，批三前補正）；驗證範圍不含瀏覽器互動模擬（D168 已明寫）。
-- 2026-11-04：分支已建，D163 至 D167 與契約文件已寫入。技術選型 `node:sqlite`（D164）是 Claude 建議，user 回覆未特別提及，若有異議可改。
+- 2026-11-04 批二（Claude 自做，D180）：`libs/case-store/backup.ts` 加邏輯 JSON 備份匯出匯入；`services/case-store/` 為本機 HTTP 服務（純函式 handler 加 node:http 轉接、`npm run case-store` 啟動）。驗證：根目錄 typecheck 通過；`npm test` 全過（Vitest 49 檔 647 通過 1 跳過、preview 14／14、case-store 38／38、service 7／7）；實際以 esbuild 打包啟動並用 curl 打過（建立與列出案例、UTF-8 往返、外來 Origin 得 403），已停止該行程。發現並處理：Codex 夾具的 `aov` 是空殼，伺服器端 compile 正確地拒絕，測試改用 C 的通用範例專案。變異驗證：拿掉欄位白名單時原測試仍綠（SQLite 自己也會拒），故改斷言錯誤出自白名單後才能抓到。已知限制：服務測試的回應型別用了 `any`（僅測試檔，違反「不用 any」的精神，批三前補正）；驗證範圍不含瀏覽器互動模擬（D180 已明寫）。
+- 2026-11-04：分支已建，D175 至 D179 與契約文件已寫入。技術選型 `node:sqlite`（D176）是 Claude 建議，user 回覆未特別提及，若有異議可改。

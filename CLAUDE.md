@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **專案名稱與目標**：Composer Platform 重構專案，是 Form System Kit Composer（基線版）的改良版，成果將撰寫成論文。設計須能說明相對基線版的差異與改良理由。規格唯一來源為 `docs/project-spec.md`，決議記錄於 `docs/decision-log.md`。
 - **主要程式語言**：TypeScript（Composer GUI 與 `libs/ui-runtime`）。`kits/` 是基線版副本，含 Python（FastAPI）後端與 TSX 前端，目前不在 typecheck 與測試範圍。
-- **套件管理與環境**：npm（`package-lock.json` 固定版本），Node 需 ^20.19.0 或 >=22.12.0（案例庫的本機服務與測試用 node:sqlite，需 >=22.13，D164）；開發機為 Windows、Node 24.15.0。新增依賴須先經 user 核准。
+- **套件管理與環境**：npm（`package-lock.json` 固定版本），Node 需 ^20.19.0 或 >=22.12.0（案例庫的本機服務與測試用 node:sqlite，需 >=22.13，D176）；開發機為 Windows、Node 24.15.0。新增依賴須先經 user 核准。
 - **核心框架與依賴**：React 18、Vite 7、Vitest 4 + jsdom + React Testing Library、Ajv（JSON Schema draft 2020-12）。預覽與產出系統共用同一套解析與 renderer（決策 D13）。
 
 ## 架構總覽 (Architecture)

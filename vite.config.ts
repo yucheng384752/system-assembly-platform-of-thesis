@@ -7,7 +7,7 @@ export default defineConfig({
       target: `http://127.0.0.1:${process.env.PREVIEW_API_PORT ?? 18000}`,
       rewrite: path => path.replace(/^\/preview-api/, ''),
     },
-    // D168: the case store service stays loopback-only; the screen reaches it same-origin through this path.
+    // D180: the case store service stays loopback-only; the screen reaches it same-origin through this path.
     '/case-store-api': {
       target: `http://127.0.0.1:${process.env.CASE_STORE_PORT ?? 18788}`,
       rewrite: path => path.replace(/^\/case-store-api/, ''),
