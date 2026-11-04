@@ -12,7 +12,8 @@ const base = required;
 const optional = ['query-traceability-kit', 'analytics-kit', 'audit-edit-kit', 'logs-ops-kit',
   'mod-subscription-kit', 'factory-core-kit', 'analytical-four-kit', 'station-admin-kit'];
 const only = process.argv.slice(2);
-const configs = [['required-only', required], ['base', base], ...optional.map(k => [k.replace(/-kit$/, ''), [...base, k]])];
+const together = ['query-traceability-kit', 'analytics-kit', 'logs-ops-kit', 'mod-subscription-kit', 'factory-core-kit'];
+const configs = [['required-only', required], ['base', base], ...optional.map(k => [k.replace(/-kit$/, ''), [...base, k]]), ['all', [...base, ...together]]];
 mkdirSync(out, { recursive: true });
 const rows = [];
 for (const [name, kits] of configs) {

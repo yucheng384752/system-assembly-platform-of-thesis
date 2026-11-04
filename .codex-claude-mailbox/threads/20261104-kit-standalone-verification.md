@@ -70,6 +70,37 @@ user 要求：Kit 手冊要一個個實測後再寫，並順便驗證 Kit 的可
 - analytical-four-kit 的安裝與操作（見發現 5）。station-admin-kit 沒有正式來源，無法驗證。
 - `wizard` 網頁精靈。
 
+# 第二輪（user 決定後）
+
+user 2026-11-04 的決定：相依補進 Kit 目錄；稽核事件待說明後決定；清理 VM；引擎權限待說明後決定；開始撰寫手冊；修完缺陷後補測未涵蓋項目。
+
+## 已做
+
+- **發現 1 已修**：`config/kits/overlay.json` 新增 `extraDependencies`（upload-validation 相依 generic-forms，generic-forms 相依 audit-edit），`catalog.ts` 與 `services/preview/assemble.mjs` 同步套用，基線 manifest 不動。`catalog.test.ts` 新增測試（必要功能展開後包含兩者）；全套 648 通過。必要集合現在可組裝，且就是已安裝驗證過的「基底」組合。
+- **VM 清理**：移除 8 個已停用的 snap 舊版本、日誌縮到 100 MB、清 snap 下載快取與 apt 快取。可用空間 5.3 GB 增為 7.7 GB。沒有動使用中的 snap 與 Docker 基底映像。
+- **多選配同時安裝（原未涵蓋）**：基底加 query-traceability、analytics、logs-ops、mod-subscription、factory-core 同時選取，安裝 153 秒，冒煙 31/31，功能 52/53（唯一失敗仍是稽核事件權限），後端 5xx 0。
+- **瀏覽器逐頁操作（原未涵蓋）**：以 SSH 通道從 Chrome 操作上述系統：登入、首次強制改密碼（過短密碼被拒並有明確訊息）、登出、建立表單、欄位定義與儲存、「檔案上傳」預覽與匯入、重複列、通用表格直接上傳、紀錄查詢、編輯（含原因，顯示「紀錄已更新」）、資料查詢（命中、查無資料、追溯路徑）、資料分析、日誌、資料流連結、操作員權限。資料庫核對：編輯後 `row_edits` 保存修改前後值（`{"qty":10}` 至 `{"qty":12}`）、原因與操作者；`audit_events` 仍 0 筆。
+
+## 新發現（皆未修改）
+
+9. **操作員按「建立」表單時，伺服器回 403，畫面沒有任何提示**（靜默失敗）；操作員仍看得到所有分頁與建立、刪除按鈕。
+10. **`audit_events` 在編輯、匯入後仍是 0 筆**：稽核事件清單實際上不會有資料，編輯差異存在 `row_edits`，且畫面沒有檢視入口。
+11. **日誌頁全英文且不隨語言切換**；通用表格、檔案上傳、編輯都不寫入日誌（只有程式明確回報的使用者動作與警告以上系統事件），正常系統的日誌是 0 筆。
+12. **「資料查詢」頁沒有套用其他頁的樣式**（預設按鈕與輸入框）。
+13. 欄位定義儲存按鈕文字為「儲存 Schema」，驗證訊息含 `is_key`，型別下拉為英文代碼；與「只顯示業務語言」的原則不一致。儲存成功與資料流新增成功都沒有提示。
+14. 通用表格與檔案上傳的匯入不列入「資料分析」的上傳紀錄。
+15. 表單用的 `form_input` 式程式填值不會觸發前端狀態（核取方塊要真實點擊）；僅影響自動化測試，不是產品缺陷。
+
+## 手冊（D52）進度
+
+依實測改寫使用者手冊：upload-validation、station-data-link、generic-forms、audit-edit、query-traceability（補段）、analytics（補段）、logs-ops、platform-core、entry-permission；管理者手冊：platform-core（安裝流程）、entry-permission、upload-validation、station-data-link。其餘 Kit（import-pipeline、mod-subscription、factory-core、station-admin、analytical-four 與各 Kit 的開發者版）未動：它們沒有操作畫面，或沒有正式來源可驗證。狀態維持 draft，待 user 審閱。`sources` 受 schema 限制只能是 `kits/` 下的檔案，但「檔案上傳」、登入與日誌頁等前端在 `services/frontend/base`，無法列為來源，需 user 決定是否放寬 schema。
+
+## 待 user 決定
+
+- 發現 3（稽核事件權限）：建議維持端點的限制，把入口宣告改為只有系統管理員，畫面才不誤導；若要讓稽核角色可讀則要改端點並限縮在自己的租戶。
+- 發現 2（引擎解壓權限）：建議由引擎明確設定檔案權限。
+- 發現 9 至 14 是否要修，以及手冊 sources 範圍。
+
 # 環境與清理
 
 - VM：192.168.200.63，每組測完以測試專用腳本移除容器、資料卷、`/opt`、`/etc`、`/var/lib` 下該系統的目錄與映像；`~/kv`（Node 22.23.3、測試金鑰、腳本）留著供下一輪。
