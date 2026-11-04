@@ -253,7 +253,8 @@
     "forms": "通用表格",
     "dataflows": "資料流管理",
     "editReasons": "編輯原因管理",
-    "logs": "日誌"
+    "logs": "日誌",
+    "analyticalFour": "製造數據分析"
   },
   "footer": {
     "copyright": "© 2024 表單分析系統. All rights reserved.",
