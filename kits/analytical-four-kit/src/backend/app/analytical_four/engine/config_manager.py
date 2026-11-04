@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 import json
-from app.analytical_four.engine.data_manager import JSONDataManager
+from app.analytical_four.engine.data_manager.json_manager import JSONDataManager
 
 class Method:
     IQR_THRESHOLDS = "IQR Thresholds"

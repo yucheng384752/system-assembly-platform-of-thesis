@@ -108,7 +108,8 @@
     "forms": "Generic forms",
     "dataflows": "Dataflows",
     "editReasons": "Edit reasons",
-    "logs": "Logs"
+    "logs": "Logs",
+    "analyticalFour": "Data analysis"
   },
   "footer": {
     "copyright": "© 2024 Form Analysis System. All rights reserved.",

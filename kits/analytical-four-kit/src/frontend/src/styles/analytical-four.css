@@ -1,0 +1,94 @@
+/* Manufacturing data analysis page. Follows the project's interface conventions (DESIGN.md): native controls, visible labels,
+   controls at least 44px tall, a 3px focus ring, state always written in words, no shadows, no animation. */
+.a4-page {
+  --a4-bg: #f6f8f9;
+  --a4-panel: #ffffff;
+  --a4-text: #172b3a;
+  --a4-muted: #40576a;
+  --a4-primary: #075e54;
+  --a4-error: #a32222;
+  --a4-control: #718096;
+  --a4-card: #c7d0d8;
+  --a4-focus: #17406b;
+  max-width: 100rem;
+  margin: 0 auto;
+  padding: 1rem;
+  color: var(--a4-text);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.a4-h2 { margin: 0; font-size: 2rem; }
+.a4-h3 { margin: 0 0 0.5rem; font-size: 1.25rem; }
+.a4-h4 { margin: 1rem 0 0.5rem; font-size: 1rem; }
+.a4-hint, .a4-muted { color: var(--a4-muted); margin: 0.25rem 0 0.5rem; }
+.a4-mono { font-family: ui-monospace, Consolas, monospace; font-size: 0.9rem; word-break: break-all; }
+.a4-code { font-family: ui-monospace, Consolas, monospace; font-size: 0.85rem; color: var(--a4-muted); }
+
+.a4-tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0; border-bottom: 1px solid var(--a4-card); }
+.a4-tab {
+  min-height: 44px; padding: 0.5rem 1rem; border: 1px solid transparent; border-bottom: 4px solid transparent;
+  background: transparent; color: var(--a4-text); font: inherit; cursor: pointer; border-radius: 0.5rem 0.5rem 0 0;
+}
+.a4-tab.is-active { border-bottom-color: var(--a4-primary); font-weight: 700; color: var(--a4-primary); }
+
+.a4-section { background: var(--a4-panel); border: 1px solid var(--a4-card); border-radius: 0.75rem; padding: 1rem; margin-bottom: 1rem; }
+.a4-card { border: 1px solid var(--a4-card); border-radius: 0.75rem; padding: 1rem; margin-top: 1rem; background: var(--a4-bg); }
+.a4-form { display: grid; gap: 1rem; max-width: 40rem; }
+.a4-field { display: grid; gap: 0.25rem; }
+.a4-field > span { font-weight: 600; }
+.a4-input {
+  min-height: 44px; padding: 0.5rem; border: 1px solid var(--a4-control); border-radius: 0.5rem;
+  font: inherit; color: inherit; background: #ffffff; width: 100%; box-sizing: border-box;
+}
+textarea.a4-input { resize: vertical; }
+.a4-checks { display: flex; flex-wrap: wrap; gap: 1.5rem; }
+.a4-check { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 44px; cursor: pointer; }
+.a4-check input { width: 1.5rem; height: 1.5rem; }
+
+.a4-btn {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0.5rem 1rem;
+  border: 1px solid var(--a4-control); border-radius: 0.5rem; background: #ffffff; color: var(--a4-text); font: inherit; cursor: pointer;
+}
+.a4-btn:disabled { color: #6b7785; border-color: var(--a4-card); cursor: not-allowed; }
+.a4-btn-primary { background: var(--a4-primary); border-color: var(--a4-primary); color: #ffffff; }
+.a4-btn-primary:disabled { background: #d5dbe0; border-color: #d5dbe0; color: #4a5a68; }
+.a4-btn-danger { border-color: var(--a4-error); color: var(--a4-error); }
+.a4-actions { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; margin-top: 0.75rem; }
+
+.a4-file { display: inline-block; position: relative; }
+.a4-file-input { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
+.a4-file-input:focus-visible + .a4-btn { outline: 3px solid var(--a4-focus); outline-offset: 2px; }
+
+.a4-page button:focus-visible, .a4-page input:focus-visible, .a4-page select:focus-visible, .a4-page textarea:focus-visible,
+.a4-page summary:focus-visible, .a4-pre:focus-visible { outline: 3px solid var(--a4-focus); outline-offset: 2px; }
+
+.a4-list { list-style: none; margin: 0; padding: 0; }
+.a4-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--a4-card); }
+.a4-table-wrap { max-height: 28rem; overflow: auto; border: 1px solid var(--a4-card); border-radius: 0.5rem; margin: 0.5rem 0; background: #ffffff; }
+.a4-table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+.a4-table th, .a4-table td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--a4-card); vertical-align: top; }
+.a4-table th { position: sticky; top: 0; background: var(--a4-bg); }
+.a4-caption { text-align: left; font-weight: 700; padding: 0.5rem; }
+.a4-pre { max-height: 28rem; overflow: auto; background: #ffffff; border: 1px solid var(--a4-card); border-radius: 0.5rem; padding: 0.75rem; white-space: pre-wrap; word-break: break-word; font-size: 0.85rem; }
+
+/* Status text carries a word label as well as a border, never color alone. */
+.a4-notice { margin: 0.5rem 0; padding: 0.5rem 0.75rem; border: 1px solid var(--a4-card); border-left-width: 6px; border-radius: 0.5rem; background: #ffffff; }
+.a4-notice-ok { border-left-color: var(--a4-primary); }
+.a4-notice-error { border-left-color: var(--a4-error); color: var(--a4-error); font-weight: 600; }
+.a4-notice-info { border-left-color: var(--a4-control); }
+.a4-flash { position: sticky; top: 0; z-index: 2; background: var(--a4-bg); padding-top: 0.25rem; }
+.a4-findings { margin: 0.5rem 0; padding: 0.5rem 0.75rem; border: 1px solid var(--a4-card); border-radius: 0.5rem; background: #ffffff; }
+.a4-findings ul { margin: 0; padding-left: 1.25rem; }
+.a4-findings-error { border-left: 6px solid var(--a4-error); }
+.a4-findings-warning { border-left: 6px solid var(--a4-control); }
+.a4-details { margin-top: 0.5rem; }
+.a4-details summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+.a4-dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 0.25rem 1rem; margin: 0; }
+.a4-dl div { display: flex; gap: 0.5rem; }
+.a4-dl dt { font-weight: 600; }
+.a4-dl dd { margin: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .a4-page * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

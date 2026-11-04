@@ -2,7 +2,7 @@
 
 日期：2026-11-01
 對應：決議 D154；來源專案 Analytical-Four（commit f49cfd3）；Kit 目錄 `kits/analytical-four-kit/`。
-狀態：已實作並以後端測試與系統包組裝測試驗證；容器映像未建置、實際 E5 向量模型與真實 LLM 服務未驗證（見第 7 節）。
+狀態：已實作並以後端測試、系統包組裝、Linux 映像建置與本機 LLM 驗證；完整部署堆疊、離線安裝與真實資料未驗證（見第 7、15 節）。
 
 ## 1. 範圍
 
@@ -115,8 +115,8 @@ llm       { endpointSet: bool, apiKeyEnv }      不保存位址本身與金鑰
 
 ## 7. 未驗證與限制
 
-- 容器映像未建置；依賴固定版本（pandas 2.2.3、numpy 2.1.3 為系統包既有，其餘見 `requirements.txt`）只在 Windows、Python 3.10 的測試環境以相同版本驗證過，Linux、Python 3.12 未驗證。
-- 預設向量模型 `intfloat/multilingual-e5-large-instruct` 未在測試中載入（需下載約數 GB）；測試與示範用 `builtin-hash`，只比對字詞。
+- 映像已在 Linux、Python 3.12.8 建置並跑過測試（第 15 節）；完整部署堆疊（PostgreSQL、登入、授權閘門、Nginx）與離線映像打包沒有為本 Kit 重跑。
+- 預設向量模型 `intfloat/multilingual-e5-large-instruct` 已用本機快取離線載入並跑完整流程（第 15 節）；自動化測試與示範用 `builtin-hash`，只比對字詞。沒有快取時要下載約 2 GB，這條路徑沒測。
 - 真實 LLM 服務：2026-11-01 以本機 Ollama（qwen3:14b）經 Analytical-Four 的 `local_llm_server.py` 轉接層驗證過一輪（未修改該轉接層，只綁定回送位址），見第 9 節；自動化測試仍用本機假服務。公司內的實際 LLM 服務未連線。
 - 引擎本身仍有未改的行為：序列化器把單一事件的失敗寫入事件而不丟例外（已由 `diagnostic_stage` 檢查）、不良診斷輸出大量 print、向量庫只以筆數判斷是否重建。
 - 單一行程單一執行；多個 worker 同時服務時，執行互斥只在行程內有效（系統包的容器為單一 worker）。
@@ -290,3 +290,60 @@ discardedAt, discardedBy
 - 報告以目前的設定與資料目錄為準；欄位對照改了之後，已暫存的檔案接受時會依新設定重新驗證。
 - 暫存區不會自動清理；丟棄與備份都需要維運人員手動刪除舊檔。
 - 沒有檔案內容的病毒或巨集掃描；CSV 只是被當成資料讀取，不被執行。
+
+## 14. 前端畫面
+
+系統前端（`services/frontend`，由 `services/package/frontend.mjs` 依所選 Kit 組裝）多一個「製造數據分析」頁籤，選了 `analytical-four-kit` 才會出現，登入後才顯示。頁面原始碼在 `kits/analytical-four-kit/src/frontend/src/`：`pages/AnalyticalFourPage.tsx`（頁籤與四個區塊）、`components/analyticalFour/`（各區塊與共用元件）、`services/analyticalFour.ts`（路由客戶端）、`styles/analytical-four.css`。頁籤名稱的語系鍵 `tabs.analyticalFour` 在共用語系檔，頁面本身的文字放在 Kit 內的 `labels.ts`（繁體中文與英文），所以 Kit 不需要改共用語系檔的其他部分。
+
+| 區塊 | 內容 | 對應路由 |
+|---|---|---|
+| 資料準備 | 下載範本；上傳檔案並看驗證報告，通過後放入或丟棄（取代既有檔案要勾選）；最近的上傳；資料檢查；載入示範資料 | templates、uploads、data-check、demo |
+| 分析設定 | 三層開關、模式、設定檔路徑、AI 服務位址與逾時與金鑰環境變數名稱、欄位對照表；儲存後顯示各層是否就緒 | settings、status |
+| 執行分析 | 啟動、階段表（執行中每兩秒更新、結束即停止）、警告、失敗原因、結果檔清單與唯讀檢視、執行紀錄 | runs、results |
+| 回饋與案例庫 | 對客訴分析的事件提交確認結果（代碼可為新代碼）、匯入 JSON、回饋清單與核可或駁回、發布新版本、版本清單 | feedback、library |
+
+**介面約定**（沿用 `DESIGN.md` 的原則，系統前端沒有 Composer 的樣式檔所以另有一份 CSS）：原生控制項、可見標籤、按鈕與輸入至少 44px、3px 焦點框、狀態一律有文字且用 `role="status"` 或 `role="alert"`、不靠顏色表達狀態、表格在區塊內捲動、不用動畫、不使用 emoji。頁籤支援左右方向鍵。訊息放在區塊最上方並固定（sticky），避免操作在頁面下方時看不到結果。
+
+**安全**：使用者可編輯的文字一律以文字節點呈現（測試禁止 `dangerouslySetInnerHTML`、`innerHTML`、`eval`）；範本下載用 `fetch` 加登入權杖後從記憶體存檔，不是帶權杖的網址；介面不判斷角色，沒有權限的操作由伺服器回 403 並顯示其訊息，真正的授權仍在入口權限中介層。
+
+**驗證**（2026-11-03）：
+- 組裝出的前端以嚴格 TypeScript 檢查與正式建置通過。
+- 在 Chrome 對真實路由（以固定身分的測試殼層取代登入）走過：載入示範資料、資料檢查通過、設定三層與客訴模式與 AI 位址並儲存（顯示三層皆就緒）、啟動分析並看到階段更新到完成（約 51 秒，AI 診斷用本機 Ollama）、對事件提交確認結果（管理員提交即核可）、發布案例庫 v1、上傳檔案出報告、不勾選取代時被拒（顯示伺服器訊息）、勾選後放入並備份原檔；主控台沒有應用程式錯誤。
+- 自動化測試（`services/package/tests/analytical-four-frontend.test.mjs`）檢查頁籤接線、語系鍵、組裝內容、不使用 HTML 注入，以及客戶端呼叫的路由與 Kit 宣告的路由完全一致（雙向）。
+
+**限制**：
+- 沒有元件層級的自動化測試（系統前端沒有測試框架）；互動行為靠上述瀏覽器走查，之後改畫面要重走。
+- 頁面文字有英文版，但英文版畫面沒有逐頁走查。
+- 沒有以非管理員角色在瀏覽器走過（授權效果仍為未涵蓋）。
+- 結果檔檢視只顯示前 2 萬字元的 JSON 文字，沒有表格或圖表。
+- 範本下載與檔案選擇器沒有在瀏覽器以真實點擊完整走過（上傳走查用程式設定檔案）。
+
+## 15. 容器、模型與主機外服務的驗證（2026-11-03）
+
+原本標為未驗證的三項，用同一份系統包實際做過。
+
+**系統包與映像。** 以 8 個 Kit（含本 Kit）的 Recipe 用真實的 Python 檢查（不是 Node 測試的替身）組裝系統包，再 `docker build` 後端映像（`python:3.12.8-slim-bookworm`、Linux）。
+
+| 項目 | 結果 |
+|---|---|
+| 組裝（真實 `check_tree.py`） | 通過；第一次失敗，原因見下 |
+| 映像建置 | 成功，約 2 至 3 分鐘 |
+| 映像大小 | 預設的 CUDA 版 PyTorch：10.1 GB（其中安裝依賴的一層 6.6 GB）；改用 PyTorch 的 CPU 版輪子（`torch==2.14.1+cpu`）：2.54 GB |
+| 映像內匯入 | Python 3.12.8、pandas 2.2.3、numpy 2.1.3、scikit-learn 1.7.2、scipy 1.15.3；Kit 的路由模組載入，23 條路由 |
+| 映像內跑 Kit 測試（掛入測試目錄，對映像內的後端） | 127 項通過（設定、執行、回饋、資料檢查、上傳、範本、格式檢查、轉接層） |
+
+驗證過程發現並修正的三個問題：
+
+1. **系統包檢查器拒絕引擎的匯入方式。** `services/preview/check_tree.py` 只認得套件 `__init__.py` 自己定義的名稱，不認得它重新匯出的名稱；`from ...engine.data_manager import JSONDataManager` 這類匯入在真實檢查下被判為缺少模組。Node 測試把這個檢查換成替身，所以先前沒有發現。已把這些匯入改成從定義名稱的模組匯入（6 行），並新增 `tests/test_package_imports.py` 保存這條規則。
+2. **預設會安裝 CUDA 版 PyTorch。** 映像 10.1 GB，其他後端映像約 0.5 GB。系統包的依賴合併器現在支援 `--extra-index-url`（只收 https、不含帳密、其他 pip 選項一律拒絕），本 Kit 的 `requirements.txt` 指向 PyTorch CPU 輪子並固定 `torch==2.14.1+cpu`。取捨：多一個套件來源，pip 會對所有套件也查那個來源；PyTorch 的 CPU 索引只放 torch 相關檔案，但這仍是一個需要接受的供應鏈面。
+3. **Linux 上路徑檢查比 Windows 寬鬆。** `C:/Windows/win.ini` 在 Linux 被當成資料目錄內的一般相對路徑而接受（不會逃出資料目錄，但不是設計意圖）。現在兩種路徑格式在所有平台都檢查（磁碟機代號、反斜線上層目錄、UNC 路徑都拒絕）。
+
+**預設向量模型。** `intfloat/multilingual-e5-large-instruct` 用本機已快取的檔案（離線）在 Kit 內跑每日 A+B+C：成功，13 秒；SOP 檢索 95 次查詢的第一筆都是該特徵自己的 SOP。`builtin-hash` 在同一份資料上也是 95 次全中，所以這份合成資料分不出兩者的品質差異；驗證的是「真實模型在 Kit 內能載入並完成整個流程」，不是檢索品質。
+
+**容器連主機上的 LLM。** 本 Kit 的轉接層（`tools/local_llm_adapter.py`）跑在一個容器裡（綁 0.0.0.0，但沒有發佈任何連接埠，只在專用的 Docker 網路內可達），它用 `host.docker.internal` 連到主機的 Ollama（qwen3:14b）；另一個容器（後端映像）跑客訴模式 A+B+C，LLM 位址是轉接層容器的名稱。結果：成功，50 秒；6 筆事件 6 筆都是模型的審核意見，沒有保底結果。驗證完畢後容器、網路與映像都已移除。
+
+**仍未驗證**：
+- 完整的部署堆疊（PostgreSQL、入口權限登入、授權閘門、Nginx）沒有為本 Kit 重跑；這次只驗證後端映像內的 Kit。P2 的端到端腳本（`services/package/e2e/system_e2e.py`）尚未納入本 Kit。
+- 離線安裝：映像打包（`bundle-images.mjs`）、`docker save` 與載入沒有跑；CPU 輪子來源在離線環境需要預先備妥。
+- 真實 E5 模型在沒有本機快取的環境下載（約 2 GB）沒有測；`HF_HUB_OFFLINE=1` 時才驗證了離線載入。
+- 公司內的實際 LLM 服務與真實製造資料。

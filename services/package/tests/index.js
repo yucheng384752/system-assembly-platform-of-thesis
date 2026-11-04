@@ -3,5 +3,7 @@ import './entry-points.test.mjs';
 import './deployment.test.mjs';
 import './bundle-images.test.mjs';
 import './frontend.test.mjs';
+import './analytical-four-frontend.test.mjs';
+import './requirements.test.mjs';
 import './merge-delivery.test.mjs';
 import './kit-compat.test.mjs';

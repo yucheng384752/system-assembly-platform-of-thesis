@@ -3,6 +3,8 @@ chromadb==1.4.1
 requests==2.32.5
 scikit-learn==1.7.2
 scipy==1.15.3
-# Pulls in PyTorch, which is large. Needed only for the e5 RAG model; the builtin-hash builder does not use it, but the
-# engine imports it at load time.
+# PyTorch from the CPU-only wheel index. The default Linux wheel is the CUDA build and takes several gigabytes of the image;
+# this service runs embeddings on the CPU. Needed only for the e5 RAG model, but the engine imports it at load time.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.14.1+cpu
 sentence-transformers==5.2.0

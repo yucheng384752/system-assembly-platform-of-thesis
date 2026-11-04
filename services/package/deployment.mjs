@@ -50,6 +50,34 @@ const factoryInit = `    # factory-core-kit: tables and append-only guards (Alem
 const evaluatorStage = 'FROM node:22.12.0-bookworm-slim AS evaluator-node\n';
 const evaluatorCopy = 'COPY --from=evaluator-node /usr/local/bin/node /usr/local/bin/node\nCOPY evaluator/ /system/evaluator/\n';
 
+/**
+ * Combines requirement files into the one the image installs: every package pinned with `==` (a conflicting pin is an error), plus
+ * `--extra-index-url` lines for Kits that need a package index of their own. The only such index in use is the PyTorch CPU wheels,
+ * which keeps the image from pulling the CUDA build (several gigabytes) for a service that only runs embeddings on the CPU.
+ * @param {string[]} texts
+ */
+export function mergeRequirements(texts) {
+  const pins = new Map();
+  const indexes = new Set();
+  for (const line of texts.join('\n').split(/\r?\n/).map(s => s.trim()).filter(s => s && !s.startsWith('#'))) {
+    if (line.startsWith('--')) {
+      const option = /^--extra-index-url\s+(\S+)$/.exec(line);
+      if (!option) throw new Error(`不支援的依賴檔選項：${line}`);
+      let url;
+      try { url = new URL(option[1]); } catch { throw new Error(`額外套件來源不是網址：${line}`); }
+      if (url.protocol !== 'https:' || url.username || url.password) throw new Error(`額外套件來源必須是不含帳密的 https 網址：${line}`);
+      indexes.add(url.href);
+      continue;
+    }
+    const match = /^([A-Za-z0-9_.-]+)==([A-Za-z0-9_.+-]+)$/.exec(line);
+    if (!match) throw new Error(`依賴未固定版本：${line}`);
+    const key = match[1].toLowerCase().replace(/[-_.]+/g, '-');
+    if (pins.has(key) && pins.get(key) !== line) throw new Error(`依賴版本衝突：${line}`);
+    pins.set(key, line);
+  }
+  return [...[...indexes].sort().map(url => `--extra-index-url ${url}`), ...[...pins.values()].sort()].join('\n') + '\n';
+}
+
 /** @param {string} kits @param {string[]} selected @param {string[]} sources
  * @returns {Promise<Map<string, string>>} */
 export async function deploymentArtifacts(kits, selected, sources) {
@@ -85,14 +113,6 @@ export async function deploymentArtifacts(kits, selected, sources) {
     try { requirements.push(await readFile(path.join(kits, kit, 'requirements.txt'), 'utf8')); }
     catch (error) { if (/** @type {NodeJS.ErrnoException} */ (error).code !== 'ENOENT') throw error; }
   }
-  const pins = new Map();
-  for (const line of requirements.join('\n').split(/\r?\n/).map(s => s.trim()).filter(s => s && !s.startsWith('#'))) {
-    const match = /^([A-Za-z0-9_.-]+)==([A-Za-z0-9_.+-]+)$/.exec(line);
-    if (!match) throw new Error(`依賴未固定版本：${line}`);
-    const key = match[1].toLowerCase().replace(/[-_.]+/g, '-');
-    if (pins.has(key) && pins.get(key) !== line) throw new Error(`依賴版本衝突：${line}`);
-    pins.set(key, line);
-  }
-  artifacts.set('deployment/backend/requirements.txt', [...pins.values()].sort().join('\n') + '\n');
+  artifacts.set('deployment/backend/requirements.txt', mergeRequirements(requirements));
   return artifacts;
 }
