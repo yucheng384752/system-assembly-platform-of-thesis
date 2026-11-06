@@ -12,7 +12,10 @@ import { createApiServer } from '../src/server';
 const cleanup: (() => void)[] = [];
 afterEach(() => { for (const clean of cleanup.splice(0).reverse()) clean(); });
 
-interface Reply { status: number; body: any }
+interface Reply { status: number; body: unknown }
+interface Backup { sha256: string; tables: Record<string, Record<string, unknown>[]> }
+interface Failure { errors: { code: string; message: string; replacement?: string }[] }
+const as = <T>(reply: Reply): T => reply.body as T;
 type Call = (method: string, path: string, body?: unknown, headers?: Record<string, string>) => Promise<Reply>;
 
 async function seal(bundle: AovBundle): Promise<string> {
@@ -55,7 +58,7 @@ async function start() {
   };
   return { call, base };
 }
-async function newCase(call: Call) { return (await call('POST', '/cases', { name: '案例' })).body.case_id as string; }
+async function newCase(call: Call) { return as<{ case_id: string }>(await call('POST', '/cases', { name: '案例' })).case_id; }
 const save = (call: Call, id: string, text: string, expectedParent: number | null, extra: object = {}) =>
   call('POST', `/cases/${id}/versions`, { expectedParent, content: text, changeReason: '初版', author: '測試', ...extra });
 const reseal = (tables: unknown) => createHash('sha256').update(canonicalJson(tables)).digest('hex');
@@ -65,7 +68,7 @@ describe('批二服務', () => {
     const { call } = await start(); const id = await newCase(call);
     const res = await save(call, id, await content(), null, { verifiedReport: { passed: true, forged: 'x' } });
     expect(res.status).toBe(201);
-    const report = JSON.parse(res.body.verified_report);
+    const report = JSON.parse(as<{ verified_report: string }>(res).verified_report);
     expect(report.forged).toBeUndefined();
     expect(report.scope).toBe('bundle-contract+core-compile');
     expect(report.notRun).toContain('瀏覽器內的互動模擬');
@@ -75,8 +78,9 @@ describe('批二服務', () => {
     const { call } = await start(); const id = await newCase(call);
     const res = await save(call, id, await uncompilable(), null, { verifiedReport: { passed: true } });
     expect(res.status).toBe(422);
-    expect(res.body.report.passed).toBe(false);
-    expect(res.body.report.steps).toEqual([{ name: 'bundle', ok: true }, { name: 'compile', ok: false }]);
+    const { report } = as<{ report: { passed: boolean; steps: unknown[] } }>(res);
+    expect(report.passed).toBe(false);
+    expect(report.steps).toEqual([{ name: 'bundle', ok: true }, { name: 'compile', ok: false }]);
     expect((await call('GET', `/cases/${id}/versions`)).body).toEqual([]);
   });
 
@@ -85,7 +89,7 @@ describe('批二服務', () => {
     expect((await save(call, id, await content(), null)).status).toBe(201);
     expect((await save(call, id, await content(), null)).status).toBe(409);
     expect((await save(call, id, await content(), 1)).status).toBe(201);
-    expect((await call('GET', `/cases/${id}/versions`)).body.map((v: { version: number }) => v.version)).toEqual([1, 2]);
+    expect(as<{ version: number }[]>(await call('GET', `/cases/${id}/versions`)).map(v => v.version)).toEqual([1, 2]);
   });
 
   it('淘汰與合併經 API 生效：舊版可讀，新版被擋並指出保留方', async () => {
@@ -94,7 +98,7 @@ describe('批二服務', () => {
     expect((await call('POST', '/nodes/merge', { keep: 'b', drop: 'a', reason: 'a 與 b 功能重複，a 多一個選填參數' })).status).toBe(200);
     const blocked = await save(call, id, await content(['a', 'c']), 1);
     expect(blocked.status).toBe(409);
-    expect(blocked.body.errors[0].replacement).toBe('b');
+    expect(as<Failure>(blocked).errors[0].replacement).toBe('b');
     expect((await call('GET', `/cases/${id}/versions/1`)).status).toBe(200);
     expect((await call('GET', '/nodes/a')).body).toEqual({ nodeId: 'b', state: 'active' });
     expect((await call('POST', '/usage', { nodeId: 'a' })).body).toEqual([{ case_id: id, version: 1, graph: expect.any(String) }]);
@@ -106,8 +110,8 @@ describe('批二服務', () => {
     await call('POST', '/nodes/a/reactivate', { reason: '誤淘汰' });
     await call('POST', '/nodes/b/deprecate', { reason: '停用' });
     await call('POST', '/combos/deprecate', { combo: ['x', 'y'], reason: '改用新流程' });
-    const { nodes, combos } = (await call('GET', '/lifecycle')).body;
-    expect(nodes.map((n: { node_id: string; state: string }) => [n.node_id, n.state])).toEqual([['a', 'active'], ['b', 'deprecated']]);
+    const { nodes, combos } = as<{ nodes: { node_id: string; state: string }[]; combos: unknown[] }>(await call('GET', '/lifecycle'));
+    expect(nodes.map(n => [n.node_id, n.state])).toEqual([['a', 'active'], ['b', 'deprecated']]);
     expect(combos).toEqual([expect.objectContaining({ combo: ['x', 'y'], state: 'deprecated', reason: '改用新流程' })]);
   });
 
@@ -115,11 +119,11 @@ describe('批二服務', () => {
     const first = await start(); const id = await newCase(first.call);
     await save(first.call, id, await content(), null);
     await first.call('POST', '/combos/deprecate', { combo: ['x', 'y'], reason: '改用新流程' });
-    const backup = (await first.call('GET', '/backup')).body;
+    const backup = as<Backup>(await first.call('GET', '/backup'));
     const second = await start();
     expect((await second.call('POST', '/backup', backup)).status).toBe(200);
-    expect((await second.call('GET', `/cases/${id}/versions/1`)).body.content)
-      .toBe((await first.call('GET', `/cases/${id}/versions/1`)).body.content);
+    expect(as<{ content: string }>(await second.call('GET', `/cases/${id}/versions/1`)).content)
+      .toBe(as<{ content: string }>(await first.call('GET', `/cases/${id}/versions/1`)).content);
     expect((await second.call('GET', '/backup')).body).toEqual(backup);
     expect((await second.call('POST', '/backup', backup)).status).toBe(409);
   });
@@ -127,15 +131,15 @@ describe('批二服務', () => {
   it('壞掉或被竄改的備份被拒絕，含重算雜湊後塞入未知欄位', async () => {
     const source = await start(); const id = await newCase(source.call);
     await save(source.call, id, await content(), null);
-    const backup = (await source.call('GET', '/backup')).body;
+    const backup = as<Backup>(await source.call('GET', '/backup'));
     const tampered = structuredClone(backup); tampered.tables.flow_case[0].name = '被改過';
-    expect((await (await start()).call('POST', '/backup', tampered)).body.errors[0].code).toBe('E-BAD-BACKUP');
+    expect(as<Failure>(await (await start()).call('POST', '/backup', tampered)).errors[0].code).toBe('E-BAD-BACKUP');
 
     const injected = structuredClone(backup);
     injected.tables.flow_case[0]['name) VALUES (1); DROP TABLE flow_case; --'] = 'x';
     injected.sha256 = reseal(injected.tables);
     const target = await start();
-    const rejected = (await target.call('POST', '/backup', injected)).body.errors[0];
+    const rejected = as<Failure>(await target.call('POST', '/backup', injected)).errors[0];
     expect(rejected.code).toBe('E-BAD-BACKUP');
     // Without the whitelist SQLite would also fail, but on a syntax error after the name was already spliced into SQL.
     expect(rejected.message).toContain('未知欄位');
@@ -144,7 +148,7 @@ describe('批二服務', () => {
     const hashBroken = structuredClone(backup); hashBroken.tables.flow_version[0].content = '{}';
     hashBroken.sha256 = reseal(hashBroken.tables);
     const other = await start();
-    expect((await other.call('POST', '/backup', hashBroken)).body.errors[0].code).toBe('E-CORRUPT');
+    expect(as<Failure>(await other.call('POST', '/backup', hashBroken)).errors[0].code).toBe('E-CORRUPT');
     expect((await other.call('GET', '/cases')).body).toEqual([]);
   });
 
