@@ -1,7 +1,7 @@
 ---
 id: "20261106-package-selfcheck"
 title: "安裝包自檢：產生安裝包前通過所有 Kit 測試，現場驗證環境與一致性，並補齊缺少測試的 Kit 與新增 Kit 規範"
-status: "ready_for_review"
+status: "done"
 owner: "claude"
 reviewer: "user"
 priority: "high"
@@ -76,3 +76,7 @@ user 2026-11-06 的決定：
 - station-admin-kit 與 tenant-auth-kit 被組裝排除，不要求測試。
 - 本機（Windows）執行 `services/installer/tests/test_engine.py` 有 2 個既有的環境失敗（檔案權限位元與 CPU 架構判斷），在 VM 上通過；與本功能無關。
 - 另外在 full 組合偶發過一次「刪除紀錄」504，無法重現，仍待觀察（見 20261104 thread）。
+
+## 合併
+
+2026-11-06 user 決定合併。合併前向另外兩個 session 確認沒有進行中的合併或推送（composer-refactor-90、三代AoV修改清單皆回覆不會動 main）。先把 main（b195efe，含 canvas D169-D173、甘特 D174）合進分支，只有決議表尾端衝突，兩邊保留；合併後套件測試 72、型別檢查通過、vitest 750 通過；再以比對舊值的方式快轉 main 到 7dd39a7。未推送，origin/main 仍在 9bfd751。
