@@ -1,5 +1,5 @@
 import { isUnit, type AttrValueType, type FormDef } from '../aov-core';
-import { FIELD_TYPES, KEY_PATTERN } from './formLibrary';
+import { FIELD_TYPES, FORM_ID_PATTERN, KEY_PATTERN } from './formLibrary';
 
 // What a workflow needs from a form: the only dependency the workflow side has on the form library.
 // Keyed by field key. Labels, order, ranges, required flags and extra fields are the form's own business.
@@ -48,7 +48,7 @@ export function checkRequirementFile(raw: unknown): RequirementIssue[] {
   const issues = Object.entries(raw.actions).flatMap(([actionId, r]) => checkRequirement(r, { actionId }));
   for (const [nodeId, binding] of Object.entries(raw.nodes)) {
     if (!isObject(binding)) { issues.push({ code: 'binding-shape', message: `節點「${nodeId}」的設定必須是一個物件。`, nodeId }); continue; }
-    if (binding.form !== undefined && (typeof binding.form !== 'string' || !KEY_PATTERN.test(binding.form))) {
+    if (binding.form !== undefined && (typeof binding.form !== 'string' || !FORM_ID_PATTERN.test(binding.form))) {
       issues.push({ code: 'binding-form', message: `節點「${nodeId}」選擇的表單識別碼無效。`, nodeId });
     }
     if (binding.requires !== undefined) issues.push(...checkRequirement(binding.requires, { nodeId }));

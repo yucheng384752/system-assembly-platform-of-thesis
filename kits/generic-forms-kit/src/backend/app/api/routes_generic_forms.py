@@ -17,9 +17,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_tenant
 from app.core.database import get_db, get_db_context
 from app.core.db_capabilities import DB_CAPABILITIES
+from app.core.monitoring import report_user_action
 from app.models.core.tenant import Tenant
 from app.models.generic_record import GenericRecord
 from app.models.station import Station, StationLink, StationSchema
+from app.services.audit_events import write_audit_event_best_effort
 
 router = APIRouter(tags=["Generic Forms"])
 
@@ -236,6 +238,28 @@ def _actor(request: Request) -> str | None:
         or getattr(request.state, "auth_api_key_id", None)
     )
     return str(actor)[:100] if actor else None
+
+
+async def _record_activity(
+    request: Request, tenant_id: uuid.UUID, action: str, describe: str, status_code: int = 200, **metadata: Any
+) -> None:
+    """Write the operation to the operations log and to the audit events (both best effort)."""
+    # tenant_id lets the operations log attribute the row; the tenant-scoped log viewer hides unattributed rows.
+    report_user_action(action=action, describe=describe, tenant_id=tenant_id, **metadata)
+    state = request.state
+    await write_audit_event_best_effort(
+        tenant_id=tenant_id,
+        actor_api_key_id=getattr(state, "auth_api_key_id", None),
+        actor_label_snapshot=_actor(request),
+        request_id=getattr(state, "request_id", None),
+        method=request.method,
+        path=request.url.path,
+        status_code=status_code,
+        action=action,
+        metadata={"describe": describe, **metadata},
+        client_host=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
 
 
 # ponytail: in-memory, single-process only — upgrade to DB model if multi-worker/restart-safe needed
@@ -472,6 +496,7 @@ async def list_forms(
 @router.post("/forms", response_model=StationRead, status_code=status.HTTP_201_CREATED)
 async def create_form(
     body: StationCreate,
+    request: Request,
     tenant: Tenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ):
@@ -498,12 +523,14 @@ async def create_form(
     db.add(station)
     await db.commit()
     await db.refresh(station)
+    await _record_activity(request, tenant.id, "forms.create", f"form={code}", 201, form_code=code)
     return _to_station_read(station, None)
 
 
 @router.delete("/forms/{code}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_form(
     code: str,
+    request: Request,
     tenant: Tenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ):
@@ -530,6 +557,7 @@ async def delete_form(
     # Delete station
     await db.execute(sql_delete(Station).where(Station.id == station.id))
     await db.commit()
+    await _record_activity(request, tenant.id, "forms.delete", f"form={code}", 204, form_code=code)
 
 
 @router.put("/forms/{code}/schema", response_model=StationRead)
@@ -589,6 +617,10 @@ async def set_schema(
     db.add(schema)
     await db.commit()
     await db.refresh(schema)
+    await _record_activity(
+        request, tenant.id, "forms.schema.save", f"form={code} version={schema.version}",
+        form_code=code, version=schema.version, reason=reason["label"],
+    )
     return _to_station_read(station, schema)
 
 
@@ -723,6 +755,7 @@ async def list_records(
 @router.post("/forms/{code}/upload", response_model=UploadResult)
 async def upload_csv(
     code: str,
+    request: Request,
     file: UploadFile = File(...),
     allow_duplicate: bool = Form(False),
     tenant: Tenant = Depends(get_current_tenant),
@@ -812,6 +845,10 @@ async def upload_csv(
         imported += 1
 
     await db.commit()
+    await _record_activity(
+        request, tenant.id, "forms.upload", f"form={code} imported={imported} skipped={skipped} errors={len(errors)}",
+        form_code=code, imported=imported, skipped=skipped, error_count=len(errors),
+    )
     return UploadResult(total=len(df), imported=imported, skipped=skipped, errors=errors[:10])
 
 
@@ -819,6 +856,7 @@ async def upload_csv(
 async def delete_record(
     code: str,
     record_id: uuid.UUID,
+    request: Request,
     tenant: Tenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ):
@@ -834,6 +872,10 @@ async def delete_record(
     if deleted.rowcount == 0:
         raise HTTPException(status_code=404, detail="Record not found")
     await db.commit()
+    await _record_activity(
+        request, tenant.id, "forms.record.delete", f"form={code} record={record_id}", 204,
+        form_code=code, record_id=str(record_id),
+    )
 
 
 @router.post("/forms/{code}/import/preview", response_model=PreviewResult)
@@ -901,6 +943,7 @@ async def import_preview(
 @router.post("/forms/{code}/import/commit", response_model=CommitResult)
 async def import_commit(
     code: str,
+    request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     tenant: Tenant = Depends(get_current_tenant),
@@ -974,6 +1017,10 @@ async def import_commit(
         ))
         imported += 1
     await db.commit()
+    await _record_activity(
+        request, tenant.id, "forms.import", f"form={code} imported={imported} skipped={skipped} errors={error_count}",
+        form_code=code, imported=imported, skipped=skipped, error_count=error_count,
+    )
     return CommitResult(total=len(df), imported=imported, skipped=skipped, error_count=error_count)
 
 

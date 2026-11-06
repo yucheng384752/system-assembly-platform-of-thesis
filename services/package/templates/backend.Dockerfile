@@ -8,6 +8,7 @@ RUN groupadd --gid 10001 app && useradd --uid 10001 --gid app --no-create-home a
 COPY backend/ /system/backend/
 COPY kits/ /system/kits/
 @@EVALUATOR_COPY@@
+@@FORMS_COPY@@
 COPY permissions/ /system/permissions/
 RUN mkdir -p /system/data/uploads /system/data/logs && chown -R app:app /system/data /system/permissions
 USER 10001:10001

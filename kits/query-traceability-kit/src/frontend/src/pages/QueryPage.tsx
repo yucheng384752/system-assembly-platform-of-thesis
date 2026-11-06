@@ -50,9 +50,10 @@ export function QueryPage() {
         ? `/api/v2/query/trace/${encodeURIComponent(q)}`
         : `/api/v2/query/lot/${encodeURIComponent(q)}`;
       const res = await fetch(endpoint);
+      if (res.status === 403) throw new Error("您的角色沒有這項操作的權限，請洽管理者。");
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error((body as any).detail || `HTTP ${res.status}`);
+        throw new Error((body as any).detail || `查詢失敗（${res.status}）`);
       }
       const data = await res.json();
       if (mode === "trace") setTraceResults(data);

@@ -341,7 +341,7 @@ test('App wires lifecycle into the canvas and an offline refresh restores origin
   }));
   render(<App />);
   const nav = screen.getByRole('navigation', { name: '主要導覽' });
-  expect(within(nav).getAllByRole('button').map(b => b.textContent)).toEqual(['首頁', '流程', '案例庫', '資料集', '執行記錄', '系統設定']);
+  expect(within(nav).getAllByRole('button').map(b => b.textContent)).toEqual(['首頁', '流程', '案例庫', '發布準備', '資料集', '執行記錄', '系統設定']);
   click('流程'); startLogic(); openToolGroups();
   await waitFor(() => expect(button('加入到畫布：建立表單').disabled).toBe(true));
   click('案例庫'); await screen.findByText('尚無案例，請先建立案例。');

@@ -29,6 +29,14 @@ test('parser accepts BOM/CRLF and rejects malformed metadata and missing or reor
   expect(() => parseFragment(text().replace('## 操作步驟', '### 操作步驟'))).toThrow('操作步驟');
 });
 
+// The system frontend shell holds the login and upload pages, so it is an allowed source; other folders are not.
+test('sources may cite kits/ and services/frontend/ files only', () => {
+  expect(parseFragment(text().replace('kits/a/manifest.json', 'services/frontend/base/src/pages/LoginPage.tsx')).meta.sources)
+    .toEqual(['services/frontend/base/src/pages/LoginPage.tsx']);
+  for (const other of ['services/backend/app.py', 'services/frontendx/a.ts', 'services/frontend/../secret', 'docs/project-spec.md'])
+    expect(() => parseFragment(text().replace('kits/a/manifest.json', other))).toThrow();
+});
+
 // A13/D51: sorting must move dependencies before dependents and retain catalog order within each layer.
 test('sorts dependencies before dependents with stable peer order and excludes disabled kits', () => {
   const output = assembleManual(inputs());

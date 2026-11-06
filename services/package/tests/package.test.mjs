@@ -168,6 +168,12 @@ async function checkDeployment(out, selected) {
   const gate = main.lastIndexOf('app.middleware("http")(license_gate_middleware)');
   assert.ok(gate > main.lastIndexOf('app.include_router(') && gate > main.indexOf('app.middleware("http")(entry_permission_middleware)'),
     'the license gate must be the outermost (last added) middleware');
+  // D182: the on-site self-check refuses to serve (except /healthz, which reports why), and it sits inside the license gate.
+  const selfGate = main.lastIndexOf('app.middleware("http")(selfcheck.gate(SELFCHECK))');
+  assert.ok(selfGate > main.lastIndexOf('app.include_router(') && selfGate < gate, 'the self-check gate is added after the routers and before the license gate');
+  assert.ok(main.indexOf('await SELFCHECK.run()') > main.indexOf('await database.init_db()'), 'the self-check runs at startup, after the database is initialised');
+  assert.ok(main.indexOf('SELFCHECK.current()') > main.indexOf('async def healthz'), 'healthz reports the self-check findings');
+  assert.match(await read('backend/app/selfcheck.py'), /OPEN_PATHS = frozenset\(\{"\/healthz"\}\)/);
   for (const mount of ['/system/license', '/system/trust/root.pem:ro', '/system/manifest/system-manifest.json:ro']) assert.ok(compose.includes(mount), mount);
   assert.match(compose, /LICENSE_DIR:\?/);
   assert.match(await read('backend/app/license_gate.py'), /OPEN_PATHS = frozenset\(\{"\/healthz"\}\)/);
@@ -191,7 +197,7 @@ async function checkDeployment(out, selected) {
   assert.doesNotMatch(main, /create_all|app.core.auth/);
   assert.match(main, /SELECT 1/); assert.match(main, /get_table_names/);
   assert.match(main, /db.get\(Tenant, TENANT_ID\) is None/);
-  assert.equal(main.match(/status_code=503/g)?.length, 3);
+  assert.equal(main.match(/status_code=503/g)?.length, 4, 'healthz answers 503 for: failed self-check, missing schema, missing tenant, unreachable database');
   assert.match(init, /import app.models/);
   assert.match(init, /run_sync\(database.Base.metadata.create_all\)/);
   assert.match(init, /if existing is None:/);
@@ -305,3 +311,38 @@ test('factory-core-kit: the evaluator reaches the image only with the kit (node 
   assert.doesNotThrow(() => scanExclusions(new Map([['evaluator/evaluator.cjs', bundle]])));
   assert.ok(bundle.length > 1000 && bundle.length < 1_000_000);
 });
+
+// A form bundle as Composer downloads it: every entry is a POST /api/factory/forms body.
+const formBundle = async () => {
+  const fixture = JSON.parse(await readFile(path.join(repository, 'fixtures/executable-plan/forms.json'), 'utf8'));
+  return { format: 'composer-form-bundle', version: 1, forms: fixture.forms };
+};
+
+test('forms ride in the package as forms/<hash>.json, each exactly an upload body, and the image copies them only then', async () => fixture(async temp => {
+  const bundle = await formBundle();
+  const forms = path.join(temp, 'forms.json');
+  await writeFile(forms, JSON.stringify(bundle));
+  const recipe = await recipeFile(temp, [...minimal, 'factory-core-kit']);
+  const manifest = await assembleSystem(path.join(temp, 'with'), { recipe, run: stub, forms });
+  const entry = manifest.files.find(f => f.role === 'form-definition');
+  const sha = bundle.forms[0].contentSha256;
+  assert.equal(entry?.path, `forms/${sha}.json`);
+  assert.deepEqual(JSON.parse(await readFile(path.join(temp, 'with', `forms/${sha}.json`), 'utf8')), { contentSha256: sha, definition: bundle.forms[0].definition });
+  assert.match(await readFile(path.join(temp, 'with/deployment/backend.Dockerfile'), 'utf8'), /^COPY forms\/ \/system\/forms\/$/m);
+  const without = await assembleSystem(path.join(temp, 'without'), { recipe, run: stub });
+  assert.ok(!without.files.some(f => f.role === 'form-definition'));
+  assert.doesNotMatch(await readFile(path.join(temp, 'without/deployment/backend.Dockerfile'), 'utf8'), /forms|@@/);
+}));
+
+test('a form bundle that does not prove its hash, or a package without the factory, is refused and leaves no output directory', async () => fixture(async temp => {
+  const bundle = await formBundle();
+  const tampered = path.join(temp, 'tampered.json'), good = path.join(temp, 'good.json');
+  await writeFile(tampered, JSON.stringify({ ...bundle, forms: [{ ...bundle.forms[0], definition: { ...bundle.forms[0].definition, name: 'changed after export' } }] }));
+  await writeFile(good, JSON.stringify(bundle));
+  const withFactory = await recipeFile(temp, [...minimal, 'factory-core-kit']);
+  await assert.rejects(assembleSystem(path.join(temp, 'a'), { recipe: withFactory, run: stub, forms: tampered }), /雜湊與內容不符/);
+  await assert.rejects(assembleSystem(path.join(temp, 'c'), { recipe: withFactory, run: stub, forms: path.join(temp, 'missing.json') }), /表單檔包無法讀取/);
+  // recipeFile always writes recipe.json, so this one replaces the factory recipe: keep it last.
+  await assert.rejects(assembleSystem(path.join(temp, 'b'), { recipe: await recipeFile(temp, minimal), run: stub, forms: good }), /需要選用 factory-core-kit/);
+  for (const name of ['a', 'b', 'c']) await assert.rejects(stat(path.join(temp, name)), { code: 'ENOENT' });
+}));

@@ -1,6 +1,7 @@
 """Authenticate before extraction; reject links, special files and unlisted data."""
 import base64
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
 import tarfile
@@ -90,6 +91,28 @@ def validate_manifest(manifest, root):
             raise Failure(11, '缺少部署產物：' + required)
     if any(Path(name).name in ('.env', 'compose.override.yml') for name in listed):
         raise Failure(11, '安裝包不得預先夾帶 .env 或 compose.override.yml')
+    validate_selftest(manifest)
+
+
+def validate_selftest(manifest):
+    """The release gate (D182) records that every selected Kit's tests passed; a package without that proof is not installed.
+
+    The record is inside the signed manifest, and each Kit's record must name the same source hash the package was assembled from,
+    so tests that passed on other code cannot vouch for this package.
+    """
+    selftest = manifest.get('selftest')
+    if not isinstance(selftest, dict) or selftest.get('status') != 'passed' or not isinstance(selftest.get('kits'), list):
+        raise Failure(11, '安裝包沒有通過 Kit 測試的證明（selftest）；請以含測試閘門的發布流程重新封裝')
+    recorded = {entry.get('kit'): entry for entry in selftest['kits'] if isinstance(entry, dict)}
+    selected = manifest.get('kits')
+    selected = [entry.get('kit') for entry in selected] if isinstance(selected, list) else []
+    unproven = [kit for kit in selected if recorded.get(kit, {}).get('status') != 'passed' or not recorded[kit].get('passed')]
+    if unproven:
+        raise Failure(11, 'Kit 沒有通過測試的證明：' + '、'.join(unproven))
+    sources = {entry.get('kit'): entry.get('sourceSha256') for entry in manifest.get('kits', []) if isinstance(entry, dict)}
+    changed = [kit for kit in selected if recorded[kit].get('sourceSha256') != sources.get(kit)]
+    if changed:
+        raise Failure(11, 'Kit 的測試證明與封裝的原始碼不符：' + '、'.join(changed))
 
 
 def verify(runner, archive, signature, key, prefix, destination):
@@ -141,11 +164,18 @@ def verify(runner, archive, signature, key, prefix, destination):
                     target = destination / member.name
                     if member.isdir():
                         target.mkdir(parents=True, exist_ok=True)
+                        target.chmod(0o755)
                     else:
                         target.parent.mkdir(parents=True, exist_ok=True)
                         with tar.extractfile(member) as src, open(target, 'xb') as dst:
                             import shutil
                             shutil.copyfileobj(src, dst)
+                        # Do not inherit the caller's umask: the backend runs as a non-root user and must read these files.
+                        target.chmod(0o755 if member.mode & 0o111 else 0o644)
+        # Directories created implicitly for file members also follow the caller's umask.
+        destination.chmod(0o755)
+        for directory, _, _ in os.walk(destination):
+            Path(directory).chmod(0o755)
         manifest_file = destination / 'system-manifest.json'
         if file_digest(manifest_file) != payload['systemManifestSha256']:
             raise Failure(11, 'system-manifest sha256 不符')

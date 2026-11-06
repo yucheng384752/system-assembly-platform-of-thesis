@@ -17,9 +17,11 @@ function apiHeaders(extra: Record<string, string> = {}): HeadersInit {
 }
 
 async function readErrorDetail(res: Response): Promise<string> {
+  if (res.status === 401) return "登入已逾時，請重新登入。";
+  if (res.status === 403) return "您的角色沒有這項操作的權限，請洽管理者。";
   const body = await res.json().catch(() => ({}));
   const detail = (body as { detail?: unknown }).detail;
-  return typeof detail === "string" ? detail : JSON.stringify(detail || `HTTP ${res.status}`);
+  return typeof detail === "string" ? detail : JSON.stringify(detail || `操作失敗（${res.status}）`);
 }
 
 function inputValue(field: FieldDef, value: unknown): string | boolean {

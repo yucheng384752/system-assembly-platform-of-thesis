@@ -19,6 +19,7 @@ from app.models.core.edit_reason import EditReason
 from app.models.core.tenant import Tenant
 from app.models.generic_record import GenericRecord
 from app.models.station import Station, StationSchema
+from app.services.audit_events import write_audit_event_best_effort
 
 router = APIRouter(tags=["Inline Edit"])
 
@@ -105,7 +106,10 @@ def _coerce_changes(
     for key, value in changes.items():
         field = field_map[key]
         field_type = str(field.get("type", "string"))
-        coerced = coerce(value, field_type)
+        try:
+            coerced = coerce(value, field_type)
+        except ValueError as exc:  # generic-forms raises CoerceError (a ValueError) for a value the type cannot hold
+            raise HTTPException(status_code=422, detail=f"'{key}' is not a valid {field_type}") from exc
         if field.get("required") and coerced is None:
             raise HTTPException(status_code=422, detail=f"'{key}' is required")
         field_type_lower = field_type.lower()
@@ -189,6 +193,20 @@ async def edit_record(
         )
     )
     await db.commit()
+    state = request.state
+    await write_audit_event_best_effort(
+        tenant_id=tenant.id,
+        actor_api_key_id=getattr(state, "auth_api_key_id", None),
+        actor_label_snapshot=_actor(request),
+        request_id=getattr(state, "request_id", None),
+        method=request.method,
+        path=request.url.path,
+        status_code=200,
+        action="records.edit",
+        metadata={"table_code": station.code, "record_id": str(record.id), "changed_fields": sorted(after)},
+        client_host=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
     return {"id": str(record.id), "table_code": station.code, "changes": after, "data": data}
 
 

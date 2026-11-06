@@ -19,6 +19,13 @@ type UploadJob = {
 };
 type HistoryResponse = { total: number; page: number; page_size: number; items: UploadJob[] };
 
+// Business wording for a failed request; raw status codes mean nothing to the person reading the page.
+function failureText(status: number, what: string): string {
+  if (status === 401) return "登入已逾時，請重新登入。";
+  if (status === 403) return "您的角色沒有查看這項資料的權限，請洽管理者。";
+  return `${what}（${status}）`;
+}
+
 function apiHeaders(): HeadersInit {
   const headers: Record<string, string> = {};
   const tenantId = window.localStorage.getItem(TENANT_STORAGE_KEY) || "";
@@ -68,7 +75,7 @@ export function AnalyticsPage() {
       setError("");
       try {
         const formsRes = await fetch("/api/forms", { headers: apiHeaders() });
-        if (!formsRes.ok) throw new Error(`forms HTTP ${formsRes.status}`);
+        if (!formsRes.ok) throw new Error(failureText(formsRes.status, "讀取表單失敗"));
         const formsData = await formsRes.json();
         const forms = (Array.isArray(formsData) ? formsData : formsData.forms ?? formsData.items ?? []) as FormDef[];
         const stats = await Promise.all(
@@ -105,7 +112,7 @@ export function AnalyticsPage() {
       const params = queryString({ code: selectedCode, date_from: dateFrom, date_to: dateTo, granularity });
       try {
         const res = await fetch(`/api/analytics/trend?${params}`, { headers: apiHeaders() });
-        if (!res.ok) throw new Error(`trend HTTP ${res.status}`);
+        if (!res.ok) throw new Error(failureText(res.status, "讀取趨勢失敗"));
         const data = await res.json();
         if (!cancelled) setTrend(Array.isArray(data.buckets) ? data.buckets : []);
       } catch (err) {
@@ -133,7 +140,7 @@ export function AnalyticsPage() {
       });
       try {
         const res = await fetch(`/api/analytics/upload-history?${params}`, { headers: apiHeaders() });
-        if (!res.ok) throw new Error(`upload history HTTP ${res.status}`);
+        if (!res.ok) throw new Error(failureText(res.status, "讀取檔案上傳工作失敗"));
         const data = (await res.json()) as HistoryResponse;
         if (!cancelled) setHistory(data);
       } catch (err) {
@@ -169,7 +176,7 @@ export function AnalyticsPage() {
     const params = queryString({ date_from: dateFrom, date_to: dateTo });
     try {
       const res = await fetch(`/api/analytics/upload-history/export?${params}`, { headers: apiHeaders() });
-      if (!res.ok) throw new Error(`export HTTP ${res.status}`);
+      if (!res.ok) throw new Error(failureText(res.status, "匯出失敗"));
       const url = URL.createObjectURL(await res.blob());
       const link = document.createElement("a");
       link.href = url;
@@ -239,7 +246,7 @@ export function AnalyticsPage() {
           <h3 style={{ margin: 0 }}>上傳紀錄</h3>
           <button type="button" onClick={exportCsv} style={buttonStyle}>匯出 CSV</button>
         </div>
-        <div style={{ color: "#64748b", fontSize: 12, marginBottom: 8 }}>只依日期區間篩選（檔案上傳工作沒有對應單一表單，跟上方表單下拉無關）。</div>
+        <div style={{ color: "#64748b", fontSize: 12, marginBottom: 8 }}>只依日期區間篩選（檔案上傳工作沒有對應單一表單，跟上方表單下拉無關）。這裡只列「檔案上傳工作」；從「通用表格」或「檔案上傳」頁匯入的資料不會列在這裡，請看上方的匯入趨勢與「資料查詢」。</div>
         {historyError ? <div style={errorStyle}>上傳紀錄載入失敗：{historyError}</div> : null}
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
@@ -255,7 +262,7 @@ export function AnalyticsPage() {
                   <td style={tdStyle}>{job.actor || "—"}</td>
                 </tr>
               ))}
-              {!history.items.length ? <tr><td colSpan={8} style={{ ...tdStyle, textAlign: "center", color: "#64748b" }}>沒有上傳紀錄</td></tr> : null}
+              {!history.items.length ? <tr><td colSpan={8} style={{ ...tdStyle, textAlign: "center", color: "#64748b" }}>沒有檔案上傳工作紀錄</td></tr> : null}
             </tbody>
           </table>
         </div>

@@ -6,6 +6,7 @@
   "$defs": {
     "id": { "type": "string", "pattern": "^[a-z0-9-]+$", "maxLength": 100 },
     "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "minutes": { "type": "number", "minimum": 0, "maximum": 525600 },
     "v1": {
       "type": "object", "additionalProperties": false,
       "required": ["format", "version", "steps"],
@@ -147,7 +148,8 @@
         "params": { "type": "object", "maxProperties": 20, "propertyNames": { "pattern": "^[a-zA-Z][a-zA-Z0-9]*$", "maxLength": 50 },
           "additionalProperties": { "type": ["string", "number", "boolean"], "maxLength": 100 } },
         "formId": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/id" }] },
-        "childGraphId": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/id" }] }
+        "childGraphId": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/id" }] },
+        "durationMin": { "$ref": "#/$defs/minutes" }
       }
     },
     "v5": {
@@ -174,7 +176,7 @@
             "nodes": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/nodeV5" } },
             "edges": { "type": "array", "maxItems": 500, "items": {
               "type": "object", "additionalProperties": false, "required": ["id", "from", "to"],
-              "properties": { "id": { "$ref": "#/$defs/id" }, "from": { "$ref": "#/$defs/id" }, "to": { "$ref": "#/$defs/id" } }
+              "properties": { "id": { "$ref": "#/$defs/id" }, "from": { "$ref": "#/$defs/id" }, "to": { "$ref": "#/$defs/id" }, "transferMin": { "$ref": "#/$defs/minutes" } }
             } }
           }
         } },

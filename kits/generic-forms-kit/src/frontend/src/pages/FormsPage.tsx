@@ -34,6 +34,17 @@ type SubTab = "schema" | "upload" | "records";
 type EditReason = { id: string; code: string; label: string; is_active: boolean };
 
 const FIELD_TYPES: FieldType[] = ["string", "integer", "decimal", "date", "boolean"];
+const TYPE_LABELS: Record<FieldType, string> = { string: "文字", integer: "整數", decimal: "數值", date: "日期", boolean: "是否" };
+
+type Notice = { kind: "ok" | "error"; text: string };
+
+// Business wording for a failed request; a missing permission must never look like "nothing happened".
+async function failureText(res: Response, fallback: string): Promise<string> {
+  if (res.status === 401) return "登入已逾時，請重新登入。";
+  if (res.status === 403) return "您的角色沒有這項操作的權限，請洽管理者。";
+  const body = await res.json().catch(() => ({}));
+  return typeof body.detail === "string" && body.detail ? body.detail : `${fallback}（${res.status}）`;
+}
 const EMPTY_FIELDS: FieldDef[] = [];
 
 // Station schemas seeded outside the manager UI (seed_stations / db-bootstrap-plan)
@@ -80,6 +91,13 @@ export function FormsPage() {
   const [selected, setSelected] = useState<FormType | null>(null);
   const [subTab, setSubTab] = useState<SubTab>("schema");
   const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState<Notice | null>(null);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   // create dialog
   const [creating, setCreating] = useState(false);
@@ -157,19 +175,24 @@ export function FormsPage() {
       setNewCode(""); setNewName("");
       await loadForms();
       selectForm(created);
+      setNotice({ kind: "ok", text: "表單已建立，請接著定義欄位。" });
+    } else {
+      setNotice({ kind: "error", text: await failureText(res, "建立表單失敗") });
     }
   }
 
   async function deleteForm(code: string) {
     if (!confirm(`確定刪除表單 ${code} 及其所有紀錄？`)) return;
-    await fetch(`/api/forms/${code}`, { method: "DELETE", headers: apiHeaders() });
+    const res = await fetch(`/api/forms/${code}`, { method: "DELETE", headers: apiHeaders() });
+    if (!res.ok) { setNotice({ kind: "error", text: await failureText(res, "刪除表單失敗") }); return; }
     if (selected?.code === code) setSelected(null);
+    setNotice({ kind: "ok", text: "表單已刪除。" });
     loadForms();
   }
 
   function validateSchema(fields: FieldDef[]): string[] {
     const errs: string[] = [];
-    if (fields.length === 0) errs.push("Schema 至少需要一個欄位");
+    if (fields.length === 0) errs.push("至少需要一個欄位");
     const names = fields.map(f => f.name.trim());
     names.forEach((n, i) => {
       if (!n) errs.push(`第 ${i + 1} 個欄位名稱不可為空`);
@@ -178,7 +201,7 @@ export function FormsPage() {
     const dupes = names.filter((n, i) => n && names.indexOf(n) !== i);
     if (dupes.length > 0) errs.push(`欄位名稱重複：${[...new Set(dupes)].join("、")}`);
     const keyFields = fields.filter(f => f.is_key);
-    if (keyFields.length === 0) errs.push("至少需要一個識別鍵欄位（is_key）");
+    if (keyFields.length === 0) errs.push("至少需要勾選一個「識別鍵」欄位（用來判斷重複）");
     return errs;
   }
 
@@ -201,9 +224,9 @@ export function FormsPage() {
         setSelected(updated);
         setEditFields(updated.fields ? updated.fields.map(normalizeField) : []);
         setSchemaReasonId("");
+        setNotice({ kind: "ok", text: `欄位定義已儲存（版本 ${updated.schema_version ?? "-"}）。` });
       } else {
-        const err = await res.json().catch(() => ({}));
-        setSchemaErrors([err.detail || `儲存失敗 ${res.status}`]);
+        setSchemaErrors([await failureText(res, "儲存失敗")]);
       }
     } finally {
       setSchemaSaving(false);
@@ -228,10 +251,7 @@ export function FormsPage() {
       fd.append("allow_duplicate", String(allowDup));
       const res = await fetch(`/api/forms/${selected.code}/upload`, { method: "POST", headers: apiHeaders(), body: fd });
       if (res.ok) setUploadResult(await res.json());
-      else {
-        const err = await res.json().catch(() => ({}));
-        alert(err.detail || `上傳失敗 ${res.status}`);
-      }
+      else setNotice({ kind: "error", text: await failureText(res, "上傳失敗") });
     } finally {
       setUploading(false);
     }
@@ -253,7 +273,9 @@ export function FormsPage() {
 
   async function deleteRecord(id: string) {
     if (!selected) return;
-    await fetch(`/api/forms/${selected.code}/records/${id}`, { method: "DELETE", headers: apiHeaders() });
+    const res = await fetch(`/api/forms/${selected.code}/records/${id}`, { method: "DELETE", headers: apiHeaders() });
+    if (!res.ok) { setNotice({ kind: "error", text: await failureText(res, "刪除紀錄失敗") }); return; }
+    setNotice({ kind: "ok", text: "紀錄已刪除。" });
     loadRecords(page);
   }
 
@@ -371,7 +393,7 @@ export function FormsPage() {
                           <td style={cell}>
                             <select value={f.type} onChange={e => updateField(i, "type", e.target.value)}
                               style={{ padding: "3px 6px", border: "1px solid #d1d5db", borderRadius: 4 }}>
-                              {FIELD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                              {FIELD_TYPES.map(t => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
                             </select>
                           </td>
                           <td style={{ ...cell, textAlign: "center" }}>
@@ -400,7 +422,7 @@ export function FormsPage() {
                     {editReasons.map(r => <option key={r.id} value={r.id}>{r.label} ({r.code})</option>)}
                   </select>
                   <button style={btn()} onClick={saveSchema} disabled={schemaSaving}>
-                    {schemaSaving ? "儲存中…" : "儲存 Schema"}
+                    {schemaSaving ? "儲存中…" : "儲存欄位定義"}
                   </button>
                   <span style={{ fontSize: 12, color: "#6b7280" }}>* 必填欄位在 CSV 上傳時若缺少值將報錯；🔑 識別鍵用於去重</span>
                 </div>
@@ -408,7 +430,7 @@ export function FormsPage() {
                   <div style={{ fontSize: 12, color: "#d97706" }}>
                     {reasonLoadFailed
                       ? "無法載入編輯原因清單，請稍後再試或聯絡管理者。"
-                      : "尚無可用編輯原因，請先由管理者於「編輯原因管理」建立後再儲存 Schema。"}
+                      : "尚無可用編輯原因，請先由管理者於「編輯原因管理」建立後再儲存欄位定義。"}
                   </div>
                 )}
               </div>
@@ -419,7 +441,7 @@ export function FormsPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {(!selected.fields || selected.fields.length === 0) ? (
                   <div style={{ background: "#fffbeb", border: "1px solid #fbbf24", borderRadius: 6, padding: "10px 14px", fontSize: 13, color: "#92400e" }}>
-                    ⚠ 尚未定義欄位 Schema。請先至「欄位定義」tab 建立 Schema 再上傳 CSV。
+                    ⚠ 尚未定義欄位。請先至「欄位定義」分頁建立欄位再上傳 CSV。
                   </div>
                 ) : (
                   <div>
@@ -437,7 +459,7 @@ export function FormsPage() {
                             {isRequired && <span style={{ color: "#dc2626", marginRight: 2 }}>*</span>}
                             {f.name}
                             {isKey ? " 🔑" : ""}
-                            <span style={{ marginLeft: 4, color: "#9ca3af", fontSize: 10 }}>{f.type}</span>
+                            <span style={{ marginLeft: 4, color: "#9ca3af", fontSize: 10 }}>{TYPE_LABELS[f.type as FieldType] ?? f.type}</span>
                           </span>
                         );
                       })}
@@ -544,6 +566,13 @@ export function FormsPage() {
           </>
         )}
       </div>
+      {notice ? (
+        <div role={notice.kind === "error" ? "alert" : "status"}
+          style={{ position: "fixed", right: 20, bottom: 20, maxWidth: 360, padding: "10px 14px", borderRadius: 6, color: "#fff", fontSize: 13, zIndex: 50,
+            background: notice.kind === "error" ? "#dc2626" : "#16a34a" }}>
+          {notice.text}
+        </div>
+      ) : null}
       {selected && editingRecord ? (
         <EditRecordModal
           tableCode={selected.code}

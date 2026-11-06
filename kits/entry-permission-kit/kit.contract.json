@@ -89,6 +89,14 @@
     "api": [],
     "db": []
   },
+  "adminRoutes": [
+    { "method": "GET", "path": "/api/roles" },
+    { "method": "POST", "path": "/api/roles" },
+    { "method": "PATCH", "path": "/api/roles/{role_id}" },
+    { "method": "DELETE", "path": "/api/roles/{role_id}" },
+    { "method": "PUT", "path": "/api/roles/{role_id}/entry-points" },
+    { "method": "PUT", "path": "/api/users/{user_id}/entry-point-overrides" }
+  ],
   "entryPoints": [
     {
       "key": "entry_permission.user_manage",

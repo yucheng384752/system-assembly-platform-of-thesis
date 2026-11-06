@@ -1186,3 +1186,40 @@
   border-radius: 4px;
   border: 1px solid #e5e7eb;
 }
+
+/* Lot query and trace page (QueryPage.tsx): classes the page uses that had no rules. */
+.query-title { margin: 0; font-size: 1.25rem; }
+
+.query-mode-bar { display: flex; gap: 0.25rem; border-bottom: 1px solid #e5e7eb; }
+.query-mode-btn {
+  padding: 0.4rem 1rem; border: 0; border-bottom: 2px solid transparent; background: none;
+  color: #374151; font-size: 0.9rem; cursor: pointer;
+}
+.query-mode-btn.active { border-bottom-color: #2563eb; color: #2563eb; font-weight: 600; }
+
+.query-bar { display: flex; gap: 0.5rem; align-items: center; }
+.query-input {
+  flex: 1; max-width: 24rem; padding: 0.4rem 0.6rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem;
+}
+.query-btn {
+  padding: 0.4rem 1.1rem; border: 0; border-radius: 6px; background: #2563eb; color: #fff; font-size: 0.9rem; cursor: pointer;
+}
+.query-btn:disabled, .query-input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.query-error { padding: 0.6rem 0.9rem; border: 1px solid #fca5a5; border-radius: 6px; background: #fef2f2; color: #b91c1c; }
+.query-empty { padding: 1rem; text-align: center; color: #6b7280; }
+
+.query-results { display: flex; flex-direction: column; gap: 0.75rem; }
+.station-card, .trace-node { border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.6rem 0.9rem; background: #fff; }
+.station-header { display: flex; gap: 0.6rem; align-items: baseline; margin-bottom: 0.4rem; }
+.station-name { font-weight: 600; }
+.station-code { color: #6b7280; font-size: 0.8rem; }
+.station-count { margin-left: auto; color: #6b7280; font-size: 0.8rem; }
+
+.record-row { padding: 0.4rem 0; border-top: 1px solid #f3f4f6; }
+.record-meta { display: flex; gap: 0.8rem; align-items: baseline; font-size: 0.8rem; color: #6b7280; }
+.record-lot { color: #111827; font-weight: 600; font-size: 0.9rem; }
+.record-fields { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.3rem; }
+.record-field { display: inline-flex; gap: 0.3rem; padding: 0.1rem 0.5rem; border-radius: 999px; background: #f3f4f6; font-size: 0.8rem; }
+.field-key { color: #6b7280; }
+.expand-btn { border: 0; background: none; color: #2563eb; font-size: 0.8rem; cursor: pointer; }

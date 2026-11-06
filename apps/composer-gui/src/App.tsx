@@ -19,6 +19,10 @@ import { emptyGraph, graphPath, graphActionIds, graphErrors, integrityErrors } f
 import { deriveKits } from '../../../libs/ui-runtime/actions';
 import { registry } from './registryData';
 import { WorkflowTransfer } from './WorkflowTransfer';
+import { NodeDetailsStep, nodeDetailsError } from './NodeDetailsStep';
+import { PublishPrepPage } from './PublishPrepPage';
+import { emptyProjectDetails } from '../../../libs/aov-integration/projectDetails';
+import { emptyFormLibrary } from '../../../libs/aov-integration/formLibrary';
 
 export function withSelection(recipe: Recipe, enabledKits: string[]): Recipe {
   return { ...recipe, enabledKits, selectedSubfeatures: { ...recipe.selectedSubfeatures,
@@ -36,6 +40,8 @@ export function App() {
   const [requested, setRequested] = useState<string[]>([]);
   const [manual, setManual] = useState<string[]>([]);
   const [graph, setGraph] = useState(emptyGraph);
+  const [details, setDetails] = useState(emptyProjectDetails);
+  const [formLibrary, setFormLibrary] = useState(emptyFormLibrary);
   const [graphSession, setGraphSession] = useState(0);
   const [canvasPath, setCanvasPath] = useState<string[]>([]);
   const [session, setSession] = useState(0);
@@ -55,19 +61,20 @@ export function App() {
   const conflict = siteError(recipe, catalog, site);
   const workflowProblems = [...integrityErrors(graph), ...graphErrors(graph)];
   const stepError = (step: number) => [
-    workflowProblems[0], conflict,
+    workflowProblems[0], nodeDetailsError(details), conflict,
     [...productionErrors(recipe.productionSettings ?? emptyProduction), ...productionBindings(recipe.productionSettings ?? emptyProduction, graph)][0],
     conflict || productionErrors(recipe.productionSettings ?? emptyProduction)[0] || productionBindings(recipe.productionSettings ?? emptyProduction, graph)[0] || (!recipe.clientName?.trim() ? '請填寫客戶代稱。' : workflowProblems.length ? `流程規格尚未完成：${workflowProblems[0]}` : ''),
   ][step] ?? '';
   // The step flow stays mounted (only hidden) so switching pages never loses the confirmed steps.
   const steps = <StepShell stepError={stepError} renderStep={(step, navigate) => step === 0 ? <WorkflowCanvas lifecycle={caseLifecycle} locate={locate} resetKey={graphSession} value={graph} onChange={setGraph} path={canvasPath} onPathChange={setCanvasPath} toolbarExtra={<WorkflowTransfer onChange={next => { setGraph(next); setCanvasPath([]); setGraphSession(s => s + 1); }} />} />
-    : step === 1 ? <FlowPage simulation={simulation} onSimulationChange={setSimulation} graph={graph} derived={derived} site={site?.site} recipe={recipe} onChange={setRecipe} requested={requested} manual={manual} session={session} onSelect={(nextFlows, nextKits) => {
+    : step === 1 ? <NodeDetailsStep graph={graph} details={details} forms={formLibrary} onChange={setDetails} onFormsChange={setFormLibrary} />
+    : step === 2 ? <FlowPage simulation={simulation} onSimulationChange={setSimulation} graph={graph} derived={derived} site={site?.site} recipe={recipe} onChange={setRecipe} requested={requested} manual={manual} session={session} onSelect={(nextFlows, nextKits) => {
       setRequested(nextFlows); setManual(nextKits);
     }} />
-      : step === 2 ? <ProductionPage recipe={recipe} onChange={setRecipe} graph={graph} /> : <OutputPage onLocate={issue => { const g = graph.graphs.find(g => g.id === issue.graphId || g.nodes.some(n => n.id === issue.nodeId)); setCanvasPath(g ? graphPath(graph, g.id) : []); setLocate(issue.nodeId ? { nodeId: issue.nodeId, fieldId: issue.fieldId, request: Date.now() } : undefined); navigate(0); }} site={site} siteConflict={conflict} onSiteChange={next => {
+      : step === 3 ? <ProductionPage recipe={recipe} onChange={setRecipe} graph={graph} /> : <OutputPage onLocate={issue => { const g = graph.graphs.find(g => g.id === issue.graphId || g.nodes.some(n => n.id === issue.nodeId)); setCanvasPath(g ? graphPath(graph, g.id) : []); setLocate(issue.nodeId ? { nodeId: issue.nodeId, fieldId: issue.fieldId, request: Date.now() } : undefined); navigate(0); }} site={site} siteConflict={conflict} onSiteChange={next => {
         setSite(next);
         setRecipe(previous => { const { siteRef: _siteRef, ...rest } = previous; return next ? { ...rest, siteRef: { path: 'site.profile.json', sha256: next.sha256 } } : rest; });
-      }} recipe={recipe} workflow={graph} selectedFlows={selection.selectedFlows} onChange={setRecipe} onImport={next => {
+      }} recipe={recipe} workflow={graph} selectedFlows={selection.selectedFlows} onChange={setRecipe} details={details} forms={formLibrary} onDetailsImport={setDetails} onFormsImport={setFormLibrary} onImport={next => {
         // Validate required flow membership before replacing any part of the session.
         const importedFlows = flows.filter(f => f.kits.every(id => next.enabledKits.includes(id))).map(f => f.id);
         const selection = selectKits(catalog.kits, importedFlows, [], flows, derivedIds);
@@ -78,6 +85,7 @@ export function App() {
     {page === 'home' && <HomePage aov={graph} enabledKits={recipe.enabledKits.length} onNavigate={setPage} />}
     {page === 'cases' && <CaseLibraryPage onLifecycle={setCaseLifecycle} />}
     <div hidden={page !== 'flow'}>{steps}</div>
+    <div hidden={page !== 'publish'}><PublishPrepPage graph={graph} details={details} forms={formLibrary} /></div>
     {page === 'datasets' && <PlaceholderPage title="資料集" lead="集中管理設定用與執行用資料集。" items={['資料集列表與版本', 'CSV 匯入與欄位對應', '引用此資料集的系統清單']} />}
     {page === 'runs' && <PlaceholderPage title="執行記錄" lead="目前只做設定期（D16），尚無執行期；此頁日後顯示驗證紀錄。" items={['驗證紀錄列表', '節點時間線與錯誤位置']} />}
     {page === 'settings' && <PlaceholderPage title="系統設定" lead="場域、相容性與資料遷移。" items={['Migration 變更分析', 'Migration 計畫與演練', '相容性檢查']} />}

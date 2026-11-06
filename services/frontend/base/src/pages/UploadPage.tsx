@@ -14,8 +14,10 @@ const authHeaders = (): HeadersInit => {
 
 /** Reads the reason the server gave for a failed call; never shows raw HTML or a stack trace. */
 async function failure(response: Response): Promise<string> {
+  if (response.status === 401) return '登入已逾時，請重新登入。'
+  if (response.status === 403) return '您的角色沒有這項操作的權限，請洽管理者。'
   const body = await response.json().catch(() => null)
-  return typeof body?.detail === 'string' ? body.detail : `HTTP ${response.status}`
+  return typeof body?.detail === 'string' ? body.detail : `操作失敗（${response.status}）`
 }
 
 /** CSV import into a generic form: preview first, nothing is written until the operator commits. */

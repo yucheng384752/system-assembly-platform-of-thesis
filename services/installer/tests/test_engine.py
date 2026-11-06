@@ -65,7 +65,8 @@ def fixture(directory, extra=None):
             {'Config': config_name, 'RepoTags': [tag], 'Layers': []}])})
         images.append(image)
     manifest = {'format': 'composer-system-assembly', 'schemaVersion': '1.0.0', 'systemVersion': '1.0.0', 'systemId': 'fixture', 'images': images,
-                'kits': [{'kit': 'platform-core-kit'}],
+                'kits': [{'kit': 'platform-core-kit', 'sourceSha256': 'source-1'}],
+                'selftest': {'status': 'passed', 'kits': [{'kit': 'platform-core-kit', 'status': 'passed', 'passed': 3, 'sourceSha256': 'source-1'}]},
                 'files': [{'path': name, 'bytes': len(data), 'sha256': digest(data), 'role': 'fixture'} for name, data in files.items()]}
     files['system-manifest.json'] = canonical(manifest)
     for name, data in files.items():
@@ -217,6 +218,23 @@ class EngineTests(unittest.TestCase):
         self.runner.signature_ok = False
         with patch('package.tarfile.open', side_effect=AssertionError('extracted before signature')):
             self.assert_code(11, self.verify_again)
+
+    @unittest.skipIf(os.name == 'nt', 'POSIX permission bits')
+    def test_extraction_ignores_callers_restrictive_umask(self):
+        # The backend runs as a non-root user; a 0600 manifest made it report manifest-missing.
+        old = os.umask(0o077)
+        try:
+            out = self.base / 'umask-out'
+            out.mkdir()
+            verify(self.runner, **self.source, destination=out)
+        finally:
+            os.umask(old)
+        files = [p for p in out.rglob('*') if p.is_file()]
+        self.assertTrue(files)
+        for path in files:
+            self.assertTrue(path.stat().st_mode & 0o004, path.name + ' is not world-readable')
+        for path in [out, *[p for p in out.rglob('*') if p.is_dir()]]:
+            self.assertEqual(path.stat().st_mode & 0o777, 0o755, str(path))
 
     def test_tar_hash_rejected_before_extraction(self):
         with open(self.source['archive'], 'ab') as stream:
@@ -489,6 +507,45 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(self.installer.state['steps']['migration']['status'], 'ok')
         self.assertNotIn('compose-up', self.installer.state['steps'], 'services must not start without a verified license')
 
+    def failing_start(self, report):
+        """The backend refuses to start (compose --wait fails); `report` is what its self-check wrote, or None when it wrote nothing."""
+        original = self.runner.run
+
+        def run(args, **kwargs):
+            if args[:2] == ['docker', 'compose'] and 'up' in args and args[-1] == 'backend':
+                raise Failure(13, 'fixture command failed')
+            if args[:2] == ['docker', 'compose'] and 'exec' in args and any('selfcheck.json' in str(a) for a in args):
+                if report is None:
+                    return subprocess.CompletedProcess(args, 1, b'', b'')
+                return subprocess.CompletedProcess(args, 0, canonical(report), b'')
+            return original(args, **kwargs)
+        self.runner.run = run
+
+    def failed_message(self):
+        return next(e['message'] for e in self.events if e.get('status') == 'failed' and e.get('step') == 'compose-up')
+
+    def test_a_backend_that_refuses_to_start_reports_which_kit_failed_its_self_check(self):
+        self.failing_start({'status': 'failed', 'findings': [
+            {'kit': 'upload-validation-kit', 'check': 'route-missing', 'reason': '入口宣告的 POST /api/upload 在系統中不存在'},
+            {'kit': None, 'check': 'database-table-missing', 'reason': '資料表「x」不存在'}]})
+        self.assertEqual(self.installer.apply(self.root, self.body), 13)
+        message = self.failed_message()
+        self.assertIn('現場自檢未通過', message)
+        self.assertIn('upload-validation-kit：入口宣告的 POST /api/upload 在系統中不存在', message)
+        self.assertIn('系統：資料表「x」不存在', message)
+
+    def test_a_start_failure_without_a_self_check_report_keeps_the_plain_message(self):
+        self.failing_start(None)
+        self.assertEqual(self.installer.apply(self.root, self.body), 13)
+        self.assertNotIn('現場自檢', self.failed_message())
+
+    def test_a_passed_or_unreadable_report_is_not_blamed_for_a_start_failure(self):
+        for report in ({'status': 'passed', 'findings': []}, {'status': 'failed', 'findings': 'garbage'}):
+            self.failing_start(report)
+            self.assertEqual(self.installer.apply(self.root, self.body), 13)
+            self.assertNotIn('現場自檢', self.failed_message())
+            self.setUp()
+
     def test_fingerprint_drift_before_license_install(self):
         original = self.runner.run
         def changed(args, **kwargs):
@@ -611,6 +668,38 @@ class EngineTests(unittest.TestCase):
         manifest = copy.deepcopy(self.manifest)
         manifest['images'][0]['tag'] = 'unexpected:tag'
         self.assert_code(11, lambda: validate_manifest(manifest, self.root))
+
+    def test_a_package_without_the_kit_test_proof_is_refused(self):
+        from package import validate_manifest
+        manifest = copy.deepcopy(self.manifest)
+        del manifest['selftest']
+        self.assert_code(11, lambda: validate_manifest(manifest, self.root))
+        manifest = copy.deepcopy(self.manifest)
+        manifest['selftest']['status'] = 'skipped'
+        self.assert_code(11, lambda: validate_manifest(manifest, self.root))
+
+    def test_a_kit_whose_tests_are_missing_or_failed_is_named_in_the_refusal(self):
+        from package import validate_manifest
+        manifest = copy.deepcopy(self.manifest)
+        manifest['kits'].append({'kit': 'extra-kit', 'sourceSha256': 'source-2'})
+        with self.assertRaises(Failure) as caught:
+            validate_manifest(manifest, self.root)
+        self.assertEqual(caught.exception.code, 11)
+        self.assertIn('extra-kit', str(caught.exception))
+        self.assertNotIn('platform-core-kit', str(caught.exception))
+        manifest['selftest']['kits'].append({'kit': 'extra-kit', 'status': 'failed', 'passed': 0, 'sourceSha256': 'source-2'})
+        with self.assertRaises(Failure) as caught:
+            validate_manifest(manifest, self.root)
+        self.assertIn('extra-kit', str(caught.exception))
+
+    def test_a_proof_for_other_source_than_the_package_holds_is_refused(self):
+        from package import validate_manifest
+        manifest = copy.deepcopy(self.manifest)
+        manifest['selftest']['kits'][0]['sourceSha256'] = 'source-other'
+        with self.assertRaises(Failure) as caught:
+            validate_manifest(manifest, self.root)
+        self.assertIn('platform-core-kit', str(caught.exception))
+        self.assertIn('原始碼不符', str(caught.exception))
 
     def oci_archive(self, image, root_blob=b'{"mediaType": "application/vnd.oci.image.index.v1+json"}', index_digest=None, extra_entries=0, stored_blob=None):
         """Archive as written by the containerd image store: docker-style manifest.json plus an OCI index."""

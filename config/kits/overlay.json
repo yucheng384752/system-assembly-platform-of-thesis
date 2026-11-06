@@ -2,6 +2,10 @@
   "sourceCommit": "c4b2b7b",
   "version": "c4b2b7b-ui.1",
   "replacements": { "tenant-auth-kit": "entry-permission-kit" },
+  "extraDependencies": {
+    "upload-validation-kit": ["generic-forms-kit"],
+    "generic-forms-kit": ["audit-edit-kit"]
+  },
   "presentation": {
     "platform-core-kit": { "displayName": "系統基本功能", "businessCapability": "提供基本操作介面與系統運作支援。" },
     "station-data-link-kit": { "displayName": "站點資料串聯", "businessCapability": "連結不同站點的批次與產品紀錄，方便後續查詢。" },

@@ -1,4 +1,5 @@
 """Formal Kit wiring. Schema initialization is an explicit installer step."""
+import json
 import os
 from contextlib import asynccontextmanager
 from importlib import import_module
@@ -24,12 +25,27 @@ from app.core import database, monitoring
 from app.core.endpoint_permission_middleware import endpoint_permission_middleware
 from app.entry_permission.middleware import configure_entry_permission, entry_permission_middleware
 from app.license_gate import GATE, license_gate_middleware
+from app import selfcheck
 import app.models
 from app.models.core.tenant import Tenant
 
 TENANT_ID = UUID(os.environ["DEFAULT_TENANT_ID"])
 PERMISSIONS = Path(__file__).resolve().parents[2] / "permissions"
 os.environ.setdefault("ENDPOINT_PERMISSIONS_FILE", str(PERMISSIONS / "endpoint_permissions.json"))
+
+
+MANIFEST = Path(os.environ.get("SYSTEM_MANIFEST_FILE", "/system/manifest/system-manifest.json"))
+
+
+async def run_selfcheck():
+    """The on-site checks (D182): package, contracts, dependencies, permission directory, routes, database."""
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    findings = selfcheck.static_findings(manifest, app, app.state.ep_directory)
+    reachable, tables, declared, tenant_present = await selfcheck.collect_database(database, Tenant, TENANT_ID)
+    return findings + selfcheck.database_findings(reachable, tables, declared, tenant_present, selfcheck.owners_of(manifest))
+
+
+SELFCHECK = selfcheck.SelfCheck(run_selfcheck)
 
 
 async def machine_access_unavailable(request, call_next):
@@ -42,6 +58,7 @@ async def lifespan(app):
                                default_tenant_id=TENANT_ID, machine_auth=machine_access_unavailable)
     GATE.result()  # log the license state at startup; the gate re-checks on every request window
     await database.init_db()
+    await SELFCHECK.run()  # log and record the result at startup; the gate below keeps re-checking while it fails
     # Only logs-ops-kit's monitoring has a log writer; the platform-core no-op does not. Remote heartbeat stays off.
     if hasattr(monitoring, "_DDL_PG"):
         monitoring.init_monitoring(server_url="")
@@ -58,6 +75,9 @@ app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None
 
 @app.get("/healthz")
 async def healthz():
+    result = await SELFCHECK.current()
+    if result["status"] != "passed":
+        return JSONResponse(status_code=503, content=selfcheck.refusal(result))
     try:
         async with database.engine.connect() as connection:
             await connection.execute(text("SELECT 1"))
@@ -76,5 +96,7 @@ async def healthz():
 app.middleware("http")(endpoint_permission_middleware)
 app.middleware("http")(entry_permission_middleware)
 @@ROUTERS@@
+# Inside the license gate: nothing is served while the on-site self-check fails, except /healthz which reports why (D182).
+app.middleware("http")(selfcheck.gate(SELFCHECK))
 # Added last so it is the outermost middleware: nothing is served while the license is invalid (D142).
 app.middleware("http")(license_gate_middleware)

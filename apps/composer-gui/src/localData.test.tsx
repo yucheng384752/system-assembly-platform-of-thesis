@@ -36,7 +36,7 @@ test('single-node upload names failures, retains only fields, and never sends or
   expect((screen.getByLabelText('欄位 2 型別') as HTMLSelectElement).value).toBe('integer');
   fireEvent.click(screen.getByLabelText('欄位 1 識別欄位'));
   fireEvent.change(screen.getByLabelText('欄位 1 名稱'), { target: { value: '自訂名稱' } });
-  fireEvent.click(screen.getByRole('button', { name: /02 功能選配/ }));
+  fireEvent.click(screen.getByRole('button', { name: /03 功能選配/ }));
   fireEvent.click(screen.getByRole('button', { name: /01 流程畫布/ }));
   fireEvent.click(screen.getByRole('button', { name: '檢驗' }));
   expect((screen.getByLabelText('欄位 1 名稱') as HTMLInputElement).value).toBe('自訂名稱');

@@ -18,6 +18,7 @@
 - 新增 `platform-core-kit/tests/test_license.py` 與 `requirements-test.txt`（pytest 9.1.1、cryptography 50.0.2，D43）。執行方式：`python -m venv .venv`，`.venv\Scripts\python -m pip install -r kits/platform-core-kit/requirements-test.txt`，再 `npm.cmd run test:kits`。
 - 2026-10-28（D142）：`license.py` 改為授權 3.0 驗證（憑證鏈、manifest 雜湊綁定，執行期沿用既有釘選的 cryptography）；`tests/test_license.py` 改寫為 3.0 測試（unittest 風格，pytest 與 `python -m unittest` 皆可執行），舊的 `linux_smoke.py`（2.0 格式、無 pip 主機用）已移除。
 - 2026-11-02（D152）：`generic-forms-kit/.../routes_generic_forms.py` 的 `_coerce` 轉型失敗改為拋 `CoerceError`，`_map_row` 把它列為該列錯誤（原本回傳原字串並收下）；舊的 `/upload` 改用 `_map_row`，不再各自重複一份欄位迴圈。新增 `generic-forms-kit/tests/test_row_types.py`。
+- 2026-11-06（D182）：新增各 Kit 的 `tests/`（mod-subscription、upload-validation、station-data-link、import-pipeline、audit-edit、analytics、query-traceability、factory-core；其餘 Kit 原有）。`platform-core-kit/kit.contract.json` 的 `provides.db` 加入 `db.tenants.read`（tenant-auth-kit 廢除後無人提供）；`entry-permission-kit/kit.contract.json` 新增 `adminRoutes`；`audit-edit-kit/.../routes_edit.py` 的 `_coerce_changes` 接住 `ValueError`（`CoerceError`）並回 422，原本會回 500。若回報基線版，後兩者是基線版相容性或缺陷。
 
 ## 補齊的後端原始碼（2026-10-06，D90）
 

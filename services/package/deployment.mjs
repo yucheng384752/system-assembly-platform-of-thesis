@@ -78,9 +78,12 @@ export function mergeRequirements(texts) {
   return [...[...indexes].sort().map(url => `--extra-index-url ${url}`), ...[...pins.values()].sort()].join('\n') + '\n';
 }
 
-/** @param {string} kits @param {string[]} selected @param {string[]} sources
+// Forms ride in the package as forms/<hash>.json and are registered by the factory on start (factory_api.deploy.load_packaged_forms).
+const formsCopy = 'COPY forms/ /system/forms/\n';
+
+/** @param {string} kits @param {string[]} selected @param {string[]} sources @param {{forms?: boolean}} [options]
  * @returns {Promise<Map<string, string>>} */
-export async function deploymentArtifacts(kits, selected, sources) {
+export async function deploymentArtifacts(kits, selected, sources, { forms = false } = {}) {
   const webhook = selected.includes('mod-subscription-kit');
   const factory = selected.includes('factory-core-kit');
   const routers = sources.filter(n => /^app\/api\/routes_[^/]+\.py$/.test(n)).sort().map(name => {
@@ -92,7 +95,7 @@ export async function deploymentArtifacts(kits, selected, sources) {
   const artifacts = new Map();
   for (const [output, template] of [
     ['backend/app/main.py', 'main.py'], ['backend/app/system_init.py', 'system_init.py'],
-    ['.dockerignore', 'dockerignore'], ['backend/app/secret_files.py', 'secret_files.py'], ['backend/app/guard.py', 'guard.py'], ['backend/app/license_hardware.py', 'license_hardware.py'], ['backend/app/license_gate.py', 'license_gate.py'],
+    ['.dockerignore', 'dockerignore'], ['backend/app/secret_files.py', 'secret_files.py'], ['backend/app/guard.py', 'guard.py'], ['backend/app/license_hardware.py', 'license_hardware.py'], ['backend/app/license_gate.py', 'license_gate.py'], ['backend/app/selfcheck.py', 'selfcheck.py'],
     ['deployment/docker-compose.yml', 'docker-compose.yml'], ['deployment/backend.Dockerfile', 'backend.Dockerfile'],
     ['deployment/nginx.conf', 'nginx.conf'], ['deployment/.env.example', 'env.example'], ['deployment/README.md', 'README.md'],
   ]) {
@@ -103,6 +106,7 @@ export async function deploymentArtifacts(kits, selected, sources) {
       .replaceAll('@@FACTORY_INIT@@\n', factory ? factoryInit : '')
       .replaceAll('@@EVALUATOR_NODE@@\n', factory ? evaluatorStage : '')
       .replaceAll('@@EVALUATOR_COPY@@\n', factory ? evaluatorCopy : '')
+      .replaceAll('@@FORMS_COPY@@\n', forms ? formsCopy : '')
       .replaceAll('@@WEBHOOK_ENV@@', webhook ? '      MOD_WEBHOOK_SECRET_FILE: /run/secrets/mod_webhook_secret\n' : '')
       .replaceAll('@@WEBHOOK_SECRET_REF@@', webhook ? '      - mod_webhook_secret\n' : '')
       .replaceAll('@@WEBHOOK_SECRET_DEF@@', webhook ? '  mod_webhook_secret:\n    file: ../secrets/mod_webhook_secret\n' : '')
