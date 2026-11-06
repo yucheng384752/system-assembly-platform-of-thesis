@@ -230,6 +230,15 @@ def publish_library(request: Request):
         raise refused(error) from error
 
 
+@router.post('/api/analytical-four/library/restore', status_code=201)
+def restore_library(body: dict, request: Request):
+    who = actor_id(request)
+    try:
+        return feedback().restore(settings_or_422(), body.get('version'), who)
+    except FeedbackError as error:
+        raise refused(error) from error
+
+
 @router.get('/api/analytical-four/library/versions')
 def library_versions(request: Request):
     actor_id(request)

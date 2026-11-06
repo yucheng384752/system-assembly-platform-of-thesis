@@ -109,6 +109,9 @@ def test_a_wrong_prediction_lands_in_the_error_file_too(client, data, complaint_
     assert (manifest['recordCount'], manifest['errorRecordCount']) == (2, 1)
     errors = [json.loads(x) for x in (data / 'cases' / 'llm_error_records.jsonl').read_text(encoding='utf-8').splitlines()]
     assert [e['event_id'] for e in errors] == [events[0]] and errors[0]['error_analysis']['was_correct'] is False
+    # The error file is for learning from misses, so a miss must say why: a reason and the values that disagreed.
+    analysis = errors[0]['error_analysis']
+    assert analysis['error_reasons'] and analysis['delta']['confirmed'] == wrong and analysis['delta']['predicted'] == predicted
 
 
 def test_a_new_defect_code_is_accepted_and_marked_new(client, complaint_run):
@@ -209,3 +212,49 @@ def test_feedback_routes_refuse_a_caller_without_identity(client):
                          ('post', '/library/publish'), ('get', '/library/versions')]:
         kwargs = {'json': {}} if method == 'post' and 'publish' not in path else {}
         assert getattr(client, method)(API + path, headers=anonymous, **kwargs).status_code == 401, path
+
+
+def test_explain_error_names_the_reason_from_the_record_alone():
+    from app.analytical_four.feedback import explain_error
+    record = {'diagnosis_results': {'suggested_ng_code': 'NG-A'}, 'conclusion': {'final_ng': 'NG-B', 'needs_human': True}}
+    reasons, delta = explain_error(record, 'NG-B', 'NG-A', {'NG-A', 'NG-B'})
+    assert any('改掉' in r and '相符' in r for r in reasons) and any('人工' in r for r in reasons)
+    assert delta == {'predicted': 'NG-B', 'confirmed': 'NG-A', 'rule_suggested': 'NG-A', 'final': 'NG-B'}
+    assert any('不在分布庫' in r for r in explain_error({}, 'NG-A', 'NG-Z', {'NG-A'})[0])
+    assert explain_error({}, 'NG-A', 'NG-B', None)[0] == ['診斷與確認結果不同，原因無法由紀錄判斷']
+
+
+def test_restoring_an_old_version_adds_a_new_one_and_keeps_all_history(client, data, complaint_run):
+    # Rolling back must not erase what happened: the bad version stays on disk, the analysis reads the restored content.
+    run_id, events = complaint_run
+    submit(client, run_id, events[0], 'NG-A')
+    client.post(f'{API}/library/publish', headers=MANAGER)
+    submit(client, run_id, events[1], 'NG-B')
+    client.post(f'{API}/library/publish', headers=MANAGER)
+    v2_bytes = (data / 'feedback' / 'library' / 'v0002' / 'llm_records.jsonl').read_bytes()
+    restored = client.post(f'{API}/library/restore', json={'version': 1}, headers=MANAGER)
+    assert restored.status_code == 201
+    manifest = restored.json()
+    assert (manifest['version'], manifest['restoredFromVersion'], manifest['recordCount'], manifest['addedFeedbackIds']) == (3, 1, 1, [])
+    assert [v['version'] for v in client.get(f'{API}/library/versions').json()['versions']] == [3, 2, 1]
+    assert (data / 'feedback' / 'library' / 'v0002' / 'llm_records.jsonl').read_bytes() == v2_bytes
+    assert (data / 'cases' / 'llm_records.jsonl').read_bytes() == (data / 'feedback' / 'library' / 'v0001' / 'llm_records.jsonl').read_bytes()
+    assert client.post(f'{API}/library/publish', headers=MANAGER).status_code == 409  # rolled-back feedback does not return by itself
+
+
+def test_restore_refuses_bad_requests_and_tampered_history(client, data, complaint_run):
+    run_id, events = complaint_run
+    assert client.post(f'{API}/library/restore', json={'version': 1}, headers=MANAGER).status_code == 404  # no versions yet
+    submit(client, run_id, events[0], 'NG-A')
+    client.post(f'{API}/library/publish', headers=MANAGER)
+    submit(client, run_id, events[1], 'NG-B')
+    client.post(f'{API}/library/publish', headers=MANAGER)
+    for bad in [0, -1, '1', 1.5, True, None]:
+        assert client.post(f'{API}/library/restore', json={'version': bad}, headers=MANAGER).status_code == 422, bad
+    assert client.post(f'{API}/library/restore', json={'version': 2}, headers=MANAGER).status_code == 409  # already current
+    assert client.post(f'{API}/library/restore', json={'version': 9}, headers=MANAGER).status_code == 404
+    path = data / 'feedback' / 'library' / 'v0001' / 'llm_records.jsonl'
+    path.write_text(path.read_text(encoding='utf-8') + 'x', encoding='utf-8')
+    assert client.post(f'{API}/library/restore', json={'version': 1}, headers=MANAGER).status_code == 500
+    assert [v['version'] for v in client.get(f'{API}/library/versions').json()['versions']] == [2, 1]
+

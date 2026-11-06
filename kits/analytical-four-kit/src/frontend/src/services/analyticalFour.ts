@@ -125,6 +125,7 @@ export const api = {
   importFeedback: (records: unknown[]) => call<{ feedback: FeedbackItem[] }>("/feedback/import", json("POST", { records })),
   decideFeedback: (id: string, approve: boolean, note: string) => call<FeedbackItem>(`/feedback/${encodeURIComponent(id)}/decision`, json("POST", { approve, note })),
   publishLibrary: () => call<LibraryVersion>("/library/publish", { method: "POST" }),
+  restoreLibrary: (version: number) => call<LibraryVersion>("/library/restore", json("POST", { version })),
   versions: () => call<{ versions: LibraryVersion[] }>("/library/versions"),
 };
 

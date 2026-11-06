@@ -183,11 +183,12 @@
     },
     {
       "id": "publish-library",
-      "name": "發布案例庫新版本",
+      "name": "發布案例庫新版本，必要時回復舊版本",
       "subfeatureId": "layer-c",
       "capabilityIds": [
         "analytical-four.library.publish",
-        "analytical-four.library.versions"
+        "analytical-four.library.versions",
+        "analytical-four.library.restore"
       ]
     }
   ],

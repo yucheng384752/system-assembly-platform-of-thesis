@@ -105,6 +105,11 @@ export function FeedbackPanel() {
   };
 
   const decide = (id: string, approve: boolean) => guarded(async () => void (await api.decideFeedback(id, approve, decisionNote)));
+  const [restoring, setRestoring] = useState<number | null>(null);
+  const restore = (version: number) => guarded(async () => {
+    setRestoring(null);
+    return `${L.feedback.restored}：v${(await api.restoreLibrary(version)).version}`;
+  });
   const publish = () => guarded(async () => `${L.feedback.published2}：v${(await api.publishLibrary()).version}`);
 
   const canSubmit = Boolean(runId && eventId && code.trim());
@@ -260,10 +265,11 @@ export function FeedbackPanel() {
                   <th>{L.feedback.errorsCount}</th>
                   <th>{L.feedback.added}</th>
                   <th>{L.feedback.replaced}</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
-                {versions.map((version) => (
+                {versions.map((version, index) => (
                   <tr key={version.version}>
                     <td>v{version.version}</td>
                     <td>{formatTime(version.createdAt)}</td>
@@ -271,10 +277,22 @@ export function FeedbackPanel() {
                     <td>{version.errorRecordCount}</td>
                     <td>{version.addedFeedbackIds.length}</td>
                     <td>{version.replacedEventIds.length}</td>
+                    <td>
+                      {index === 0 ? null : restoring === version.version ? (
+                        <button type="button" className="a4-btn a4-btn-danger" disabled={busy} onClick={() => void restore(version.version)}>
+                          {L.feedback.restoreSure} v{version.version}
+                        </button>
+                      ) : (
+                        <button type="button" className="a4-btn" disabled={busy} onClick={() => setRestoring(version.version)}>
+                          {L.feedback.restore}
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            <p className="a4-muted">{L.feedback.restoreHint}</p>
           </div>
         ) : (
           <p className="a4-muted">{L.feedback.noVersions}</p>

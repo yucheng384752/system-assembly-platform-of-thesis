@@ -97,6 +97,7 @@ llm       { endpointSet: bool, apiKeyEnv }      不保存位址本身與金鑰
 | `analytical-four.feedback.import` | POST `/feedback/import`（201） | 同上 |
 | `analytical-four.feedback.decide` | POST `/feedback/{feedback_id}/decision` | `analytical_four.feedback_approve`（admin、manager） |
 | `analytical-four.library.publish` | POST `/library/publish`（201） | 同上 |
+| `analytical-four.library.restore` | POST `/library/restore`（201），body `{version}` | 同上；把舊版本內容發布成新版本，不改寫歷史 |
 | `analytical-four.settings.put` | PUT `/settings` | `analytical_four.configure`（admin） |
 | `analytical-four.demo.load` | POST `/demo`（201） | 同上 |
 
@@ -349,3 +350,9 @@ discardedAt, discardedBy
 - 離線安裝：映像打包（`bundle-images.mjs`）、`docker save` 與載入在那次安裝中是由安裝引擎跑的，但離線環境（沒有外網）的 CPU 輪子來源仍需預先備妥，沒有在斷網下測。
 - 真實 E5 模型在沒有本機快取的環境下載（約 2 GB）沒有測；`HF_HUB_OFFLINE=1` 時才驗證了離線載入。
 - 公司內的實際 LLM 服務與真實製造資料。
+
+## 16. 錯誤分析與案例庫回復（D184）
+
+- **錯誤分析：** 回饋的確認結果與診斷不同（`was_correct` 為 false）且紀錄沒有自帶原因時，Kit 由紀錄內已有的欄位用規則寫入 `error_reasons`（固定句子，不呼叫模型）：確認的代碼不在分布庫、AI 綜合診斷改掉了規則推估的代碼、診斷已標示需人工確認，都不成立時寫「原因無法由紀錄判斷」。`delta` 記下 `predicted`、`confirmed`、`rule_suggested`、`final`。匯入的紀錄若已有自己的 `error_reasons` 則保留不覆蓋。
+- **回復舊版本：** `POST /library/restore` 帶 `version`，檢查該版本兩個檔的 SHA-256 與 manifest 一致後，把內容發布成新的版本（manifest 的 `restoredFromVersion` 記來源），並更新分析讀取的兩個案例檔；舊版本全部保留。分析進行中、已是目前版本、版本不存在、檔案被改過都拒絕。限制：回復前已發布的回饋仍標為已發布，不會自己回到待發布，要再納入需重新提交。
+- **前端：** 回饋頁的版本表對非最新版本有「回復此版本」，要再按一次確認（不用瀏覽器對話框）。這個按鈕只通過套件的路由契約測試，**尚未在瀏覽器操作驗證**。
