@@ -106,7 +106,10 @@ def _coerce_changes(
     for key, value in changes.items():
         field = field_map[key]
         field_type = str(field.get("type", "string"))
-        coerced = coerce(value, field_type)
+        try:
+            coerced = coerce(value, field_type)
+        except ValueError as exc:  # generic-forms raises CoerceError (a ValueError) for a value the type cannot hold
+            raise HTTPException(status_code=422, detail=f"'{key}' is not a valid {field_type}") from exc
         if field.get("required") and coerced is None:
             raise HTTPException(status_code=422, detail=f"'{key}' is required")
         field_type_lower = field_type.lower()

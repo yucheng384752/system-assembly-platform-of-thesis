@@ -65,7 +65,8 @@ def fixture(directory, extra=None):
             {'Config': config_name, 'RepoTags': [tag], 'Layers': []}])})
         images.append(image)
     manifest = {'format': 'composer-system-assembly', 'schemaVersion': '1.0.0', 'systemVersion': '1.0.0', 'systemId': 'fixture', 'images': images,
-                'kits': [{'kit': 'platform-core-kit'}],
+                'kits': [{'kit': 'platform-core-kit', 'sourceSha256': 'source-1'}],
+                'selftest': {'status': 'passed', 'kits': [{'kit': 'platform-core-kit', 'status': 'passed', 'passed': 3, 'sourceSha256': 'source-1'}]},
                 'files': [{'path': name, 'bytes': len(data), 'sha256': digest(data), 'role': 'fixture'} for name, data in files.items()]}
     files['system-manifest.json'] = canonical(manifest)
     for name, data in files.items():
@@ -628,6 +629,38 @@ class EngineTests(unittest.TestCase):
         manifest = copy.deepcopy(self.manifest)
         manifest['images'][0]['tag'] = 'unexpected:tag'
         self.assert_code(11, lambda: validate_manifest(manifest, self.root))
+
+    def test_a_package_without_the_kit_test_proof_is_refused(self):
+        from package import validate_manifest
+        manifest = copy.deepcopy(self.manifest)
+        del manifest['selftest']
+        self.assert_code(11, lambda: validate_manifest(manifest, self.root))
+        manifest = copy.deepcopy(self.manifest)
+        manifest['selftest']['status'] = 'skipped'
+        self.assert_code(11, lambda: validate_manifest(manifest, self.root))
+
+    def test_a_kit_whose_tests_are_missing_or_failed_is_named_in_the_refusal(self):
+        from package import validate_manifest
+        manifest = copy.deepcopy(self.manifest)
+        manifest['kits'].append({'kit': 'extra-kit', 'sourceSha256': 'source-2'})
+        with self.assertRaises(Failure) as caught:
+            validate_manifest(manifest, self.root)
+        self.assertEqual(caught.exception.code, 11)
+        self.assertIn('extra-kit', str(caught.exception))
+        self.assertNotIn('platform-core-kit', str(caught.exception))
+        manifest['selftest']['kits'].append({'kit': 'extra-kit', 'status': 'failed', 'passed': 0, 'sourceSha256': 'source-2'})
+        with self.assertRaises(Failure) as caught:
+            validate_manifest(manifest, self.root)
+        self.assertIn('extra-kit', str(caught.exception))
+
+    def test_a_proof_for_other_source_than_the_package_holds_is_refused(self):
+        from package import validate_manifest
+        manifest = copy.deepcopy(self.manifest)
+        manifest['selftest']['kits'][0]['sourceSha256'] = 'source-other'
+        with self.assertRaises(Failure) as caught:
+            validate_manifest(manifest, self.root)
+        self.assertIn('platform-core-kit', str(caught.exception))
+        self.assertIn('原始碼不符', str(caught.exception))
 
     def oci_archive(self, image, root_blob=b'{"mediaType": "application/vnd.oci.image.index.v1+json"}', index_digest=None, extra_entries=0, stored_blob=None):
         """Archive as written by the containerd image store: docker-style manifest.json plus an OCI index."""

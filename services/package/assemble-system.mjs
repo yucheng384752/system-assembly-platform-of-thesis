@@ -90,10 +90,14 @@ export async function assembleSystem(output, { recipe: recipeFile, kits = path.j
   const roles = new Map();
   /** @param {string} name @param {Buffer} data @param {string} role */
   const put = (name, data, role) => { tree.set(name, data); roles.set(name, role); };
+  // Which Kit supplied a backend file, so the on-site self-check can name the Kit when something is wrong (D182).
+  /** @type {Map<string, string>} */
+  const owners = new Map();
   for (const [name, source] of plan.sources) {
     if (name === 'app/models/__init__.py') continue;
     if (name === 'app/main.py') throw new Error('Kit 自帶入口需要另行審核，停止');
     put(`backend/${name}`, name.endsWith('.py') ? systemSource(name, source.data) : source.data, 'backend-source');
+    owners.set(`backend/${name}`, source.kit);
   }
   const models = [...tree.keys()].filter(n => n.startsWith('backend/app/models/') && n.endsWith('.py') && !n.endsWith('__init__.py')).sort(compare);
   put('backend/app/models/__init__.py', Buffer.from(models.map(n => `import ${n.slice('backend/'.length, -3).replaceAll('/', '.')}`).join('\n') + '\n'), 'model-registration');
@@ -142,7 +146,7 @@ export async function assembleSystem(output, { recipe: recipeFile, kits = path.j
       'authentication and authorization verification (WP3/WP5)',
       'manuals and merged delivery (WP4)', 'installation and field verification (WP5)', ...missingWorkflows],
     overrides: plan.overrides,
-    files: /** @type {{path: string, sha256: string, bytes: number, role: string | undefined}[]} */ ([]),
+    files: /** @type {{path: string, sha256: string, bytes: number, role: string | undefined, kit?: string}[]} */ ([]),
   };
   scanExclusions(tree);
   // Reserve only a new directory; a failed checker leaves no apparently valid package.
@@ -164,7 +168,7 @@ export async function assembleSystem(output, { recipe: recipeFile, kits = path.j
     await mkdir(path.join(output, 'validation'));
     await writeFile(path.join(output, 'validation/report.json'), /** @type {Buffer} */ (tree.get('validation/report.json')));
     manifest.files = [...tree].sort(([a], [b]) => compare(a, b)).map(([name, data]) => ({
-      path: name, sha256: sha256(data), bytes: data.length, role: roles.get(name),
+      path: name, sha256: sha256(data), bytes: data.length, role: roles.get(name), ...(owners.has(name) ? { kit: owners.get(name) } : {}),
     }));
     // Manifest cannot hash itself; its bytes are covered by the later signed delivery envelope.
     scanExclusions(new Map([...tree, ['system-manifest.json', json(manifest)]]));

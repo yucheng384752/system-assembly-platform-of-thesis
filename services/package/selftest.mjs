@@ -85,7 +85,8 @@ export async function runKitTests({ image, kits, kitsDir = path.join(repository,
   const result = run('docker', ['run', '--rm', '--user', '10001:10001', '--tmpfs', '/tmp:rw,exec,size=512m', '--env', 'HOME=/tmp',
     // The merged backend is the code that ships; Kit tests import it as `app` (a Kit that needs another Kit's code works too).
     '--env', 'PYTHONPATH=/system/backend', '--env', 'A4_BACKEND=/system/backend',
-    '--volume', `${path.resolve(kitsDir)}:/kits:ro`, '--entrypoint', 'sh', image, '-c', CONTAINER_SCRIPT, 'selftest', ...kits],
+    // /config is the repository's config folder (capability registry); read-only, like /kits.
+    '--volume', `${path.resolve(kitsDir)}:/kits:ro`, '--volume', `${path.resolve(kitsDir, '../config')}:/config:ro`, '--entrypoint', 'sh', image, '-c', CONTAINER_SCRIPT, 'selftest', ...kits],
   { encoding: 'utf8', maxBuffer: 1 << 26 });
   const output = String(result.stdout ?? '');
   if (result.error) throw new Error(`測試容器無法執行：${result.error.message}`);
