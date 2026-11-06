@@ -62,11 +62,10 @@
       {
         "id": "layer-c",
         "displayName": "完整 AI 診斷",
-        "businessCapability": "對應製程位置、檢索 SOP、比對相似案例，並由 AI 語言模型綜合建議。",
+        "businessCapability": "對應製程位置、檢索 SOP、比對相似案例，並由 AI 語言模型綜合建議。客訴分析模式需同時啟用不良類型診斷。",
         "defaultSelected": false,
         "dependencies": [
-          "layer-a",
-          "layer-b"
+          "layer-a"
         ],
         "options": []
       }
