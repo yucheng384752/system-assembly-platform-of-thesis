@@ -2,7 +2,7 @@
 
 日期：2026-11-01
 對應：決議 D154；來源專案 Analytical-Four（commit f49cfd3）；Kit 目錄 `kits/analytical-four-kit/`。
-狀態：已實作並以後端測試、系統包組裝、Linux 映像建置與本機 LLM 驗證；完整部署堆疊、離線安裝與真實資料未驗證（見第 7、15 節）。
+狀態：已實作並以後端測試、系統包組裝、Linux 映像建置、本機 LLM，以及在 Ubuntu 虛擬機用安裝引擎完整安裝後操作驗證；AI 診斷層在完整安裝中、離線無快取的模型下載與真實資料未驗證（見第 7、15 節）。
 
 ## 1. 範圍
 
@@ -115,7 +115,7 @@ llm       { endpointSet: bool, apiKeyEnv }      不保存位址本身與金鑰
 
 ## 7. 未驗證與限制
 
-- 映像已在 Linux、Python 3.12.8 建置並跑過測試（第 15 節）；完整部署堆疊（PostgreSQL、登入、授權閘門、Nginx）與離線映像打包沒有為本 Kit 重跑。
+- 映像已在 Linux、Python 3.12.8 建置並跑過測試（第 15 節）；完整部署堆疊（PostgreSQL、登入、授權閘門、Nginx）已由 `verify/kit-standalone` 在 Ubuntu 虛擬機用安裝引擎安裝並操作過（第 15 節），那次的 AI 診斷層預設關閉，沒有跑。
 - 預設向量模型 `intfloat/multilingual-e5-large-instruct` 已用本機快取離線載入並跑完整流程（第 15 節）；自動化測試與示範用 `builtin-hash`，只比對字詞。沒有快取時要下載約 2 GB，這條路徑沒測。
 - 真實 LLM 服務：2026-11-01 以本機 Ollama（qwen3:14b）經 Analytical-Four 的 `local_llm_server.py` 轉接層驗證過一輪（未修改該轉接層，只綁定回送位址），見第 9 節；自動化測試仍用本機假服務。公司內的實際 LLM 服務未連線。
 - 引擎本身仍有未改的行為：序列化器把單一事件的失敗寫入事件而不丟例外（已由 `diagnostic_stage` 檢查）、不良診斷輸出大量 print、向量庫只以筆數判斷是否重建。
@@ -342,8 +342,10 @@ discardedAt, discardedBy
 
 **容器連主機上的 LLM。** 本 Kit 的轉接層（`tools/local_llm_adapter.py`）跑在一個容器裡（綁 0.0.0.0，但沒有發佈任何連接埠，只在專用的 Docker 網路內可達），它用 `host.docker.internal` 連到主機的 Ollama（qwen3:14b）；另一個容器（後端映像）跑客訴模式 A+B+C，LLM 位址是轉接層容器的名稱。結果：成功，50 秒；6 筆事件 6 筆都是模型的審核意見，沒有保底結果。驗證完畢後容器、網路與映像都已移除。
 
+**完整安裝驗證（由另一個 session 在 `verify/kit-standalone` 做，2026-11-04，紀錄在 mailbox thread `20261104-kit-standalone-verification`、決議 D163）。** 以上一節修正後的提交（`519aff0`）在 Ubuntu 虛擬機用安裝引擎安裝「基底加 analytical-four-kit」：映像建置約 18 分鐘（映像 2.54 GB），封裝為 763 MB 的系統包；安裝 11 步全過含健康檢查；冒煙 32/32（22 條 GET 路由）；功能操作 31/32，唯一失敗是稽核事件的權限，與本 Kit 無關，之後在 D165 修正；後端 5xx 為 0。本 Kit 自己的流程：未載入示範資料時資料檢查回報找不到分析設定檔（預期）；載入示範資料後資料檢查通過（60 列、12 個數值特徵）；啟動分析回 202，輪詢到完成，讀資料、描述統計、診斷、不良碼四個階段全過。那次安裝裡 AI 診斷層預設關閉，沒有驗證。這證明上一節的映像在完整堆疊裡可安裝、可登入、可操作，也補上了我沒有為本 Kit 重跑的 PostgreSQL、入口權限、授權閘門與 Nginx。
+
 **仍未驗證**：
-- 完整的部署堆疊（PostgreSQL、入口權限登入、授權閘門、Nginx）沒有為本 Kit 重跑；這次只驗證後端映像內的 Kit。P2 的端到端腳本（`services/package/e2e/system_e2e.py`）尚未納入本 Kit。
-- 離線安裝：映像打包（`bundle-images.mjs`）、`docker save` 與載入沒有跑；CPU 輪子來源在離線環境需要預先備妥。
+- 完整安裝裡的 AI 診斷層（C 層）與前端頁在虛擬機上的操作（前端頁只在 Chrome 對測試殼層走過，見第 14 節）。
+- 離線安裝：映像打包（`bundle-images.mjs`）、`docker save` 與載入在那次安裝中是由安裝引擎跑的，但離線環境（沒有外網）的 CPU 輪子來源仍需預先備妥，沒有在斷網下測。
 - 真實 E5 模型在沒有本機快取的環境下載（約 2 GB）沒有測；`HF_HUB_OFFLINE=1` 時才驗證了離線載入。
 - 公司內的實際 LLM 服務與真實製造資料。
