@@ -38,6 +38,7 @@ test('the tests run in the shipped image as a non-root user with the Kits mounte
   assert.ok(args.includes('img:1'));
   assert.equal(args[args.indexOf('--user') + 1], '10001:10001');
   assert.ok(args.some(a => a.endsWith(':/kits:ro')), 'Kit sources are mounted read-only so a test cannot alter what ships');
+  assert.ok(args.includes('PYTHONPATH=/system/backend'), 'tests import the merged backend that ships, so a Kit that needs another Kit still works');
   assert.match(CONTAINER_SCRIPT, /pytest/);
 }));
 

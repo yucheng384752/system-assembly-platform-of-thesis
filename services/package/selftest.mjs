@@ -83,6 +83,8 @@ const count = (lines, word) => {
 export async function runKitTests({ image, kits, kitsDir = path.join(repository, 'kits'), run = spawnSync }) {
   for (const kit of kits) if (!KIT_ID.test(kit)) throw new Error(`Kit 識別字不合法：${kit}`);
   const result = run('docker', ['run', '--rm', '--user', '10001:10001', '--tmpfs', '/tmp:rw,exec,size=512m', '--env', 'HOME=/tmp',
+    // The merged backend is the code that ships; Kit tests import it as `app` (a Kit that needs another Kit's code works too).
+    '--env', 'PYTHONPATH=/system/backend', '--env', 'A4_BACKEND=/system/backend',
     '--volume', `${path.resolve(kitsDir)}:/kits:ro`, '--entrypoint', 'sh', image, '-c', CONTAINER_SCRIPT, 'selftest', ...kits],
   { encoding: 'utf8', maxBuffer: 1 << 26 });
   const output = String(result.stdout ?? '');
