@@ -23,6 +23,7 @@ export interface GanttRow {
   start?: number;
   /** Known only when start and the node's own duration are known. */
   end?: number;
+  /** Transfer minutes on the line that sets `start` (the latest predecessor end plus transfer); the drawing shows it before the bar. */
   transferIn: number;
   /** Why start or end is unknown; empty for a complete row. */
   reasons: string[];
@@ -112,8 +113,7 @@ export function estimateGantt(input: unknown, cond: GanttConditions = {}): Gantt
       if (f.transferMin?.state === 'specified') transfer = f.transferMin.minutes;
       else if (cond.treatMissingTransferAsZero) assumedZero = true;
       else { reasons.push(`連線「${f.id}」缺移轉時間`); continue; }
-      transferIn = Math.max(transferIn, transfer);
-      start = Math.max(start, pred.end + transfer);
+      if (pred.end + transfer >= start) { start = pred.end + transfer; transferIn = transfer; }
     }
     const startKnown = reasons.length === 0;
     const authored = n.timing.state === 'specified';

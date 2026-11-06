@@ -33,6 +33,15 @@ export function reconnectCanvasEdge(doc: AovGraphDocument, graphId: string, edge
     edges: g.edges.map(e => e.id === edgeId ? { ...e, from, to } : e) }) };
 }
 
+// Transfer time lives on the line; clearing it (undefined) removes the key so an unfilled value is never read as 0.
+export function setEdgeTransfer(doc: AovGraphDocument, edgeId: string, transferMin: number | undefined): AovGraphDocument {
+  return { ...doc, graphs: doc.graphs.map(g => ({ ...g, edges: g.edges.map(e => {
+    if (e.id !== edgeId) return e;
+    const { transferMin: _old, ...rest } = e;
+    return transferMin === undefined ? rest : { ...rest, transferMin };
+  }) })) };
+}
+
 // A sub-flow of a node: its own start and end are created with it (D80).
 export function addChildGraph(doc: AovGraphDocument, nodeId: string): AovGraphDocument {
   const parent = doc.graphs.find(g => g.nodes.some(n => n.id === nodeId));
