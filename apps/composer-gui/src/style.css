@@ -235,6 +235,9 @@ dd { margin: 0 0 0 var(--space); }
 /* Controls stacked in a card, a form, a field group or an advanced block keep a gap, so an input never touches the button under it (D85).
    Tool cards lay their name and button side by side, so they are left out. */
 :is(.column, .canvas-toolbar) :is(fieldset, details, form.flow-card, .flow-card:not(.tool-card)) > * + * { margin-top: var(--space-sm); }
+/* Transfer minutes sit right under the standard minutes input: keep a gap above the group and between its title and its first field. */
+.transfer-times { margin-top: var(--space); }
+.transfer-times legend { margin-bottom: var(--space-sm); }
 
 /* Field settings laid out like the CSV: a column per field, a row per setting (D87). It scrolls sideways on its own. */
 .field-table-wrap { overflow-x: auto; max-width: 100%; margin-block: var(--space-sm); border: 1px solid var(--card-border); border-radius: var(--radius); }

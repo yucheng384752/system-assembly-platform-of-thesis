@@ -9,7 +9,7 @@ import { registry } from './registryData';
 afterEach(cleanup);
 test('real flows select prerequisites and render both real Kit previews', () => {
   render(<App />); openFlow();
-  fireEvent.click(screen.getByRole('button', { name: /02 功能選配/ }));
+  fireEvent.click(screen.getByRole('button', { name: /03 功能選配/ }));
   expect(screen.queryByText('紀錄 Kit')).toBeNull();
   expect(screen.queryByText('tenant-auth-kit')).toBeNull();
   fireEvent.click(screen.getByRole('checkbox', { name: '資料分析' }));
@@ -32,7 +32,7 @@ test('A-C11/C14: tracing derives four functions, locks required ones, and uses b
   expect(result.kits.map(k => k.kitId)).toHaveLength(4);
   render(<App />); openFlow(); startLogic();
   addTool('查詢追溯');
-  fireEvent.click(screen.getByRole('button', { name: /02 功能選配/ }));
+  fireEvent.click(screen.getByRole('button', { name: /03 功能選配/ }));
   for (const name of ['通用表單', '站點資料串聯']) {
     const input = screen.getByRole('checkbox', { name: `${name}（流程需要）` }) as HTMLInputElement;
     expect(input.checked).toBe(true); expect(input.disabled).toBe(true);
@@ -45,7 +45,7 @@ test('A-C11/C14: tracing derives four functions, locks required ones, and uses b
 // The feature step no longer lists a separate block of "dependent features": the reasons live with each derived feature.
 test('the feature step has no dependent-features block, and each derived feature keeps its own reasons', () => {
   render(<App />); openFlow(); startLogic(); addTool('查詢追溯');
-  fireEvent.click(screen.getByRole('button', { name: /02 功能選配/ }));
+  fireEvent.click(screen.getByRole('button', { name: /03 功能選配/ }));
   expect(screen.queryByRole('heading', { name: '相依功能' })).toBeNull();
   expect(screen.queryByText(/目前選了 \d+ 個流程/)).toBeNull();
   const derived = screen.getByRole('region', { name: '流程所需功能' });

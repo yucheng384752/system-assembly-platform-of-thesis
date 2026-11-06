@@ -2,8 +2,10 @@ import type { GanttResult } from './ganttEstimate';
 
 // Static SVG of an estimate. Text is escaped, never HTML; colours follow DESIGN.md tokens.
 // State is also carried by text and shape (dashed outline, "缺資料"), not by colour alone.
-const C = { text: '#172b3a', muted: '#40576a', primary: '#075e54', border: '#718096', warnBg: '#fdf4e3', warnText: '#7a4b00', panel: '#ffffff' };
-const LABEL_W = 220, CHART_W = 640, ROW_H = 30, TOP = 24, PAD = 16, REASON_W = 260;
+const C = { text: '#172b3a', muted: '#40576a', primary: '#075e54', border: '#718096', warnBg: '#fdf4e3', warnText: '#7a4b00', panel: '#ffffff', transfer: '#174ea6', transferBg: '#e7eef9' };
+// Transfer time is drawn as a hatched blue segment before the work bar it leads to (DESIGN.md focus blue on info background),
+// so it differs from work by pattern as well as by colour.
+const LABEL_W = 220, CHART_W = 640, ROW_H = 30, TOP = 24, PAD = 16, REASON_W = 260, LEGEND_H = 26;
 
 const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const fmt = (n: number) => String(Math.round(n * 100) / 100);
@@ -17,13 +19,15 @@ export function renderGanttSvg(estimate: Extract<GanttResult, { ok: true }>): st
   // A row with a known start and no end writes its reason to the right of its marker; reserve room for it.
   const reasonRoom = rows.some(row => row.start !== undefined && row.end === undefined) ? REASON_W : 0;
   const width = PAD * 2 + LABEL_W + CHART_W + reasonRoom;
-  const height = headerH + TOP + rows.length * ROW_H + PAD;
+  const hasTransfer = rows.some(row => row.start !== undefined && row.transferIn > 0);
+  const height = headerH + TOP + rows.length * ROW_H + PAD + (hasTransfer ? LEGEND_H : 0);
   const scale = CHART_W / horizon;
   const x = (minutes: number) => PAD + LABEL_W + minutes * scale;
 
   const out: string[] = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc('流程甘特圖（估算）')}" font-family="system-ui, 'Microsoft JhengHei', sans-serif" font-size="13">`,
     `<title>${esc('流程甘特圖（估算）')}</title>`,
+    `<defs><pattern id="gantt-transfer" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="${C.transferBg}"/><line x1="0" y1="0" x2="0" y2="6" stroke="${C.transfer}" stroke-width="2"/></pattern></defs>`,
     `<rect width="${width}" height="${height}" fill="${C.panel}"/>`,
     `<rect x="${PAD}" y="${PAD / 2}" width="${width - PAD * 2}" height="${headerH - PAD / 2}" fill="${C.warnBg}"/>`,
     ...header.map((line, i) => `<text x="${PAD + 8}" y="${PAD / 2 + 18 + i * 20}" fill="${i === 0 ? C.warnText : C.text}"${i === 0 ? ' font-weight="600"' : ''}>${esc(line)}</text>`),
@@ -32,6 +36,10 @@ export function renderGanttSvg(estimate: Extract<GanttResult, { ok: true }>): st
     const y = headerH + TOP + i * ROW_H;
     const mid = y + ROW_H / 2;
     out.push(`<text x="${PAD}" y="${mid + 4}" fill="${C.text}">${esc(row.name)}</text>`);
+    // transferIn is the transfer on the line that sets the start, so the segment runs from the predecessor's end to this start.
+    if (row.start !== undefined && row.transferIn > 0) {
+      out.push(`<rect x="${x(row.start - row.transferIn)}" y="${y + 6}" width="${Math.max(2, row.transferIn * scale)}" height="${ROW_H - 12}" fill="url(#gantt-transfer)" stroke="${C.transfer}"><title>${esc(`${row.name}：移轉 ${fmt(row.transferIn)} 分鐘`)}</title></rect>`);
+    }
     if (row.start === undefined) {
       out.push(`<text x="${x(0)}" y="${mid + 4}" fill="${C.warnText}">${esc('缺資料：' + row.reasons.join('；'))}</text>`);
     } else if (row.end === undefined) {
@@ -44,6 +52,11 @@ export function renderGanttSvg(estimate: Extract<GanttResult, { ok: true }>): st
       out.push(`<rect x="${x(row.start)}" y="${y + 6}" width="${Math.max(2, (row.end - row.start) * scale)}" height="${ROW_H - 12}" fill="${C.primary}"><title>${esc(`${row.name}：${fmt(row.start)} 至 ${fmt(row.end)} 分鐘`)}</title></rect>`);
     }
   });
+  if (hasTransfer) {
+    const ly = height - PAD - LEGEND_H / 2 + 4;
+    out.push(`<rect x="${PAD}" y="${ly - 12}" width="14" height="14" fill="${C.primary}"/>`, `<text x="${PAD + 20}" y="${ly}" fill="${C.text}">作業時間</text>`,
+      `<rect x="${PAD + 110}" y="${ly - 12}" width="14" height="14" fill="url(#gantt-transfer)" stroke="${C.transfer}"/>`, `<text x="${PAD + 130}" y="${ly}" fill="${C.text}">移轉時間</text>`);
+  }
   out.push('</svg>');
   return out.join('\n');
 }

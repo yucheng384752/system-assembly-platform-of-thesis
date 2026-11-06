@@ -10,6 +10,8 @@ export const emptyFormLibrary: FormLibrary = { format: 'composer-form-library', 
 // Same rule as aov-core's form CSV: expressions reach a field as in.<form>.<key>, so a key is an identifier.
 // It is also never normalized by the plan's canonical JSON (contract 5), which is why a key is not free text.
 export const KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+// A form id also appears in plans and URLs; aov-core itself accepts hyphens there (the GUI numbers forms form-1), but not a leading digit.
+export const FORM_ID_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/;
 // Mirrors services/factory/factory_core/forms.py FIELD_TYPES.
 export const FIELD_TYPES: readonly AttrValueType[] = ['number', 'string', 'bool', 'datetime', 'enum', 'quantity', 'string[]', 'json'];
 
@@ -23,7 +25,7 @@ export function checkFormDef(form: unknown): LibraryIssue[] {
   const label = isText(form.name) ? `表單「${form.name}」` : id ? `表單「${id}」` : '有一張表單';
   const add = (code: string, message: string, field?: string) => issues.push({ code, message: `${label}${message}`, formId: id, field });
 
-  if (!id || !KEY_PATTERN.test(id)) add('form-id', '的識別碼只能用英文字母、數字與底線，且不可以數字開頭。');
+  if (!id || !FORM_ID_PATTERN.test(id)) add('form-id', '的識別碼只能用英文字母、數字、底線與連字號，且必須以英文字母開頭。');
   if (!isText(form.name)) add('form-name', '沒有名稱。');
   if (!Array.isArray(form.subject) || !form.subject.length || !form.subject.every(isText)) add('form-subject', '尚未指定描述的對象（subject）。');
   if (form.extends !== undefined && !isText(form.extends)) add('form-extends', '的繼承型別必須是文字。');
@@ -62,4 +64,16 @@ export function checkFormLibrary(raw: unknown): LibraryIssue[] {
     seen.add(id);
   }
   return issues;
+}
+
+export const FORM_LIBRARY_FILE = 'form-library.json';
+export const exportFormLibrary = (library: FormLibrary) => JSON.stringify(library, null, 2) + '\n';
+
+export type LibraryParse = { ok: true; library: FormLibrary } | { ok: false; errors: string[] };
+/** A candidate only: the caller keeps what it has until the whole file passes. */
+export function parseFormLibrary(text: string): LibraryParse {
+  let raw: unknown;
+  try { raw = JSON.parse(text.replace(/^﻿/, '')); } catch { return { ok: false, errors: ['表單庫檔案必須是有效的 JSON。'] }; }
+  const issues = checkFormLibrary(raw);
+  return issues.length ? { ok: false, errors: issues.map(i => i.message) } : { ok: true, library: raw as FormLibrary };
 }

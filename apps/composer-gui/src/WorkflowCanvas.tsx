@@ -9,6 +9,7 @@ import { Column } from './Column';
 import { FactoryPage } from './FactoryPage';
 import { Icon } from './Icons';
 import { NodeDetails } from './NodeDetails';
+import { GanttPanel } from './GanttPanel';
 import { ExampleHintProvider, ExampleHintSwitch } from './ExampleHintSettings';
 
 // Press and release within this many pixels is a click (selects, opens the details); moving further is a drag (moves the node and nothing else).
@@ -41,6 +42,7 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
   const [selected, setSelected] = useState('');
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [ganttOpen, setGanttOpen] = useState(false);
   // The toolbox opens in two steps, category then tool (D85); all categories start closed.
   const [openGroups, setOpenGroups] = useState<string[]>([]);
   const focus = useRef(false);
@@ -99,7 +101,8 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
   // The toolbar sits in the same slot for the factory list and the canvas, so the import button keeps its panel and notices when the view changes.
   return <div className="workflow-page">
     <div className="canvas-toolbar"><nav aria-label="流程層級" className="actions"><button onClick={() => { setPath([]); setSelected(''); setDeleting(false); }}>工廠</button><span className="crumb">{place?.factory.name || '（未命名工廠）'}</span>{path.filter(id => value.graphs.some(g => g.id === id)).map((id, index) => <button key={id} aria-current={id === graph.id ? 'location' : undefined} onClick={() => { setPath(path.slice(0, index + 1)); setSelected(''); setDeleting(false); }}>{value.graphs.find(g => g.id === id)!.name}</button>)}</nav>
-      <div><ExampleHintSwitch />{toolbarExtra}</div>
+      <div><ExampleHintSwitch />{toolbarExtra}<button onClick={() => setGanttOpen(true)}>甘特圖</button></div>
+      {ganttOpen && <GanttPanel graph={graph} onLocate={nodeId => { centerRequest.current = true; setSelected(nodeId); setDeleting(false); }} onClose={() => setGanttOpen(false)} />}
       <div className="actions canvas-zoom"><button onClick={() => void flow.zoomIn({ duration: 0 })}>放大</button><button onClick={() => void flow.zoomOut({ duration: 0 })}>縮小</button><button onClick={() => void flow.fitView({ duration: 0 })}>適合畫面</button></div></div>
     <div className={node ? 'columns workflow-columns has-details' : 'columns workflow-columns'}>
     <Column id="canvas-tools" title="工具箱" lead="選擇動作加入畫布，也可拖放至所需位置。" className="workflow-tools" scroll>
