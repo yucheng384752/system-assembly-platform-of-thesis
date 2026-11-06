@@ -1,7 +1,7 @@
 ---
 id: "20261106-package-selfcheck"
 title: "安裝包自檢：產生安裝包前通過所有 Kit 測試，現場驗證環境與一致性，並補齊缺少測試的 Kit 與新增 Kit 規範"
-status: "in_progress"
+status: "ready_for_review"
 owner: "claude"
 reviewer: "user"
 priority: "high"
@@ -45,12 +45,34 @@ user 2026-11-06 的決定：
 
 **補測試與規範。** 缺少測試的 Kit 逐一補上不依賴資料庫與網路的測試；`docs/kit-authoring.md` 說明新增 Kit 的目錄、契約、測試、手冊、自檢、overlay 登錄與驗收；一個測試確保每個選入系統的 Kit 都有測試，否則閘門失敗。
 
-# 進度
+# 進度與結果
 
-| 階段 | 內容 | 狀態 |
+| 階段 | 內容 | 結果 |
 |---|---|---|
-| S1 | 映像多階段與 Kit 測試閘門（bundle-images） | 待做 |
-| S2 | 補缺少測試的 Kit | 待做 |
-| S3 | manifest 的 selftest 欄位與安裝引擎 verify | 待做 |
-| S4 | 現場自檢（selfcheck.py、守門、健康檢查訊息） | 待做 |
-| S5 | 新增 Kit 規範與強制測試、VM 驗證（故意讓一個 Kit 失敗，確認錯誤訊息指出該 Kit） | 待做 |
+| S1 | `bundle-images` 在映像建置後、簽章前，於映像內逐 Kit 跑測試（pytest 裝進暫存目錄，不進出貨映像；Kit 目錄、config、套件目錄唯讀掛入；以 `/system/backend` 為匯入根） | 完成；沒有測試或失敗即中止，訊息指名 Kit |
+| S2 | 補缺少測試的 8 個 Kit，另有系統層測試（守衛、授權守門、自檢） | 完成；各 Kit 通過（audit-edit 24、entry-permission 36、import-pipeline 29、analytics 29、query-traceability 11、mod-subscription 17、upload-validation 47、station-data-link 39、factory-core 31、analytical-four 135、platform-core 16、generic-forms 5、logs-ops 2、系統層 67）；做過 9 個變異檢查，8 個抓到，1 個是多餘的重複防護（等價變異） |
+| S3 | manifest 的 `selftest`（每個 Kit 的測試數、測試檔雜湊、來源雜湊）與安裝引擎 `verify` 檢查；組裝時檔案清單記下每個後端檔案屬於哪個 Kit | 完成；缺證明、狀態非通過、Kit 沒證明、證明與原始碼不符都被拒（碼 11），訊息指名 Kit |
+| S4 | 現場自檢（`selfcheck.py`）：套件完整性、契約、相依、入口權限目錄、路由、資料庫；失敗時守門回 503 並指名 Kit，`/healthz` 同；30 秒重檢；安裝引擎在啟動失敗時讀自檢結果帶進錯誤訊息 | 完成 |
+| S5 | `docs/kit-authoring.md`、`kit-tests-required.test.mjs`（新 Kit 沒有測試即失敗，已驗證會失敗）、安裝維運手冊補一節 | 完成 |
+
+## 實機驗證（VM，Ubuntu 22.04）
+
+- 正向：base 組合走完整流程：閘門通過、簽章、引擎驗包（含測試證明）、安裝 36 秒、自檢通過（`/system/data/selfcheck.json` 為 passed）、冒煙 24/24、功能 35/35、後端 5xx 為 0。manifest 的 `selftest` 含 7 個 Kit 加系統層，83 個檔案帶 Kit 歸屬。
+- 閘門反向：實際擋下過缺測試的 Kit（audit-edit、import-pipeline、station-data-link、upload-validation）、跨 Kit 匯入失敗的 entry-permission，以及系統層測試互相干擾；訊息都指名。
+- 現場自檢反向（端對端）：故意讓 upload-validation-kit 契約宣告不存在的路由（單元測試抓不到）。發布流程通過，安裝在啟動步驟失敗並還原，訊息為「現場自檢未通過，系統不啟動：upload-validation-kit：入口「upload.read」宣告的 GET /api/upload/ghost 在系統中不存在」。契約已還原。
+
+## 自檢找到並修正的既有問題
+
+1. `db.tenants.read` 被 generic-forms、mod-subscription、station-data-link、upload-validation 需要，tenant-auth-kit 廢除後沒有 Kit 提供。改由 platform-core-kit 契約提供。
+2. entry-permission-kit 的角色管理路由沒有入口宣告（實際只有內建管理員能用）。契約新增 `adminRoutes` 明列。
+3. audit-edit-kit 的編輯端點沒有接住 `CoerceError`，編輯時填入非數字會回 500。改回 422（新測試抓到）。
+
+## 未涵蓋與限制
+
+- 發布閘門需要 Docker 與網路（pytest 安裝在測試容器），所以屬發布步驟，不在組裝（`assemble-system`）內；`bundle-images` 之前沒有測試證明。
+- 測試證明綁定的是各 Kit 的來源雜湊與測試檔雜湊；閘門掛載的是執行發布那台機器上的倉庫，沒有驗證那份倉庫與組裝時的是同一份（來源雜湊不符會被安裝引擎拒絕，但只涵蓋進入組裝的來源檔）。
+- 現場自檢不跑單元測試（依 user 決定）。
+- 自檢的資料庫檢查只看資料表是否存在與預設租戶，不比對欄位。
+- station-admin-kit 與 tenant-auth-kit 被組裝排除，不要求測試。
+- 本機（Windows）執行 `services/installer/tests/test_engine.py` 有 2 個既有的環境失敗（檔案權限位元與 CPU 架構判斷），在 VM 上通過；與本功能無關。
+- 另外在 full 組合偶發過一次「刪除紀錄」504，無法重現，仍待觀察（見 20261104 thread）。
