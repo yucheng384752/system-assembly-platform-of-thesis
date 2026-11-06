@@ -16,12 +16,15 @@ import { Icon } from './Icons';
 import { SiteTransfer } from './SiteTransfer';
 import type { SiteSession } from './siteSession';
 import { KitWorkflowSummary } from './KitWorkflowSummary';
+import { SettingsTransfer } from './SettingsTransfer';
+import { checkProjectDetails, exportProjectDetails, isEmptyProjectDetails, type ProjectDetails } from '../../../libs/aov-integration/projectDetails';
+import { exportFormLibrary, type FormLibrary } from '../../../libs/aov-integration/formLibrary';
 
 const included = ['客戶代稱', '已選功能', '可調整的畫面設定', '流程規格的檔名與校驗碼'];
 const workflowIncluded = ['流程節點、先後順序、子流程與位置', '時機、負責職務與動作設定', '各節點的標準表單、欄位及驗證規則', '已確認的表單關聯'];
-const packageIncluded = ['流程規格與系統設定檔', '所選功能流程總表：步驟、連線與缺漏狀態', '檔案清單：各檔案的校驗碼與所選功能的版本', '檢查報告：靜態檢查結果，測試環境演練與現場驗證標為未執行', '所選功能的使用手冊：齊全時才附上'];
+const packageIncluded = ['流程規格與系統設定檔', '節點細項與表單庫（有設定時）：物料型別、各節點的物料流設定、客戶表單的欄位、型別與單位', '所選功能流程總表：步驟、連線與缺漏狀態', '檔案清單：各檔案的校驗碼與所選功能的版本', '檢查報告：靜態檢查結果，測試環境演練與現場驗證標為未執行', '所選功能的使用手冊：齊全時才附上'];
 const excluded = ['原始資料列與樣本內容', '連線資訊與密碼', '未確認的推測關聯', '程式碼、資料庫變更與安裝腳本：設定交付包不是安裝包'];
-export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport, site, siteConflict = '', onSiteChange, onLocate }: { onLocate?: (issue: WorkflowIssue) => void; recipe: Recipe; workflow: AovGraphDocument; selectedFlows: string[]; onChange: (recipe: Recipe) => void; onImport: (recipe: Recipe) => void; site?: SiteSession; siteConflict?: string; onSiteChange?: (site?: SiteSession) => void }) {
+export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport, site, siteConflict = '', onSiteChange, onLocate, details, forms, onDetailsImport, onFormsImport }: { details?: ProjectDetails; forms?: FormLibrary; onDetailsImport?: (next: ProjectDetails) => void; onFormsImport?: (next: FormLibrary) => void; onLocate?: (issue: WorkflowIssue) => void; recipe: Recipe; workflow: AovGraphDocument; selectedFlows: string[]; onChange: (recipe: Recipe) => void; onImport: (recipe: Recipe) => void; site?: SiteSession; siteConflict?: string; onSiteChange?: (site?: SiteSession) => void }) {
   const settingsErrors = [...productionErrors(recipe.productionSettings ?? emptyProduction), ...productionBindings(recipe.productionSettings ?? emptyProduction, workflow)];
   const issues = graphIssues(workflow);
   const name = (id: string) => catalog.kits.find(k => k.id === id)?.displayName ?? id;
@@ -42,6 +45,10 @@ export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport
   const sha256 = exported.text && digest.text === exported.text ? digest.sha256 : '';
   const linked: Recipe = { ...recipe, ...(sha256 ? { workflowRef: { path: WORKFLOW_FILE, sha256 } } : {}),
     ...(site && !recipe.siteRef ? { siteRef: { path: 'site.profile.json', sha256: site.sha256 } } : {}) };
+  // Node settings and the form library travel with the package only when they hold something; half-filled settings block it.
+  const detailsIssues = details ? checkProjectDetails(details) : [];
+  const detailsText = details && !isEmptyProjectDetails(details) ? exportProjectDetails(details) : undefined;
+  const formsText = forms?.forms.length ? exportFormLibrary(forms) : undefined;
   const [packing, setPacking] = useState(false);
   const [packageError, setPackageError] = useState('');
   const [packageNotice, setPackageNotice] = useState('');
@@ -51,9 +58,10 @@ export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport
   async function downloadPackage() {
     if (settingsErrors.length) { setPackageError(settingsErrors.join(" ")); return; }
     if (siteConflict) { setPackageError(siteConflict); return; }
+    if (detailsIssues.length) { setPackageError(`節點細項尚未填完：${detailsIssues[0].message}`); return; }
     setPacking(true);
     try {
-      const built = await buildDeliveryPackage(exportRecipe(linked, catalog), exported.text, catalog, { selectedFlows, flows, fragments }, site?.text);
+      const built = await buildDeliveryPackage(exportRecipe(linked, catalog), exported.text, catalog, { selectedFlows, flows, fragments }, site?.text, { detailsText, formsText });
       downloadBlob(new Blob([built.bytes], { type: 'application/zip' }), built.fileName);
       setPackageError(''); setPackageNotice(`已下載 ${built.fileName}；不含資料列、樣本內容或秘密值。`);
     } catch (failure) {
@@ -92,6 +100,7 @@ export function OutputPage({ recipe, workflow, selectedFlows, onChange, onImport
             <button disabled={!exported.text} aria-describedby="workflow-error" onClick={() => { downloadJson(exported.text, WORKFLOW_FILE); setNotice('流程規格已下載；不含資料列或樣本內容。'); }}><Icon name="download" />下載流程規格</button>
             <p role="status">{notice}</p>
           </div></div>
+          {details && forms && onDetailsImport && onFormsImport && <SettingsTransfer details={details} forms={forms} onDetailsImport={onDetailsImport} onFormsImport={onFormsImport} />}
           <RecipeTransfer recipe={linked} catalog={catalog} blocked={!sha256 || Boolean(siteConflict)} onImport={next => {
             onImport(next);
             setNotice(next.workflowRef && next.workflowRef.sha256 !== sha256 ? '注意：載入的設定檔記錄的流程規格與目前流程不同。請在「流程畫布」匯入對應的流程規格，或重新下載設定交付包。' : '');

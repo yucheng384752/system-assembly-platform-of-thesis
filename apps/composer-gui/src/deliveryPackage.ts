@@ -8,10 +8,12 @@ import { sha256Hex, WORKFLOW_FILE } from './workflow';
 import { createZip } from './zip';
 import { flows, type Flow } from './catalog';
 import { summarizeKitWorkflows, workflowTable, KIT_WORKFLOW_SUMMARY, KIT_WORKFLOW_TABLE } from './kitWorkflows';
+import { checkFormLibrary, FORM_LIBRARY_FILE } from '../../../libs/aov-integration/formLibrary';
+import { checkProjectDetails, PROJECT_DETAILS_FILE } from '../../../libs/aov-integration/projectDetails';
 import { assembleManual, checkManuals, fragmentPath, loadFragments, manualRoles, roleNames, type Fragments } from './manual';
 
 // Configuration delivery package (spec 12, D21, D31-D36): settings only, never an installable system.
-export type ArtifactRole = 'readme' | 'recipe' | 'workflow' | 'kit-workflow' | 'validation-report' | 'manual' | 'site-profile';
+export type ArtifactRole = 'readme' | 'recipe' | 'workflow' | 'kit-workflow' | 'validation-report' | 'manual' | 'site-profile' | 'project-details' | 'form-library';
 export interface PackageManifest {
   format: 'composer-delivery-package'; version: 1; installable: false; clientName: string;
   recipe: { name: string; recipeVersion: string };
@@ -56,7 +58,10 @@ export function sensitiveKeys(value: unknown, at = '$'): string[] {
   return Object.entries(value).flatMap(([key, item]) => [...(SENSITIVE_KEY.test(key) ? [`${at}.${key}`] : []), ...sensitiveKeys(item, `${at}.${key}`)]);
 }
 
-function readme(manifest: Omit<PackageManifest, 'artifacts'>, hasSite = false): string {
+// Node settings and the form library ride in the package as their own files, only when there is something in them.
+export interface PackageSettings { detailsText?: string; formsText?: string }
+
+function readme(manifest: Omit<PackageManifest, 'artifacts'>, hasSite = false, settings: PackageSettings = {}): string {
   return [
     `# 設定交付包：${manifest.clientName}`, '',
     '本壓縮檔是 Composer 產出的系統設定，不是可安裝的系統，也不含任何安裝或部署程式。', '',
@@ -66,6 +71,8 @@ function readme(manifest: Omit<PackageManifest, 'artifacts'>, hasSite = false): 
     '- `aov/workflow.aov.json`：流程規格（流程節點、子流程、表單欄位與驗證規則、已確認的表單關聯）。',
     '- `aov/kit-workflows.json`、`aov/kit-workflows.md`：所選功能流程總表，包含已啟用步驟與明確連線；缺漏與草稿逐項標示，不代表執行驗證。',
     ...(hasSite ? ['- `config/site/site.profile.json`：場域設定原文（已去除 BOM），含場域限制與資料來源引用，不含秘密值。'] : []),
+    ...(settings.detailsText !== undefined ? [`- \`aov/${PROJECT_DETAILS_FILE}\`：節點細項（物料型別、領料、填單、入庫與出庫的設定），以流程節點識別碼對應。`] : []),
+    ...(settings.formsText !== undefined ? [`- \`aov/${FORM_LIBRARY_FILE}\`：表單庫（客戶表單的欄位、型別、單位與描述的對象），不含資料列或樣本內容。`] : []),
     '- `validation/report.json`：靜態檢查結果；測試環境演練與現場驗證尚未執行。',
     ...(!manifest.notProvided.some(item => item.path === 'docs/') ? manualRoles.map(role => `- \`docs/manual-${role}.md\`：${roleNames[role]}操作手冊；審閱狀態見各手冊首頁。`) : []),
     '- `package-manifest.json`：各檔案的 SHA-256 與位元組數，以及未提供的項目與原因。', '',
@@ -82,7 +89,7 @@ function readme(manifest: Omit<PackageManifest, 'artifacts'>, hasSite = false): 
 // recipeText and workflowText must be the exact exported files, so the package matches the separate downloads.
 export async function buildDeliveryPackage(recipeText: string, workflowText: string, catalog: Catalog,
   manuals: { selectedFlows?: string[]; flows?: Flow[]; fragments?: Fragments } = {},
-  siteText?: string,
+  siteText?: string, settings: PackageSettings = {},
 ): Promise<{ fileName: string; bytes: Uint8Array<ArrayBuffer>; manifest: PackageManifest }> {
   const recipe = JSON.parse(recipeText) as Recipe; const workflow: unknown = JSON.parse(workflowText);
   const failures: string[] = [];
@@ -94,6 +101,17 @@ export async function buildDeliveryPackage(recipeText: string, workflowText: str
   check(valid('recipe', recipe), '系統設定檔不符合格式。');
   check(recipe.workflowRef?.path === WORKFLOW_FILE && recipe.workflowRef.sha256 === workflowSha, '系統設定檔記錄的流程規格校驗碼與流程規格不符。');
   const leaked = [...sensitiveKeys(recipe).map(p => `系統設定檔 ${p}`), ...sensitiveKeys(workflow).map(p => `流程規格 ${p}`)];
+  const parsed = (label: string, text: string | undefined, checker: (raw: unknown) => { message: string }[]) => {
+    if (text === undefined) return;
+    let raw: unknown;
+    try { raw = JSON.parse(text); } catch { failures.push(`${label}不是有效的 JSON。`); return; }
+    const problems = checker(raw);
+    check(!problems.length, `${label}不符合格式：${problems.map(p => p.message).join('')}`);
+    const keys = sensitiveKeys(raw);
+    check(!keys.length, `${label}含疑似連線或密碼欄位：${keys.join('、')}。`);
+  };
+  parsed('節點細項', settings.detailsText, checkProjectDetails);
+  parsed('表單庫', settings.formsText, checkFormLibrary);
   check(!leaked.length, `檔案含疑似連線或密碼欄位：${leaked.join('、')}。`);
   const unknown = kits.filter(k => !k.version).map(k => k.id);
   check(!unknown.length, `找不到功能的版本：${unknown.join('、')}。`);
@@ -136,6 +154,8 @@ export async function buildDeliveryPackage(recipeText: string, workflowText: str
       { id: 'workflow-ref', description: '系統設定檔的 workflowRef 與流程規格的 SHA-256 相符', status: 'passed' },
       { id: 'sensitive-keys', description: '兩份檔案皆無連線、密碼或金鑰類欄位名稱（只檢查欄位名稱，不檢查使用者輸入的文字）', status: 'passed' },
       { id: 'kit-versions', description: '每項已選功能皆有固定版本', status: 'passed' },
+      ...(settings.detailsText !== undefined ? [{ id: 'project-details', description: '節點細項符合格式，且無連線、密碼或金鑰類欄位名稱', status: 'passed' as const }] : []),
+      ...(settings.formsText !== undefined ? [{ id: 'form-library', description: '表單庫符合格式，每張表單都有描述的對象，數量欄位都有單位，且無連線、密碼或金鑰類欄位名稱', status: 'passed' as const }] : []),
       { id: 'manuals', description: manualStatus.description, status: manualStatus.issues.length ? 'not-provided' : 'passed' },
       ...(siteResult ? [
         { id: 'site-profile', description: '場域設定契約、引用、別名與秘密值檢查通過', status: 'passed' as const },
@@ -150,7 +170,7 @@ export async function buildDeliveryPackage(recipeText: string, workflowText: str
   const base = { format: 'composer-delivery-package', version: 1, installable: false, clientName: recipe.clientName!.trim(),
     recipe: { name: recipe.name, recipeVersion: recipe.recipeVersion }, kits, notProvided: missing } as const;
   const files: { path: string; role: ArtifactRole; text: string }[] = [
-    { path: 'README.md', role: 'readme', text: readme(base, siteText !== undefined) },
+    { path: 'README.md', role: 'readme', text: readme(base, siteText !== undefined, settings) },
     { path: 'config/system.recipe.json', role: 'recipe', text: recipeText },
     { path: `aov/${WORKFLOW_FILE}`, role: 'workflow', text: workflowText },
     { path: KIT_WORKFLOW_SUMMARY, role: 'kit-workflow', text: JSON.stringify({ format: 'composer-kit-workflow-summary', version: 1, kits: kitWorkflows }, null, 2) },
@@ -158,6 +178,8 @@ export async function buildDeliveryPackage(recipeText: string, workflowText: str
     { path: 'validation/report.json', role: 'validation-report', text: JSON.stringify(report, null, 2) },
     ...manualFiles,
     ...(siteText !== undefined ? [{ path: 'config/site/site.profile.json', role: 'site-profile' as const, text: siteText }] : []),
+    ...(settings.detailsText !== undefined ? [{ path: `aov/${PROJECT_DETAILS_FILE}`, role: 'project-details' as const, text: settings.detailsText }] : []),
+    ...(settings.formsText !== undefined ? [{ path: `aov/${FORM_LIBRARY_FILE}`, role: 'form-library' as const, text: settings.formsText }] : []),
   ];
   const encoder = new TextEncoder();
   const encoded = files.map(file => ({ ...file, data: encoder.encode(file.text) }));

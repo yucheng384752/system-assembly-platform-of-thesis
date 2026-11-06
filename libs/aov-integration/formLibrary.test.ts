@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FormDef } from '../aov-core';
-import { checkFormDef, checkFormLibrary, emptyFormLibrary, type FormLibrary } from './formLibrary';
+import { checkFormDef, checkFormLibrary, emptyFormLibrary, exportFormLibrary, parseFormLibrary, type FormLibrary } from './formLibrary';
 
 const form = (patch: Partial<FormDef> = {}): FormDef => ({
   id: 'entry', name: '入庫單', subject: ['mat.tin'],
@@ -20,6 +20,11 @@ describe('表單庫的檢查（表單獨立於流程）', () => {
     expect(checkFormDef(form())).toEqual([]);
     expect(checkFormLibrary(library(form()))).toEqual([]);
     expect(checkFormLibrary(emptyFormLibrary satisfies FormLibrary)).toEqual([]);
+  });
+
+  it('表單識別碼可含連字號（aov-core 與畫布都這樣編號），但不可數字開頭或含空白', () => {
+    expect(checkFormDef(form({ id: 'mix-record' }))).toEqual([]);
+    for (const id of ['1form', 'a b', '', '入庫單']) expect(codes(checkFormDef(form({ id })))).toEqual(['form-id']);
   });
 
   it('欄位鍵必須是英文識別碼：中文鍵會讓計畫雜湊與運算式引用都不可靠', () => {
@@ -68,3 +73,17 @@ describe('表單庫的檢查（表單獨立於流程）', () => {
     expect(codes(checkFormLibrary(library(null, 5)))).toEqual(['form-shape', 'form-shape']);
   });
 });
+
+describe('表單庫檔案的輸出與載入', () => {
+  it('輸出再載入得到相同內容，相同內容輸出相同位元組', () => {
+    const library = library_(form());
+    expect(parseFormLibrary(exportFormLibrary(library))).toEqual({ ok: true, library });
+    expect(exportFormLibrary(library)).toBe(exportFormLibrary(structuredClone(library)));
+  });
+  it('有問題的表單整份拒絕，並逐項說明', () => {
+    const result = parseFormLibrary(JSON.stringify(library_(form({ subject: [] }), form({ id: 'other', fields: {} }))));
+    expect(!result.ok && result.errors).toHaveLength(2);
+    expect(parseFormLibrary('nope')).toEqual({ ok: false, errors: ['表單庫檔案必須是有效的 JSON。'] });
+  });
+});
+const library_ = (...forms: FormDef[]): FormLibrary => ({ format: 'composer-form-library', version: 1, forms });
