@@ -12,6 +12,8 @@ const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '.
 // directory of the test container, never into the image that ships.
 export const PYTEST = 'pytest==9.1.1';
 const KIT_ID = /^[a-z][a-z0-9-]*-kit$/;
+// The generated backend's own modules (hardware guard, license gate, on-site self-check) are not a Kit but must pass too: the "system" suite.
+export const SYSTEM_TESTS = ['test_guard.py', 'test_license_gate.py', 'test_selfcheck.py'];
 
 /** @param {Buffer | string} data */
 const sha256 = data => createHash('sha256').update(data).digest('hex');
@@ -37,6 +39,13 @@ export async function testFilesSha256(kitsDir, kit) {
   return { sha256: sha256(lines.join('\n')), count: lines.length };
 }
 
+/** Hash of the system suite's test files, like testFilesSha256 for a Kit. @param {string} packageDir */
+export async function systemTestsSha256(packageDir) {
+  const lines = [];
+  for (const name of SYSTEM_TESTS) lines.push(`${name}\0${sha256(await readFile(path.join(packageDir, 'tests', name)))}`);
+  return { sha256: sha256(lines.join('\n')), count: lines.length };
+}
+
 /** The shell run inside the test container: one pytest process per Kit, because every Kit's backend is a package named `app`.
  * Markers are printed so the result of each Kit can be told apart. */
 export const CONTAINER_SCRIPT = [
@@ -48,6 +57,10 @@ export const CONTAINER_SCRIPT = [
   '  (cd "/kits/$kit" && python -B -m pytest -p no:cacheprovider -q tests > /tmp/out.log 2>&1); code=$?',
   '  echo "@@END $kit $code"; tail -n 25 /tmp/out.log',
   'done',
+  // the generated backend's own modules: hardware guard, license gate and the on-site self-check
+  'echo "@@KIT system"',
+  `(cd /services/package/tests && python -B -m pytest -p no:cacheprovider -q ${SYSTEM_TESTS.join(' ')} > /tmp/out.log 2>&1); code=$?`,
+  'echo "@@END system $code"; tail -n 25 /tmp/out.log',
 ].join('\n');
 
 /** Reads the container output into one record per Kit. @param {string} output */
@@ -78,15 +91,16 @@ const count = (lines, word) => {
 /**
  * Runs every selected Kit's tests inside the freshly built backend image and refuses to continue unless all of them pass.
  * Needs Docker and network (pytest is installed in the container), so it belongs to the release step, not to assembly.
- * @param {{image: string, kits: string[], kitsDir?: string, run?: Run}} options
+ * @param {{image: string, kits: string[], kitsDir?: string, packageDir?: string, run?: Run}} options
  */
-export async function runKitTests({ image, kits, kitsDir = path.join(repository, 'kits'), run = spawnSync }) {
+export async function runKitTests({ image, kits, kitsDir = path.join(repository, 'kits'), packageDir = path.join(repository, 'services/package'), run = spawnSync }) {
   for (const kit of kits) if (!KIT_ID.test(kit)) throw new Error(`Kit 識別字不合法：${kit}`);
   const result = run('docker', ['run', '--rm', '--user', '10001:10001', '--tmpfs', '/tmp:rw,exec,size=512m', '--env', 'HOME=/tmp',
     // The merged backend is the code that ships; Kit tests import it as `app` (a Kit that needs another Kit's code works too).
     '--env', 'PYTHONPATH=/system/backend', '--env', 'A4_BACKEND=/system/backend',
     // /config is the repository's config folder (capability registry); read-only, like /kits.
-    '--volume', `${path.resolve(kitsDir)}:/kits:ro`, '--volume', `${path.resolve(kitsDir, '../config')}:/config:ro`, '--entrypoint', 'sh', image, '-c', CONTAINER_SCRIPT, 'selftest', ...kits],
+    '--volume', `${path.resolve(kitsDir)}:/kits:ro`, '--volume', `${path.resolve(kitsDir, '../config')}:/config:ro`,
+    '--volume', `${path.resolve(packageDir)}:/services/package:ro`, '--entrypoint', 'sh', image, '-c', CONTAINER_SCRIPT, 'selftest', ...kits],
   { encoding: 'utf8', maxBuffer: 1 << 26 });
   const output = String(result.stdout ?? '');
   if (result.error) throw new Error(`測試容器無法執行：${result.error.message}`);
@@ -94,7 +108,7 @@ export async function runKitTests({ image, kits, kitsDir = path.join(repository,
   const parsed = parseKitResults(output);
   const failures = [];
   const records = [];
-  for (const kit of kits) {
+  for (const kit of [...kits, 'system']) {
     const found = parsed.get(kit);
     if (!found) { failures.push(`${kit}：測試沒有執行${result.status ? `（容器結束碼 ${result.status}）` : ''}`); continue; }
     if (found.noTests) { failures.push(`${kit}：沒有測試（每個選入系統的 Kit 都必須有 tests/，見 docs/kit-authoring.md）`); continue; }
@@ -105,7 +119,7 @@ export async function runKitTests({ image, kits, kitsDir = path.join(repository,
       failures.push(`${kit}：${reason}\n${found.lines.filter(Boolean).slice(-12).map(line => `    ${line}`).join('\n')}`);
       continue;
     }
-    const tests = await testFilesSha256(kitsDir, kit);
+    const tests = kit === 'system' ? await systemTestsSha256(packageDir) : await testFilesSha256(kitsDir, kit);
     records.push({ kit, status: 'passed', passed, skipped, testFiles: tests.count, testFilesSha256: tests.sha256 });
   }
   if (failures.length) throw new Error(`Kit 測試閘門未通過，不產出安裝包：\n${failures.join('\n')}`);

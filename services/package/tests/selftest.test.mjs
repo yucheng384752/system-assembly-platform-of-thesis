@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CONTAINER_SCRIPT, PYTEST, parseKitResults, runKitTests, testFilesSha256 } from '../selftest.mjs';
+import { CONTAINER_SCRIPT, PYTEST, SYSTEM_TESTS, parseKitResults, runKitTests, systemTestsSha256, testFilesSha256 } from '../selftest.mjs';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const repository = path.resolve(directory, '../../..');
@@ -21,6 +21,8 @@ async function kitsFolder(kits, work) {
 const docker = (stdout, status = 0) => {
   /** @type {{args: string[]}[]} */
   const calls = [];
+  // The system suite (guard, license gate, self-check) runs in every call; unless a test says otherwise it passes.
+  if (!stdout.includes('@@KIT system') && !stdout.includes('@@PIP_FAILED') && status === 0) stdout += '@@KIT system\n@@END system 0\n9 passed in 0.2s\n';
   return { calls, run: /** @type {never} */ ((/** @type {string} */ _command, /** @type {string[]} */ args) => { calls.push({ args }); return { status, stdout }; }) };
 };
 const ok = (/** @type {string} */ kit, n = 4) => `@@KIT ${kit}\n@@END ${kit} 0\n${n} passed in 0.5s\n`;
@@ -77,6 +79,7 @@ test('passing results carry the counts and a hash of the test files, which chang
   const records = await runKitTests({ image: 'img:1', kits: ['alpha-kit'], kitsDir: dir, run: docker(ok('alpha-kit', 7)).run });
   assert.equal(records[0].passed, 7);
   assert.equal(records[0].testFiles, 1);
+  assert.deepEqual(records.map(r => r.kit), ['alpha-kit', 'system'], 'the system suite is recorded after the Kits');
   await writeFile(path.join(dir, 'alpha-kit/tests/test_a.py'), '# changed\n');
   assert.notEqual((await testFilesSha256(dir, 'alpha-kit')).sha256, records[0].testFilesSha256);
 }));
@@ -89,4 +92,26 @@ test('parseKitResults separates the Kits', () => {
   const parsed = parseKitResults(`${ok('a-kit')}${ok('b-kit', 2)}`);
   assert.deepEqual([...parsed.keys()], ['a-kit', 'b-kit']);
   assert.equal(parsed.get('b-kit')?.exitCode, 0);
+});
+
+test('the system suite runs the guard, license gate and self-check tests with the package folder mounted read-only', async () => kitsFolder(['alpha-kit'], async dir => {
+  const d = docker(ok('alpha-kit'));
+  await runKitTests({ image: 'img:1', kits: ['alpha-kit'], kitsDir: dir, run: d.run });
+  assert.ok(d.calls[0].args.some(a => a.endsWith(':/services/package:ro')));
+  for (const name of SYSTEM_TESTS) assert.match(CONTAINER_SCRIPT, new RegExp(name));
+  assert.deepEqual(SYSTEM_TESTS, ['test_guard.py', 'test_license_gate.py', 'test_selfcheck.py']);
+}));
+
+test('a failing system suite stops the release just like a failing Kit', async () => kitsFolder(['alpha-kit'], async dir => {
+  const out = `${ok('alpha-kit')}@@KIT system
+@@END system 1
+FAILED test_selfcheck.py::Gate::test_x
+1 failed, 20 passed in 0.5s
+`;
+  await assert.rejects(runKitTests({ image: 'img:1', kits: ['alpha-kit'], kitsDir: dir, run: docker(out).run }), /system：測試未通過（結束碼 1）/);
+}));
+
+test('every system test file exists, so the hash recorded in the manifest covers real files', async () => {
+  const hashed = await systemTestsSha256(path.join(repository, 'services/package'));
+  assert.equal(hashed.count, SYSTEM_TESTS.length);
 });

@@ -97,7 +97,7 @@ test('a malformed image ID or version is rejected', async () => assembled(async 
   }
   /** @type {import('../bundle-images.mjs').Run} */
   const wrongId = (_c, args) => ({ status: 0, stdout: args[0] === 'image' ? 'not-an-id\n' : '' });
-  await assert.rejects(bundleImages(dir, { systemVersion: '1.2.3', run: wrongId }), /映像 ID 格式不符/);
+  await assert.rejects(bundleImages(dir, { systemVersion: '1.2.3', run: wrongId, tests: noTests }), /映像 ID 格式不符/);
 }));
 
 test('a Kit whose tests fail stops the release before anything is pulled, saved or written to the manifest', async () => assembled(async dir => {

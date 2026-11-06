@@ -507,6 +507,45 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(self.installer.state['steps']['migration']['status'], 'ok')
         self.assertNotIn('compose-up', self.installer.state['steps'], 'services must not start without a verified license')
 
+    def failing_start(self, report):
+        """The backend refuses to start (compose --wait fails); `report` is what its self-check wrote, or None when it wrote nothing."""
+        original = self.runner.run
+
+        def run(args, **kwargs):
+            if args[:2] == ['docker', 'compose'] and 'up' in args and args[-1] == 'backend':
+                raise Failure(13, 'fixture command failed')
+            if args[:2] == ['docker', 'compose'] and 'exec' in args and any('selfcheck.json' in str(a) for a in args):
+                if report is None:
+                    return subprocess.CompletedProcess(args, 1, b'', b'')
+                return subprocess.CompletedProcess(args, 0, canonical(report), b'')
+            return original(args, **kwargs)
+        self.runner.run = run
+
+    def failed_message(self):
+        return next(e['message'] for e in self.events if e.get('status') == 'failed' and e.get('step') == 'compose-up')
+
+    def test_a_backend_that_refuses_to_start_reports_which_kit_failed_its_self_check(self):
+        self.failing_start({'status': 'failed', 'findings': [
+            {'kit': 'upload-validation-kit', 'check': 'route-missing', 'reason': '入口宣告的 POST /api/upload 在系統中不存在'},
+            {'kit': None, 'check': 'database-table-missing', 'reason': '資料表「x」不存在'}]})
+        self.assertEqual(self.installer.apply(self.root, self.body), 13)
+        message = self.failed_message()
+        self.assertIn('現場自檢未通過', message)
+        self.assertIn('upload-validation-kit：入口宣告的 POST /api/upload 在系統中不存在', message)
+        self.assertIn('系統：資料表「x」不存在', message)
+
+    def test_a_start_failure_without_a_self_check_report_keeps_the_plain_message(self):
+        self.failing_start(None)
+        self.assertEqual(self.installer.apply(self.root, self.body), 13)
+        self.assertNotIn('現場自檢', self.failed_message())
+
+    def test_a_passed_or_unreadable_report_is_not_blamed_for_a_start_failure(self):
+        for report in ({'status': 'passed', 'findings': []}, {'status': 'failed', 'findings': 'garbage'}):
+            self.failing_start(report)
+            self.assertEqual(self.installer.apply(self.root, self.body), 13)
+            self.assertNotIn('現場自檢', self.failed_message())
+            self.setUp()
+
     def test_fingerprint_drift_before_license_install(self):
         original = self.runner.run
         def changed(args, **kwargs):

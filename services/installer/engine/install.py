@@ -178,6 +178,21 @@ class Installer:
                             '--env-file', str(self.target / '.env'), '-f', str(self.target / 'deployment/docker-compose.yml'),
                             '-f', str(self.target / 'compose.override.yml'), *args], **kwargs)
 
+    def selfcheck_reason(self):
+        """Why the backend refused to start, from the report the on-site self-check wrote (D182); empty when it has none.
+
+        The report names Kits, files, routes and tables only, never secret values, so it can be shown to the engineer.
+        """
+        try:
+            result = self.compose(['exec', '-T', 'backend', 'python', '-c',
+                                   "import sys; sys.stdout.write(open('/system/data/selfcheck.json', encoding='utf-8').read())"], check=False)
+            report = json.loads(result.stdout.decode('utf-8'))
+            findings = report['findings'] if report.get('status') == 'failed' else []
+            lines = ['%s：%s' % (item.get('kit') or '系統', item['reason']) for item in findings if isinstance(item, dict) and isinstance(item.get('reason'), str)]
+        except (Failure, ValueError, KeyError, TypeError, AttributeError, OSError):
+            return ''
+        return '；'.join(lines)[:800]
+
     def remember(self, step, item):
         if item['kind'] == 'containers':
             item['before'] = self.docker(['container', 'ls', '-aq', '--no-trunc', '--filter',
@@ -285,8 +300,14 @@ class Installer:
         elif step == 'compose-up':
             self.remember(step, {'kind': 'containers'})
             # Wait for backend before starting nginx to avoid its DNS/startup race.
-            self.compose(['up', '-d', '--wait', '--wait-timeout', '180', '--no-build', '--pull', 'never', 'backend'])
-            self.compose(['up', '-d', '--wait', '--wait-timeout', '180', '--no-build', '--pull', 'never', 'proxy'])
+            try:
+                self.compose(['up', '-d', '--wait', '--wait-timeout', '180', '--no-build', '--pull', 'never', 'backend'])
+                self.compose(['up', '-d', '--wait', '--wait-timeout', '180', '--no-build', '--pull', 'never', 'proxy'])
+            except Failure as failure:
+                reason = self.selfcheck_reason()
+                if reason:
+                    raise Failure(13, '現場自檢未通過，系統不啟動：' + reason) from None
+                raise failure
         elif step == 'license-install':
             try:
                 raw, info = checked_license(self.runner, self.license_path,

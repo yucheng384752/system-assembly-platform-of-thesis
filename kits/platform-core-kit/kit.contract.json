@@ -11,7 +11,8 @@
     "db": [
       { "capability": "db.tables.resolve" },
       { "capability": "db.forms.list" },
-      { "capability": "db.records.search" }
+      { "capability": "db.records.search" },
+      { "capability": "db.tenants.read" }
     ]
   },
   "consumes": {
