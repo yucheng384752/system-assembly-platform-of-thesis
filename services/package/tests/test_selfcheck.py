@@ -12,6 +12,7 @@ import json
 import re
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 
@@ -30,13 +31,16 @@ EP_SOURCE = REPO / "kits/entry-permission-kit/src/backend"
 
 
 def directory_class():
-    """The real permission directory, so the route check uses the same matching as the middleware."""
-    sys.path.insert(0, str(EP_SOURCE))
-    try:
-        from app.entry_permission.directory import Directory
-    finally:
-        sys.path.remove(str(EP_SOURCE))
-    return Directory
+    """The real permission directory, so the route check uses the same matching as the middleware.
+
+    Loaded under its own package name: other test files in the same run import their own `app`, and sharing it would make
+    these tests depend on which file ran first.
+    """
+    if "ep_under_test" not in sys.modules:
+        package = types.ModuleType("ep_under_test")
+        package.__path__ = [str(EP_SOURCE / "app/entry_permission")]
+        sys.modules["ep_under_test"] = package
+    return importlib.import_module("ep_under_test.directory").Directory
 
 
 def sha(data):
