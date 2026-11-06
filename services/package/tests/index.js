@@ -7,3 +7,4 @@ import './analytical-four-frontend.test.mjs';
 import './requirements.test.mjs';
 import './merge-delivery.test.mjs';
 import './kit-compat.test.mjs';
+import './selftest.test.mjs';

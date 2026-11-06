@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { bundleImages, composeImages } from '../bundle-images.mjs';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
+/** Stand-in for the Kit test gate; its own behavior is covered in selftest.test.mjs. */
+const noTests = async () => [];
 const IDS = { 'composer-demo-backend:1.2.3': 'a', 'postgres:16.6-bookworm': 'b', 'nginx:1.28.0-bookworm': 'c' };
 /** @param {Buffer | string} data */
 const hash = data => createHash('sha256').update(data).digest('hex');
@@ -48,7 +50,7 @@ test('composeImages reads only the services that name an image', async () => {
 
 test('bundleImages builds from the assembled directory and records every service exactly once', async () => assembled(async dir => {
   const docker = fakeDocker();
-  const manifest = await bundleImages(dir, { systemVersion: '1.2.3', run: docker.run });
+  const manifest = await bundleImages(dir, { systemVersion: '1.2.3', run: docker.run, tests: noTests });
   const build = docker.calls.find(c => c.args[0] === 'build');
   assert.ok(build);
   assert.equal(build.cwd, dir, 'the build context must be the assembled directory');
@@ -72,10 +74,10 @@ test('bundleImages builds from the assembled directory and records every service
 }));
 
 test('bundleImages never overwrites an already bundled directory', async () => assembled(async dir => {
-  await bundleImages(dir, { systemVersion: '1.2.3', run: fakeDocker().run });
+  await bundleImages(dir, { systemVersion: '1.2.3', run: fakeDocker().run, tests: noTests });
   const before = await readFile(path.join(dir, 'system-manifest.json'));
   const docker = fakeDocker();
-  await assert.rejects(bundleImages(dir, { systemVersion: '1.2.4', run: docker.run }), /不覆寫/);
+  await assert.rejects(bundleImages(dir, { systemVersion: '1.2.4', run: docker.run, tests: noTests }), /不覆寫/);
   assert.deepEqual(await readFile(path.join(dir, 'system-manifest.json')), before);
   assert.equal(docker.calls.length, 0, 'it must refuse before touching Docker');
 }));
@@ -84,16 +86,45 @@ test('a failing Docker step leaves the manifest unchanged', async () => assemble
   const before = await readFile(path.join(dir, 'system-manifest.json'));
   for (const failOn of ['build', 'pull', 'save']) {
     await rm(path.join(dir, 'images'), { recursive: true, force: true });
-    await assert.rejects(bundleImages(dir, { systemVersion: '1.2.3', run: fakeDocker({ failOn }).run }), new RegExp(`docker ${failOn} 失敗`));
+    await assert.rejects(bundleImages(dir, { systemVersion: '1.2.3', run: fakeDocker({ failOn }).run, tests: noTests }), new RegExp(`docker ${failOn} 失敗`));
     assert.deepEqual(await readFile(path.join(dir, 'system-manifest.json')), before, failOn);
   }
 }));
 
 test('a malformed image ID or version is rejected', async () => assembled(async dir => {
   for (const version of [undefined, '', '1.2', 'v1.2.3', '1.2.3; rm']) {
-    await assert.rejects(bundleImages(dir, { systemVersion: version, run: fakeDocker().run }), /systemVersion/);
+    await assert.rejects(bundleImages(dir, { systemVersion: version, run: fakeDocker().run, tests: noTests }), /systemVersion/);
   }
   /** @type {import('../bundle-images.mjs').Run} */
   const wrongId = (_c, args) => ({ status: 0, stdout: args[0] === 'image' ? 'not-an-id\n' : '' });
   await assert.rejects(bundleImages(dir, { systemVersion: '1.2.3', run: wrongId }), /映像 ID 格式不符/);
+}));
+
+test('a Kit whose tests fail stops the release before anything is pulled, saved or written to the manifest', async () => assembled(async dir => {
+  const manifestFile = path.join(dir, 'system-manifest.json');
+  const withKits = { ...JSON.parse(await readFile(manifestFile, 'utf8')), kits: [{ kit: 'alpha-kit', sourceSha256: 's1' }, { kit: 'beta-kit', sourceSha256: 's2' }] };
+  await writeFile(manifestFile, JSON.stringify(withKits));
+  const before = await readFile(manifestFile);
+  const docker = fakeDocker();
+  const failing = async () => { throw new Error('Kit 測試閘門未通過，不產出安裝包：\nbeta-kit：測試未通過（結束碼 1）'); };
+  await assert.rejects(bundleImages(dir, { systemVersion: '1.2.3', run: docker.run, tests: failing }), /beta-kit：測試未通過/);
+  assert.deepEqual(await readFile(manifestFile), before);
+  assert.deepEqual(docker.calls.map(c => c.args[0]), ['build'], 'only the build ran: no pull and no save once a Kit fails');
+}));
+
+test('the manifest records which tests passed for which source, so the signature covers the result', async () => assembled(async dir => {
+  const manifestFile = path.join(dir, 'system-manifest.json');
+  await writeFile(manifestFile, JSON.stringify({ ...JSON.parse(await readFile(manifestFile, 'utf8')), kits: [{ kit: 'alpha-kit', sourceSha256: 's1' }] }));
+  /** @type {{image: string, kits: string[]}[]} */
+  const asked = [];
+  const passing = async (/** @type {{image: string, kits: string[]}} */ request) => {
+    asked.push(request);
+    return [{ kit: 'alpha-kit', status: 'passed', passed: 3, skipped: 0, testFiles: 1, testFilesSha256: 't1' }];
+  };
+  const manifest = await bundleImages(dir, { systemVersion: '1.2.3', run: fakeDocker().run, tests: passing });
+  assert.deepEqual(asked.map(a => a.kits), [['alpha-kit']]);
+  assert.equal(asked[0].image, 'composer-demo-backend:1.2.3', 'the tests run in the image that ships');
+  assert.equal(manifest.selftest.status, 'passed');
+  assert.deepEqual(manifest.selftest.kits, [{ kit: 'alpha-kit', status: 'passed', passed: 3, skipped: 0, testFiles: 1, testFilesSha256: 't1', sourceSha256: 's1' }]);
+  assert.deepEqual(JSON.parse(await readFile(manifestFile, 'utf8')).selftest, manifest.selftest);
 }));
