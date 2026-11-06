@@ -100,7 +100,9 @@ export async function runKitTests({ image, kits, kitsDir = path.join(repository,
     '--env', 'PYTHONPATH=/system/backend', '--env', 'A4_BACKEND=/system/backend',
     // /config is the repository's config folder (capability registry); read-only, like /kits.
     '--volume', `${path.resolve(kitsDir)}:/kits:ro`, '--volume', `${path.resolve(kitsDir, '../config')}:/config:ro`,
-    '--volume', `${path.resolve(packageDir)}:/services/package:ro`, '--entrypoint', 'sh', image, '-c', CONTAINER_SCRIPT, 'selftest', ...kits],
+    '--volume', `${path.resolve(packageDir)}:/services/package:ro`,
+    // test_guard.py compares the guard's fingerprint rules with the installer's, so the engine folder is readable too.
+    '--volume', `${path.resolve(packageDir, '../installer/engine')}:/services/installer/engine:ro`, '--entrypoint', 'sh', image, '-c', CONTAINER_SCRIPT, 'selftest', ...kits],
   { encoding: 'utf8', maxBuffer: 1 << 26 });
   const output = String(result.stdout ?? '');
   if (result.error) throw new Error(`測試容器無法執行：${result.error.message}`);

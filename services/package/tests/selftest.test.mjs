@@ -98,6 +98,7 @@ test('the system suite runs the guard, license gate and self-check tests with th
   const d = docker(ok('alpha-kit'));
   await runKitTests({ image: 'img:1', kits: ['alpha-kit'], kitsDir: dir, run: d.run });
   assert.ok(d.calls[0].args.some(a => a.endsWith(':/services/package:ro')));
+  assert.ok(d.calls[0].args.some(a => a.endsWith(':/services/installer/engine:ro')), 'the guard test needs the installer engine to compare fingerprint rules');
   for (const name of SYSTEM_TESTS) assert.match(CONTAINER_SCRIPT, new RegExp(name));
   assert.deepEqual(SYSTEM_TESTS, ['test_guard.py', 'test_license_gate.py', 'test_selfcheck.py']);
 }));
