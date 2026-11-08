@@ -1,9 +1,10 @@
 ﻿# 全自動啟動 Composer GUI：檢查 Node → 必要時安裝依賴 → 啟動 dev server → 等待就緒 → 開啟瀏覽器。
-# 用法：start.cmd [-Port 5173] [-NoBrowser] [-Check]
+# 用法：start.cmd [-Port 5173] [-NoBrowser] [-Check] [-Page aov-canvas.html]
 param(
   [int]$Port = 5173,
   [switch]$NoBrowser,
-  [switch]$Check
+  [switch]$Check,
+  [string]$Page = ''
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -55,7 +56,7 @@ function Test-ComposerServer([int]$p) {
 }
 if ((Test-PortInUse $Port) -and (Test-ComposerServer $Port)) {
   Info "Composer 已在 http://127.0.0.1:$Port/ 執行，直接沿用。"
-  if (-not $NoBrowser) { Start-Process "http://127.0.0.1:$Port/" }
+  if (-not $NoBrowser) { Start-Process "http://127.0.0.1:$Port/$Page" }
   exit 0
 }
 $original = $Port
@@ -66,7 +67,7 @@ while (Test-PortInUse $Port) {
 if ($Port -ne $original) { Info "連接埠 $original 已被其他程式占用，改用 $Port。" }
 
 # 5. 啟動 dev server，等待就緒（最多 60 秒）後開啟瀏覽器；關閉此視窗或按 Ctrl+C 即停止
-$url = "http://127.0.0.1:$Port/"
+$url = "http://127.0.0.1:$Port/$Page"
 Info "啟動 dev server：$url"
 $server = Start-Process -FilePath 'npm.cmd' -ArgumentList @('run', 'dev', '--', '--port', "$Port", '--strictPort') -NoNewWindow -PassThru
 try {
