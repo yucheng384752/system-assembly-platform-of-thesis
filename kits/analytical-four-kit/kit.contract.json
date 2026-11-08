@@ -73,6 +73,11 @@
         "path": "/api/analytical-four/library/publish"
       },
       {
+        "capability": "analytical-four.library.restore",
+        "method": "POST",
+        "path": "/api/analytical-four/library/restore"
+      },
+      {
         "capability": "analytical-four.library.versions",
         "method": "GET",
         "path": "/api/analytical-four/library/versions"
@@ -279,6 +284,11 @@
           "capability": "analytical-four.library.publish",
           "method": "POST",
           "path": "/api/analytical-four/library/publish"
+        },
+        {
+          "capability": "analytical-four.library.restore",
+          "method": "POST",
+          "path": "/api/analytical-four/library/restore"
         }
       ]
     },

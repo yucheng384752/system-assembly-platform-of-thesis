@@ -2,7 +2,7 @@
   "format": "composer-kit-registry",
   "version": 1,
   "kitId": "analytical-four-kit",
-  "scope": "登錄製造數據分析的 23 個路由：設定、就緒檢查、示範資料、啟動與查看分析、取得結果、回饋與案例庫版本。分析本身是背景執行，階段對應引擎的 pipeline 方法。",
+  "scope": "登錄製造數據分析的 24 個路由：設定、就緒檢查、示範資料、啟動與查看分析、取得結果、回饋與案例庫版本。分析本身是背景執行，階段對應引擎的 pipeline 方法。",
   "capabilities": [
     {
       "id": "analytical-four.settings.get",
@@ -253,6 +253,18 @@
       "implementedBy": {
         "kitId": "analytical-four-kit",
         "mService": "analytical-four-library-publish"
+      },
+      "verified": true
+    },
+    {
+      "id": "analytical-four.library.restore",
+      "kind": "api",
+      "method": "POST",
+      "path": "/api/analytical-four/library/restore",
+      "declared": true,
+      "implementedBy": {
+        "kitId": "analytical-four-kit",
+        "mService": "analytical-four-library-restore"
       },
       "verified": true
     },
@@ -796,6 +808,30 @@
         "analytical-four-library-publish"
       ],
       "failure": "401 未登入；409 分析進行中、沒有新的已核可回饋或沒有案例檔路徑"
+    },
+    {
+      "id": "analytical-four-library-restore",
+      "name": "回復案例庫的舊版本",
+      "responsibility": "把指定的舊版本內容發布成新的版本並成為目前版本",
+      "provides": [
+        "analytical-four.library.restore"
+      ],
+      "inputs": [
+        {
+          "name": "version",
+          "type": "integer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "manifest",
+          "type": "json"
+        }
+      ],
+      "functions": [
+        "analytical-four-library-restore"
+      ],
+      "failure": "401 未登入；404 沒有這個版本；409 分析進行中、已是目前版本或沒有案例檔路徑；422 version 不是正整數；500 版本檔損毀"
     },
     {
       "id": "analytical-four-library-versions",
@@ -1390,6 +1426,32 @@
       "source": {
         "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
         "symbol": "publish_library"
+      }
+    },
+    {
+      "id": "analytical-four-library-restore",
+      "primitive": "analytical-four-library-restore",
+      "input": [
+        {
+          "name": "version",
+          "type": "integer"
+        }
+      ],
+      "output": [
+        {
+          "name": "manifest",
+          "type": "json"
+        }
+      ],
+      "failures": [
+        "401 未登入；404 沒有這個版本；409 分析進行中、已是目前版本或沒有案例檔路徑；422 version 不是正整數；500 版本檔損毀"
+      ],
+      "sideEffects": [
+        "新增一個內容等同舊版本的案例庫版本並更新分析讀取的兩個案例檔"
+      ],
+      "source": {
+        "path": "kits/analytical-four-kit/src/backend/app/api/routes_analytical_four.py",
+        "symbol": "restore_library"
       }
     },
     {

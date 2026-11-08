@@ -16,7 +16,7 @@ import threading
 from collections import OrderedDict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.analytical_four.format_checks import validate_case_record
 from app.analytical_four.runs import RunError, RunStore
@@ -93,6 +93,26 @@ def ng_code_field(value: Any) -> str:
     return value
 
 
+def explain_error(record: Dict[str, Any], predicted: str, confirmed: str, known: Optional[set]) -> Tuple[List[str], Dict[str, Any]]:
+    """Why a diagnosis disagreed with the confirmed defect code, from fields already in the record (no model call).
+
+    Each reason is a fixed sentence so the case library stays searchable; `delta` carries the values compared."""
+    rule = (record.get('diagnosis_results') or {}).get('suggested_ng_code') or ''
+    final = (record.get('conclusion') or {}).get('final_ng') or ''
+    reasons: List[str] = []
+    if known is not None and confirmed not in known:
+        reasons.append('確認的不良代碼不在分布庫內，診斷無從推估')
+    if rule and final and rule != final:
+        reasons.append('AI 綜合診斷改掉了規則推估的代碼' + ('，且規則推估與確認結果相符' if rule == confirmed else ''))
+    elif rule and rule != confirmed:
+        reasons.append('規則推估的代碼與確認結果不同')
+    if (record.get('conclusion') or {}).get('needs_human') is True:
+        reasons.append('診斷已標示需人工確認')
+    if not reasons:
+        reasons.append('診斷與確認結果不同，原因無法由紀錄判斷')
+    return reasons, {'predicted': predicted, 'confirmed': confirmed, 'rule_suggested': rule or None, 'final': final or None}
+
+
 class FeedbackStore:
     def __init__(self, root: Path, runs: RunStore):
         self.root, self.runs = root, runs
@@ -143,10 +163,13 @@ class FeedbackStore:
         predicted = (record.get('conclusion') or {}).get('final_ng') or (record.get('diagnosis_results') or {}).get('suggested_ng_code')
         was_correct = (predicted == confirmed) if predicted else None
         record['feedback'] = {**record['feedback'], 'confirmed_by': actor, 'confirmed_at': _now(), 'was_correct': was_correct, 'label_source': source}
+        known = self._known_codes(settings)
         record['error_analysis'] = {**(record.get('error_analysis') or {}), 'was_correct': was_correct}
         record['error_analysis'].setdefault('error_reasons', [])
         record['error_analysis'].setdefault('delta', {})
-        known = self._known_codes(settings)
+        if not record['error_analysis']['error_reasons'] and was_correct is False:
+            reasons, delta = explain_error(record, predicted, confirmed, known)
+            record['error_analysis'].update({'error_reasons': reasons, 'delta': {**record['error_analysis']['delta'], **delta}})
         entry = {'feedbackId': secrets.token_hex(8), 'submittedAt': _now(), 'submittedBy': actor, 'submittedRole': role, 'source': source,
                  'runId': run_id, 'note': note, 'isNewCode': None if known is None else confirmed not in known, 'record': record}
         return entry
@@ -272,5 +295,51 @@ class FeedbackStore:
             (staging / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
             os.replace(staging, final)
             _replace(records_path, rows)  # the analysis reads these two paths; they now hold the newest version
+            _replace(errors_path, wrong)
+            return manifest
+
+    def restore(self, settings: Settings, version: Any, actor: str) -> Dict[str, Any]:
+        """Makes an older library version current again by publishing its content as a NEW version (history is never rewritten).
+
+        Feedback published after the restored version stays marked as published; it does not come back on its own."""
+        if not isinstance(version, int) or isinstance(version, bool) or version < 1:
+            raise FeedbackError(422, 'version 必須是正整數')
+        with self.lock:
+            if self.runs.active is not None:
+                raise FeedbackError(409, f'分析 {self.runs.active} 仍在執行，請等它結束再回復案例庫')
+            versions = self.versions()
+            source_manifest = next((m for m in versions if m['version'] == version), None)
+            if source_manifest is None:
+                raise FeedbackError(404, f'沒有案例庫版本 {version}')
+            latest = versions[0]
+            if latest['version'] == version:
+                raise FeedbackError(409, f'版本 {version} 已經是目前的版本')
+            try:
+                targets = derive_config(settings, self.root)['data_source']['case_data']
+                records_path, errors_path = Path(targets['llm_records']), Path(targets['llm_error_records'])
+            except (SettingsError, KeyError) as error:
+                raise FeedbackError(409, f'分析設定沒有可寫入的案例檔路徑：{error}') from error
+            if not targets.get('llm_records') or not targets.get('llm_error_records'):
+                raise FeedbackError(409, '分析設定沒有指定案例檔路徑')
+            source = self.library / f'v{version:04d}'
+            for name, digest in source_manifest['files'].items():
+                if not (source / name).is_file() or _sha(source / name) != digest:
+                    raise FeedbackError(500, f'案例庫版本 {version} 的 {name} 已損毀或被改過，不回復')
+            rows, wrong = _read_lines(source / 'llm_records.jsonl'), _read_lines(source / 'llm_error_records.jsonl')
+            number = latest['version'] + 1
+            final = self.library / f'v{number:04d}'
+            staging = self.library / f'.staging-v{number:04d}'
+            if final.exists():
+                raise FeedbackError(500, f'案例庫版本 {number} 已存在')
+            staging.mkdir(parents=True, exist_ok=True)
+            _write_jsonl(staging / 'llm_records.jsonl', rows)
+            _write_jsonl(staging / 'llm_error_records.jsonl', wrong)
+            manifest = {'version': number, 'createdAt': _now(), 'createdBy': actor, 'baseVersion': latest['version'],
+                        'startedFromExistingFile': False, 'restoredFromVersion': version, 'addedFeedbackIds': [],
+                        'replacedEventIds': [], 'recordCount': len(rows), 'errorRecordCount': len(wrong),
+                        'files': {name: _sha(staging / name) for name in ('llm_records.jsonl', 'llm_error_records.jsonl')}}
+            (staging / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
+            os.replace(staging, final)
+            _replace(records_path, rows)
             _replace(errors_path, wrong)
             return manifest
