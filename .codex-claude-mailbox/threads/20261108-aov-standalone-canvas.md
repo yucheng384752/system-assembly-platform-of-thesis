@@ -60,6 +60,21 @@ artifacts:
 
 （待 Codex 填寫）
 
+## 2026-11-08 Codex：批一停止，待處理契約衝突
+
+- 停止原因：契約第 4 節與 DESIGN.md D186 要求「不寫入任何瀏覽器儲存」，但 `WorkflowCanvas.tsx` 內建 `ExampleHintProvider`；`ExampleHintSettings.tsx` 的 `setVisible` 在切換「顯示填寫提示」時呼叫 `localStorage.setItem`。該控制項也出現在獨立頁。修正共用 provider 或畫布介面需要修改允許清單以外的檔案，已觸發「與現有程式衝突／需要修改範圍外檔案」停止條件。不自行改契約、不隱藏控制項或攔截儲存 API。
+- 發現衝突時已寫入部分實作，保留供審閱，未宣稱批一完成。新增：`apps/composer-gui/aov-canvas.html`、`apps/composer-gui/src/aovCanvasMain.tsx`、`apps/composer-gui/src/AovCanvasApp.tsx`、`apps/composer-gui/src/importAny.ts`。修改：`apps/composer-gui/src/WorkflowTransfer.tsx`、`vite.config.ts`。另依使用者要求追加本節；未修改其他原始碼、測試或設定檔。
+- 已寫內容：獨立 HTML 與 bootstrap 入口；記憶體中的 graph/path、既有畫布與匯入元件、流程下載及結果訊息；格式辨識委派 `importWorkflow`（無 format 欄位也委派）；Vite 雙 HTML build input。頁面樣式放在允許修改的 `AovCanvasApp.tsx`，未修改共用 CSS。
+- `npm.cmd run typecheck`：exit code **0**，兩個 TypeScript 檢查通過，**0 個診斷錯誤**。
+- `npm.cmd test`：exit code **1**。Vitest：**63 個測試檔，61 passed、2 failed；810 個測試，804 passed、1 failed、5 skipped**；Duration **15.33s**。
+  - `src/evaluator.test.ts` 打包程序 suite：esbuild **2 errors**，`Cannot read directory "../..": Access is denied.` 與 `Could not resolve "./services/evaluator/src/main.ts"`；程序測試受沙箱存取限制而未完成。
+  - `src/security.test.mjs`：簽章 CLI 讀取暫存私鑰回報 **沙箱 EPERM**（`operation not permitted, open`）；afterAll 刪除暫存目錄也回報 **沙箱 EPERM**（`Permission denied`）。不繞過沙箱、不修改範圍外測試。
+  - Vitest 失敗後，npm script 的 `&&` 後續三段（preview、libs/case-store、services/case-store）**未執行**。
+- 跳過：因上述停止條件，尚未新增批一要求的 UI、匯入、往返、靜態 import 清單與入口測試，亦未做變異驗證。既有測試結果不代表新功能已驗收。未執行 build；依硬規則未執行 git、連網、安裝依賴、啟動伺服器或瀏覽器，未進行視覺驗證。
+- 待 Claude／user 處理：釐清「任何瀏覽器儲存」是否包含填寫提示偏好，或核定擴充可動檔案與 provider 的無儲存行為；確認後再接續剩餘實作及測試。
+
 # Claude Notes
 
 - 2026-11-08：分支建於 main 7161168。實測事實與限制見契約第 3、9 節。另有 session 提到各 Kit 的 CHANGELOG.md 功能（HMM 訓練）可能與節點修改紀錄重疊，該 session 需求確定後會通知，屆時再對照，避免重複設計。
+
+- 2026-11-08 Claude 裁決（批一續作）：停止條件成立，是契約文字過寬。「不寫入任何瀏覽器儲存」的本意是流程、表單、節點細項不落地；「顯示填寫提示」偏好是既有的每位使用者顯示設定，沿用 `ExampleHintProvider` 原行為，不改共用元件、不隱藏、不攔截儲存。已修正 `docs/aov-standalone-canvas.md` 第 4 節與 `DESIGN.md` 獨立頁一節。Codex 沙箱的 evaluator 與 security 測試失敗屬已知沙箱限制，Claude 在沙箱外複跑。續作範圍不變：補完批一第 4 項測試（UI、匯入、往返、靜態 import 清單、入口）與變異驗證。

@@ -37,7 +37,7 @@ user 要求（2026-11-08）：
 - 啟動：`npm run aov-canvas`（`vite --host 127.0.0.1 --port 5175 --open /aov-canvas.html`，`--strictPort`）；另附 `aov-canvas.cmd`（比照 `start.cmd` 的檢查 Node 與依賴，但只開此頁）。
 - 內容：`WorkflowCanvas`（含 `ExampleHintProvider`）、「匯入流程規格」、「下載流程規格」、之後批次加入範例庫、節點細項、專案檔下載。
 - 不含：Recipe、Kit 選配、站點、輸出頁、案例庫、預覽後端。畫面文字業務語言，遵守 `DESIGN.md`。
-- 狀態由 `AovCanvasApp` 持有（`graph`、`path`），初始 `emptyGraph`；不寫入任何瀏覽器儲存。
+- 狀態由 `AovCanvasApp` 持有（`graph`、`path`），初始 `emptyGraph`；流程、表單與節點細項不寫入任何瀏覽器儲存（重新整理即清空）。畫布既有的「顯示填寫提示」偏好是每位使用者的顯示設定，沿用 `ExampleHintProvider` 原有的 localStorage 行為，不改共用元件。
 - 下載流程規格：呼叫既有 `exportAovGraph`（未完成的流程以 `role="alert"` 說明原因，不下載）。
 - 不得從 `App.tsx`、`OutputPage.tsx`、`RecipeTransfer.tsx` 匯入；測試以靜態檢查（讀原始碼的 import 清單）確保獨立頁不依賴整份 App。
 
