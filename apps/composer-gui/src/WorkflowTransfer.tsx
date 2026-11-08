@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { importWorkflow, integrityErrors, type AovGraphDocument } from './workflowGraph';
+import { integrityErrors, type AovGraphDocument } from './workflowGraph';
+import { importAny } from './importAny';
 import { readJsonFile } from './fileTransfer';
 
 export function WorkflowTransfer({ onChange }: { onChange: (doc: AovGraphDocument) => void }) {
@@ -9,7 +10,7 @@ export function WorkflowTransfer({ onChange }: { onChange: (doc: AovGraphDocumen
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   function accept(input: string) {
     try {
-      const result = importWorkflow(input);
+      const result = importAny(input);
       const errors = integrityErrors(result.value);
       if (errors.length) throw new Error(`${errors.join(' ')}原流程已保留。`);
       onChange(result.value);

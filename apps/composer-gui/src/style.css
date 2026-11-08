@@ -278,3 +278,11 @@ dd { margin: 0 0 0 var(--space); }
 }
 @media(max-width:63.99rem){.output-columns{grid-template-columns:minmax(0,1fr)}.simulation-tabs button{white-space:normal}}
 @media(prefers-reduced-motion:reduce){.step-content,.workflow-details{animation:none}button{transition:none}}
+
+/* Standalone AoV canvas page (D186): title and actions share the canvas toolbar; the canvas keeps the height the main page gives it (a fixed height, never auto, because React Flow sizes itself from 100% of its parent). */
+.aov-standalone > .workflow-page > .canvas-toolbar > div:not(.canvas-zoom) { display: contents; }
+.aov-standalone h1 { order: -3; margin: 0; margin-right: auto; }
+.aov-standalone button[aria-controls="workflow-transfer"] { order: -2; }
+.aov-standalone .aov-download { order: -1; }
+.aov-standalone .aov-message { flex-basis: 100%; margin: 0; }
+.aov-standalone .canvas-toolbar nav { flex-basis: 100%; }
