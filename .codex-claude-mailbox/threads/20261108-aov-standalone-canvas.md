@@ -104,3 +104,30 @@ artifacts:
   - 實測發現並修正一個缺陷（Codex 版本就有）：獨立頁的樣式把 `.workflow-canvas` 設成 `height: auto; flex: 1`，React Flow 以 `height: 100%` 取父層高度，結果高度為 0，節點完全畫不出來，而 jsdom 沒有排版所以測試抓不到。改為沿用主頁面的 `70vh`、最小 `28rem`，並把這段樣式從元件內嵌的 `<style>` 移到 `style.css`；補一條讀樣式表的回歸測試，加回壞規則會失敗（已驗證）。
   - 未在瀏覽器驗證：實際按「下載流程規格」（下載需要使用者許可，以單元測試涵蓋）、`npm run aov-canvas` 的 `--open`（會開預設瀏覽器，改以 vite 直接啟動驗證）、`aov-canvas.cmd` 與 `-Page`。
   - 測試檔另有 `importAny` 目前只認 `composer-aov-list`，Kit 與專案檔格式分別在批二、批三加入。
+
+# 批二 Handoff（Codex）
+
+**預計完成時間：2026-11-09 18:00。** cwd 為專案根目錄。Codex 只寫程式與測試，不執行 git、不連網、不裝依賴、不啟動伺服器或瀏覽器。契約唯一來源是 `docs/aov-standalone-canvas.md` 第 5、6 節與 `DESIGN.md`「範例庫（D187）」一節；有不明處、與現有程式衝突、或要動範圍外檔案就停工並寫進 Codex Notes，不自行裁決。新測試一律放 `apps/composer-gui/src/`（`libs/` 下的測試不在 `npm test` 範圍）。批一已完成並提交（`importAny`、`AovCanvasApp`、`style.css` 中獨立頁樣式），先讀過再動手。
+
+可動的檔案：
+- 新增 `apps/composer-gui/src/kitExamples.ts`、`ExampleLibrary.tsx` 與各自測試。
+- 修改 `importAny.ts`（加辨識 `composer-kit-workflow`）、`workflowGraph.ts`（只加 `exportAovGraphDraft`，並與 `exportAovGraph` 共用同一個欄位投影函式；`exportAovGraph` 的行為與錯誤訊息一字不改）、`AovCanvasApp.tsx` 與 `App.tsx`（只在畫布的 `toolbarExtra` 加 `ExampleLibrary`，其餘不動）、`style.css`（只追加範例庫所需規則）、`vite-env.d.ts`（若需要）。
+- 不得動：`kits/`、`libs/`、`schemas/`、`config/`、`scripts/`、`package.json`、`WorkflowCanvas.tsx`、`WorkflowTransfer.tsx`。
+
+工作：
+1. `kitWorkflowToCanvas(workflow, kit)`：依契約第 6 節第 1 至 7 點；輸出 `{ value: AovGraphDocument; notices: string[] }`，結果須通過 `validateSchema('aov', …)` 與 `integrityErrors`。確定性：同輸入同輸出（id、座標、提示順序）。動作對應取交集最大者，平手取 `actionCatalog` 順序在前者，交集為空為 `actionId: null` 的業務節點；不得為通過 `graphErrors` 而預填表單或參數。
+2. 載入所有 Kit 範例：以 `kitWorkflows.ts` 的 `workflowFiles` 取得原文，用 `parseKitWorkflow` 驗證後轉換；任何一份失敗只影響該列（顯示「無法載入」與原因）。範例清單依 Kit 顯示名稱排序。
+3. `exportAovGraphDraft(doc)`：契約第 6 節第 8 點。
+4. `importAny` 加辨識 `composer-kit-workflow`：以檔內 `kitId` 找已登錄 Kit，找不到或版本不符丟業務語言錯誤（不洩漏檔案路徑或欄位名），成功回傳轉換結果與提示；其他格式行為不變。
+5. `ExampleLibrary.tsx`：依 DESIGN.md；props 至少 `current: AovGraphDocument` 與 `onLoad(doc: AovGraphDocument): void`；載入前的確認、無範例時的空狀態、`role="status"` 提示、下載走 `exportAovGraphDraft` 與 `fileTransfer.downloadJson`，檔名 `<kitId>-example.json`。載入後獨立畫布與 `App` 要像匯入流程規格一樣清空開啟路徑並重設畫布（比照 `WorkflowTransfer` 的 `onChange` 處理）。
+6. 測試（每個須在對應規則被拿掉時失敗，規則 9）：
+   - 轉換規則以合成的小型 workflow 與 catalog 驗證：交集最大者勝、平手取目錄順序、無交集為業務節點、起點終點連線、整份無連線時並列且有提示、狀態文字（草稿與已審閱）、無法對應步驟的提示逐一列出、同輸入兩次輸出相同。
+   - 真實資料：現有每一份 `kits/*/workflow.aov.json` 都能轉換（全部通過 schema 與 `integrityErrors`），`exportAovGraphDraft` 後再 `importAny` 得到相同內容，且 `importAny` 直接讀 Kit 原檔也成功。不得把「30/101 可對應」寫死成預期值（Kit 檔會變）。
+   - `exportAovGraphDraft`：待補項存在時 `exportAovGraph` 仍拒絕、Draft 可匯出；欄位投影只有一份（兩者對完整流程輸出相同位元組）。
+   - `ExampleLibrary`：開合面板、狀態與計數文字、載入前確認（有內容才出現確認區、取消不改變、確認才替換、空畫布直接載入）、無法載入的列、空狀態、下載內容可被 `importAny` 還原。
+   - `App` 與 `AovCanvasApp` 各一條整合測試：點「範例庫」載入一份範例後畫布出現該流程。
+7. 不得用 `any`、`dangerouslySetInnerHTML`、`innerHTML`、`window.confirm`；使用者可編輯文字一律純文字；Kit 檔的文字也當純文字。
+
+停止條件：需要新增依賴；需要修改範圍外的檔案；`parseKitWorkflow` 或 `kitWorkflows` 無法在範例清單中使用；契約與 DESIGN.md 互相衝突或與現有畫布行為衝突。
+
+驗收（Codex 須在 Notes 如實列出）：`npm.cmd run typecheck`、`npm.cmd test` 結果與數字（evaluator 與 security 的沙箱失敗照實寫成沙箱限制）；關鍵規則的變異檢查結果；跳過或失敗的項目。

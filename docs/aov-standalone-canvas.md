@@ -43,7 +43,7 @@ user 要求（2026-11-08）：
 
 ## 5. 匯入入口的格式辨識（D187、D188）
 
-新增 `importAny(text)`（放 `apps/composer-gui/src/importAny.ts`，因為它要呼叫 `importWorkflow` 這個應用層執行碼，D102 不允許 libs 反向依賴；Kit 轉換與專案檔轉換放 `libs/aov-integration/`）：簽章與 `importWorkflow` 相同，回傳 `{ value, notices }`，失敗丟業務語言的 `Error`。依內容辨識：
+新增 `importAny(text)`（放 `apps/composer-gui/src/importAny.ts`，因為它要呼叫 `importWorkflow` 這個應用層執行碼，D102 不允許 libs 反向依賴；Kit 轉換放 `apps/composer-gui/src/kitExamples.ts`，因為它要用 `workflowGraph` 與 `kitWorkflows` 的執行碼；專案檔轉換視相依另定）：簽章與 `importWorkflow` 相同，回傳 `{ value, notices }`，失敗丟業務語言的 `Error`。依內容辨識：
 
 | 辨識條件 | 轉換 |
 |---|---|
@@ -56,7 +56,7 @@ user 要求（2026-11-08）：
 
 ## 6. Kit 流程轉畫布與範例庫（D187）
 
-轉換函式 `kitWorkflowToCanvas(workflow, kit, catalog)` 的規則（確定性、同輸入同輸出）：
+轉換函式 `kitWorkflowToCanvas(workflow, kit)`（放 `apps/composer-gui/src/kitExamples.ts`，動作目錄用 `workflow.ts` 匯出的 `actionCatalog`）的規則（確定性、同輸入同輸出）：
 
 1. 一份 Kit 流程 = 一個工廠 + 一個生產邏輯。工廠與生產邏輯的 id 為 `kit-<kitId>`，名稱為 Kit 顯示名稱。
 2. 節點 id 沿用 Kit 節點 id；名稱沿用 Kit 節點名稱。
@@ -64,7 +64,8 @@ user 要求（2026-11-08）：
 4. 連線沿用 Kit 的 `edges`。起點連到沒有前置的節點，沒有後續的節點連到終點（比照 `upgradeV4` 的做法）。Kit 沒有定義連線者（整份 `edges` 為空），所有節點並列在起點與終點之間，並以提示說明「此功能未定義步驟先後」。
 5. 版面座標：依連線深度分層，左到右；同層由上到下，間距取畫布既有常數。
 6. 提示（`notices`，業務語言）：Kit 名稱與版本、狀態（草稿或已審閱，沿用 `workflowStatus` 文字，並註明「不代表已通過執行驗證」）、有幾個步驟找不到對應動作並逐一列出、是否缺連線。
-7. 轉換結果須通過 `integrityErrors` 與 `graphErrors` 以外的結構檢查（`graphErrors` 針對未填欄位，範例允許未填，不在此限）；失敗的 Kit 在範例庫列為「無法載入」並顯示原因，不隱藏。
+7. 轉換結果須通過 `integrityErrors`。範例載入後一定有待補項：對應到「需要表單」的動作或有必填參數的動作，`graphErrors` 會要求補齊表單與參數，這正是「稍改參數後才能生成」的設計，不得為了通過檢查而預填虛構的表單或參數。提示（`notices`）要寫出「尚有 N 項待補」。失敗的 Kit 在範例庫列為「無法載入」並顯示原因，不隱藏。
+8. 範例的「下載為流程規格檔」不能用 `exportAovGraph`（它會因待補項而拒絕）。新增 `exportAovGraphDraft(doc)`（放 `workflowGraph.ts`，與 `exportAovGraph` 共用同一個欄位投影函式，只檢查 `integrityErrors`），檔案內容格式不變，匯入端本來就只驗結構與完整性，所以草稿檔可再匯入。按鈕文字為「下載範例流程規格（尚待補齊）」。
 
 範例庫畫面：
 
