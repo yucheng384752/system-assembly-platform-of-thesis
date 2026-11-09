@@ -103,7 +103,32 @@ docker run --rm --user 10001:10001 --tmpfs /tmp --env HOME=/tmp --env PYTHONPATH
 
 手冊片段放在 `manuals/kits/<kit-id>/<版本>/`，分使用者、管理者（`mis`）與開發者三份，各有固定的六個章節與前言欄位（見 `schemas/manual.schema.json`）。內容來自實測：沒有實際操作過的步驟寫「尚未驗證」，不寫成已完成。`sources` 只能指向 `kits/` 或 `services/frontend/` 下的檔案。
 
-## 9. 完成清單
+## 9. 流程變更紀錄（CHANGELOG.md，測試強制）
+
+每個有 `workflow.aov.json` 的 Kit 都要有 `CHANGELOG.md`，記下流程描述每次修改了哪些節點（`node_name`）、為什麼改、改前改後的畫布。決策記錄是 D190。這份紀錄也是資料：之後會用來學習「哪類修改常一起出現、通常為什麼改」，所以格式固定、原因分類是封閉清單。
+
+規則：
+
+1. **改了 `workflow.aov.json` 就要補一筆。** 指令：`node scripts/kit-changelog.mjs add <kit-id> --cause <分類> --reason "<為什麼改>"`。節點與連線的差異、前後畫布、雜湊都由指令算出，不用手寫。
+2. **原因寫「為什麼」，不是「改了什麼」。** 改了什麼已由差異表記錄；原因要讓人（和模型）看出動機，例如「流程畫成平行，但程式實際是依序執行」。
+3. **分類只能選下列之一**（`--cause`）：
+
+| 分類 | 何時用 |
+|---|---|
+| initial | Kit 第一次建立流程描述（只有第 1 筆） |
+| new-feature | Kit 多了能力，流程跟著補節點 |
+| align-runtime | 流程描述與實際程式行為不符，修正它 |
+| wording | 節點名稱改成更精確或更貼近業務的說法 |
+| dependency | 調整哪一步必須先完成哪一步 |
+| granularity | 節點拆分、合併或移除重複 |
+| verification-finding | 在測試機實際操作後發現需要修改 |
+| other | 以上都不是；原因要寫清楚。若同類的 other 變多，代表該新增分類（開決議） |
+
+4. **不要手改 `CHANGELOG.md`。** 它由指令產生，文字與機器可讀的 JSON 必須一致；改錯了就修正後執行 `node scripts/kit-changelog.mjs render <kit-id>`。
+5. **強制方式：** `npm test` 會逐個 Kit 檢查，缺檔、流程描述與最後一筆結果不同（錯誤訊息會指名未記錄的節點或連線）、紀錄被改過、原因空白或分類不合法，都會失敗。檢查指令：`node scripts/kit-changelog.mjs check`。
+6. 沒有歷史的既有流程用 `backfill` 從 git 歷史補寫；每個非初版提交需人工指定分類與原因。
+
+## 10. 完成清單
 
 - [ ] 決議記錄與專屬分支
 - [ ] `kit.contract.json`：每條路由有入口或在 `adminRoutes`；提供與需要的能力一致
@@ -113,4 +138,5 @@ docker run --rm --user 10001:10001 --tmpfs /tmp --env HOME=/tmp --env PYTHONPATH
 - [ ] 組出含這個 Kit 的系統包（含發布閘門與測試證明）
 - [ ] 在測試機安裝並實際操作，記錄結果
 - [ ] 手冊片段（只寫實測過的內容）
+- [ ] `CHANGELOG.md`：流程描述每次修改都有一筆（`npm test` 檢查）
 - [ ] 沒有秘密值、真實資料；畫面是業務語言

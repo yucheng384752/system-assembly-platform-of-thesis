@@ -13,6 +13,8 @@ import * as manual from './manual';
 import siteA from '../../../config/site/examples/demo-site-a.site.json';
 import siteB from '../../../config/site/examples/demo-site-b.site.json';
 
+// Each test renders the whole App; alone they take 1 to 1.5 s, but the first one runs 5 s+ when the full suite loads every worker.
+vi.setConfig({ testTimeout: 30_000 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 function captureDownloads(binary: Uint8Array[] = []) {
   const contents: string[] = [];

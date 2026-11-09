@@ -125,6 +125,22 @@ status, body = call("POST", "/api/analytical-four/feedback", mgr, {"runId": run_
 print("manager direct submission:", status, json.dumps(body, ensure_ascii=False)[:200])
 check("a manager's submission takes effect at once", status == 201 and body.get("status") == "approved", (status, body))
 
+status, body = call("POST", "/api/analytical-four/library/publish", mgr)
+check("a second library version is published", status == 201 and body.get("version") == 2, (status, body))
+status, _ = call("POST", "/api/analytical-four/library/restore", op, {"version": 1})
+check("operator cannot restore a library version (403)", status == 403, status)
+for bad in (0, "1", None):
+    status, _ = call("POST", "/api/analytical-four/library/restore", mgr, {"version": bad})
+    check(f"restore refuses version {bad!r} (422)", status == 422, status)
+status, _ = call("POST", "/api/analytical-four/library/restore", mgr, {"version": 2})
+check("restoring the current version is refused (409)", status == 409, status)
+status, _ = call("POST", "/api/analytical-four/library/restore", mgr, {"version": 99})
+check("restoring a missing version is refused (404)", status == 404, status)
+status, body = call("POST", "/api/analytical-four/library/restore", mgr, {"version": 1})
+check("manager restores version 1 as a new version", status == 201 and body.get("version") == 3 and body.get("restoredFromVersion") == 1, (status, body))
+status, body = call("GET", "/api/analytical-four/library/versions", adm)
+check("history keeps every version", status == 200 and [v["version"] for v in body.get("versions", [])] == [3, 2, 1], body)
+
 run_once("second complaint run after publish")
 print(f"SUMMARY a4-complaint: {sum(results)}/{len(results)} passed")
 server.shutdown()

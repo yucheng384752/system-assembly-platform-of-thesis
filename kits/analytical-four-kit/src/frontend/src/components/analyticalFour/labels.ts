@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 // The page's wording lives here, not in the shared locale files, so the Kit stays self-contained. Business language only;
 // technical identifiers appear only where a person has to type or read them back.
 const zh = {
+  locale: "zh-TW",
+  colon: "：",
   title: "製造數據分析",
   intro: "上傳資料、檢查、啟動分析，並把現場確認的結果回饋成下一次分析可用的案例。",
   tabs: { prepare: "資料準備", settings: "分析設定", run: "執行分析", feedback: "回饋與案例庫" },
@@ -161,6 +163,8 @@ const zh = {
 type Labels = typeof zh;
 
 const en: Labels = {
+  locale: "en-US",
+  colon: ": ",
   title: "Manufacturing data analysis",
   intro: "Upload data, check it, start an analysis, and turn on-site confirmed results into cases the next analysis can use.",
   tabs: { prepare: "Prepare data", settings: "Analysis settings", run: "Run analysis", feedback: "Feedback and case library" },
