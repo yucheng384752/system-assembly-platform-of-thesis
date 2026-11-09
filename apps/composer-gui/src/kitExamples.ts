@@ -5,24 +5,16 @@ import { parseKitWorkflow, workflowFiles, workflowStatus, type KitWorkflow } fro
 import { actionCatalog } from './workflow';
 import { graphErrors, integrityErrors, newGraphParts, type AovGraphDocument, type GraphNode } from './workflowGraph';
 
-export function kitWorkflowToCanvas(workflow: KitWorkflow, kit: Kit): { value: AovGraphDocument; notices: string[] } {
-  const id = `kit-${kit.id}`;
-  const used = new Set(workflow.nodes.map(node => node.id));
+export function canvasWithLayout(id: string, name: string, working: GraphNode[], connections: { id?: string; from: string; to: string }[]): AovGraphDocument {
+  const used = new Set(working.map(node => node.id));
   const fresh = (base: string) => { let result = base; for (let i = 2; used.has(result); i++) result = `${base}-${i}`; used.add(result); return result; };
-  const [start, end] = newGraphParts(id, kit.displayName).graph.nodes;
+  for (const edge of connections) if (edge.id) used.add(edge.id);
+  const [start, end] = newGraphParts(id, name).graph.nodes;
   start.id = fresh(start.id); end.id = fresh(end.id);
-  const working: GraphNode[] = workflow.nodes.map(node => {
-    let actionId: string | null = null, best = 0;
-    for (const action of actionCatalog.actions) {
-      const overlap = new Set(action.requires.filter(capability => node.capabilityIds.includes(capability))).size;
-      if (overlap > best) { best = overlap; actionId = action.id; }
-    }
-    return { id: node.id, name: node.name, kind: 'node', when: '', owner: '', actionId, params: {}, formId: null, childGraphId: null };
-  });
-  const edges = workflow.edges.map(edge => ({ ...edge, id: fresh('edge') }));
+  const edges = connections.map(edge => ({ ...edge, id: edge.id ?? fresh('edge') }));
   for (const node of working) {
-    if (!workflow.edges.some(edge => edge.to === node.id)) edges.push({ id: fresh('edge-start'), from: start.id, to: node.id });
-    if (!workflow.edges.some(edge => edge.from === node.id)) edges.push({ id: fresh('edge-end'), from: node.id, to: end.id });
+    if (!connections.some(edge => edge.to === node.id)) edges.push({ id: fresh('edge-start'), from: start.id, to: node.id });
+    if (!connections.some(edge => edge.from === node.id)) edges.push({ id: fresh('edge-end'), from: node.id, to: end.id });
   }
   const nodes = [start, ...working, end];
   const depths = new Map<string, number>();
@@ -42,12 +34,26 @@ export function kitWorkflowToCanvas(workflow: KitWorkflow, kit: Kit): { value: A
   }));
   const value: AovGraphDocument = {
     format: 'composer-aov-list', version: 5,
-    factories: [{ id, name: kit.displayName, logicGraphIds: [id] }],
-    graphs: [{ id, name: kit.displayName, nodes, edges }], layout: { [id]: positions }, forms: [], relations: [],
+    factories: [{ id, name, logicGraphIds: [id] }],
+    graphs: [{ id, name, nodes, edges }], layout: { [id]: positions }, forms: [], relations: [],
   };
   validateSchema('aov', value);
   const errors = integrityErrors(value);
   if (errors.length) throw new Error(errors.join(' '));
+  return value;
+}
+
+export function kitWorkflowToCanvas(workflow: KitWorkflow, kit: Kit): { value: AovGraphDocument; notices: string[] } {
+  const id = `kit-${kit.id}`;
+  const working: GraphNode[] = workflow.nodes.map(node => {
+    let actionId: string | null = null, best = 0;
+    for (const action of actionCatalog.actions) {
+      const overlap = new Set(action.requires.filter(capability => node.capabilityIds.includes(capability))).size;
+      if (overlap > best) { best = overlap; actionId = action.id; }
+    }
+    return { id: node.id, name: node.name, kind: 'node', when: '', owner: '', actionId, params: {}, formId: null, childGraphId: null };
+  });
+  const value = canvasWithLayout(id, kit.displayName, working, workflow.edges);
   const unmapped = working.filter(node => node.actionId === null);
   const count = graphErrors(value).length;
   const notices = [

@@ -142,6 +142,26 @@ artifacts:
 - 驗證狀態：`npm.cmd run typecheck` 未執行；`npm.cmd test` 未執行；新增測試與五項變異檢查均未執行，無通過數可報。原因是核對資料契約時已達停止條件，依交接要求先停工。此發現是原始碼推導，未宣稱動態測試通過或失敗，也未將未執行歸因於沙箱。
 - 本輪唯一變更為本節 Codex Notes；未執行 git、網路、安裝、伺服器或瀏覽器操作。批三尚未完成。
 
+## 2026-11-09 Codex：依 D191 裁決完成批三實作與測試
+
+- 已重讀最後的「2026-11-09 Claude 裁決（批三停工）」與契約第 7 節新增條款，確認 `convertCanvas` 現在從 `kept` 收集物料。本輪未修改 `libs/`，亦未使用 git 查詢或操作 commit。
+- 新增 `apps/composer-gui/src/projectToCanvas.ts`、`ProjectFileDownload.tsx`、各自測試、`roundTrip.test.ts` 與共用的 `roundTrip.fixture.ts`。修改 `importAny.ts`、`WorkflowTransfer.tsx`、`AovCanvasApp.tsx`、`App.tsx`（僅 WorkflowTransfer 的 onChange）、`PublishPrepPage.tsx`、`kitExamples.ts`；`style.css` 僅在尾端新增樣式。`PublishPrepPage.test.tsx` 的既有欄位查詢改限定原本發布欄，避免新增專案檔區塊的同名欄位造成歧義，原測試仍驗證原發布行為。
+- 專案反向轉換：還原領料、填單、入庫、客戶出庫、外部出庫，物料清單及表單庫；填單 requires 為空物件；時機、負責人、功能與參數留空並給固定提示。未知類別、不支援邊界、缺表單、物料缺漏／識別碼不符／量綱不支援、結構與連線錯誤均拒絕；對輸入執行 compile，輸出經共用函式的 schema 與 integrityErrors 檢查。錯誤以業務語言顯示，不直接暴露編譯例外或結構路徑。
+- 起終點連線及分層版面抽成 `kitExamples.ts` 的 `canvasWithLayout`，Kit 與專案共用。以暫時測試重建抽取前的內嵌演算法，對全部 Kit 範例的 `JSON.stringify(loadKitExamples())` 比較：基準產生與抽取後比較各 **1 test passed**，逐位元組相同；兩次 exit **0**。已還原正式檔案並移除暫時測試與基準檔。原有 Kit 全量往返測試繼續保留，沒有重複另寫一套。
+- 下載元件由獨立頁與發布準備頁共用；成功下載 `<識別碼>.aov-project.json`，內容有縮排及結尾換行。為遵守不修改 libs 且不複製驗證規則的限制，使用現有 `preparePlan` 執行同一份驗證，再呼叫 `convertCanvas` 取得專案。這會在記憶體內額外產生一次計畫結果（不下載、不連線），並再次轉換；未另寫名稱／識別碼／版本規則。錯誤逐項顯示、細項訊息以節點名稱取代代號；下載例外不洩漏路徑。獨立頁細項及表單庫皆只在 React 狀態中。
+- 往返測試：最小領料／入庫案例；含填單、表單與三種入庫／出庫方向的完整案例；流程規格往返；專案兩次轉出以相同 meta 比較完整 JSON 位元組。D191 案例同時包含另一個生產邏輯與孤兒細項使用 `other` 物料，確認轉出與還原僅有 `tin`，再次轉出與第一次完全相同。完整案例使用三條合法物料路線，沒有把同一個物料輸出接到三個下游。
+- 整合測試使用實際元件：獨立頁及主程式匯入專案後確認細項／表單庫已替換；缺欄位、未知類別、連到不存在節點、缺物料四種壞檔均保留原 graph、details、forms 的物件；獨立頁再下載專案並檢查內容，且未呼叫瀏覽器儲存。下載元件、發布頁各驗證完整檔名與內容；版本 0／小數、空名稱、錯誤識別碼與 preparePlan 的訊息一致，轉換失敗逐條列出且不下載。
+- 最終相關測試：`npm.cmd exec -- vitest run --configLoader native src/projectToCanvas.test.ts src/roundTrip.test.ts src/ProjectFileDownload.test.tsx src/PublishPrepPage.test.tsx src/AovCanvasApp.test.tsx src/kitExamples.test.ts src/ExampleLibrary.test.tsx src/importAny.test.ts`：exit **0**，**8 files passed、79 tests passed、0 failed、0 skipped**，Duration **4.28s**。
+- `npm.cmd run typecheck`：exit **0**，兩份 TypeScript 設定皆通過。
+- `npm.cmd test`：exit **1**，GUI **71 files（69 passed、2 failed）；893 tests（887 passed、1 failed、5 skipped）**，Duration **15.92s**。失敗為既有沙箱限制：evaluator 打包 suite 的 esbuild 無法讀取 `../..`（Access is denied）及解析 `./services/evaluator/src/main.ts`；security CLI 無法開啟沙箱暫存目錄的 signing-private-key.pem（EPERM），afterAll 刪除同一暫存目錄亦遭拒。未更改這兩個範圍外測試或嘗試繞過限制。npm script 以 `&&` 串接，故後續 preview、libs/case-store、services/case-store 測試未執行。本輪未另外執行 libs 的測試；D191 行為由新增 GUI 往返案例覆蓋。
+- 關鍵規則變異檢查（當時轉換／往返共 17 tests，之後另補兩條拒絕案例）：每項均暫時修改正式程式後執行測試，以斷言失敗確認；使用 finally 還原原始 bytes。**5/5 killed、0 survived**，全部 exit **1**，不是編譯失敗：
+  - 領料反推成入庫：**4 failed、13 passed**。
+  - 客戶出庫誤對應外部出庫：**2 failed、15 passed**。
+  - requires 加入虛構欄位要求：**2 failed、15 passed**。
+  - 接受有表單的未知類別：**1 failed、16 passed**；專門使用核心 compile 接受的 transform 節點，確保由畫布反推拒絕規則攔下。
+  - 專案端在共用版面後另改一個座標：**1 failed、16 passed**；Kit 與專案同形狀座標比對攔下差異。
+- 已還原全部變異，後續相關 79 項測試通過。未新增依賴、未修改禁止範圍、未操作 git／網路／安裝／伺服器／瀏覽器；未執行 build 或瀏覽器視覺驗證，留待 Claude。暫時輸出檔已清理。專案檔仍只含一個生產邏輯最上層，時機／負責人／功能／參數不會保留；Kit 草稿狀態、無對應功能與無先後連線等第 9 節限制未改變。批三實作完成，完整驗收仍待 Claude 在沙箱外處理既有測試限制及瀏覽器實測。
+
 # Claude Notes
 
 - 2026-11-08：分支建於 main 7161168。實測事實與限制見契約第 3、9 節。另有 session 提到各 Kit 的 CHANGELOG.md 功能（HMM 訓練）可能與節點修改紀錄重疊，該 session 需求確定後會通知，屆時再對照，避免重複設計。
@@ -217,3 +237,8 @@ artifacts:
 驗收（Codex 須在 Notes 如實列出）：`npm.cmd run typecheck`、`npm.cmd test` 結果與數字（evaluator 與 security 的沙箱失敗照實寫成沙箱限制）；變異檢查結果；跳過或失敗的項目。
 
 - 2026-11-09 Claude 裁決（批三停工）：Codex 判斷正確且是現有 bug：`convertCanvas` 的 `used` 依整份細項收集，專案檔會夾帶別的生產邏輯的物料型別。已由我修正（`libs/aov-integration/canvasToProject.ts`，commit be021f8，D191），並補回歸測試（沒修正時失敗、修正後通過；aov-integration 13 檔 260 通過，指令：`npx vitest run --configLoader native --dir libs/aov-integration`，平常的 `npm test` 不含 `libs/` 測試）。批三續作，允許範圍不變，仍不得動 `libs/`。往返測試須含一個「別的生產邏輯或孤兒細項用到另一種物料」的案例：專案檔往返相同，還原的物料清單只含該專案用到者。
+
+- 2026-11-09 Claude 批三審查：沙箱外 typecheck 乾淨；GUI 71 檔 892 通過、1 項既有跳過；`libs/aov-integration` 13 檔 261 通過（`npx vitest run --configLoader native --dir libs/aov-integration`）；案例庫 38、服務 8；vite build 正常。已移除 Codex 留下的 `batch3-test.log`。程式審閱：`canvasWithLayout` 由 Kit 與專案共用；`projectToCanvas` 對未知類別、缺物料、壞連線一律拒絕並指名節點；專案檔 `meta.status` 與 `preparePlan` 同為 `published`。
+  - Chrome 實測（獨立頁，無主控台錯誤）：匯入專案檔後流程、物料（錫錠 mass kg）、領料（wh.raw）、入庫（stock-in）都還原，「設定檢查」顯示可以轉成專案，提示寫明時機、負責人、功能與參數已留空；匯入類別為 transform 的壞檔被拒，訊息指名「神祕步驟」並保留原流程與物料；選生產邏輯但識別碼留空時按「下載專案檔」，顯示識別碼規則的 `role="alert"`、不下載、按鈕高 44px；節點細項區塊排版正常；主程式「發布準備」頁有專案檔區塊與空狀態。
+  - 未在瀏覽器驗證：實際下載專案檔（需使用者允許下載，單元測試涵蓋檔名與內容）、主程式匯入專案檔的完整流程（整合測試涵蓋）。
+  - 限制：`ProjectFileDownload` 借用 `preparePlan` 做驗證，所以計畫建不起來時，即使專案檔本身沒問題也會被擋；壞檔中類別為 transform 且無物料時，訊息為「找不到使用的物料型別」，指名正確節點但原因措辭偏泛。兩者不影響往返正確性。
