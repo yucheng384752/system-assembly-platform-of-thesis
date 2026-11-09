@@ -589,6 +589,160 @@
       ],
       "parameters": [],
       "needs": []
+    },
+    {
+      "id": "load-analysis-demo",
+      "name": "載入分析示範資料",
+      "category": "分析",
+      "description": "載入內建的示範資料與設定，讓使用者先試跑一次分析",
+      "requires": [
+        "analytical-four.demo.load"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "get-analysis-templates",
+      "name": "下載分析範本與需求表",
+      "category": "分析",
+      "description": "列出並下載分析要用的資料範本與需求表",
+      "requires": [
+        "analytical-four.templates.list",
+        "analytical-four.templates.get"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "upload-analysis-files",
+      "name": "上傳分析資料與設定檔",
+      "category": "分析",
+      "description": "上傳資料檔與設定檔，並查看驗證報告",
+      "requires": [
+        "analytical-four.uploads.create",
+        "analytical-four.uploads.list",
+        "analytical-four.uploads.get"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "decide-analysis-upload",
+      "name": "接受或丟棄上傳的檔案",
+      "category": "分析",
+      "description": "看過驗證報告後，決定接受或丟棄上傳的檔案",
+      "requires": [
+        "analytical-four.uploads.accept",
+        "analytical-four.uploads.discard"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "configure-analysis",
+      "name": "調整分析設定",
+      "category": "分析",
+      "description": "查看並調整分析模式、欄位對照等設定",
+      "requires": [
+        "analytical-four.settings.get",
+        "analytical-four.settings.put"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "check-analysis-ready",
+      "name": "確認分析就緒",
+      "category": "分析",
+      "description": "確認資料與設定都已備妥，可以啟動分析",
+      "requires": [
+        "analytical-four.status.get"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "check-analysis-data",
+      "name": "檢查分析資料檔與欄位對照",
+      "category": "分析",
+      "description": "啟動前檢查資料檔與欄位對照是否符合設定",
+      "requires": [
+        "analytical-four.data.check"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "start-analysis-run",
+      "name": "啟動分析",
+      "category": "分析",
+      "description": "在背景啟動一次分析執行，各分析階段在同一次執行內依序進行",
+      "requires": [
+        "analytical-four.runs.create"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "view-analysis-runs",
+      "name": "查看分析執行狀態",
+      "category": "分析",
+      "description": "查看分析執行的清單與目前狀態",
+      "requires": [
+        "analytical-four.runs.get",
+        "analytical-four.runs.list"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "get-analysis-results",
+      "name": "取得分析結果",
+      "category": "分析",
+      "description": "列出並取得分析完成後產生的結果檔",
+      "requires": [
+        "analytical-four.results.list",
+        "analytical-four.results.get"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "submit-analysis-feedback",
+      "name": "提交確認結果",
+      "category": "分析",
+      "description": "對客訴診斷的事件提交確認結果，或匯入已確認的案例",
+      "requires": [
+        "analytical-four.feedback.submit",
+        "analytical-four.feedback.import"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "decide-analysis-feedback",
+      "name": "核可分析回饋",
+      "category": "分析",
+      "description": "檢視待處理的回饋並決定是否核可",
+      "requires": [
+        "analytical-four.feedback.list",
+        "analytical-four.feedback.decide"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "publish-case-library",
+      "name": "發布案例庫版本",
+      "category": "分析",
+      "description": "把核可的回饋發布成新的案例庫版本，必要時回復舊版本",
+      "requires": [
+        "analytical-four.library.publish",
+        "analytical-four.library.versions",
+        "analytical-four.library.restore"
+      ],
+      "parameters": [],
+      "needs": []
     }
   ]
 }

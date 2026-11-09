@@ -53,8 +53,8 @@ describe('新增工具的上架條件', () => {
   });
 
   test('新工具齊全且無預設參數，名稱與描述不洩漏技術識別碼', () => {
-    expect(catalog.actions).toHaveLength(17);
-    expect(new Set(catalog.actions.map(a => a.id)).size).toBe(17);
+    expect(catalog.actions).toHaveLength(30); // 17 from D94 plus 13 analytical-four actions (D199)
+    expect(new Set(catalog.actions.map(a => a.id)).size).toBe(30);
     const added = catalog.actions.filter(a => cases.some(([id]) => id === a.id));
     expect(added).toHaveLength(13);
     for (const action of added) for (const parameter of action.parameters) {

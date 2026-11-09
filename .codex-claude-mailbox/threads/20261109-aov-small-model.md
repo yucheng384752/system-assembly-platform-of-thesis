@@ -59,3 +59,10 @@ aov-standalone-canvas 無合併日期（合併由 user 決定）。`kitWorkflowT
 # 編號
 
 本任務 D194 至 D198；9e 被請求從 D199 起，待其確認。
+
+# 進度：analytical-four 動作補齊（D199，2026-11-09）
+
+- 新增 13 個動作，一對一涵蓋該 Kit 的 24 個能力；動作總數 17 變 30。
+- 測試：`analyticalFourActions.test.ts` 2 項（能力不漏、不重複；步驟對應不重複）；突變檢查（把一個動作少一個能力）會被攔下。`moreNodeTools.test.ts` 的總數 17 改 30。npm test 846 通過、1 略過；typecheck 乾淨。
+- 未解：十個分析階段的能力都是 `runs.create`，D187 規則會全對應到「啟動分析」。既有測試要求每步至少一個能力，所以未清空。待 user 決定。
+- 尚未做：analytical-four 的人工覆核與認證紀錄；其餘 12 個 Kit 的連線與動作缺口。
