@@ -83,6 +83,7 @@ test('language-dependent details come from the labels, so the English page does 
   assert.match(common, /\^forbidden\$/i, 'the gateway bare "Forbidden" is replaced by the page own sentence');
   for (const file of (await readdir(folder)).filter(name => name.endsWith('.tsx'))) {
     const source = await readFile(path.join(folder, file), 'utf8');
+    assert.doesNotMatch(source, /[（）、；　，]/, `${file}: full-width punctuation belongs in the labels (L.open, L.close, L.sep, L.list, L.gap, L.comma), not in the page code`);
     assert.doesNotMatch(source, /\}：/, `${file}: a full-width colon after a label shows in the English page; use L.colon`);
     for (const call of source.matchAll(/formatTime\(([^()]*(?:\([^()]*\))?[^()]*)\)/g)) {
       if (!call[0].includes('value:')) assert.ok(call[1].endsWith(', L'), `${file}: formatTime needs the labels for the locale: ${call[0]}`);

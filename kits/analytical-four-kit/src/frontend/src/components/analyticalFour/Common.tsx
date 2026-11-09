@@ -32,12 +32,12 @@ export function Notice({ kind, children }: { kind: "info" | "ok" | "error"; chil
   );
 }
 
-function FindingList({ title, items, kind }: { title: string; items: Finding[]; kind: "error" | "warning" }) {
+function FindingList({ title, items, kind, L }: { title: string; items: Finding[]; kind: "error" | "warning"; L: Labels }) {
   if (!items.length) return null;
   return (
     <div className={`a4-findings a4-findings-${kind}`}>
       <h4 className="a4-h4">
-        {title}（{items.length}）
+        {title}{L.open}{items.length}{L.close}
       </h4>
       <ul>
         {items.map((item, index) => (
@@ -57,9 +57,9 @@ export function ReportView({ report, L }: { report: Report; L: Labels }) {
   return (
     <div className="a4-report">
       {clean ? <Notice kind="ok">{L.common.noProblems}</Notice> : null}
-      <FindingList title={L.common.errors} items={report.errors} kind="error" />
-      <FindingList title={L.common.warnings} items={report.warnings} kind="warning" />
-      <FindingList title={L.common.other} items={other} kind="warning" />
+      <FindingList title={L.common.errors} items={report.errors} kind="error" L={L} />
+      <FindingList title={L.common.warnings} items={report.warnings} kind="warning" L={L} />
+      <FindingList title={L.common.other} items={other} kind="warning" L={L} />
       {summary.length ? (
         <details className="a4-details">
           <summary>{L.prepare.summary}</summary>

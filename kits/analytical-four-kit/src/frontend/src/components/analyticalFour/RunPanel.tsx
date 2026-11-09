@@ -110,12 +110,12 @@ export function RunPanel() {
         <Section title={`${stateLabel(L, selected.state)}${L.colon}${selected.runId}`}>
           <p className="a4-muted">
             {L.mode[selected.mode as "daily" | "complain"] ?? selected.mode}
-            {(["a", "b", "c"] as const).filter((key) => selected.layers[key]).map((key) => L.layers[key]).join("、")}　{L.run.started}{L.colon}{formatTime(selected.startedAt, L)}　{L.run.finished}{L.colon}{formatTime(selected.finishedAt, L)}
+            {(["a", "b", "c"] as const).filter((key) => selected.layers[key]).map((key) => L.layers[key]).join(L.list)}{L.gap}{L.run.started}{L.colon}{formatTime(selected.startedAt, L)}{L.gap}{L.run.finished}{L.colon}{formatTime(selected.finishedAt, L)}
           </p>
           {selected.error ? (
             <Notice kind="error">
               {L.run.error}{L.colon}{selected.error.message}
-              {selected.error.stage ? `（${L.run.failedAt}${L.colon}${selected.error.stage}）` : ""}
+              {selected.error.stage ? `${L.open}${L.run.failedAt}${L.colon}${selected.error.stage}${L.close}` : ""}
             </Notice>
           ) : null}
           <div className="a4-table-wrap">
@@ -142,7 +142,7 @@ export function RunPanel() {
           {selected.warnings?.length ? (
             <div className="a4-findings a4-findings-warning">
               <h4 className="a4-h4">
-                {L.run.warnings}（{selected.warnings.length}）
+                {L.run.warnings}{L.open}{selected.warnings.length}{L.close}
               </h4>
               <ul>
                 {selected.warnings.map((item, index) => (

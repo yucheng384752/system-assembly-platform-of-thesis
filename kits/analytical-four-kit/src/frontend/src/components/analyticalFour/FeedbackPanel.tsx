@@ -131,7 +131,7 @@ export function FeedbackPanel() {
                 <option value="">{L.run.pick}</option>
                 {runs.map((run) => (
                   <option key={run.runId} value={run.runId}>
-                    {formatTime(run.startedAt ?? run.createdAt, L)}　{run.runId}
+                    {formatTime(run.startedAt ?? run.createdAt, L)}{L.gap}{run.runId}
                   </option>
                 ))}
               </select>
@@ -143,7 +143,7 @@ export function FeedbackPanel() {
                 {events.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.id}
-                    {item.suggested ? `（${item.suggested}）` : ""}
+                    {item.suggested ? `${L.open}${item.suggested}${L.close}` : ""}
                   </option>
                 ))}
               </select>
@@ -165,7 +165,7 @@ export function FeedbackPanel() {
               <button type="button" className="a4-btn a4-btn-primary" disabled={busy || !canSubmit} onClick={() => void submit()}>
                 {L.feedback.submit}
               </button>
-              {!runId ? <span className="a4-muted">　{L.feedback.needRun}</span> : null}
+              {!runId ? <span className="a4-muted">{L.gap}{L.feedback.needRun}</span> : null}
             </div>
           </div>
         ) : (
@@ -217,15 +217,15 @@ export function FeedbackPanel() {
                     <td className="a4-mono">{item.eventId}</td>
                     <td>
                       {item.confirmedNg}
-                      {item.isNewCode ? `（${L.feedback.newCode}）` : ""}
+                      {item.isNewCode ? `${L.open}${L.feedback.newCode}${L.close}` : ""}
                     </td>
                     <td>{item.actualCause ?? ""}</td>
                     <td>
-                      {item.submittedBy}（{item.submittedRole}）
+                      {item.submittedBy}{L.open}{item.submittedRole}{L.close}
                     </td>
                     <td>
                       {item.status === "pending" ? L.states.pending : stateLabel(L, item.status)}
-                      {item.status === "approved" ? `；${item.published ? L.feedback.published : L.feedback.notPublished}` : ""}
+                      {item.status === "approved" ? `${L.sep}${item.published ? L.feedback.published : L.feedback.notPublished}` : ""}
                     </td>
                     <td>
                       {item.status === "pending" ? (
