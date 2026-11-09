@@ -100,7 +100,7 @@ export function FeedbackPanel() {
       const records = Array.isArray(parsed) ? parsed : (parsed as { records?: unknown[] })?.records;
       if (!Array.isArray(records)) throw new Error("records");
       const done = await api.importFeedback(records);
-      return `${L.feedback.imported}：${done.feedback.length}`;
+      return `${L.feedback.imported}${L.colon}${done.feedback.length}`;
     });
   };
 
@@ -108,9 +108,9 @@ export function FeedbackPanel() {
   const [restoring, setRestoring] = useState<number | null>(null);
   const restore = (version: number) => guarded(async () => {
     setRestoring(null);
-    return `${L.feedback.restored}：v${(await api.restoreLibrary(version)).version}`;
+    return `${L.feedback.restored}${L.colon}v${(await api.restoreLibrary(version)).version}`;
   });
-  const publish = () => guarded(async () => `${L.feedback.published2}：v${(await api.publishLibrary()).version}`);
+  const publish = () => guarded(async () => `${L.feedback.published2}${L.colon}v${(await api.publishLibrary()).version}`);
 
   const canSubmit = Boolean(runId && eventId && code.trim());
 
@@ -131,7 +131,7 @@ export function FeedbackPanel() {
                 <option value="">{L.run.pick}</option>
                 {runs.map((run) => (
                   <option key={run.runId} value={run.runId}>
-                    {formatTime(run.startedAt ?? run.createdAt)}　{run.runId}
+                    {formatTime(run.startedAt ?? run.createdAt, L)}　{run.runId}
                   </option>
                 ))}
               </select>
@@ -272,7 +272,7 @@ export function FeedbackPanel() {
                 {versions.map((version, index) => (
                   <tr key={version.version}>
                     <td>v{version.version}</td>
-                    <td>{formatTime(version.createdAt)}</td>
+                    <td>{formatTime(version.createdAt, L)}</td>
                     <td>{version.recordCount}</td>
                     <td>{version.errorRecordCount}</td>
                     <td>{version.addedFeedbackIds.length}</td>

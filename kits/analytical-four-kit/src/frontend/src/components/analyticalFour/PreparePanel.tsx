@@ -68,7 +68,7 @@ export function PreparePanel() {
       if (!current) return;
       const done = await api.acceptUpload(current.uploadId, replace);
       setCurrent(done);
-      setMessage({ kind: "ok", text: `${L.prepare.accepted}：${done.target ?? ""}${done.replacedBackup ? `；${L.prepare.backup} ${done.replacedBackup}` : ""}` });
+      setMessage({ kind: "ok", text: `${L.prepare.accepted}${L.colon}${done.target ?? ""}${done.replacedBackup ? `；${L.prepare.backup} ${done.replacedBackup}` : ""}` });
       await refresh();
     });
 
@@ -83,7 +83,7 @@ export function PreparePanel() {
   const loadDemo = () =>
     run("demo", async () => {
       const done = await api.loadDemo();
-      setMessage({ kind: "ok", text: done.copied.length ? `${L.prepare.demoDone}：${done.copied.length}` : L.prepare.demoNone });
+      setMessage({ kind: "ok", text: done.copied.length ? `${L.prepare.demoDone}${L.colon}${done.copied.length}` : L.prepare.demoNone });
     });
 
   const checkData = () =>
@@ -137,7 +137,7 @@ export function PreparePanel() {
               <span className="a4-btn">{L.prepare.file}</span>
             </label>
             <span className="a4-muted" role="status">
-              {file ? `${L.prepare.chosen}：${file.name}（${formatBytes(file.size)}）` : L.prepare.notChosen}
+              {file ? `${L.prepare.chosen}${L.colon}${file.name}（${formatBytes(file.size)}）` : L.prepare.notChosen}
             </span>
           </div>
           <div>
@@ -150,11 +150,11 @@ export function PreparePanel() {
         {current ? (
           <div className="a4-card" aria-label={L.prepare.report}>
             <h4 className="a4-h4">
-              {L.prepare.report}：{L.kinds[current.kind] ?? current.kind}（{current.filename || "-"}，{formatBytes(current.bytes)}）
+              {L.prepare.report}{L.colon}{L.kinds[current.kind] ?? current.kind}（{current.filename || "-"}，{formatBytes(current.bytes)}）
             </h4>
             <p className="a4-muted">
-              {L.prepare.status}：{stateLabel(L, current.status)}
-              {current.target ? `　${L.prepare.target}：${current.target}` : ""}
+              {L.prepare.status}{L.colon}{stateLabel(L, current.status)}
+              {current.target ? `　${L.prepare.target}${L.colon}${current.target}` : ""}
             </p>
             {current.report ? <ReportView report={current.report} L={L} /> : null}
             {current.status === "staged" ? (
@@ -192,7 +192,7 @@ export function PreparePanel() {
                 {uploads.map((item) => (
                   <tr key={item.uploadId}>
                     <td>{L.kinds[item.kind] ?? item.kind}</td>
-                    <td>{formatTime(item.createdAt)}</td>
+                    <td>{formatTime(item.createdAt, L)}</td>
                     <td>{formatBytes(item.bytes)}</td>
                     <td>{stateLabel(L, item.status)}</td>
                     <td>{item.errorCount ?? 0}</td>

@@ -55,7 +55,7 @@ export function SettingsPanel() {
       setReadiness(done.readiness);
       setMessage({ kind: "ok", text: L.settings.saved });
     } catch (error) {
-      setMessage({ kind: "error", text: `${L.settings.saveFailed}：${errorText(error, L)}` });
+      setMessage({ kind: "error", text: `${L.settings.saveFailed}${L.colon}${errorText(error, L)}` });
     } finally {
       setBusy(false);
     }
@@ -167,7 +167,7 @@ export function SettingsPanel() {
           <ul className="a4-list">
             {Object.entries(readiness).map(([layer, info]) => (
               <li key={layer}>
-                <strong>{L.layers[layer as "a" | "b" | "c"] ?? layer}</strong>：{info.ready ? L.settings.ready : L.settings.notReady}
+                <strong>{L.layers[layer as "a" | "b" | "c"] ?? layer}</strong>{L.colon}{info.ready ? L.settings.ready : L.settings.notReady}
                 {info.problems.length ? (
                   <ul>
                     {info.problems.map((problem, index) => (

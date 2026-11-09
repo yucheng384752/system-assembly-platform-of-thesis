@@ -107,15 +107,15 @@ export function RunPanel() {
       </Section>
 
       {selected ? (
-        <Section title={`${stateLabel(L, selected.state)}：${selected.runId}`}>
+        <Section title={`${stateLabel(L, selected.state)}${L.colon}${selected.runId}`}>
           <p className="a4-muted">
             {L.mode[selected.mode as "daily" | "complain"] ?? selected.mode}
-            {(["a", "b", "c"] as const).filter((key) => selected.layers[key]).map((key) => L.layers[key]).join("、")}　{L.run.started}：{formatTime(selected.startedAt)}　{L.run.finished}：{formatTime(selected.finishedAt)}
+            {(["a", "b", "c"] as const).filter((key) => selected.layers[key]).map((key) => L.layers[key]).join("、")}　{L.run.started}{L.colon}{formatTime(selected.startedAt, L)}　{L.run.finished}{L.colon}{formatTime(selected.finishedAt, L)}
           </p>
           {selected.error ? (
             <Notice kind="error">
-              {L.run.error}：{selected.error.message}
-              {selected.error.stage ? `（${L.run.failedAt}：${selected.error.stage}）` : ""}
+              {L.run.error}{L.colon}{selected.error.message}
+              {selected.error.stage ? `（${L.run.failedAt}${L.colon}${selected.error.stage}）` : ""}
             </Notice>
           ) : null}
           <div className="a4-table-wrap">
@@ -175,7 +175,7 @@ export function RunPanel() {
           {shown ? (
             <div className="a4-card">
               <h4 className="a4-h4">
-                {L.run.resultOf}：{shown.name}
+                {L.run.resultOf}{L.colon}{shown.name}
               </h4>
               {shown.truncated ? <Notice kind="info">{L.run.truncated}</Notice> : null}
               <pre className="a4-pre" tabIndex={0}>
@@ -204,7 +204,7 @@ export function RunPanel() {
               <tbody>
                 {runs.map((run) => (
                   <tr key={run.runId}>
-                    <td>{formatTime(run.startedAt ?? run.createdAt)}</td>
+                    <td>{formatTime(run.startedAt ?? run.createdAt, L)}</td>
                     <td>{stateLabel(L, run.state)}</td>
                     <td className="a4-mono">{run.runId}</td>
                     <td>

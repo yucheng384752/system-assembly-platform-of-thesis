@@ -6,7 +6,8 @@ import type { Labels } from "./labels";
 export function errorText(error: unknown, L: Labels): string {
   if (error instanceof ApiError) {
     if (error.status === 0) return L.common.network;
-    if (error.status === 403 && !error.message) return L.common.forbidden;
+    // The gateway answers a refused role with the bare English word; say it in the page's own language instead.
+    if (error.status === 403 && (!error.message || /^forbidden$/i.test(error.message.trim()))) return L.common.forbidden;
     return error.message ? `${error.message}` : `${L.common.error} (${error.status})`;
   }
   return L.common.error;
@@ -80,10 +81,10 @@ export function stateLabel(L: Labels, state: string): string {
   return (L.states as Record<string, string>)[state] ?? state;
 }
 
-export function formatTime(value: string | null | undefined): string {
+export function formatTime(value: string | null | undefined, L: Labels): string {
   if (!value) return "";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(L.locale);
 }
 
 export function formatBytes(bytes: number): string {

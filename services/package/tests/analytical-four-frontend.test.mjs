@@ -70,3 +70,22 @@ test('the client calls exactly the routes the Kit declares', async () => {
   for (const route of used) assert.ok(declared.has(route), `the client calls ${route}, which the Kit does not declare`);
   for (const route of declared) assert.ok(used.has(route), `the Kit declares ${route}, which the client never calls`);
 });
+
+test('language-dependent details come from the labels, so the English page does not show Chinese punctuation, time format or a bare gateway word', async () => {
+  const folder = path.join(kit, 'src/frontend/src/components/analyticalFour');
+  const labels = await readFile(path.join(folder, 'labels.ts'), 'utf8');
+  assert.match(labels, /locale: "zh-TW"/);
+  assert.match(labels, /locale: "en-US"/);
+  assert.match(labels, /colon: "："/);
+  assert.match(labels, /colon: ": "/);
+  const common = await readFile(path.join(folder, 'Common.tsx'), 'utf8');
+  assert.match(common, /toLocaleString\(L\.locale\)/, 'time follows the page language, not the browser region');
+  assert.match(common, /\^forbidden\$/i, 'the gateway bare "Forbidden" is replaced by the page own sentence');
+  for (const file of (await readdir(folder)).filter(name => name.endsWith('.tsx'))) {
+    const source = await readFile(path.join(folder, file), 'utf8');
+    assert.doesNotMatch(source, /\}：/, `${file}: a full-width colon after a label shows in the English page; use L.colon`);
+    for (const call of source.matchAll(/formatTime\(([^()]*(?:\([^()]*\))?[^()]*)\)/g)) {
+      if (!call[0].includes('value:')) assert.ok(call[1].endsWith(', L'), `${file}: formatTime needs the labels for the locale: ${call[0]}`);
+    }
+  }
+});
