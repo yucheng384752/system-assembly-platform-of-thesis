@@ -67,7 +67,8 @@ export function convertCanvas(input: ConvertInput): ConvertResult {
   }
   if (issues.length) return { ok: false, issues };
 
-  const used = new Set(Object.values(details.nodes).map(b => b.material));
+  // Only the materials of the nodes written into this project: details are shared by every production logic of the canvas.
+  const used = new Set([...kept.keys()].map(id => details.nodes[id].material));
   const artifactTypes: ArtifactType[] = details.materials.filter(m => used.has(m.key)).map(m => ({
     id: materialTypeId(m.key), name: m.name, extends: 'material', quantity: { dimension: m.dimension, baseUnit: m.baseUnit },
   }));
