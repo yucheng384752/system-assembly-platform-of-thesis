@@ -19,7 +19,7 @@
 - 認證結果只代表「建模與訓練可用」，不代表執行可用。
 - 順序：先補現有 Kit 流程並認證，仍不足才用變異資料。變異資料必須標明來源與操作，不算認證流程。
 
-## 拒答策略（Claude 建議，待 user 確認）
+## 拒答策略（user 已確認，D196）
 
 接受拒答，理由：修正的目標是能跑 Composer，一個通過驗證但語意錯誤的自動修正，比要求人工定義更糟。
 
@@ -57,3 +57,29 @@ D190 研究 CHANGELOG 修改序列，本案研究目前快照；不互相餵資�
 ## 阻塞
 
 Kit 流程轉畫布與專案檔轉換（D185 至 D189）在 `feature/aov-standalone-canvas`，尚未合併；補 Kit 流程與認證依賴它。
+
+## 盤點（2026-11-09，唯讀，不改 Kit）
+
+方法：以 main 的 `parseKitWorkflow` 讀 13 份 `kits/*/workflow.aov.json`，按 D187 的能力交集規則對應 `config/actions.json` 的 17 個動作。結果與 D185 一致。
+
+| Kit | 狀態 | 步驟 | 連線 | 可對應 | 未對應 | registry 能力不在任何動作 |
+|---|---|---|---|---|---|---|
+| analytical-four-kit | draft | 23 | 22 | 0 | 23 | 24 |
+| analytics-kit | draft | 3 | 0 | 3 | 0 | 0 |
+| audit-edit-kit | draft | 7 | 0 | 5 | 2 | 2 |
+| entry-permission-kit | draft | 16 | 2 | 0 | 16 | 16 |
+| factory-core-kit | draft | 15 | 7 | 0 | 15 | 15 |
+| generic-forms-kit | draft | 9 | 3 | 7 | 2 | 2 |
+| import-pipeline-kit | draft | 6 | 2 | 4 | 2 | 3 |
+| logs-ops-kit | draft | 1 | 0 | 1 | 0 | 0 |
+| mod-subscription-kit | draft | 4 | 0 | 3 | 1 | 3 |
+| platform-core-kit | draft | 9 | 0 | 3 | 6 | 7 |
+| query-traceability-kit | draft | 2 | 0 | 2 | 0 | 1 |
+| station-data-link-kit | draft | 4 | 0 | 0 | 4 | 4 |
+| upload-validation-kit | draft | 2 | 1 | 2 | 0 | 2 |
+| 合計 | | 101 | 37 | 30 | 71 | |
+
+發現：
+- 未對應的 71 步，主因是動作目錄只有 17 個動作、覆蓋範圍小，不是流程寫錯。四個 Kit（analytical-four、entry-permission、factory-core、station-data-link）共 58 步完全沒有對應動作。
+- 13 份全是 draft，連線很少（13 份中 7 份沒有連線、4 份只有 1 至 3 條，只有 analytical-four 與 factory-core 較完整），模型要學連線合理性幾乎沒有素材。
+- 要讓這些步驟「能在 Composer 跑」，有兩條路：新增動作到 `config/actions.json`（屬產品範圍，需 user 決定），或接受它們為無對應動作的業務節點（這正好是拒答類別的素材，但不等於能跑）。
