@@ -1,19 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
-import { importWorkflow, integrityErrors, type AovGraphDocument } from './workflowGraph';
+import { integrityErrors, type AovGraphDocument } from './workflowGraph';
+import { importAny } from './importAny';
 import { readJsonFile } from './fileTransfer';
+import type { ProjectDetails } from '../../../libs/aov-integration/projectDetails';
+import type { FormLibrary } from '../../../libs/aov-integration/formLibrary';
 
-export function WorkflowTransfer({ onChange }: { onChange: (doc: AovGraphDocument) => void }) {
+export function WorkflowTransfer({ onChange }: { onChange: (doc: AovGraphDocument, extra?: { details: ProjectDetails; forms: FormLibrary }) => void }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState(''); const [error, setError] = useState(''); const [notices, setNotices] = useState<string[]>([]); const [busy, setBusy] = useState(false);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   function accept(input: string) {
     try {
-      const result = importWorkflow(input);
+      const result = importAny(input);
       const errors = integrityErrors(result.value);
       if (errors.length) throw new Error(`${errors.join(' ')}原流程已保留。`);
-      onChange(result.value);
-      const legacy = JSON.parse(input.replace(/^\uFEFF/, '')).version !== 5;
+      if (result.details && result.forms) onChange(result.value, { details: result.details, forms: result.forms });
+      else onChange(result.value);
+      const legacy = !result.details && JSON.parse(input.replace(/^\uFEFF/, '')).version !== 5;
       setNotices(['流程匯入成功，已替換流程、表單與關聯。', ...(legacy ? ['舊版流程已轉換為畫布，請確認節點與表單設定。'] : []), ...result.notices]); setError('');
     } catch (failure) { setError(failure instanceof Error ? failure.message : '流程匯入失敗，原流程已保留。'); setNotices([]); }
   }

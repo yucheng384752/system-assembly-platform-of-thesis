@@ -60,6 +60,12 @@ describe('畫布轉成 aov-core 專案檔（領料、入庫、出庫）', () => 
     expect(r.ok && r.project.nodes.map(n => n.id)).toEqual(['n1', 'n2']);
   });
 
+  it('細項由全部生產邏輯共用：別的生產邏輯或已不在畫布上的節點用到的物料，不進這份專案檔', () => {
+    const other: NodeBehavior = { kind: 'pick', location: 'wh.raw', material: 'bar' };
+    const r = run(simple, { n1: pick, n2: stockIn, elsewhere: other });
+    expect(r.ok && r.project.artifactTypes.map(t => t.id)).toEqual(['lot.ingot']);
+  });
+
   it('沒有設定物料流類別的節點被指出，不被當成別的類別', () => {
     const r = run(simple, { n1: pick });
     expect(messages(r)).toEqual(['節點「入庫」還沒有設定物料流類別（領料、入庫或出庫）。']);

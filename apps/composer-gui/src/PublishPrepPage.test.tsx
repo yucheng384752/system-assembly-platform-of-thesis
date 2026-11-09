@@ -23,8 +23,8 @@ const details: ProjectDetails = {
   nodes: { n1: { kind: 'pick', location: 'wh.raw', material: 'ingot' }, n2: { kind: 'sink', direction: 'stock-in', location: 'wh.fg', material: 'ingot' } },
 };
 const fill = () => {
-  fireEvent.change(screen.getByLabelText('生產邏輯'), { target: { value: 'f1/g1' } });
-  fireEvent.change(screen.getByLabelText(/專案識別碼/), { target: { value: 'tin-bar' } });
+  fireEvent.change(within(document.querySelector('[aria-labelledby=publish-source-title]')!).getByLabelText('生產邏輯'), { target: { value: 'f1/g1' } });
+  fireEvent.change(within(document.querySelector('[aria-labelledby=publish-source-title]')!).getByLabelText(/專案識別碼/), { target: { value: 'tin-bar' } });
 };
 const generate = async () => { fireEvent.click(screen.getByRole('button', { name: '產生計畫' })); await waitFor(() => expect(screen.getByRole('status').textContent).not.toContain('按「產生計畫」後')); };
 
@@ -38,7 +38,7 @@ test('選了生產邏輯才能產生；專案名稱預設為生產邏輯名稱',
   render(<PublishPrepPage graph={graph} details={details} forms={emptyFormLibrary} />);
   expect((screen.getByRole('button', { name: '產生計畫' }) as HTMLButtonElement).disabled).toBe(true);
   fill();
-  expect((screen.getByLabelText('專案名稱') as HTMLInputElement).value).toBe('錫棒入庫');
+  expect((within(document.querySelector('[aria-labelledby=publish-source-title]')!).getByLabelText('專案名稱') as HTMLInputElement).value).toBe('錫棒入庫');
   expect((screen.getByRole('button', { name: '產生計畫' }) as HTMLButtonElement).disabled).toBe(false);
 });
 
@@ -63,12 +63,12 @@ test('問題以業務語言列出，不產生可下載的檔案', async () => {
   render(<PublishPrepPage graph={graph} details={{ ...details, nodes: { n1: details.nodes.n1 } }} forms={emptyFormLibrary} />);
   fill(); await generate();
   expect(screen.getByRole('status').textContent).toContain('節點「入庫」還沒有設定物料流類別（領料、入庫或出庫）。');
-  expect(screen.queryByRole('button', { name: /下載/ })).toBeNull();
+  expect(screen.queryByRole('button', { name: /下載計畫檔|下載表單檔包/ })).toBeNull();
 });
 
 test('識別碼寫成中文時指出怎麼改', async () => {
   render(<PublishPrepPage graph={graph} details={details} forms={emptyFormLibrary} />);
-  fill(); fireEvent.change(screen.getByLabelText(/專案識別碼/), { target: { value: '錫棒' } }); await generate();
+  fill(); fireEvent.change(within(document.querySelector('[aria-labelledby=publish-source-title]')!).getByLabelText(/專案識別碼/), { target: { value: '錫棒' } }); await generate();
   expect(screen.getByRole('status').textContent).toContain('專案識別碼只能用英文字母、數字、底線與連字號');
 });
 
@@ -76,7 +76,7 @@ test('改了任何輸入，舊的結果就收起來：下載的檔案不會與�
   render(<PublishPrepPage graph={graph} details={details} forms={emptyFormLibrary} />);
   fill(); await generate();
   expect(screen.getByRole('button', { name: /下載計畫檔/ })).toBeTruthy();
-  fireEvent.change(screen.getByLabelText('版本'), { target: { value: '2' } });
+  fireEvent.change(within(document.querySelector('[aria-labelledby=publish-source-title]')!).getByLabelText('版本'), { target: { value: '2' } });
   expect(screen.queryByRole('button', { name: /下載計畫檔/ })).toBeNull();
   await generate();
   fireEvent.click(screen.getByRole('button', { name: /下載計畫檔/ }));

@@ -14,5 +14,8 @@ export default defineConfig({
     },
   } },
   test: { setupFiles: ['./src/testCanvas.ts'] },
-  build: { outDir: '../../dist', emptyOutDir: true },
+  build: { outDir: '../../dist', emptyOutDir: true, rollupOptions: { input: {
+    main: 'apps/composer-gui/index.html',
+    aovCanvas: 'apps/composer-gui/aov-canvas.html',
+  } } },
 });

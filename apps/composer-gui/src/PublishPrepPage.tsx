@@ -1,3 +1,4 @@
+import { ProjectFileDownload } from './ProjectFileDownload';
 import { useState } from 'react';
 import { preparePlan, type PrepResult } from '../../../libs/aov-integration/publishPrep';
 import type { FormLibrary } from '../../../libs/aov-integration/formLibrary';
@@ -74,5 +75,6 @@ export function PublishPrepPage({ graph, details, forms }: { graph: AovGraphDocu
       <p>節點細項與表單庫會放進設定交付包，也可以在「輸出」的「進階」個別下載。</p>
     </Column>
     </div></div>
+    <ProjectFileDownload graph={graph} details={details} forms={forms} />
   </main>;
 }
