@@ -93,6 +93,20 @@ artifacts:
   - Vitest 失敗使 `&&` 後續 preview、libs/case-store、services/case-store 三段**未執行**；保留原有 **5 skipped**，本次新增測試無 skip。
 - 未執行 build、伺服器或瀏覽器視覺驗證；未執行 git、連網或依賴安裝。未新增 any、innerHTML、dangerouslySetInnerHTML 或 window.confirm。批一允許範圍內實作與測試完成，待 Claude 沙箱外檢查與視覺審閱；未開始批二、批三。
 
+## 2026-11-08 Codex：批二停止，待釐清待補項契約
+
+- 已先讀 CLAUDE.md、AGENTS.md、批二 Handoff、契約第 5、6 節、DESIGN.md D187，以及批一的 importAny.ts、AovCanvasApp.tsx、style.css 獨立頁規則。本次尚未修改任何程式或測試；唯一變更檔案為本 thread，追加此 Codex Notes。
+- 停止原因：契約第 6.7 點寫「範例載入後一定有待補項」，但現有 `workflowGraph.ts` 的 `nodeErrors` 對無動作的業務節點直接回傳空清單；`graphIssues` 不要求這類節點填寫 when、owner、表單或參數。依第 6.3、6.4 點轉成 actionId: null 並補上起終點連線後，全部無動作的範例可有 0 項待補。這與「一定有待補項」無法同時成立，已觸發「契約與現有畫布行為衝突」停止條件，不自行新增驗證、虛構待補項或改寫契約。
+- 唯讀資料核對：以現有 `config/actions.json` 的 requires 與 `kits/analytical-four-kit/workflow.aov.json` 的 capabilityIds 比對，該流程有 **23 個節點、22 條連線、0 個可對應動作的節點**。這是實際存在的情況，不只是合成邊界案例。尚未實作轉換器，因此未宣稱已執行轉換驗證。
+- 待 Claude／user 裁決：第 6.7 點是否應為「範例可能有待補項，依 graphErrors 的實際數量顯示，允許尚有 0 項待補」？若確實要求每份範例都必須有待補項，請明定額外業務規則與允許修改範圍。裁決前停止批二實作。
+- 本次 `npm.cmd run typecheck`：exit **0**；兩個 TypeScript 檢查通過，**0 個診斷錯誤**。
+- 本次 `npm.cmd test`：exit **1**；Vitest **66 files：64 passed、2 failed；835 tests：829 passed、1 failed、5 skipped**；Duration **15.87s**。
+  - evaluator 打包程序 suite：esbuild **2 errors**，`Cannot read directory "../..": Access is denied.`、`Could not resolve "./services/evaluator/src/main.ts"`，屬已知沙箱存取限制。
+  - security：簽章 CLI 讀取暫存私鑰遇到 **EPERM operation not permitted**；afterAll 清除暫存目錄也遇到 **EPERM Permission denied**，屬已知沙箱限制。未繞過沙箱或修改測試。
+  - 因 Vitest 失敗，`&&` 後續 preview、libs/case-store、services/case-store 三段 **未執行**。上述為現有程式的檢查結果，不代表批二驗收通過。
+- 變異檢查：**0 項執行**；因停止條件成立，尚未寫入批二實作與測試，沒有進行暫時變異，沒有留下變異內容。
+- 跳過：批二轉換器、草稿匯出、Kit 格式匯入、範例庫 UI、兩入口整合及全部新增測試與變異驗證，均待契約裁決後續作。未執行 build、git、網路、依賴安裝、伺服器、瀏覽器或視覺驗證；未修改 mailbox index 或任何其他檔案。
+
 # Claude Notes
 
 - 2026-11-08：分支建於 main 7161168。實測事實與限制見契約第 3、9 節。另有 session 提到各 Kit 的 CHANGELOG.md 功能（HMM 訓練）可能與節點修改紀錄重疊，該 session 需求確定後會通知，屆時再對照，避免重複設計。
@@ -131,3 +145,5 @@ artifacts:
 停止條件：需要新增依賴；需要修改範圍外的檔案；`parseKitWorkflow` 或 `kitWorkflows` 無法在範例清單中使用；契約與 DESIGN.md 互相衝突或與現有畫布行為衝突。
 
 驗收（Codex 須在 Notes 如實列出）：`npm.cmd run typecheck`、`npm.cmd test` 結果與數字（evaluator 與 security 的沙箱失敗照實寫成沙箱限制）；關鍵規則的變異檢查結果；跳過或失敗的項目。
+
+- 2026-11-09 Claude 裁決（批二停工）：Codex 判斷正確。`workflowGraph.ts` 的 `nodeErrors` 對 `actionId: null` 的業務節點回傳空清單，契約 6.7「一定有待補項」不成立，是我寫錯。已改契約 6.7：待補項可為 0，提示顯示 `graphErrors` 的實際數量，0 時明說不代表可執行；不新增驗證、不虛構待補。按鈕文字由「下載範例流程規格（尚待補齊）」改為「下載範例流程規格（草稿）」（待補為 0 時前者不符實），契約 6.8 與 DESIGN.md 已同步。批二續作，允許範圍不變。
