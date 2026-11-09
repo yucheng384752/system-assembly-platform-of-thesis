@@ -358,6 +358,16 @@ export function importWorkflow(text: string): { value: AovGraphDocument; notices
 export function exportAovGraph(doc: AovGraphDocument): string {
   const errors = [...integrityErrors(doc), ...graphErrors(doc)];
   if (errors.length) throw new Error(`流程規格尚未完成：${errors[0]}`);
+  return projectAovGraph(doc);
+}
+
+export function exportAovGraphDraft(doc: AovGraphDocument): string {
+  const errors = integrityErrors(doc);
+  if (errors.length) throw new Error(`流程規格無法下載：${errors[0]}`);
+  return projectAovGraph(doc);
+}
+
+function projectAovGraph(doc: AovGraphDocument): string {
   const value: AovGraphDocument = {
     format: 'composer-aov-list', version: 5,
     factories: doc.factories.map(({ id, name, logicGraphIds }) => ({ id, name, logicGraphIds: [...logicGraphIds] })),

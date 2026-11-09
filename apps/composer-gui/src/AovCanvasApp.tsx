@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { WorkflowCanvas } from './WorkflowCanvas';
 import { WorkflowTransfer } from './WorkflowTransfer';
+import { ExampleLibrary } from './ExampleLibrary';
 import { emptyGraph, exportAovGraph } from './workflowGraph';
 import { downloadJson } from './fileTransfer';
 import { Icon } from './Icons';
@@ -24,6 +25,7 @@ export function App() {
       toolbarExtra={<>
         <h1>AoV 畫布</h1>
         <WorkflowTransfer onChange={value => { setGraph(value); setPath([]); setResetKey(key => key + 1); setError(''); setStatus(''); }} />
+        <ExampleLibrary current={graph} onLoad={value => { setGraph(value); setPath([]); setResetKey(key => key + 1); setError(''); setStatus(''); }} />
         <button className="primary aov-download" onClick={download}><Icon name="download" />下載流程規格</button>
         {error && <p className="aov-message" role="alert">{error}</p>}
         {status && <p className="aov-message" role="status">{status}</p>}

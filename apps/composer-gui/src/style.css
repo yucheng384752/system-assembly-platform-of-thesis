@@ -286,3 +286,10 @@ dd { margin: 0 0 0 var(--space); }
 .aov-standalone .aov-download { order: -1; }
 .aov-standalone .aov-message { flex-basis: 100%; margin: 0; }
 .aov-standalone .canvas-toolbar nav { flex-basis: 100%; }
+
+/* Kit example library (D187). */
+.aov-standalone button[aria-controls="example-library"] { order: -2; }
+.example-list { list-style: none; padding: 0; }
+.example-list > li { margin-block: var(--space); padding: var(--space); border: 1px solid var(--card-border); border-radius: var(--radius); }
+.example-list button + button { margin-left: var(--space-sm); }
+.example-list [role="group"] { margin-top: var(--space); padding: var(--space); border: 1px solid var(--border); }

@@ -19,6 +19,7 @@ import { emptyGraph, graphPath, graphActionIds, graphErrors, integrityErrors } f
 import { deriveKits } from '../../../libs/ui-runtime/actions';
 import { registry } from './registryData';
 import { WorkflowTransfer } from './WorkflowTransfer';
+import { ExampleLibrary } from './ExampleLibrary';
 import { NodeDetailsStep, nodeDetailsError } from './NodeDetailsStep';
 import { PublishPrepPage } from './PublishPrepPage';
 import { emptyProjectDetails } from '../../../libs/aov-integration/projectDetails';
@@ -66,7 +67,7 @@ export function App() {
     conflict || productionErrors(recipe.productionSettings ?? emptyProduction)[0] || productionBindings(recipe.productionSettings ?? emptyProduction, graph)[0] || (!recipe.clientName?.trim() ? '請填寫客戶代稱。' : workflowProblems.length ? `流程規格尚未完成：${workflowProblems[0]}` : ''),
   ][step] ?? '';
   // The step flow stays mounted (only hidden) so switching pages never loses the confirmed steps.
-  const steps = <StepShell stepError={stepError} renderStep={(step, navigate) => step === 0 ? <WorkflowCanvas lifecycle={caseLifecycle} locate={locate} resetKey={graphSession} value={graph} onChange={setGraph} path={canvasPath} onPathChange={setCanvasPath} toolbarExtra={<WorkflowTransfer onChange={next => { setGraph(next); setCanvasPath([]); setGraphSession(s => s + 1); }} />} />
+  const steps = <StepShell stepError={stepError} renderStep={(step, navigate) => step === 0 ? <WorkflowCanvas lifecycle={caseLifecycle} locate={locate} resetKey={graphSession} value={graph} onChange={setGraph} path={canvasPath} onPathChange={setCanvasPath} toolbarExtra={<><WorkflowTransfer onChange={next => { setGraph(next); setCanvasPath([]); setGraphSession(s => s + 1); }} /><ExampleLibrary current={graph} onLoad={next => { setGraph(next); setCanvasPath([]); setGraphSession(s => s + 1); }} /></>} />
     : step === 1 ? <NodeDetailsStep graph={graph} details={details} forms={formLibrary} onChange={setDetails} onFormsChange={setFormLibrary} />
     : step === 2 ? <FlowPage simulation={simulation} onSimulationChange={setSimulation} graph={graph} derived={derived} site={site?.site} recipe={recipe} onChange={setRecipe} requested={requested} manual={manual} session={session} onSelect={(nextFlows, nextKits) => {
       setRequested(nextFlows); setManual(nextKits);

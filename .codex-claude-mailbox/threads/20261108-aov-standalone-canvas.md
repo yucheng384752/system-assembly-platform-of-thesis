@@ -107,6 +107,31 @@ artifacts:
 - 變異檢查：**0 項執行**；因停止條件成立，尚未寫入批二實作與測試，沒有進行暫時變異，沒有留下變異內容。
 - 跳過：批二轉換器、草稿匯出、Kit 格式匯入、範例庫 UI、兩入口整合及全部新增測試與變異驗證，均待契約裁決後續作。未執行 build、git、網路、依賴安裝、伺服器、瀏覽器或視覺驗證；未修改 mailbox index 或任何其他檔案。
 
+## 2026-11-09 Codex：依裁決完成批二實作與測試
+
+- 已重讀最後的 Claude 裁決、契約第 6.7／6.8 點與 DESIGN.md D187；待補數量完全取 `graphErrors`，0 項使用裁決指定的不代表可執行提示，沒有新增完整性規則或預填表單／參數。下載按鈕為「下載範例流程規格（草稿）」。
+- 新增檔案：`apps/composer-gui/src/kitExamples.ts`、`ExampleLibrary.tsx`、`kitExamples.test.ts`、`ExampleLibrary.test.tsx`。修改檔案：同目錄 `importAny.ts`、`workflowGraph.ts`、`AovCanvasApp.tsx`、`App.tsx`、`style.css`；另依要求追加本 thread 的 Codex Notes。未修改其他原始碼、設定、既有測試或 mailbox index。
+- 轉換：使用既有 actionCatalog，交集最大者勝、平手保留目錄先序，無交集為業務節點；保留來源節點名稱／識別碼與連線，補起終點，依最長前置深度分層，同層依來源順序排列，沿用 canvasEditing 的 100／120 像素間距。系統產生識別碼避免與來源節點衝突，驗證 schema 與 integrityErrors；提示依固定順序列出狀態、逐個無對應步驟、無連線與實際待補數量。
+- 範例清單：讀取 workflowFiles，逐份 parseKitWorkflow 後轉換，依功能名稱排序；失敗保留該列與業務語言原因，不影響其他列。下載不改畫布；載入使用深層複本，有工廠時先確認、可取消；兩個入口都清空 path 並遞增畫布 resetKey。樣式只在 style.css 尾端追加範例庫規則。
+- 匯入／匯出：importAny 支援 Kit 原檔與 BOM，未知功能、版本不符、內容不合法各以業務語言拒絕並保留原流程；其他格式維持原處理。exportAovGraphDraft 與 exportAovGraph 共用唯一欄位投影與 schema 檢查；正式匯出的完整性檢查與錯誤文字未變，草稿只略過 graphErrors，仍拒絕 integrityErrors。
+- 新增測試 **2 檔、27 項**：合成動作目錄的交集／平手／空交集；起終點、分層座標、無連線並列、確定性、草稿／已審閱文字、逐項無對應提示、實際待補數量；循環與不存在端點拒絕、識別碼碰撞；**13 份現有 Kit 原檔**全部轉換、schema／integrityErrors、草稿匯出後 importAny 內容相同、原檔直接匯入與 BOM；清單單列失敗／排序／空狀態；正式與草稿匯出相同行為或預期差異與共用投影；UI 開合、計數、確認／取消、純文字、不可載入列、下載檔名／往返／失敗訊息；兩入口真實畫布整合及 path／resetKey 重設。沒有寫死可對應步驟總數。
+- 定向檢查 `npm.cmd exec -- vitest run --configLoader native src/kitExamples.test.ts src/ExampleLibrary.test.tsx`：exit **0**，**2 files passed、27 tests passed、0 failed、0 skipped**；Duration **4.12s**。最終完整測試亦包含還原後這 27 項，全部通過。
+- 變異檢查：**20 種關鍵變異最終全被抓到，0 survived**。逐項修改允許檔案後執行對應測試，finally 以原始 bytes 還原，沒有保留變異。
+  - 交集改取首個、平手改取末個、空交集也選動作：各 **1** 項失敗。
+  - 移除起點連線、移除終點連線：各 **4** 項失敗。
+  - 移除無先後提示、移除 0 項非可執行警語、待補數量固定為 0、取消分層：分別 **2、2、7、3** 項失敗。
+  - 跳過載入確認、不複製載入資料、錯誤下載檔名、草稿略過 integrityErrors：分別 **3、1、1、1** 項失敗。
+  - 刪除逐個無對應提示、草稿誤用完整性門檻、移除版本專用拒絕訊息：分別 **1、7、1** 項失敗。
+  - 兩入口各移除 path 重設：各 **1** 項失敗；各移除 resetKey 遞增：補強後各 **1** 項失敗。
+  - resetKey 的兩個變異第一次存活：清空 path 本身也會清除選取，原整合情境未能區別。已在仍渲染真實 WorkflowCanvas 的整合測試中觀察 resetKey，驗證每次載入都遞增，再跑兩個變異均為斷言失敗。其餘變異均為斷言／UI 查詢失敗，或草稿匯出不應拋出的業務錯誤，不以編譯／載入失敗冒充抓到。
+- 最終 `npm.cmd run typecheck`：exit **0**；兩個 TypeScript 檢查通過，**0 個診斷錯誤**。
+- 最終 `npm.cmd test`：exit **1**；Vitest **68 files：66 passed、2 failed；862 tests：856 passed、1 failed、5 skipped**；Duration **16.73s**。
+  - evaluator 打包程序 suite：esbuild **2 errors**，`Cannot read directory "../..": Access is denied.`、`Could not resolve "./services/evaluator/src/main.ts"`，屬已知沙箱存取限制。
+  - security：簽章 CLI 讀取暫存私鑰遇到 **EPERM operation not permitted**，afterAll 清除暫存目錄遇到 **EPERM Permission denied**，屬已知沙箱限制。未繞過或修改該測試。
+  - Vitest 失敗使 `&&` 後續 preview、libs/case-store、services/case-store 三段 **未執行**。保留既有 **5 skipped**；新增測試沒有 skip。
+- 過程中已解決的檢查失敗：初次 typecheck 發現測試 mock 用了 error 而非 errors；兩條整合測試把同名工廠／生產邏輯當成單一輸入，已改為驗證兩個。最初變異命令的 Python 無法啟動（登入工作階段錯誤，尚未寫檔），改用 Node；第一輪 Node 的中文字串因 PowerShell 管線編碼無法比對而停止，finally 已還原，指定 UTF-8 後重跑完成。未安裝任何工具或更改專案執行設定。
+- 未執行 build、瀏覽器／視覺驗證、git、網路、依賴安裝或伺服器；未開始批三。新增程式／測試經文字掃描無 any、innerHTML、dangerouslySetInnerHTML 或 window.confirm。批二允許範圍的實作與測試完成，待 Claude 沙箱外複跑及視覺審閱；範例仍不代表執行驗證通過。
+
 # Claude Notes
 
 - 2026-11-08：分支建於 main 7161168。實測事實與限制見契約第 3、9 節。另有 session 提到各 Kit 的 CHANGELOG.md 功能（HMM 訓練）可能與節點修改紀錄重疊，該 session 需求確定後會通知，屆時再對照，避免重複設計。
@@ -147,3 +172,5 @@ artifacts:
 驗收（Codex 須在 Notes 如實列出）：`npm.cmd run typecheck`、`npm.cmd test` 結果與數字（evaluator 與 security 的沙箱失敗照實寫成沙箱限制）；關鍵規則的變異檢查結果；跳過或失敗的項目。
 
 - 2026-11-09 Claude 裁決（批二停工）：Codex 判斷正確。`workflowGraph.ts` 的 `nodeErrors` 對 `actionId: null` 的業務節點回傳空清單，契約 6.7「一定有待補項」不成立，是我寫錯。已改契約 6.7：待補項可為 0，提示顯示 `graphErrors` 的實際數量，0 時明說不代表可執行；不新增驗證、不虛構待補。按鈕文字由「下載範例流程規格（尚待補齊）」改為「下載範例流程規格（草稿）」（待補為 0 時前者不符實），契約 6.8 與 DESIGN.md 已同步。批二續作，允許範圍不變。
+
+- 2026-11-09 Claude 批二審查：沙箱外 typecheck 乾淨；GUI 68 檔 861 通過、1 skipped（既有）；案例庫 38、服務 8；vite build 產出 index.html 與 aov-canvas.html。審閱程式碼：複用既有 `kitWorkflows`，`projectAovGraph` 只有一份欄位投影，未預填表單或參數。Chrome 驗證（獨立頁與主程式）：範例庫面板列出 13 個功能與狀態；載入 0 個可對應的 Kit（入口與使用權限）後畫布有畫出節點，提示逐一列出 16 個無法對應的步驟並寫明「待補為 0 不代表可執行」；畫布有內容時先出現確認區（按鈕高 44px），確認後替換；有對應功能的 Kit（查詢與追溯）顯示「尚有 2 項待補」與「未定義步驟先後」；console 無錯誤；主程式畫布工具列同樣有「範例庫」。未驗證：實際點擊下載（需使用者允許下載，單元測試涵蓋內容）。已知限制：沒有連線的 Kit（共 7 個）所有步驟並列在同一欄，步驟多時（16、23 個）縮得很小；載入提示逐步驟列出，步驟多時把畫布往下推。兩者不影響正確性，留待批三或後續視使用者意見調整。
