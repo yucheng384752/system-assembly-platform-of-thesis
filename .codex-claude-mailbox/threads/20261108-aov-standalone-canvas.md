@@ -132,6 +132,16 @@ artifacts:
 - 過程中已解決的檢查失敗：初次 typecheck 發現測試 mock 用了 error 而非 errors；兩條整合測試把同名工廠／生產邏輯當成單一輸入，已改為驗證兩個。最初變異命令的 Python 無法啟動（登入工作階段錯誤，尚未寫檔），改用 Node；第一輪 Node 的中文字串因 PowerShell 管線編碼無法比對而停止，finally 已還原，指定 UTF-8 後重跑完成。未安裝任何工具或更改專案執行設定。
 - 未執行 build、瀏覽器／視覺驗證、git、網路、依賴安裝或伺服器；未開始批三。新增程式／測試經文字掃描無 any、innerHTML、dangerouslySetInnerHTML 或 window.confirm。批二允許範圍的實作與測試完成，待 Claude 沙箱外複跑及視覺審閱；範例仍不代表執行驗證通過。
 
+## 2026-11-09 Codex：批三停止，專案物料清單往返衝突
+
+- 已讀根目錄 `CLAUDE.md`、`AGENTS.md`、本 thread 最後的批三 Handoff、契約第 7、8、9 節及 DESIGN.md（含 D188）；並核對 `convertCanvas`、物料流對應、節點細項、表單庫、發布準備與 Kit 版面程式。尚未修改程式或測試。
+- 觸發 Handoff 停止條件：「契約、DESIGN.md 與現有行為互相衝突」及「`convertCanvas` 的輸出無法被反推」。具體受影響欄位是專案的 `artifactTypes`，以及未被專案節點保留的物料引用來源。
+- 程式依據：`libs/aov-integration/canvasToProject.ts:70` 用 `Object.values(details.nodes)` 收集整份細項的物料，不限本次選取的生產邏輯；第 71 行依此輸出 `artifactTypes`。但節點只輸出所選 graph 的最上層節點。`App.tsx` 使用一份全域 details；`projectDetails.ts` 的 `orphanNodeIds` 也明確容許保留已不在畫布上的節點設定。
+- 最小重現條件（靜態推導，未執行）：生產邏輯 A 的領料、入庫都使用 `ingot`；另一生產邏輯 B 的節點（或孤兒細項）使用 `bar`；details.materials 含這兩種有效物料。轉出 A 時，專案 nodes 只有 A 的節點，但 artifactTypes 同時含 `lot.ingot` 與 `lot.bar`。依 Handoff 反向匯入後，materials 可以完整還原兩筆，nodes 卻只能還原 A 的節點；再次呼叫原版 convertCanvas 時，used 只含 ingot，因此 `lot.bar` 消失。兩個專案即使傳入相同 meta，非 meta 的 JSON 仍不相同。
+- 不自行補虛構節點或孤兒細項來維持物料引用，也不修改禁止變更的 `libs/`、不縮減往返驗收範圍。待 Claude／user 裁決：是否允許修正 convertCanvas 的物料收集範圍為本次實際輸出的節點，或明確另訂多餘物料的往返契約。兩者均需更新目前的授權或契約後才能續作。
+- 驗證狀態：`npm.cmd run typecheck` 未執行；`npm.cmd test` 未執行；新增測試與五項變異檢查均未執行，無通過數可報。原因是核對資料契約時已達停止條件，依交接要求先停工。此發現是原始碼推導，未宣稱動態測試通過或失敗，也未將未執行歸因於沙箱。
+- 本輪唯一變更為本節 Codex Notes；未執行 git、網路、安裝、伺服器或瀏覽器操作。批三尚未完成。
+
 # Claude Notes
 
 - 2026-11-08：分支建於 main 7161168。實測事實與限制見契約第 3、9 節。另有 session 提到各 Kit 的 CHANGELOG.md 功能（HMM 訓練）可能與節點修改紀錄重疊，該 session 需求確定後會通知，屆時再對照，避免重複設計。
@@ -205,3 +215,5 @@ artifacts:
 停止條件：需要新增依賴；需要修改範圍外的檔案；契約、DESIGN.md 與現有行為互相衝突（先停，寫進 Notes，等裁決，不要自行解釋）；`convertCanvas` 的輸出無法被反推（那是資訊遺失，要回報哪個欄位，不要硬湊）。
 
 驗收（Codex 須在 Notes 如實列出）：`npm.cmd run typecheck`、`npm.cmd test` 結果與數字（evaluator 與 security 的沙箱失敗照實寫成沙箱限制）；變異檢查結果；跳過或失敗的項目。
+
+- 2026-11-09 Claude 裁決（批三停工）：Codex 判斷正確且是現有 bug：`convertCanvas` 的 `used` 依整份細項收集，專案檔會夾帶別的生產邏輯的物料型別。已由我修正（`libs/aov-integration/canvasToProject.ts`，commit be021f8，D191），並補回歸測試（沒修正時失敗、修正後通過；aov-integration 13 檔 260 通過，指令：`npx vitest run --configLoader native --dir libs/aov-integration`，平常的 `npm test` 不含 `libs/` 測試）。批三續作，允許範圍不變，仍不得動 `libs/`。往返測試須含一個「別的生產邏輯或孤兒細項用到另一種物料」的案例：專案檔往返相同，還原的物料清單只含該專案用到者。
