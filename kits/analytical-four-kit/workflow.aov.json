@@ -71,81 +71,61 @@
       "id": "read-data",
       "name": "讀取並整理資料",
       "subfeatureId": "layer-a",
-      "capabilityIds": [
-        "analytical-four.runs.create"
-      ]
+      "capabilityIds": []
     },
     {
       "id": "descriptive",
       "name": "描述性分析",
       "subfeatureId": "layer-a",
-      "capabilityIds": [
-        "analytical-four.runs.create"
-      ]
+      "capabilityIds": []
     },
     {
       "id": "diagnostic",
       "name": "診斷性分析",
       "subfeatureId": "layer-a",
-      "capabilityIds": [
-        "analytical-four.runs.create"
-      ]
+      "capabilityIds": []
     },
     {
       "id": "ng-code",
       "name": "不良類型診斷",
       "subfeatureId": "layer-b",
-      "capabilityIds": [
-        "analytical-four.runs.create"
-      ]
+      "capabilityIds": []
     },
     {
       "id": "topology",
       "name": "製程位置對應",
       "subfeatureId": "layer-c",
-      "capabilityIds": [
-        "analytical-four.runs.create"
-      ]
+      "capabilityIds": []
     },
     {
       "id": "rag",
       "name": "SOP 檢索",
       "subfeatureId": "layer-c",
-      "capabilityIds": [
-        "analytical-four.runs.create"
-      ]
+      "capabilityIds": []
     },
     {
       "id": "compile",
       "name": "彙整事件",
       "subfeatureId": "layer-c",
-      "capabilityIds": [
-        "analytical-four.runs.create"
-      ]
+      "capabilityIds": []
     },
     {
       "id": "search-key",
       "name": "擷取搜尋關鍵",
       "subfeatureId": "layer-c",
-      "capabilityIds": [
-        "analytical-four.runs.create"
-      ]
+      "capabilityIds": []
     },
     {
       "id": "similarity",
       "name": "相似案例搜尋",
       "subfeatureId": "layer-c",
-      "capabilityIds": [
-        "analytical-four.runs.create"
-      ]
+      "capabilityIds": []
     },
     {
       "id": "llm",
       "name": "AI 綜合診斷",
       "subfeatureId": "layer-c",
-      "capabilityIds": [
-        "analytical-four.runs.create"
-      ]
+      "capabilityIds": []
     },
     {
       "id": "view-run",

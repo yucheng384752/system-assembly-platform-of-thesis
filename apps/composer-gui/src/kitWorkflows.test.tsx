@@ -33,7 +33,8 @@ test.each(wp2KitIds)('%s template parses and only references verified capabiliti
   expect(parsed.status).toBe('draft');
   const capabilities = registry.find(entry => entry.kitId === kitId)!.capabilities;
   for (const node of parsed.nodes) {
-    expect(node.capabilityIds.length).toBeGreaterThan(0);
+    // D199: a step without its own capability is a stage inside another step's run, so it must hang off the flow.
+    if (!node.capabilityIds.length) expect(parsed.edges.some(edge => edge.to === node.id), node.id).toBe(true);
     for (const id of node.capabilityIds) {
       expect(capabilities.find(capability => capability.id === id)?.verified).toBe(true);
     }

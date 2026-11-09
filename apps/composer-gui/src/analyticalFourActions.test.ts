@@ -18,11 +18,11 @@ describe('analytical-four actions (D199)', () => {
     }
   });
 
-  test('every step except the in-run stages maps to a distinct action by capability overlap', () => {
-    const shared = workflow.nodes.filter(node => workflow.nodes.some(other => other !== node && other.capabilityIds.some(id => node.capabilityIds.includes(id))));
-    const own = workflow.nodes.filter(node => !shared.includes(node) || node.id === 'start-run');
-    const mapped = own.map(node => actions.filter(action => action.requires.some(id => node.capabilityIds.includes(id))).map(action => action.id));
-    mapped.forEach((ids, index) => expect(ids, own[index].id).toHaveLength(1));
-    expect(new Set(mapped.flat()).size).toBe(own.length);
+  test('each step with its own capabilities maps to a distinct action, the in-run stages map to none', () => {
+    const actionsOf = (node: { capabilityIds: string[] }) => actions.filter(action => action.requires.some(id => node.capabilityIds.includes(id))).map(action => action.id);
+    const own = workflow.nodes.filter(node => node.capabilityIds.length);
+    own.forEach(node => expect(actionsOf(node), node.id).toHaveLength(1));
+    expect(new Set(own.flatMap(actionsOf)).size).toBe(own.length);
+    expect(workflow.nodes.filter(node => !node.capabilityIds.length)).toHaveLength(10);
   });
 });
