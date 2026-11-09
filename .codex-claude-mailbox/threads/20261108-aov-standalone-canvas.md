@@ -174,3 +174,34 @@ artifacts:
 - 2026-11-09 Claude 裁決（批二停工）：Codex 判斷正確。`workflowGraph.ts` 的 `nodeErrors` 對 `actionId: null` 的業務節點回傳空清單，契約 6.7「一定有待補項」不成立，是我寫錯。已改契約 6.7：待補項可為 0，提示顯示 `graphErrors` 的實際數量，0 時明說不代表可執行；不新增驗證、不虛構待補。按鈕文字由「下載範例流程規格（尚待補齊）」改為「下載範例流程規格（草稿）」（待補為 0 時前者不符實），契約 6.8 與 DESIGN.md 已同步。批二續作，允許範圍不變。
 
 - 2026-11-09 Claude 批二審查：沙箱外 typecheck 乾淨；GUI 68 檔 861 通過、1 skipped（既有）；案例庫 38、服務 8；vite build 產出 index.html 與 aov-canvas.html。審閱程式碼：複用既有 `kitWorkflows`，`projectAovGraph` 只有一份欄位投影，未預填表單或參數。Chrome 驗證（獨立頁與主程式）：範例庫面板列出 13 個功能與狀態；載入 0 個可對應的 Kit（入口與使用權限）後畫布有畫出節點，提示逐一列出 16 個無法對應的步驟並寫明「待補為 0 不代表可執行」；畫布有內容時先出現確認區（按鈕高 44px），確認後替換；有對應功能的 Kit（查詢與追溯）顯示「尚有 2 項待補」與「未定義步驟先後」；console 無錯誤；主程式畫布工具列同樣有「範例庫」。未驗證：實際點擊下載（需使用者允許下載，單元測試涵蓋內容）。已知限制：沒有連線的 Kit（共 7 個）所有步驟並列在同一欄，步驟多時（16、23 個）縮得很小；載入提示逐步驟列出，步驟多時把畫布往下推。兩者不影響正確性，留待批三或後續視使用者意見調整。
+
+# 批三 Handoff（Codex）
+
+**預計完成時間：2026-11-10 12:00。** cwd 為專案根目錄。Codex 只寫程式與測試，不執行 git、不連網、不裝依賴、不啟動伺服器或瀏覽器。契約唯一來源是 `docs/aov-standalone-canvas.md` 第 7、8、9 節與 `DESIGN.md` 的「節點細項與專案檔（D188）」。
+
+可動的檔案：
+- 新增 `apps/composer-gui/src/projectToCanvas.ts`、`ProjectFileDownload.tsx` 與各自測試，以及往返測試檔（例如 `roundTrip.test.ts`）。
+- 修改：`importAny.ts`（辨識專案檔；回傳型別加選用的 `details?: ProjectDetails`、`forms?: FormLibrary`，既有格式的輸出不變）、`WorkflowTransfer.tsx`（`onChange(doc, extra?)` 第二參數帶 `{ details, forms }`，只在匯入提供時才傳）、`AovCanvasApp.tsx`（持有 details 與 forms 狀態，加「節點細項」與「專案檔」區塊，匯入專案檔時替換）、`App.tsx`（只改傳給 `WorkflowTransfer` 的 onChange，匯入專案檔時 `setDetails`、`setFormLibrary`）、`PublishPrepPage.tsx`（加共用的專案檔元件）、`kitExamples.ts`（把起點終點連線與分層版面抽成共用函式，供 `projectToCanvas` 重用；`kitWorkflowToCanvas` 的輸出必須與現在逐位元組相同）、`style.css`（只可附加）。
+- 不得動：`kits/`、`libs/`、`schemas/`、`config/`、`scripts/`、`package.json`、`WorkflowCanvas.tsx`、`NodeDetailsStep.tsx` 的行為。`libs/aov-integration/canvasToProject.ts` 只讀；`convertCanvas` 不改。
+
+工作：
+1. `projectToCanvas(project: ProjectFile)`：回傳 `{ value: AovGraphDocument; details: ProjectDetails; forms: FormLibrary; notices: string[] }`，失敗丟業務語言錯誤（說出是哪個節點，不洩漏欄位名或路徑）。規則依契約第 7 節：
+   - 一個工廠、一個生產邏輯（名稱取 `meta.name`，id 由 `meta.id` 衍生）；節點 id、名稱沿用；連線由 `flows` 還原（id 沿用）；加起點與終點連線與版面，與 `kitWorkflowToCanvas` 共用同一份函式。
+   - 節點細項：`category: 'source'` 且 `boundary.kind === 'warehouse'` 為領料（location 取自 boundary）；`sink` 依 `boundary.kind` 為入庫（warehouse）、出庫給客戶（customer）、出庫到外部（external）；`measure` 且有 `form` 為填單。其他類別、缺 boundary、不認得的 boundary、`measure` 無表單、物料型別找不到或不是 `lot.<key>` 形式、維度不在支援清單：整份匯入失敗並指出節點，不猜。
+   - 物料：由 `artifactTypes` 還原成 `details.materials`（key 為 `lot.` 之後、name、dimension、baseUnit）。填單節點的 `requires` 還原為 `{}`；專案內嵌的表單還原為表單庫（讀 `formLibrary.ts` 的型別）。
+   - `when`、`owner` 為空字串、`actionId` 為 null、`params` 為 `{}`；notices 必須說明「專案檔不含觸發時機、負責人、功能與參數，這些已留空」。
+   - 結果須通過 `validateSchema('aov', …)` 與 `integrityErrors`；另對輸入專案跑 aov-core 的 `compile`，有 error 診斷就拒絕。
+2. `importAny` 辨識專案檔：物件含 `formatVersion === 1` 且有 `nodes` 與 `flows` 陣列才當專案檔（既有的 composer-aov-list 與 composer-kit-workflow 判斷順序與行為不變）；失敗訊息格式同既有（結尾「原流程已保留。」）。
+3. `ProjectFileDownload.tsx`：props `graph`、`details`、`forms`；欄位與驗證訊息與 `PublishPrepPage` 的專案名稱、專案識別碼、版本完全一致（先讀 `preparePlan` 的驗證，重用同一份，不另寫一套）；呼叫 `convertCanvas`，成功用 `downloadJson` 下載 `<識別碼>.aov-project.json`（內容為 `JSON.stringify(project, null, 2) + '\n'`），失敗以 `role="alert"` 逐條列 `ConvertIssue.message`，不下載；依 DESIGN.md。
+4. `AovCanvasApp` 與 `PublishPrepPage` 接上；`AovCanvasApp` 的 details 與 forms 初始為 `emptyProjectDetails` 與空表單庫（找現有 App 用的初值）。獨立頁仍不寫任何瀏覽器儲存（流程、細項、表單庫都只在記憶體）。
+5. 測試（每個須在對應規則被拿掉時失敗，規則 9）：
+   - `projectToCanvas`：四種節點類別各一；三種出庫方向；每一種拒絕情形各一條（含訊息指名節點）；`when`、`owner`、`actionId`、`params` 為空且有提示；連線與起終點；版面與 `kitWorkflowToCanvas` 同一份函式（以兩者對同形狀圖得相同座標驗證）。
+   - 往返（契約第 7 節）：(a) 畫布 → 流程規格檔 → 畫布相同；(b) 畫布 + details + forms → `convertCanvas` → `projectToCanvas` → `convertCanvas`，兩個專案檔 `JSON.stringify` 相同（`meta` 以外全部比對，meta 兩次傳同值）；至少一個含四種節點與表單的完整案例，另有只含領料與入庫的最小案例；(c) 每份 Kit 範例 → 流程規格檔（`exportAovGraphDraft`）→ `importAny` 相同（若批二已涵蓋，補上缺的即可，不重複）。
+   - 負向：缺欄位、類別不明、連到不存在節點、物料型別缺漏的專案檔經 `importAny` 被拒，`AovCanvasApp` 與 `App` 都保留原流程、原節點細項與原表單庫。
+   - `ProjectFileDownload`：成功下載檔名與內容、每個失敗情形顯示並不下載、驗證訊息與 `PublishPrepPage` 相同；在 `PublishPrepPage` 與 `AovCanvasApp` 各一條整合測試。
+   - 關鍵規則變異檢查：反推類別、出庫方向對應、`requires` 還原、未知類別拒絕、版面共用；各做一次暫時變異確認測試會失敗，再還原，並在 Notes 寫結果。
+6. 不得用 `any`、`dangerouslySetInnerHTML`、`innerHTML`、`window.confirm`；使用者可編輯文字（節點名稱、專案檔內文字）一律純文字。
+
+停止條件：需要新增依賴；需要修改範圍外的檔案；契約、DESIGN.md 與現有行為互相衝突（先停，寫進 Notes，等裁決，不要自行解釋）；`convertCanvas` 的輸出無法被反推（那是資訊遺失，要回報哪個欄位，不要硬湊）。
+
+驗收（Codex 須在 Notes 如實列出）：`npm.cmd run typecheck`、`npm.cmd test` 結果與數字（evaluator 與 security 的沙箱失敗照實寫成沙箱限制）；變異檢查結果；跳過或失敗的項目。
