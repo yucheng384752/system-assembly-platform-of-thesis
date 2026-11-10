@@ -223,10 +223,21 @@ export class CaseStore {
 
   exportBackup(): Result<BackupFile> { return ok(exportBackup(this.db)); }
 
-  /** Only into an empty store, so history is never merged or overwritten; every version hash is rechecked. */
-  importBackup(file: unknown): Result<null> {
+  /** Only into an empty store, so history is never merged or overwritten; every version hash is rechecked.
+   *  Each version must also be what saveVersion would have stored: a bundle the contract accepts, in canonical form.
+   *  The verified report and the author are taken from the file as they are; a backup is not a signed record. */
+  async importBackup(file: unknown): Promise<Result<null>> {
     const bad = checkBackup(file, Number(this.db.prepare('SELECT version FROM schema_meta WHERE id = 1').get()?.version));
     if (bad) return fail('E-BAD-BACKUP', bad);
+    for (const row of (file as BackupFile).tables.flow_version) {
+      const content = row.content;
+      const checked = typeof content === 'string' && Buffer.byteLength(content, 'utf8') <= MAX_BUNDLE_BYTES
+        ? await validateAovBundle(content) : undefined;
+      if (!checked?.ok || canonicalJson(checked.value) !== content) {
+        return fail('E-BAD-BACKUP', `版本 ${String(row.case_id)} 第 ${String(row.version)} 版的內容不是有效的整合包。`);
+      }
+    }
+    // No await below: the emptiness check and the inserts share one transaction.
     return this.transaction(() => {
       if (this.db.prepare('SELECT 1 FROM flow_case LIMIT 1').get() || this.db.prepare('SELECT 1 FROM node_lifecycle LIMIT 1').get()
         || this.db.prepare('SELECT 1 FROM combo_lifecycle LIMIT 1').get()) return fail('E-NOT-EMPTY', '只能匯入到空的案例庫。');
