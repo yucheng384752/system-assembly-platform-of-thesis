@@ -76,3 +76,23 @@
 - 結果：`tests/test_measure_kit.py` 16 通過、0 略過；`--repeats 20` 全部量測點 n=20、失敗 0、結束碼 0，p95 標為可靠。禁改檔案（`src/`、`kit.contract.json`、`manifest.json`、`workflow.aov.json`）未變動。
 - 量測摘要（示範資料、系統回應時間、非真實場域）：每日模式分析總時間中位數約 0.18 秒；客訴模式約 0.36 秒，其中 RAG 約 0.11 秒；導入每步約 0.006 至 0.03 秒；四項設定調整約 0.03 至 0.04 秒。完整 JSON 與 Markdown 在 scratchpad，不進 repo。
 - 已知限制：Kit 的 manifest 沒有版本欄位（環境記錄的版本為 null）；LLM 為假回應；階段耗時精度約 20 毫秒，多個階段只能報上限。
+
+## 批二：使用前的 AoV 與結構差異
+
+### Claude Handoff
+
+做契約第 5 節。依據檔 `docs/thesis-case/analytical-four-original.json` 不得修改。範圍、禁改項與要求見契約 5.2 至 5.4。
+
+Claude 用獨立的 Python 腳本對真實資料算出預期值，你的測試必須以這些值檢查實際輸出（算法不同，所以是獨立對照；若你的結果不同，先查你的實作，確定我的值有誤時在 Codex Notes 說明，不要改測試去遷就）：
+
+- Kit：23 節點、22 條連線。
+- 使用前：每日 15 節點 14 邊；客訴 20 節點 19 邊；事後回饋 4 節點 3 邊；節點合計 39；不重複的函式 24。
+- 被使用前節點對應到的 Kit 節點 13 個：configure 2、read-data 7、descriptive 6、diagnostic 10、topology 2、rag 2、ng-code 2、compile 1、search-key 1、similarity 1、llm 1、submit-feedback 3、publish-library 1（數字是「被幾個使用前節點對應」，以節點個數計）。
+- 以不重複函式計，每個 Kit 節點對應幾個函式：read-data 4、descriptive 3、diagnostic 5、submit-feedback 3，其餘 1。
+- 沒有任何使用前節點對應的 Kit 節點 10 個：accept-upload、approve-feedback、check-data、check-ready、get-templates、load-demo、start-run、upload-files、view-results、view-run。
+- 沒有對應 Kit 節點的使用前節點：0 個。
+- 順序差異恰好 2 筆：每日的 d-rag→d-ng-code，與客訴的 c-rag→c-ng-code（Kit 的順序是 ng-code 先於 topology 與 rag）。
+
+### Codex Notes
+
+（待填）

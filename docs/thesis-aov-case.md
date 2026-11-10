@@ -83,11 +83,43 @@ Codex 若在實作時發現其中一項在 Kit 現況下無法成立，須在 Co
 - `tools/measure_kit.py` 與其測試完成，不改 4.1 列的禁改檔案。
 - Claude 在 Kit 測試環境跑完測試，並實際跑一次 `--repeats 5`，把輸出的 JSON 與 Markdown 留在 mailbox thread 的紀錄中（只貼摘要，不貼全文）。
 
-## 5. 批二：使用前的 AoV 與結構差異（細則待批一完成後再寫）
+## 5. 批二：使用前的 AoV 與結構差異
 
-- 由 `README.md` 第 4 節與 `main.py` 轉出「使用前」的流程，格式要能載入獨立畫布（`aov-canvas.html`）。只畫原專案實際有的步驟，不補 Kit 才有的功能。
-- 結構差異表：兩份 AoV 的節點數、連線數、每個 Kit 節點在原專案有無對應、原專案需人工處理的環節。
-- 來源標示：原專案作者與無授權檔的事實必須寫進案例文件。
+### 5.1 決定（user 2026-11-10）
+
+「使用前」的節點畫到「`main.py` 實際呼叫的函式」：一個節點對應一個函式呼叫，不補 Kit 才有的功能，也不把 README 推出來的人工步驟畫成節點。來源檔是 `docs/thesis-case/analytical-four-original.json`（Claude 依 Analytical-Four 提交 f49cfd3 的 `main.py` 寫成，唯讀依據）：
+
+- 三個生產邏輯：每日模式（15 節點）、客訴模式（20 節點）、事後回饋 `event_feedback_record`（4 節點，`main()` 不呼叫它）。邊依 `Analytical_Four_System.main()` 的呼叫順序串成一條線。
+- 每個節點記 `function`、`file`、`defLine`、`kitNodes`（人工判斷它對應 Kit `workflow.aov.json` 的哪個節點，可多個）。
+- `observations` 記四項從程式讀到的事實（O1 至 O4），原樣帶進比較文件。
+
+Codex 不得修改這個 JSON 的內容（它是依據）；發現與 `kits/analytical-four-kit/workflow.aov.json` 對不上（例如 `kitNodes` 的 id 不存在）時，寫在 Codex Notes 並停下。
+
+### 5.2 要做的
+
+1. 轉換模組：把上述 JSON 轉成 `composer-aov-list` 版本 5 的畫布文件（一個工廠、三個生產邏輯，節點都是 `actionId: null` 的業務節點，名稱用 JSON 的 `name`）。仿 `apps/composer-gui/src/kitExamples.ts` 的 `kitWorkflowToCanvas` 與其共用的 `canvasWithLayout`；不得複製貼上它們的邏輯，能共用就共用。
+2. 產生檔 `docs/thesis-case/analytical-four-before.aov.json`：轉換結果，必須能由獨立畫布（`aov-canvas.html`）的 `importAny` 載入且零錯誤。
+3. 結構比較：純函式計算下列各項，輸出成 `docs/thesis-case/analytical-four-comparison.md`（繁體中文、表格）：
+   - 使用前：每個邏輯的節點數、連線數；不重複的函式數（`function` 去重）。
+   - 使用後：Kit 的節點數 23、連線數 22（由 `workflow.aov.json` 實際讀取，不得寫死）。
+   - 對應：每個使用前節點對應到哪些 Kit 節點；每個 Kit 節點被幾個使用前節點對應（粒度比）；沒有任何使用前節點對應的 Kit 節點清單（Kit 新增的環節）；沒有任何對應的使用前節點清單（應為空，若不為空照實列出）。
+   - 順序差異：使用前每條相鄰邊 a→b，若 a、b 對應到不同的 Kit 節點 ka、kb，且 Kit 的邊中從 kb 可到達 ka（反向），就列為順序差異。
+   - 原專案觀察 O1 至 O4 與來源標示（作者 ZHAO-XIAN、提交 f49cfd3、無 LICENSE 檔）原樣列出。
+   - 文件開頭一段說明：節點粒度不同（使用前是函式、使用後 Kit 的分析階段是把多個函式合成一個節點），對應關係是人工判斷。
+4. 產生方式：仿 `scripts/kit-changelog.mjs` 的作法（Node 型別剝除）寫一支腳本，或在 vitest 中提供更新模式，二選一，在 Codex Notes 說明理由。要有「檢查」模式：產生檔與重新計算的結果不同時失敗，並納入 `npm test`。
+
+### 5.3 測試
+
+1. 轉換結果通過 `exportAovGraphDraft` 且經 `importAny` 往返內容相同；三個邏輯各自的節點數與邊數符合 JSON（15、20、4 個節點，各自節點數減一條邊）。
+2. 參照完整性：所有 `kitNodes` 的 id 都存在於真實的 `workflow.aov.json`；Kit 的 23 個節點數由檔案讀得。
+3. 比較函式用一份小型手算輸入驗證每一項（含順序差異的反向判斷、沒有對應的節點）；這些測試要在判斷條件改動時失敗。
+4. 實際資料的預期值先由 Claude 手算，寫在 mailbox 的 Claude Handoff，Codex 的測試必須以這些值檢查實際輸出（見該 thread）。
+5. 產生檔過期檢查（5.2 第 4 點）。
+
+### 5.4 不做
+
+- 不改 Kit、不改 `libs/case-store`、不改畫布的行為；不新增依賴。
+- 不寫入 Analytical-Four 專案；不把原專案的任何程式碼複製進來，只引用函式名稱、檔案與行號。
 
 ## 6. 不在範圍內
 

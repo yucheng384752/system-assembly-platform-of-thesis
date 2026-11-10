@@ -1,0 +1,595 @@
+{
+  "format": "thesis-original-flow",
+  "version": 1,
+  "source": {
+    "project": "Analytical-Four",
+    "author": "ZHAO-XIAN",
+    "commit": "f49cfd3",
+    "entry": "main.py",
+    "license": "原專案沒有 LICENSE 檔",
+    "note": "節點是 main.py 在該提交實際呼叫的函式；順序依 Analytical_Four_System.main() 的呼叫順序。kitNodes 是人工判斷這個函式在 Kit 的 workflow.aov.json 中對應哪個節點。"
+  },
+  "factory": "Analytical-Four 原專案",
+  "logics": [
+    {
+      "id": "daily",
+      "name": "每日模式（設定 mode = daily）",
+      "nodes": [
+        {
+          "id": "d-load-config",
+          "name": "載入設定檔（路徑寫死在程式裡）",
+          "function": "ConfigManager.load_config",
+          "file": "main.py（程式入口，第 964 行）",
+          "defLine": null,
+          "kitNodes": [
+            "configure"
+          ]
+        },
+        {
+          "id": "d-read-current",
+          "name": "讀取待分析資料",
+          "function": "read_data",
+          "file": "main.py",
+          "defLine": 96,
+          "kitNodes": [
+            "read-data"
+          ]
+        },
+        {
+          "id": "d-clean",
+          "name": "清理資料（選欄位、去空值）",
+          "function": "data_cleaning",
+          "file": "main.py",
+          "defLine": 101,
+          "kitNodes": [
+            "read-data"
+          ]
+        },
+        {
+          "id": "d-split",
+          "name": "依目標欄位切成待查與基準",
+          "function": "data_splitting",
+          "file": "main.py",
+          "defLine": 109,
+          "kitNodes": [
+            "read-data"
+          ]
+        },
+        {
+          "id": "d-basic",
+          "name": "基本統計（基準資料）",
+          "function": "basic_statistics",
+          "file": "main.py",
+          "defLine": 140,
+          "kitNodes": [
+            "descriptive"
+          ]
+        },
+        {
+          "id": "d-categorical",
+          "name": "類別統計",
+          "function": "categorical_statistics",
+          "file": "main.py",
+          "defLine": 161,
+          "kitNodes": [
+            "descriptive"
+          ]
+        },
+        {
+          "id": "d-outliers",
+          "name": "基準線異常檢測",
+          "function": "compare_outliers",
+          "file": "main.py",
+          "defLine": 176,
+          "kitNodes": [
+            "descriptive"
+          ]
+        },
+        {
+          "id": "d-correlation",
+          "name": "相關係數比對",
+          "function": "correlation_analysis",
+          "file": "main.py",
+          "defLine": 198,
+          "kitNodes": [
+            "diagnostic"
+          ]
+        },
+        {
+          "id": "d-contribution",
+          "name": "PCA 貢獻度（SPE、T2）",
+          "function": "contribution_analysis",
+          "file": "main.py",
+          "defLine": 224,
+          "kitNodes": [
+            "diagnostic"
+          ]
+        },
+        {
+          "id": "d-importance",
+          "name": "特徵重要性萃取",
+          "function": "extract_feature_importance",
+          "file": "main.py",
+          "defLine": 319,
+          "kitNodes": [
+            "diagnostic"
+          ]
+        },
+        {
+          "id": "d-weighted",
+          "name": "特徵貢獻加權計算",
+          "function": "calculate_weighted_contributions",
+          "file": "main.py",
+          "defLine": 361,
+          "kitNodes": [
+            "diagnostic"
+          ]
+        },
+        {
+          "id": "d-serialize",
+          "name": "診斷結果序列化成事件",
+          "function": "serialization",
+          "file": "main.py",
+          "defLine": 385,
+          "kitNodes": [
+            "diagnostic"
+          ]
+        },
+        {
+          "id": "d-topology",
+          "name": "製程位置對應（拓樸）",
+          "function": "topology_analysis",
+          "file": "main.py",
+          "defLine": 412,
+          "kitNodes": [
+            "topology"
+          ]
+        },
+        {
+          "id": "d-rag",
+          "name": "SOP 檢索（RAG）",
+          "function": "rag_analysis",
+          "file": "main.py",
+          "defLine": 431,
+          "kitNodes": [
+            "rag"
+          ]
+        },
+        {
+          "id": "d-ng-code",
+          "name": "不良類型診斷",
+          "function": "ng_code_analysis",
+          "file": "main.py",
+          "defLine": 455,
+          "kitNodes": [
+            "ng-code"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "from": "d-load-config",
+          "to": "d-read-current"
+        },
+        {
+          "from": "d-read-current",
+          "to": "d-clean"
+        },
+        {
+          "from": "d-clean",
+          "to": "d-split"
+        },
+        {
+          "from": "d-split",
+          "to": "d-basic"
+        },
+        {
+          "from": "d-basic",
+          "to": "d-categorical"
+        },
+        {
+          "from": "d-categorical",
+          "to": "d-outliers"
+        },
+        {
+          "from": "d-outliers",
+          "to": "d-correlation"
+        },
+        {
+          "from": "d-correlation",
+          "to": "d-contribution"
+        },
+        {
+          "from": "d-contribution",
+          "to": "d-importance"
+        },
+        {
+          "from": "d-importance",
+          "to": "d-weighted"
+        },
+        {
+          "from": "d-weighted",
+          "to": "d-serialize"
+        },
+        {
+          "from": "d-serialize",
+          "to": "d-topology"
+        },
+        {
+          "from": "d-topology",
+          "to": "d-rag"
+        },
+        {
+          "from": "d-rag",
+          "to": "d-ng-code"
+        }
+      ]
+    },
+    {
+      "id": "complain",
+      "name": "客訴模式（設定 mode = complain）",
+      "nodes": [
+        {
+          "id": "c-load-config",
+          "name": "載入設定檔（路徑寫死在程式裡）",
+          "function": "ConfigManager.load_config",
+          "file": "main.py（程式入口，第 964 行）",
+          "defLine": null,
+          "kitNodes": [
+            "configure"
+          ]
+        },
+        {
+          "id": "c-read-current",
+          "name": "讀取待分析資料",
+          "function": "read_data",
+          "file": "main.py",
+          "defLine": 96,
+          "kitNodes": [
+            "read-data"
+          ]
+        },
+        {
+          "id": "c-read-baseline",
+          "name": "讀取正常基準資料",
+          "function": "read_data",
+          "file": "main.py",
+          "defLine": 96,
+          "kitNodes": [
+            "read-data"
+          ]
+        },
+        {
+          "id": "c-clean",
+          "name": "清理資料（選欄位、去空值）",
+          "function": "data_cleaning",
+          "file": "main.py",
+          "defLine": 101,
+          "kitNodes": [
+            "read-data"
+          ]
+        },
+        {
+          "id": "c-align",
+          "name": "基準資料欄位與待分析資料對齊",
+          "function": "align_features",
+          "file": "main.py",
+          "defLine": 128,
+          "kitNodes": [
+            "read-data"
+          ]
+        },
+        {
+          "id": "c-basic",
+          "name": "基本統計（基準資料）",
+          "function": "basic_statistics",
+          "file": "main.py",
+          "defLine": 140,
+          "kitNodes": [
+            "descriptive"
+          ]
+        },
+        {
+          "id": "c-categorical",
+          "name": "類別統計",
+          "function": "categorical_statistics",
+          "file": "main.py",
+          "defLine": 161,
+          "kitNodes": [
+            "descriptive"
+          ]
+        },
+        {
+          "id": "c-outliers",
+          "name": "基準線異常檢測",
+          "function": "compare_outliers",
+          "file": "main.py",
+          "defLine": 176,
+          "kitNodes": [
+            "descriptive"
+          ]
+        },
+        {
+          "id": "c-correlation",
+          "name": "相關係數比對",
+          "function": "correlation_analysis",
+          "file": "main.py",
+          "defLine": 198,
+          "kitNodes": [
+            "diagnostic"
+          ]
+        },
+        {
+          "id": "c-contribution",
+          "name": "PCA 貢獻度（SPE、T2）",
+          "function": "contribution_analysis",
+          "file": "main.py",
+          "defLine": 224,
+          "kitNodes": [
+            "diagnostic"
+          ]
+        },
+        {
+          "id": "c-importance",
+          "name": "特徵重要性萃取",
+          "function": "extract_feature_importance",
+          "file": "main.py",
+          "defLine": 319,
+          "kitNodes": [
+            "diagnostic"
+          ]
+        },
+        {
+          "id": "c-weighted",
+          "name": "特徵貢獻加權計算",
+          "function": "calculate_weighted_contributions",
+          "file": "main.py",
+          "defLine": 361,
+          "kitNodes": [
+            "diagnostic"
+          ]
+        },
+        {
+          "id": "c-serialize",
+          "name": "診斷結果序列化成事件",
+          "function": "serialization",
+          "file": "main.py",
+          "defLine": 385,
+          "kitNodes": [
+            "diagnostic"
+          ]
+        },
+        {
+          "id": "c-topology",
+          "name": "製程位置對應（拓樸）",
+          "function": "topology_analysis",
+          "file": "main.py",
+          "defLine": 412,
+          "kitNodes": [
+            "topology"
+          ]
+        },
+        {
+          "id": "c-rag",
+          "name": "SOP 檢索（RAG）",
+          "function": "rag_analysis",
+          "file": "main.py",
+          "defLine": 431,
+          "kitNodes": [
+            "rag"
+          ]
+        },
+        {
+          "id": "c-ng-code",
+          "name": "不良類型診斷",
+          "function": "ng_code_analysis",
+          "file": "main.py",
+          "defLine": 455,
+          "kitNodes": [
+            "ng-code"
+          ]
+        },
+        {
+          "id": "c-compile",
+          "name": "彙整事件",
+          "function": "compilation_events",
+          "file": "main.py",
+          "defLine": 480,
+          "kitNodes": [
+            "compile"
+          ]
+        },
+        {
+          "id": "c-search-key",
+          "name": "擷取搜尋關鍵",
+          "function": "extract_search_key",
+          "file": "main.py",
+          "defLine": 594,
+          "kitNodes": [
+            "search-key"
+          ]
+        },
+        {
+          "id": "c-similarity",
+          "name": "相似案例搜尋",
+          "function": "similarity_search",
+          "file": "main.py",
+          "defLine": 711,
+          "kitNodes": [
+            "similarity"
+          ]
+        },
+        {
+          "id": "c-llm",
+          "name": "AI 綜合診斷",
+          "function": "analyze_with_llm",
+          "file": "main.py",
+          "defLine": 759,
+          "kitNodes": [
+            "llm"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "from": "c-load-config",
+          "to": "c-read-current"
+        },
+        {
+          "from": "c-read-current",
+          "to": "c-read-baseline"
+        },
+        {
+          "from": "c-read-baseline",
+          "to": "c-clean"
+        },
+        {
+          "from": "c-clean",
+          "to": "c-align"
+        },
+        {
+          "from": "c-align",
+          "to": "c-basic"
+        },
+        {
+          "from": "c-basic",
+          "to": "c-categorical"
+        },
+        {
+          "from": "c-categorical",
+          "to": "c-outliers"
+        },
+        {
+          "from": "c-outliers",
+          "to": "c-correlation"
+        },
+        {
+          "from": "c-correlation",
+          "to": "c-contribution"
+        },
+        {
+          "from": "c-contribution",
+          "to": "c-importance"
+        },
+        {
+          "from": "c-importance",
+          "to": "c-weighted"
+        },
+        {
+          "from": "c-weighted",
+          "to": "c-serialize"
+        },
+        {
+          "from": "c-serialize",
+          "to": "c-topology"
+        },
+        {
+          "from": "c-topology",
+          "to": "c-rag"
+        },
+        {
+          "from": "c-rag",
+          "to": "c-ng-code"
+        },
+        {
+          "from": "c-ng-code",
+          "to": "c-compile"
+        },
+        {
+          "from": "c-compile",
+          "to": "c-search-key"
+        },
+        {
+          "from": "c-search-key",
+          "to": "c-similarity"
+        },
+        {
+          "from": "c-similarity",
+          "to": "c-llm"
+        }
+      ]
+    },
+    {
+      "id": "feedback",
+      "name": "事後回饋（event_feedback_record，main() 不會呼叫它）",
+      "nodes": [
+        {
+          "id": "f-sort",
+          "name": "依回饋把診斷結果分類",
+          "function": "ErrorAnalysis.sort_by_feedback",
+          "file": "analysis/prescriptive/error_analysis.py",
+          "defLine": null,
+          "kitNodes": [
+            "submit-feedback"
+          ]
+        },
+        {
+          "id": "f-stats",
+          "name": "統計各不良類型的特徵",
+          "function": "ErrorAnalysis.statistics_ng_code_feature",
+          "file": "analysis/prescriptive/error_analysis.py",
+          "defLine": null,
+          "kitNodes": [
+            "submit-feedback"
+          ]
+        },
+        {
+          "id": "f-compute",
+          "name": "計算每筆案例的錯誤分析",
+          "function": "ErrorAnalysis.compute_error_analysis",
+          "file": "analysis/prescriptive/error_analysis.py",
+          "defLine": null,
+          "kitNodes": [
+            "submit-feedback"
+          ]
+        },
+        {
+          "id": "f-index",
+          "name": "把結果寫入案例索引",
+          "function": "index_records",
+          "file": "analysis/prescriptive/indexer.py",
+          "defLine": null,
+          "kitNodes": [
+            "publish-library"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "from": "f-sort",
+          "to": "f-stats"
+        },
+        {
+          "from": "f-stats",
+          "to": "f-compute"
+        },
+        {
+          "from": "f-compute",
+          "to": "f-index"
+        }
+      ]
+    }
+  ],
+  "observations": [
+    {
+      "id": "O1",
+      "text": "設定檔路徑（main.py 第 964 行）與輸出資料夾（第 968 行）寫死在程式入口；切換設定檔或模式要改程式。",
+      "evidence": "main.py:964, 968；README 5.3"
+    },
+    {
+      "id": "O2",
+      "text": "compilation_events 讀拓樸結果的路徑寫死為 outputs/complain/topology/（第 560 行），而拓樸結果寫到 main() 的 output_folder；兩者不同資料夾時讀不到。",
+      "evidence": "main.py:557-560, 893-895"
+    },
+    {
+      "id": "O3",
+      "text": "兩個模式由同一個 main() 內的 if 分支串接，模式差異不在流程上顯示，只能讀程式或設定才知道。",
+      "evidence": "main.py:787-943"
+    },
+    {
+      "id": "O4",
+      "text": "event_feedback_record 是獨立函式，main() 沒有呼叫它；回饋要另外執行。",
+      "evidence": "main.py:945-956"
+    }
+  ]
+}
