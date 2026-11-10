@@ -40,7 +40,7 @@
 | 代號 | 量什麼 | 怎麼量 |
 |---|---|---|
 | G 生成 | 一次分析從送出到結束的總時間，以及每個階段的耗時 | `POST runs` 後以不超過 20 毫秒的間隔輪詢 `GET runs/{id}`，用 `time.perf_counter` 記錄每個階段第一次出現 `running` 與第一次出現 `done`（或 `failed`、`skipped`）的時刻 |
-| I 導入 | 每個示範資料檔的上傳、驗證報告、接受三步的時間，以及之後資料檢查的時間 | 逐檔 `POST uploads`、`GET uploads/{id}`、`POST uploads/{id}/accept`，再 `GET data-check`；同時記錄檔案位元組數，CSV 另記列數與欄數 |
+| I 導入 | 示範資料中「Kit 允許上傳的種類」（`data_checks.KIND_TARGETS` 的 `current-data`、`baseline-data`、`ng-code`、`topology`、`knowledge`、`analysis-config`；客訴用的待分析資料也屬 `current-data`）每個檔的上傳、驗證報告、接受三步的時間，以及之後資料檢查的時間。`known_base.json` 由每日模式產生、不能上傳，不在量測內；空的案例檔（0 位元組）上傳會被拒，也不量，兩者都要在 `notes` 說明為何排除 | 逐檔 `POST uploads`、`GET uploads/{id}`、`POST uploads/{id}/accept`，再 `GET data-check`；同時記錄檔案位元組數，CSV 另記列數與欄數 |
 | A 調整 | 一組固定的設定變更，每一項從送出到系統回報就緒的時間 | 固定清單（見 4.3）逐項 `PUT settings`，接著 `GET status` 與 `GET data-check` |
 
 G 預設兩組情境：每日模式啟用 A、B；客訴模式啟用 A、B、C。客訴模式需要診斷服務，腳本內建一個固定回應的假服務（比照 `tests/conftest.py` 的 `FakeLlm`，可直接重用或複製其寫法），所以 LLM 階段的時間只是假服務的時間，不代表真實模型。報告必須把這一點寫在輸出裡（欄位 `notes`）。
