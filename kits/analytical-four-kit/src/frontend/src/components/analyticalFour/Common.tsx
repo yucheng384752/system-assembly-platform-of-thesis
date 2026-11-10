@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ApiError, type Finding, type Report } from "../../services/analyticalFour";
+import { ApiError, type Finding, type Param, type Report } from "../../services/analyticalFour";
 import type { Labels } from "./labels";
 
 /** The words a person should see for a failed call: the server's own explanation when it gave one. */
@@ -11,6 +11,30 @@ export function errorText(error: unknown, L: Labels): string {
     return error.message ? `${error.message}` : `${L.common.error} (${error.status})`;
   }
   return L.common.error;
+}
+
+function paramText(value: Param | undefined, L: Labels): string {
+  if (Array.isArray(value)) return value.map((item) => paramText(item, L)).join(L.list);
+  if (value && typeof value === "object") {
+    if ("term" in value) return L.terms[String(value.term)] ?? String(value.term);
+    if ("items" in value && Array.isArray(value.items)) {
+      const shown = paramText(value.items, L);
+      const total = Number(value.total ?? value.items.length);
+      return total > value.items.length ? shown + L.more.replace("{total}", String(total)) : shown;
+    }
+    if ("key" in value) return fill(L.problems[String(value.key)] ?? String(value.key), (value.params ?? {}) as Record<string, Param>, L);
+  }
+  return value === null || value === undefined ? "" : String(value);
+}
+
+function fill(template: string, params: Record<string, Param>, L: Labels): string {
+  return template.replace(/\{(\w+)\}/g, (whole, name: string) => (name in params ? paramText(params[name], L) : whole));
+}
+
+/** A report sentence in the page's language; without a table entry for its key it is the server's own (Chinese) sentence. */
+export function findingText(item: Finding, L: Labels): string {
+  const template = item.key ? L.findings[item.key] : undefined;
+  return template && item.params ? fill(template, item.params, L) : item.message;
 }
 
 export function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
@@ -32,17 +56,17 @@ export function Notice({ kind, children }: { kind: "info" | "ok" | "error"; chil
   );
 }
 
-function FindingList({ title, items, kind }: { title: string; items: Finding[]; kind: "error" | "warning" }) {
+function FindingList({ title, items, kind, L }: { title: string; items: Finding[]; kind: "error" | "warning"; L: Labels }) {
   if (!items.length) return null;
   return (
     <div className={`a4-findings a4-findings-${kind}`}>
       <h4 className="a4-h4">
-        {title}（{items.length}）
+        {title}{L.open}{items.length}{L.close}
       </h4>
       <ul>
         {items.map((item, index) => (
           <li key={`${item.code}-${index}`}>
-            <span className="a4-code">{item.code}</span> {item.message}
+            <span className="a4-code">{item.code}</span> {findingText(item, L)}
           </li>
         ))}
       </ul>
@@ -57,9 +81,9 @@ export function ReportView({ report, L }: { report: Report; L: Labels }) {
   return (
     <div className="a4-report">
       {clean ? <Notice kind="ok">{L.common.noProblems}</Notice> : null}
-      <FindingList title={L.common.errors} items={report.errors} kind="error" />
-      <FindingList title={L.common.warnings} items={report.warnings} kind="warning" />
-      <FindingList title={L.common.other} items={other} kind="warning" />
+      <FindingList title={L.common.errors} items={report.errors} kind="error" L={L} />
+      <FindingList title={L.common.warnings} items={report.warnings} kind="warning" L={L} />
+      <FindingList title={L.common.other} items={other} kind="warning" L={L} />
       {summary.length ? (
         <details className="a4-details">
           <summary>{L.prepare.summary}</summary>

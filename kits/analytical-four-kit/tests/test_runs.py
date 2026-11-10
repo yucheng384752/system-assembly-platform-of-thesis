@@ -1,9 +1,10 @@
 """End to end: a run does what the layers promise, and every way it can go wrong ends in a recorded, explained state."""
 import json
+import threading
 
 import pytest
 
-from app.analytical_four import seed_demo
+from app.analytical_four import runs as runs_module, seed_demo
 from app.analytical_four.runs import RunStore
 from conftest import COMPLAIN_CONFIG, run_and_wait, settings, wait_for
 
@@ -133,12 +134,25 @@ def test_a_configured_feature_missing_from_the_data_is_reported_not_silently_dro
     assert '1 個設定的數值特徵在資料中找不到' in detail
 
 
-def test_only_one_run_at_a_time(client):
+def test_only_one_run_at_a_time(client, monkeypatch):
+    # Hold the first run open until the second request has been answered: on a slow or busy machine the demo run can otherwise
+    # finish before the second request arrives, and the test would be checking the clock instead of the rule.
+    gate = threading.Event()
+    real = runs_module.Analytical_Four_System.prepare_data
+
+    def held(self, *args, **kwargs):
+        gate.wait(60)
+        return real(self, *args, **kwargs)
+
+    monkeypatch.setattr(runs_module.Analytical_Four_System, 'prepare_data', held)
     put(client)
     first = client.post(f'{API}/runs')
     assert first.status_code == 202
-    second = client.post(f'{API}/runs')
-    assert second.status_code == 409 and first.json()['runId'] in second.json()['detail']
+    try:
+        second = client.post(f'{API}/runs')
+        assert second.status_code == 409 and first.json()['runId'] in second.json()['detail']
+    finally:
+        gate.set()
     assert wait_for(client, first.json()['runId'])['state'] == 'succeeded'
     again = client.post(f'{API}/runs')  # free again once the first one ended
     assert again.status_code == 202

@@ -307,3 +307,4 @@ date: 2026-09-24
 | D193 | 2026-11-09 | 把案例庫分離成獨立專案先暫停（user 決定）；去處、對 `aov-core`／`aov-integration` 的依賴方式與案例庫頁面歸屬等問題恢復時再議。 |
 | D200 | 2026-11-10 | 論文以 `analytical-four-kit` 為標的做「使用 AoV 前後」案例（user 決定）：使用前是獨立專案 Analytical-Four（作者 ZHAO-XIAN，唯讀、無 LICENSE，論文中須標示來源）的流程轉成 AoV，使用後是 Kit 的 `workflow.aov.json`；比較兩份 AoV 的結構差異。使用前後的「速度比較」暫緩，細節 user 還要思考。契約 `docs/thesis-aov-case.md`。 |
 | D201 | 2026-11-10 | 量測工具做成獨立腳本 `kits/analytical-four-kit/tools/measure_kit.py`，不改 Kit 的產品程式碼（user 同意）；量系統回應時間（生成、導入、調整），不含人的操作時間；階段耗時由外部輪詢狀態取得，因為執行紀錄只有秒級的起訖時間；失敗照實記錄不混進統計；p95 在樣本少於 20 時標為不可靠。 |
+| D202 | 2026-11-10 | analytical-four-kit 的驗證報告可依介面語言顯示（`feature/analytical-four-report-i18n`，user 只要求第 2 類）：（1）發現項多 `key` 與 `params`，`message` 與 `code` 不變；翻譯放在 Kit 自己的 `labels.ts`，不放共用 locale 檔，因為 Kit 要能獨立拿掉；找不到 key 就顯示中文原句；（2）固定名詞、例子清單、案例問題用結構化的參數，英文不沾中文的頓號與「等 N 個」；（3）只做驗證報告 65 句，HTTP 錯誤、階段與就緒說明、範本說明沒做；（4）用 AST 與跨語言測試防止漂移。測試：Kit pytest 143、套件測試 74；虛擬機未重跑。 |

@@ -9,7 +9,9 @@ export type Settings = {
   llm: { endpoint: string; timeoutSeconds: number; apiKeyEnv: string };
   columnMapping: Record<string, string>;
 };
-export type Finding = { layer: string; code: string; message: string; source?: string };
+// A finding carries the server's Chinese sentence and, for the sentences that have one, a key and the values to put in it.
+export type Param = string | number | boolean | null | Param[] | { [name: string]: Param };
+export type Finding = { layer: string; code: string; message: string; source?: string; key?: string; params?: Record<string, Param> };
 export type Report = {
   ok: boolean;
   errors: Finding[];
