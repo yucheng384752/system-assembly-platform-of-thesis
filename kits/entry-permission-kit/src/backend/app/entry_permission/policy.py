@@ -24,5 +24,8 @@ def tenant_header_allowed(values, default_tenant_id):
     return not values or (len(values) == 1 and values[0] == str(default_tenant_id))
 
 
-def may_manage_role(*, actor_admin, target_role):
-    return actor_admin or target_role not in {"admin", "manager"}
+def may_manage_role(*, actor_admin, target_role, target_reach=(), actor_reach=()):
+    """A user manager who is not the administrator never touches admin or manager, and never hands out or takes over
+    an account that opens an entry point they cannot open themselves. Role names alone do not say that: a custom
+    role can be granted more than manager has."""
+    return actor_admin or (target_role not in {"admin", "manager"} and set(target_reach) <= set(actor_reach))

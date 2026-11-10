@@ -6,10 +6,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.entry_permission.middleware import admin_actor, commit, user_manager
+from app.entry_permission.middleware import admin_actor, commit, grants_for, user_manager
 from app.entry_permission.policy import builtin_admin, may_manage_role, may_set_overrides
 from app.entry_permission.security import hash_password
 from app.models.ep_role import EpRole
+from app.models.ep_role_entry_point import EpRoleEntryPoint
 from app.models.ep_user import EpUser
 from app.models.ep_user_entry_point_override import EpUserEntryPointOverride
 from app.schemas.ep_auth import NewPassword, UserRead
@@ -19,8 +20,23 @@ from app.schemas.ep_users import UserCreate, UserUpdate
 router = APIRouter(prefix="/api/users", tags=["entry-permission-users"])
 
 
-def check_managed(actor, role):
-    if not may_manage_role(actor_admin=builtin_admin(actor.role.name, actor.role.is_builtin), target_role=role.name):
+async def check_managed(request, db, actor, role, user=None):
+    """role: the role being handed out or held. user: the existing account being changed, whose overrides stay with it."""
+    if builtin_admin(actor.role.name, actor.role.is_builtin):
+        return
+    if user is not None and user.id == actor.id:
+        # Changing the caller's own role, or resetting their own password without the current one, is not user management.
+        raise HTTPException(403, "Forbidden")
+    directory = request.app.state.ep_directory
+    grants, overrides = await grants_for(db, actor)
+    target_grants = dict((await db.execute(select(EpRoleEntryPoint.entry_point, EpRoleEntryPoint.allowed)
+                                           .where(EpRoleEntryPoint.role_id == role.id))).all())
+    target_overrides = {} if user is None else dict((await db.execute(
+        select(EpUserEntryPointOverride.entry_point, EpUserEntryPointOverride.allowed)
+        .where(EpUserEntryPointOverride.user_id == user.id))).all())
+    if not may_manage_role(actor_admin=False, target_role=role.name,
+                           target_reach=directory.reach(role, target_grants, target_overrides),
+                           actor_reach=directory.reach(actor.role, grants, overrides)):
         raise HTTPException(403, "Forbidden")
 
 
@@ -48,9 +64,9 @@ async def list_users(actor=Depends(user_manager), db: AsyncSession = Depends(get
 
 
 @router.post("", response_model=UserRead, status_code=201)
-async def create_user(body: UserCreate, actor=Depends(user_manager), db: AsyncSession = Depends(get_db)):
+async def create_user(body: UserCreate, request: Request, actor=Depends(user_manager), db: AsyncSession = Depends(get_db)):
     role = await target_role(db, body.role_id)
-    check_managed(actor, role)
+    await check_managed(request, db, actor, role)
     user = EpUser(username=body.username, display_name=body.display_name, employee_no=body.employee_no,
                   role_id=role.id, password_hash=await asyncio.to_thread(hash_password, body.password.get_secret_value()),
                   must_change_password=True)
@@ -60,13 +76,13 @@ async def create_user(body: UserCreate, actor=Depends(user_manager), db: AsyncSe
 
 
 @router.patch("/{user_id}", response_model=UserRead)
-async def update_user(user_id: UUID, body: UserUpdate, actor=Depends(user_manager), db: AsyncSession = Depends(get_db)):
+async def update_user(user_id: UUID, body: UserUpdate, request: Request, actor=Depends(user_manager), db: AsyncSession = Depends(get_db)):
     user = await target_user(db, user_id)
-    check_managed(actor, user.role)
+    await check_managed(request, db, actor, user.role, user)
     changes = body.model_dump(exclude_unset=True)
     if "role_id" in changes:
         role = await target_role(db, body.role_id)
-        check_managed(actor, role)
+        await check_managed(request, db, actor, role, user)
     for key, value in changes.items():
         setattr(user, key, value)
     await commit(db)
@@ -74,9 +90,9 @@ async def update_user(user_id: UUID, body: UserUpdate, actor=Depends(user_manage
 
 
 @router.post("/{user_id}/reset-password", response_model=UserRead)
-async def reset_password(user_id: UUID, body: NewPassword, actor=Depends(user_manager), db: AsyncSession = Depends(get_db)):
+async def reset_password(user_id: UUID, body: NewPassword, request: Request, actor=Depends(user_manager), db: AsyncSession = Depends(get_db)):
     user = await target_user(db, user_id)
-    check_managed(actor, user.role)
+    await check_managed(request, db, actor, user.role, user)
     user.password_hash = await asyncio.to_thread(hash_password, body.new_password.get_secret_value())
     user.must_change_password = True
     user.failed_login_count = 0

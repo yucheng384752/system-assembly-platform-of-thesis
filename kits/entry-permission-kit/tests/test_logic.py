@@ -75,6 +75,17 @@ class PolicyTests(unittest.TestCase):
             self.assertTrue(policy.may_manage_role(actor_admin=True, target_role=role))
         self.assertTrue(policy.may_manage_role(actor_admin=False, target_role="custom"))
 
+    def test_a_role_name_does_not_make_a_role_harmless(self):
+        # A custom role can be granted more than manager has. Handing it out, or resetting the password of someone
+        # who holds it, would give a manager access the administrator never gave them.
+        mine = {"forms.read", "users.manage"}
+        self.assertTrue(policy.may_manage_role(actor_admin=False, target_role="custom", target_reach={"forms.read"}, actor_reach=mine))
+        self.assertTrue(policy.may_manage_role(actor_admin=False, target_role="custom", target_reach=mine, actor_reach=mine))
+        self.assertFalse(policy.may_manage_role(actor_admin=False, target_role="custom",
+                                                target_reach={"forms.read", "audit.events_read"}, actor_reach=mine))
+        self.assertTrue(policy.may_manage_role(actor_admin=True, target_role="custom", target_reach={"audit.events_read"}, actor_reach=set()))
+        self.assertFalse(policy.may_manage_role(actor_admin=False, target_role="manager", target_reach=set(), actor_reach=mine))
+
 
 class DirectoryTests(unittest.TestCase):
     def test_method_path_and_segment_matching(self):
