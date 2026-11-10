@@ -1,10 +1,12 @@
-﻿# 全自動啟動 Composer GUI：檢查 Node → 必要時安裝依賴 → 啟動 dev server → 等待就緒 → 開啟瀏覽器。
-# 用法：start.cmd [-Port 5173] [-NoBrowser] [-Check] [-Page aov-canvas.html]
+﻿# 全自動啟動 Composer GUI：檢查 Node → 必要時安裝依賴 → 啟動案例庫服務與 dev server → 等待就緒 → 開啟瀏覽器。
+# 用法：start.cmd [-Port 5173] [-NoBrowser] [-Check] [-Page aov-canvas.html] [-NoCaseStore]
+# 啟動的是目前簽出的分支與工作樹內容；開始時會印出分支與提交。案例庫服務（AoV 管理的後端）需要 Node 22.13 以上。
 param(
   [int]$Port = 5173,
   [switch]$NoBrowser,
   [switch]$Check,
-  [string]$Page = ''
+  [string]$Page = '',
+  [switch]$NoCaseStore
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -23,6 +25,14 @@ $nodeVersion = [version]((& node -v).TrimStart('v'))
 $nodeOk = ($nodeVersion.Major -eq 20 -and $nodeVersion.Minor -ge 19) -or ($nodeVersion -ge [version]'22.12.0')
 if (-not $nodeOk) { Fail "Node $nodeVersion 不符合需求（^20.19.0 或 >=22.12.0）。" }
 Info "Node $nodeVersion"
+
+# 讓使用者看見啟動的是哪個版本：分支、提交，以及有沒有未提交的變更
+try {
+  $branch = (& git -c "safe.directory=$root" rev-parse --abbrev-ref HEAD 2>$null)
+  $commit = (& git -c "safe.directory=$root" rev-parse --short HEAD 2>$null)
+  $dirty = (& git -c "safe.directory=$root" status --porcelain --untracked-files=no 2>$null)
+  if ($branch -and $commit) { Info ("版本：$branch @ $commit" + $(if ($dirty) { '（含未提交的變更）' } else { '' })) }
+} catch { Info '版本：無法讀取 git 資訊。' }
 
 # 2. 依賴：node_modules 不存在或 package-lock.json 比已安裝紀錄新時，執行 npm ci
 $installed = Join-Path $root 'node_modules\.package-lock.json'
@@ -48,14 +58,21 @@ if ($Check) {
 function Test-PortInUse([int]$p) {
   return [bool](Get-NetTCPConnection -LocalAddress 127.0.0.1 -LocalPort $p -State Listen -ErrorAction SilentlyContinue)
 }
+function Test-CaseStore([int]$p) {
+  try { return (Invoke-WebRequest -Uri "http://127.0.0.1:$p/cases" -UseBasicParsing -TimeoutSec 2).StatusCode -eq 200 } catch { return $false }
+}
 function Test-ComposerServer([int]$p) {
   try {
     $response = Invoke-WebRequest -Uri "http://127.0.0.1:$p/" -UseBasicParsing -TimeoutSec 2
     return $response.Content -match 'Composer'
   } catch { return $false }
 }
+$caseStorePort = if ($env:CASE_STORE_PORT) { [int]$env:CASE_STORE_PORT } else { 18788 }
 if ((Test-PortInUse $Port) -and (Test-ComposerServer $Port)) {
   Info "Composer 已在 http://127.0.0.1:$Port/ 執行，直接沿用。"
+  if (-not $NoCaseStore -and -not (Test-CaseStore $caseStorePort)) {
+    Info "提醒：案例庫服務沒有在 127.0.0.1:$caseStorePort 執行，案例庫頁面會無法使用。請關閉現有的 dev server 後重新執行 start.cmd，或另開視窗執行 npm run case-store。"
+  }
   if (-not $NoBrowser) { Start-Process "http://127.0.0.1:$Port/$Page" }
   exit 0
 }
@@ -66,11 +83,38 @@ while (Test-PortInUse $Port) {
 }
 if ($Port -ne $original) { Info "連接埠 $original 已被其他程式占用，改用 $Port。" }
 
-# 5. 啟動 dev server，等待就緒（最多 60 秒）後開啟瀏覽器；關閉此視窗或按 Ctrl+C 即停止
+# 5. 啟動案例庫服務（若需要）與 dev server，等待就緒（各最多 60 秒）後開啟瀏覽器；關閉此視窗或按 Ctrl+C 即停止
+#    dev server 的代理在啟動時讀 CASE_STORE_PORT，所以先決定案例庫的連接埠並設進環境變數，兩個程序才會對上。
 $url = "http://127.0.0.1:$Port/$Page"
-Info "啟動 dev server：$url"
-$server = Start-Process -FilePath 'npm.cmd' -ArgumentList @('run', 'dev', '--', '--port', "$Port", '--strictPort') -NoNewWindow -PassThru
+$caseStore = $null
+$server = $null
 try {
+  if ($NoCaseStore) {
+    Info '略過案例庫服務（-NoCaseStore）。'
+  } elseif ($nodeVersion -lt [version]'22.13.0') {
+    Info "注意：案例庫服務需要 Node 22.13 以上，目前是 $nodeVersion，案例庫頁面將無法使用。"
+  } elseif (Test-CaseStore $caseStorePort) {
+    Info "案例庫服務已在 127.0.0.1:$caseStorePort 執行，直接沿用。"
+    $env:CASE_STORE_PORT = "$caseStorePort"
+  } else {
+    $csOriginal = $caseStorePort
+    while (Test-PortInUse $caseStorePort) {
+      $caseStorePort++
+      if ($caseStorePort -gt $csOriginal + 20) { Fail "案例庫連接埠 $csOriginal 到 $caseStorePort 都被占用。" }
+    }
+    $env:CASE_STORE_PORT = "$caseStorePort"
+    Info "啟動案例庫服務：127.0.0.1:$caseStorePort"
+    $caseStore = Start-Process -FilePath 'node' -ArgumentList @('services/case-store/start.mjs') -NoNewWindow -PassThru
+    $csDeadline = (Get-Date).AddSeconds(60)
+    while (-not (Test-CaseStore $caseStorePort)) {
+      if ($caseStore.HasExited) { Fail "案例庫服務啟動失敗（exit $($caseStore.ExitCode)）。" }
+      if ((Get-Date) -gt $csDeadline) { Fail '案例庫服務 60 秒內未就緒。' }
+      Start-Sleep -Milliseconds 500
+    }
+    Info "案例庫服務就緒（資料檔 data/case-store.sqlite3）。"
+  }
+  Info "啟動 dev server：$url"
+  $server = Start-Process -FilePath 'npm.cmd' -ArgumentList @('run', 'dev', '--', '--port', "$Port", '--strictPort') -NoNewWindow -PassThru
   $deadline = (Get-Date).AddSeconds(60)
   while (-not (Test-ComposerServer $Port)) {
     if ($server.HasExited) { Fail "dev server 啟動失敗（exit $($server.ExitCode)）。" }
@@ -78,11 +122,16 @@ try {
     Start-Sleep -Milliseconds 500
   }
   Info "就緒：$url（按 Ctrl+C 停止）"
+  Info "獨立 AoV 畫布：http://127.0.0.1:$Port/aov-canvas.html"
   if (-not $NoBrowser) { Start-Process $url }
   Wait-Process -Id $server.Id
 } finally {
-  if (-not $server.HasExited) {
+  if ($server -and -not $server.HasExited) {
     Info '停止 dev server...'
     & taskkill.exe /PID $server.Id /T /F | Out-Null
+  }
+  if ($caseStore -and -not $caseStore.HasExited) {
+    Info '停止案例庫服務...'
+    & taskkill.exe /PID $caseStore.Id /T /F | Out-Null
   }
 }

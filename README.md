@@ -55,9 +55,10 @@ composer-refactor/
 .\start.cmd -Check       # 啟動前先跑 typecheck 與測試
 .\start.cmd -Port 5180   # 指定連接埠
 .\start.cmd -NoBrowser   # 不自動開啟瀏覽器
+.\start.cmd -NoCaseStore # 不啟動案例庫服務
 ```
 
-腳本（`scripts/start.ps1`）會依序：檢查 Node 版本（需 ^20.19.0 或 >=22.12.0）→ `node_modules` 不存在或 `package-lock.json` 較新時執行 `npm ci` → 若本專案 dev server 已在執行就直接沿用，連接埠被其他程式占用則往後找可用埠 → 啟動 dev server 並等待就緒（最多 60 秒）→ 開啟瀏覽器。按 Ctrl+C 或關閉視窗會一併停止 dev server。任何一步失敗都會顯示原因並以非 0 結束。`start.cmd` 以 `-ExecutionPolicy Bypass` 呼叫 PowerShell，不需要修改系統執行政策。
+腳本（`scripts/start.ps1`）會依序：檢查 Node 版本（需 ^20.19.0 或 >=22.12.0）並印出目前簽出的分支與提交（啟動的就是這份工作樹的內容）→ `node_modules` 不存在或 `package-lock.json` 較新時執行 `npm ci` → 若本專案 dev server 已在執行就直接沿用，連接埠被其他程式占用則往後找可用埠 → 啟動案例庫服務（AoV 管理的後端，預設 127.0.0.1:18788，資料在 `data/case-store.sqlite3`，需 Node 22.13 以上；已在執行就沿用，埠被占用就往後找，並讓 dev server 的代理對上同一個埠）→ 啟動 dev server 並等待就緒（各最多 60 秒）→ 開啟瀏覽器。同一個 dev server 也提供獨立 AoV 畫布（`/aov-canvas.html`，終端機會印出網址）。按 Ctrl+C 或關閉視窗會一併停止 dev server 與案例庫服務。Node 低於 22.13 時會提示並略過案例庫服務。任何一步失敗都會顯示原因並以非 0 結束。`start.cmd` 以 `-ExecutionPolicy Bypass` 呼叫 PowerShell，不需要修改系統執行政策。
 
 ## GUI 骨架開發
 
