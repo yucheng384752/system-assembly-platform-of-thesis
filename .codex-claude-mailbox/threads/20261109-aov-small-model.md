@@ -66,3 +66,7 @@ aov-standalone-canvas 無合併日期（合併由 user 決定）。`kitWorkflowT
 - 測試：`analyticalFourActions.test.ts` 2 項（能力不漏、不重複；步驟對應不重複）；突變檢查（把一個動作少一個能力）會被攔下。`moreNodeTools.test.ts` 的總數 17 改 30。npm test 846 通過、1 略過；typecheck 乾淨。
 - 未解：十個分析階段的能力都是 `runs.create`，D187 規則會全對應到「啟動分析」。既有測試要求每步至少一個能力，所以未清空。待 user 決定。
 - 尚未做：analytical-four 的人工覆核與認證紀錄；其餘 12 個 Kit 的連線與動作缺口。
+
+# 進度：analytical-four 認證審查表（2026-11-10）
+
+審查表在 `docs/aov-small-model-cert/analytical-four-kit.md`，含檔案雜湊、Claude 驗證結果、23 步標籤、22 條連線與簽核欄。Claude 驗證通過；發現 `check-data` 沒接到 `start-run`（執行時其實也會做資料檢查），待 user 決定是否補連線。user 人工覆核尚未完成，所以尚不算「已認證」。
