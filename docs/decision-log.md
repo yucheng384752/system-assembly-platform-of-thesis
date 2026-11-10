@@ -305,3 +305,5 @@ date: 2026-09-24
 | D191 | 2026-11-09 | 專案檔的物料型別只收錄所轉出生產邏輯的節點用到者：`convertCanvas` 原本依整份細項（含其他生產邏輯與已不在畫布上的節點）收集，專案檔會夾帶無關物料，也使往返後兩份專案檔不同（批三 Codex 以靜態推導發現，已用測試證實並修正）。 |
 | D192 | 2026-11-09 | 案例庫每個版本要記變更原因分類與節點層級差異，資訊越詳細越好（user 決定）。分類沿用 `libs/kit-changelog` 的封閉類別、節點差異沿用其 `NodeChange` 形狀以免兩套並存；Kit 的 CHANGELOG 能否匯入案例庫尚未定，待設計時再問。實作另開分支與契約，不在獨立畫布三批內；開工前不動 `libs/case-store` 與 `services/case-store`。 |
 | D193 | 2026-11-09 | 把案例庫分離成獨立專案先暫停（user 決定）；去處、對 `aov-core`／`aov-integration` 的依賴方式與案例庫頁面歸屬等問題恢復時再議。 |
+| D200 | 2026-11-10 | 論文以 `analytical-four-kit` 為標的做「使用 AoV 前後」案例（user 決定）：使用前是獨立專案 Analytical-Four（作者 ZHAO-XIAN，唯讀、無 LICENSE，論文中須標示來源）的流程轉成 AoV，使用後是 Kit 的 `workflow.aov.json`；比較兩份 AoV 的結構差異。使用前後的「速度比較」暫緩，細節 user 還要思考。契約 `docs/thesis-aov-case.md`。 |
+| D201 | 2026-11-10 | 量測工具做成獨立腳本 `kits/analytical-four-kit/tools/measure_kit.py`，不改 Kit 的產品程式碼（user 同意）；量系統回應時間（生成、導入、調整），不含人的操作時間；階段耗時由外部輪詢狀態取得，因為執行紀錄只有秒級的起訖時間；失敗照實記錄不混進統計；p95 在樣本少於 20 時標為不可靠。 |
