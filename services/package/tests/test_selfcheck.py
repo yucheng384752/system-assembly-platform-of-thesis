@@ -17,6 +17,7 @@ import unittest
 from pathlib import Path
 
 from starlette.applications import Starlette
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
@@ -267,7 +268,7 @@ class Gate(Temp):
             return JSONResponse({"ok": True})
 
         app = Starlette(routes=[Route("/api/data", ok), Route("/healthz", ok)])
-        app.middleware("http")(sc.gate(state))
+        app.add_middleware(BaseHTTPMiddleware, dispatch=sc.gate(state))  # the decorator form was removed in starlette 1.x
         return TestClient(app)
 
     def test_while_the_self_check_fails_every_request_but_healthz_is_refused_naming_the_kit(self):
