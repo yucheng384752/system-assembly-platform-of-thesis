@@ -70,3 +70,7 @@ aov-standalone-canvas 無合併日期（合併由 user 決定）。`kitWorkflowT
 # 進度：analytical-four 認證審查表（2026-11-10）
 
 審查表在 `docs/aov-small-model-cert/analytical-four-kit.md`，含檔案雜湊、Claude 驗證結果、23 步標籤、22 條連線與簽核欄。Claude 驗證通過；發現 `check-data` 沒接到 `start-run`（執行時其實也會做資料檢查），待 user 決定是否補連線。user 人工覆核尚未完成，所以尚不算「已認證」。
+
+# 進度：analytical-four 重新認證（2026-11-10）
+
+user 覆核審查表通過，並指示補 check-data 到 start-run、確認 load-demo 非必要後移除。已完成（CHANGELOG #9、#10），審查表已更新為本版（22 步、23 條連線，雜湊見審查表）。測試 929 通過、typecheck 乾淨。user 覆核的是前一版，本版雜湊待其確認。下一步：其餘 12 個 Kit 的連線與動作缺口。

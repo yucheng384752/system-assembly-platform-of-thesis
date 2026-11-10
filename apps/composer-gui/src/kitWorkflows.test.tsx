@@ -24,7 +24,9 @@ const wp2KitIds = [
 test.each(['factory-core-kit', 'entry-permission-kit', 'analytical-four-kit'])('%s 的流程涵蓋登錄的全部能力', kitId => {
   const parsed = parseKitWorkflow(workflowFiles[`kits/${kitId}/workflow.aov.json`], catalog.kits.find(item => item.id === kitId)!);
   const used = new Set(parsed.nodes.flatMap(node => node.capabilityIds));
-  expect(registry.find(entry => entry.kitId === kitId)!.capabilities.map(c => c.id).filter(id => !used.has(id))).toEqual([]);
+  // D199: the demo loader is a standalone trial function, deliberately outside the analysis flow.
+  const outsideFlow = kitId === 'analytical-four-kit' ? ['analytical-four.demo.load'] : [];
+  expect(registry.find(entry => entry.kitId === kitId)!.capabilities.map(c => c.id).filter(id => !used.has(id) && !outsideFlow.includes(id))).toEqual([]);
 });
 
 test.each(wp2KitIds)('%s template parses and only references verified capabilities', kitId => {
