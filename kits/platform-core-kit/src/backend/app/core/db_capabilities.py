@@ -8,6 +8,17 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
+def safe_identifier(name: Any) -> str:
+    """A table name about to be written into SQL text, where it cannot be a bound parameter.
+
+    The names come from the table registry, which no API writes today. This keeps that from being the only thing
+    between a stored name and the statement: letters, digits and underscores only (the rule import_v2 already uses).
+    """
+    if not isinstance(name, str) or not name or not name.replace("_", "").isalnum():
+        raise HTTPException(status_code=422, detail="Unsafe table name")
+    return name
+
+
 async def list_forms(db: AsyncSession, tenant_id: Any | None = None, **_: Any) -> list[dict[str, Any]]:
     try:
         from app.models.station import Station, StationSchema
@@ -121,7 +132,7 @@ async def search_records(
         rows = (
             await db.execute(
                 _text(
-                    f'SELECT * FROM "{table_code}" WHERE {where_sql} '
+                    f'SELECT * FROM "{safe_identifier(table_code)}" WHERE {where_sql} '
                     f'ORDER BY "_imported_at" DESC LIMIT :lim'
                 ),
                 params,
@@ -229,7 +240,7 @@ async def records_trend(
         rows = (
             await db.execute(
                 _text(
-                    f'SELECT date("_imported_at") AS bucket_date, count(*) AS cnt FROM "{station_code}" '
+                    f'SELECT date("_imported_at") AS bucket_date, count(*) AS cnt FROM "{safe_identifier(station_code)}" '
                     f'WHERE "_tenant_id" = :tid AND "_imported_at" >= :dfrom AND "_imported_at" < :dto '
                     f'GROUP BY date("_imported_at") ORDER BY date("_imported_at")'
                 ),
