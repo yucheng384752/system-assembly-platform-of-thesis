@@ -18,8 +18,9 @@ async function pythonFiles(dir) {
   return found;
 }
 
-// starlette is pinned to 0.38.6 (services/preview/requirements.txt), which has no HTTP_422_UNPROCESSABLE_CONTENT.
-// Using it raises AttributeError while building the error response, so a client error becomes a 500.
+// starlette 0.38.6 had no HTTP_422_UNPROCESSABLE_CONTENT: using it raised AttributeError while building the error
+// response, so a client error became a 500. The pin is now 1.10.0, which defines both names and only warns that
+// HTTP_422_UNPROCESSABLE_ENTITY is deprecated. The kits still use the old name; this check stays until they move.
 test('kit backends only use status constants that the pinned starlette defines', async () => {
   const offenders = [];
   for (const file of await pythonFiles(kits)) {
