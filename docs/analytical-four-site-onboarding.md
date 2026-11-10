@@ -37,7 +37,7 @@
 | `analysisConfig` | 分析設定檔的路徑 | 每個場域一份 |
 | `llm.endpoint` | AI 語言模型服務位址 | 事件資料會送過去；留空表示未設定；位址不可含帳密 |
 | `llm.timeoutSeconds` | 逾時 | 實測 6 筆約 100 秒（本機 14B 模型），事件多要調高 |
-| `llm.apiKeyEnv` | 存放金鑰的環境變數名稱 | 金鑰本身由部署端設定，不填進任何檔案 |
+| `llm.apiKeyEnv` | 存放金鑰的環境變數名稱 | 名稱須以 `ANALYTICAL_FOUR_LLM_` 開頭（例如 `ANALYTICAL_FOUR_LLM_API_KEY`）；金鑰本身由部署端設定，不填進任何檔案 |
 
 ### 3.2 分析設定檔（原 Analytical-Four 格式）要填的內容
 

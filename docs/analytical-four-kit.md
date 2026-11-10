@@ -40,11 +40,11 @@ schemaVersion  1
 layers         { a: bool = true, b: bool = true, c: bool = false }
 mode           "daily" | "complain"            預設 daily
 analysisConfig 資料目錄內的相對路徑             預設 config/analysis_config.json
-llm            { endpoint: string = "" (最長 500)，timeoutSeconds: 1..900 = 120，apiKeyEnv: 環境變數名稱或空字串 }
+llm            { endpoint: string = "" (最長 500)，timeoutSeconds: 1..900 = 120，apiKeyEnv: ANALYTICAL_FOUR_LLM_ 開頭的環境變數名稱或空字串 }
 columnMapping  { 場域欄名: 引擎欄名 }，預設空（見第 10 節）
 ```
 
-驗證（寫入時與讀取時相同，不合法一律 422）：B 或 C 開啟時 A 必須開啟；客訴模式開啟 C 時 B 必須開啟；`llm.endpoint` 空字串或 http／https 網址，不含空白、控制字元、帳號密碼；`apiKeyEnv` 須為大寫英數底線名稱（金鑰值只存在環境變數，`secret_ref`）；`analysisConfig` 不可是絕對路徑、不可含 `..`，解析後必須在資料目錄內。
+驗證（寫入時與讀取時相同，不合法一律 422）：B 或 C 開啟時 A 必須開啟；客訴模式開啟 C 時 B 必須開啟；`llm.endpoint` 空字串或 http／https 網址，不含空白、控制字元、帳號密碼；`apiKeyEnv` 須為 `ANALYTICAL_FOUR_LLM_` 開頭的大寫英數底線名稱（金鑰值只存在環境變數，`secret_ref`；限定開頭是因為這個變數的值會送到 `llm.endpoint`，不可讓設定指到伺服器的其他秘密）；`analysisConfig` 不可是絕對路徑、不可含 `..`，解析後必須在資料目錄內。
 
 ### 2.3 分析設定檔
 
@@ -110,7 +110,7 @@ llm       { endpointSet: bool, apiKeyEnv }      不保存位址本身與金鑰
 ## 6. 安全
 
 - 資料目錄外的路徑一律拒絕（設定、分析設定檔內的每個路徑欄位、結果檔名）。
-- LLM 位址會收到事件資料（含機台、批號、量測值），只可填寫信任的服務；位址不含憑證，金鑰用 `apiKeyEnv` 指向環境變數，執行紀錄與設定快照都不保存金鑰值。只有管理員可改。
+- LLM 位址會收到事件資料（含機台、批號、量測值），只可填寫信任的服務；位址不含憑證，金鑰用 `apiKeyEnv` 指向 `ANALYTICAL_FOUR_LLM_` 開頭的環境變數，執行紀錄與設定快照都不保存金鑰值。呼叫 LLM 時不跟隨轉址，收到轉址即讓該階段失敗。只有管理員可改。
 - 角色清單由入口權限中介層執行；授權效果的整合測試未涵蓋。
 - 示範資料全為合成。實際製造資料進入資料目錄後，不會被提交到 repo（資料目錄在執行環境，不在 repo）。
 
