@@ -743,6 +743,327 @@
       ],
       "parameters": [],
       "needs": []
+    },
+    {
+      "id": "sign-in",
+      "name": "登入系統",
+      "category": "平台與維運",
+      "description": "以帳號密碼登入並取得憑證",
+      "requires": [
+        "auth.login"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "manage-own-account",
+      "name": "管理自己的帳號",
+      "category": "平台與維運",
+      "description": "查看自己的資料、修改顯示名稱、變更自己的密碼",
+      "requires": [
+        "auth.me.get",
+        "auth.me.update",
+        "auth.change-password"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "view-entry-points",
+      "name": "查看入口目錄",
+      "category": "平台與維運",
+      "description": "查看全部入口，以及自己可使用的入口",
+      "requires": [
+        "entry-points.list",
+        "entry-points.me"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "manage-roles",
+      "name": "管理角色",
+      "category": "平台與維運",
+      "description": "查詢、建立、修改與刪除角色",
+      "requires": [
+        "roles.list",
+        "roles.create",
+        "roles.update",
+        "roles.delete"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "set-role-grants",
+      "name": "設定角色的入口授權",
+      "category": "平台與維運",
+      "description": "決定每個角色可以使用哪些入口",
+      "requires": [
+        "roles.grants.put"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "manage-users",
+      "name": "管理使用者",
+      "category": "平台與維運",
+      "description": "查詢、建立與修改使用者",
+      "requires": [
+        "ep.users.list",
+        "ep.users.create",
+        "ep.users.update"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "reset-user-password",
+      "name": "重設使用者密碼",
+      "category": "平台與維運",
+      "description": "由管理者重設某位使用者的密碼",
+      "requires": [
+        "ep.users.reset-password"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "set-user-overrides",
+      "name": "設定使用者的入口例外",
+      "category": "平台與維運",
+      "description": "為個別使用者開放或關閉特定入口",
+      "requires": [
+        "ep.users.overrides.put"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "receive-production-plan",
+      "name": "接收生產計畫",
+      "category": "生產管理",
+      "description": "接收一份生產計畫",
+      "requires": [
+        "factory.plans.receive"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "browse-production-plans",
+      "name": "查詢生產計畫",
+      "category": "生產管理",
+      "description": "查詢生產計畫清單並查看單一計畫",
+      "requires": [
+        "factory.plans.list",
+        "factory.plans.get"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "manage-plan-forms",
+      "name": "上傳與查看計畫表單",
+      "category": "生產管理",
+      "description": "上傳生產計畫引用的表單，並查看表單定義",
+      "requires": [
+        "factory.forms.upload",
+        "factory.forms.get"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "propose-param-change",
+      "name": "提出生產參數修改",
+      "category": "生產管理",
+      "description": "對某份生產計畫提出新的參數版本",
+      "requires": [
+        "factory.params.propose"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "view-param-versions",
+      "name": "查詢參數版本",
+      "category": "生產管理",
+      "description": "查看某份生產計畫的參數版本",
+      "requires": [
+        "factory.params.list"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "decide-param-change",
+      "name": "核准或駁回參數修改",
+      "category": "生產管理",
+      "description": "對提出的參數版本做出核准或駁回",
+      "requires": [
+        "factory.params.decide"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "create-work-order",
+      "name": "建立工單",
+      "category": "生產管理",
+      "description": "依已接收的生產計畫建立工單",
+      "requires": [
+        "factory.orders.create"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "start-work-order",
+      "name": "工單開工",
+      "category": "生產管理",
+      "description": "讓工單開始生產",
+      "requires": [
+        "factory.orders.start"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "view-work-order",
+      "name": "查看工單",
+      "category": "生產管理",
+      "description": "查看單一工單的內容與狀態",
+      "requires": [
+        "factory.orders.get"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "raise-alarm",
+      "name": "回報警報",
+      "category": "生產管理",
+      "description": "對工單回報警報並暫停節點",
+      "requires": [
+        "factory.alarms.raise"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "browse-alarms",
+      "name": "查詢警報",
+      "category": "生產管理",
+      "description": "查詢警報清單與狀態",
+      "requires": [
+        "factory.alarms.list"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "acknowledge-alarm",
+      "name": "確認警報",
+      "category": "生產管理",
+      "description": "確認警報並解除暫停",
+      "requires": [
+        "factory.alarms.acknowledge"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "collect-alarm-reminders",
+      "name": "收取到期提醒",
+      "category": "生產管理",
+      "description": "收取已到期、需要再次提醒的警報",
+      "requires": [
+        "factory.alarms.remind"
+      ],
+      "parameters": [],
+      "needs": []
+    },
+    {
+      "id": "browse-form-links",
+      "name": "查詢站點串聯",
+      "category": "表單",
+      "description": "查詢表單之間已建立的站點串聯",
+      "requires": [
+        "dataflows.links.list"
+      ],
+      "parameters": [],
+      "needs": [
+        "form"
+      ],
+      "requiresKits": [
+        {
+          "kitId": "generic-forms-kit",
+          "reason": "使用表格的動作一律需要通用表格管理"
+        },
+        {
+          "kitId": "station-data-link-kit",
+          "reason": "使用表格的動作一律需要站點資料串聯"
+        }
+      ]
+    },
+    {
+      "id": "create-import-from-upload",
+      "name": "從上傳工作建立匯入",
+      "category": "資料匯入",
+      "description": "以已完成的上傳工作為來源建立一筆匯入",
+      "requires": [
+        "import.job.from_upload"
+      ],
+      "parameters": [],
+      "needs": [
+        "form"
+      ],
+      "requiresKits": [
+        {
+          "kitId": "generic-forms-kit",
+          "reason": "使用表格的動作一律需要通用表格管理"
+        },
+        {
+          "kitId": "station-data-link-kit",
+          "reason": "使用表格的動作一律需要站點資料串聯"
+        }
+      ]
+    },
+    {
+      "id": "cancel-import-job",
+      "name": "取消匯入",
+      "category": "資料匯入",
+      "description": "取消尚未完成的匯入",
+      "requires": [
+        "import.job.cancel"
+      ],
+      "parameters": [],
+      "needs": [
+        "form"
+      ],
+      "requiresKits": [
+        {
+          "kitId": "generic-forms-kit",
+          "reason": "使用表格的動作一律需要通用表格管理"
+        },
+        {
+          "kitId": "station-data-link-kit",
+          "reason": "使用表格的動作一律需要站點資料串聯"
+        }
+      ]
+    },
+    {
+      "id": "receive-subscription-notice",
+      "name": "接收訂閱通知",
+      "category": "訂閱",
+      "description": "接收外部系統送來的訂閱通知並更新訂閱狀態",
+      "requires": [
+        "subscriptions.webhook"
+      ],
+      "parameters": [],
+      "needs": []
     }
   ]
 }

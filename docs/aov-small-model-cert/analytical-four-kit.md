@@ -11,7 +11,7 @@
 | 來源 commit | 本分支 `3b762be` 之上的工作樹（流程於 CHANGELOG #8 至 #10 修改） |
 | Kit 版本 | 0.1.0 |
 | 狀態欄 | draft（是否改成 reviewed 由 user 決定） |
-| 動作目錄 | `config/actions.json`，30 個動作（D199） |
+| 動作目錄 | `config/actions.json`，認證時 30 個動作（D199）；之後增至 55 個（D203），新增的 25 個與本 Kit 無關，其涵蓋與推導測試仍通過 |
 | 工具 | `parseKitWorkflow`、`kitWorkflowToCanvas`、`integrityErrors`、`graphErrors`、`exportAovGraphDraft`／`importWorkflow`（均為 main 上的程式） |
 
 任何對上列檔案的修改，都使本認證失效，需要重新審查。
@@ -102,7 +102,8 @@ user 覆核的是前一版；本版與前一版的差異只有上述兩項，皆
 1. 每日模式不產生客訴診斷（`runs.py` 的 `COMPLAIN_ONLY` 階段會被略過），流程連線沒有條件欄位，只在 scope 文字說明；訓練時不要把這些階段的連線當必經路徑。
 2. 同時只能有一個分析執行（`runs.py:121-123` 回 409），流程無法表達。
 3. 載入示範資料已從流程移除，但功能仍在 Kit 內；`docs/aov-compare/kit.derived.aov.json` 是比較用的衍生檔，仍含 `load-demo`，未修改。
-4. 除 `runs.py` 的就緒檢查、資料檢查、單一執行三處外，其餘連線依據來自 scope 文字、D183 與 `docs/aov-compare/comparison.md`，沒有逐條重讀程式。
+4. 新增的動作沒有宣告參數（D92 精神），所以「畫布待補項 0 項」不代表不需要輸入；實際執行時的必填值尚未建模。
+5. 除 `runs.py` 的就緒檢查、資料檢查、單一執行三處外，其餘連線依據來自 scope 文字、D183 與 `docs/aov-compare/comparison.md`，沒有逐條重讀程式。
 
 ## 簽核
 

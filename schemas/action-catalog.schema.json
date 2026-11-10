@@ -7,7 +7,7 @@
   "properties": {
     "format": { "const": "composer-action-catalog" },
     "version": { "const": 1 },
-    "actions": { "type": "array", "minItems": 1, "maxItems": 50, "items": {
+    "actions": { "type": "array", "minItems": 1, "maxItems": 100, "items": {
       "type": "object", "additionalProperties": false,
       "required": ["id", "name", "category", "description", "requires", "parameters", "needs"],
       "properties": {

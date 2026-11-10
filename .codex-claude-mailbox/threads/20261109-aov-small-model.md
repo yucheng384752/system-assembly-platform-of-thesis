@@ -74,3 +74,7 @@ aov-standalone-canvas 無合併日期（合併由 user 決定）。`kitWorkflowT
 # 進度：analytical-four 重新認證（2026-11-10）
 
 user 覆核審查表通過，並指示補 check-data 到 start-run、確認 load-demo 非必要後移除。已完成（CHANGELOG #9、#10），審查表已更新為本版（22 步、23 條連線，雜湊見審查表）。測試 929 通過、typecheck 乾淨。user 覆核的是前一版，本版雜湊待其確認。下一步：其餘 12 個 Kit 的連線與動作缺口。
+
+# 進度：其餘 12 個 Kit 補齊（D203，2026-11-10）
+
+新增 25 個動作（共 55）、放寬 schema 上限到 100、系統連接層以 deriveKits 逐項檢查並加測試、12 份審查表（docs/aov-small-model-cert/）。測試 980 通過、typecheck 乾淨。13 步只用內部函式的步驟維持無對應動作。待 user：覆核 12 份審查表；確認「系統連接層」的解讀。
