@@ -66,6 +66,8 @@ export function LoginPage({ onSignedIn }: Props) {
         return
       }
       const user = await response.json()
+      // The change ends every token issued under the old password, this session's included.
+      setSessionToken(user.access_token)
       setPassword('')
       setNext('')
       setConfirm('')
