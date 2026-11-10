@@ -95,4 +95,40 @@ Claude 用獨立的 Python 腳本對真實資料算出預期值，你的測試�
 
 ### Codex Notes
 
-（待填）
+2026-11-10 Codex：批二 5.2、5.3 已實作，待 Claude 審閱。
+
+完成內容：
+
+- 新增純函式比較與轉換模組 `apps/composer-gui/src/thesisAovCase.ts`。直接共用 `canvasWithLayout` 的工廠／邏輯建構與排版，將三個邏輯合併為一個工廠；所有函式節點使用來源名稱與 `actionId: null`。連線識別碼加上邏輯前綴，避免合併後重複。
+- 比較包含各邏輯節點、連線、函式去重數、跨邏輯總計、雙向對應與粒度比（節點數及不重複函式數）、雙方未對應節點、Kit 反向可達的順序差異；缺失的 Kit 對應或連線參照會拋錯。輸入參照已確認全部有效，未遇到須停止的契約差異。
+- 產生 `docs/thesis-case/analytical-four-before.aov.json` 與繁體中文表格 `docs/thesis-case/analytical-four-comparison.md`。來源各欄位與 O1–O4 原樣保留，並說明粒度與人工對應限制。函式統計不含畫布的開始／結束節點及邊界連線。
+- 新增 `apps/composer-gui/src/thesisAovCase.test.ts`，涵蓋 exportAovGraphDraft／importAny 無損往返與零 graphErrors、Claude 全部獨立預期值、手算案例（多對多、同節點、正向／反向、間接可達、不連通與未對應）、錯誤參照、來源保留與產生檔過期檢查。
+
+產生方式：選用契約允許的 Vitest 更新模式。現有 canvasWithLayout 的匯入鏈含 Vite 模組處理，使用 Vitest 可直接共用，不需另建 Node 載入器或複製現有邏輯。一般 `npm test` 自動收錄新測試並逐字檢查兩個產生檔（允許 CRLF）；只有明確設定更新環境變數才寫檔。PowerShell 根目錄更新命令：
+
+```powershell
+$env:THESIS_CASE_UPDATE='1'
+npx.cmd vitest run --configLoader native thesisAovCase.test.ts
+Remove-Item Env:THESIS_CASE_UPDATE
+```
+
+測試結果：
+
+- 更新模式定向 Vitest：1 檔、6 測試全部通過。
+- `npm.cmd test` 的完整 Vitest：73 檔中 71 通過、2 失敗；934 測試中 928 通過、1 失敗、5 跳過。新測試 6 項與一般模式的產生檔同步檢查均通過。
+- `evaluator.test.ts` 的打包測試受 esbuild `Cannot read directory "../..": Access is denied`／無法解析 evaluator 入口影響，4 項未執行。
+- `security.test.mjs` 的 CLI 測試讀取暫存私鑰遇 EPERM，清理暫存目錄也遇 EPERM；未修改既有測試或繞過限制。既有另 1 項跳過保持原狀。
+- `npm.cmd run typecheck` 通過；`git diff --check` 通過（新檔另已由 Vitest 與 TypeScript 檢查）。
+
+未完成的驗證與原因：`npm test` 因 Vitest 非零退出，其後串接的 preview、libs/case-store、services/case-store 測試未執行；本次未觸及這些模組。未啟動瀏覽器手動載入，已直接測試獨立畫布使用的 importAny 與 graphErrors。完整測試需在無上述沙箱限制的環境補驗。
+
+本次檔案範圍：上述兩個新 TypeScript 檔、兩個指定產生檔、本 thread 的批二 Codex Notes，以及 mailbox index 狀態摘要。唯讀來源 JSON、Kit workflow、既有程式與測試、依賴、UI 均未修改；沒有 git 寫入。既有未追蹤 `Claude outputs/` 未動。沒有做速度前後比較、真實 LLM 或人的操作時間量測。
+
+### Claude Review（批二）
+
+2026-11-10 Claude：已驗收。
+
+- 預期值：比較文件的數字與我獨立算的預期值完全一致（39 節點、24 個不重複函式、13 個被對應的 Kit 節點、10 個 Kit 新增環節、使用前 0 個無對應、2 筆順序差異）。
+- 驗證（沙箱外）：`npm run typecheck` 乾淨；GUI 73 檔、933 通過、1 略過（既有）；preview 38、案例庫 8 與其餘串接測試通過。沙箱限制造成的 evaluator 與 security 失敗在沙箱外不存在。
+- Chrome：在獨立畫布載入 `analytical-four-before.aov.json`，顯示「流程匯入成功」、無錯誤；三個生產邏輯都列出；開啟客訴模式，畫布有 22 個節點（20 個函式加開始與結束）、21 條連線，與資料一致。下方「設定檢查」顯示「尚不能轉成專案」：因為這些節點是業務節點、沒有領料／入庫／出庫的物料流設定，屬預期，已知限制（使用前的 AoV 只描述流程，不能轉成專案檔）。
+- 已知限制：流程是一條長鏈，畫布縮放後節點很小；對應關係（kitNodes）是人工判斷，需 user 複核；實際載入走的是 Vite 的 `/@fs` 路徑與 DataTransfer 注入，未點擊真實檔案選擇器。

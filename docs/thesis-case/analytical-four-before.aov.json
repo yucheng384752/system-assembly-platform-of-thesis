@@ -1,0 +1,936 @@
+{
+  "format": "composer-aov-list",
+  "version": 5,
+  "factories": [
+    {
+      "id": "daily",
+      "name": "Analytical-Four 原專案",
+      "logicGraphIds": [
+        "daily",
+        "complain",
+        "feedback"
+      ]
+    }
+  ],
+  "graphs": [
+    {
+      "id": "daily",
+      "name": "每日模式（設定 mode = daily）",
+      "nodes": [
+        {
+          "id": "daily-start",
+          "kind": "start",
+          "name": "開始",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "d-load-config",
+          "kind": "node",
+          "name": "載入設定檔（路徑寫死在程式裡）",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "d-read-current",
+          "kind": "node",
+          "name": "讀取待分析資料",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "d-clean",
+          "kind": "node",
+          "name": "清理資料（選欄位、去空值）",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "d-split",
+          "kind": "node",
+          "name": "依目標欄位切成待查與基準",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "d-basic",
+          "kind": "node",
+          "name": "基本統計（基準資料）",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "d-categorical",
+          "kind": "node",
+          "name": "類別統計",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "d-outliers",
+          "kind": "node",
+          "name": "基準線異常檢測",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "d-correlation",
+          "kind": "node",
+          "name": "相關係數比對",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "d-contribution",
+          "kind": "node",
+          "name": "PCA 貢獻度（SPE、T2）",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "d-importance",
+          "kind": "node",
+          "name": "特徵重要性萃取",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "d-weighted",
+          "kind": "node",
+          "name": "特徵貢獻加權計算",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "d-serialize",
+          "kind": "node",
+          "name": "診斷結果序列化成事件",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "d-topology",
+          "kind": "node",
+          "name": "製程位置對應（拓樸）",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "d-rag",
+          "kind": "node",
+          "name": "SOP 檢索（RAG）",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "d-ng-code",
+          "kind": "node",
+          "name": "不良類型診斷",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "daily-end",
+          "kind": "end",
+          "name": "結束",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        }
+      ],
+      "edges": [
+        {
+          "id": "daily-edge",
+          "from": "d-load-config",
+          "to": "d-read-current"
+        },
+        {
+          "id": "daily-edge-2",
+          "from": "d-read-current",
+          "to": "d-clean"
+        },
+        {
+          "id": "daily-edge-3",
+          "from": "d-clean",
+          "to": "d-split"
+        },
+        {
+          "id": "daily-edge-4",
+          "from": "d-split",
+          "to": "d-basic"
+        },
+        {
+          "id": "daily-edge-5",
+          "from": "d-basic",
+          "to": "d-categorical"
+        },
+        {
+          "id": "daily-edge-6",
+          "from": "d-categorical",
+          "to": "d-outliers"
+        },
+        {
+          "id": "daily-edge-7",
+          "from": "d-outliers",
+          "to": "d-correlation"
+        },
+        {
+          "id": "daily-edge-8",
+          "from": "d-correlation",
+          "to": "d-contribution"
+        },
+        {
+          "id": "daily-edge-9",
+          "from": "d-contribution",
+          "to": "d-importance"
+        },
+        {
+          "id": "daily-edge-10",
+          "from": "d-importance",
+          "to": "d-weighted"
+        },
+        {
+          "id": "daily-edge-11",
+          "from": "d-weighted",
+          "to": "d-serialize"
+        },
+        {
+          "id": "daily-edge-12",
+          "from": "d-serialize",
+          "to": "d-topology"
+        },
+        {
+          "id": "daily-edge-13",
+          "from": "d-topology",
+          "to": "d-rag"
+        },
+        {
+          "id": "daily-edge-14",
+          "from": "d-rag",
+          "to": "d-ng-code"
+        },
+        {
+          "id": "daily-edge-start",
+          "from": "daily-start",
+          "to": "d-load-config"
+        },
+        {
+          "id": "daily-edge-end",
+          "from": "d-ng-code",
+          "to": "daily-end"
+        }
+      ]
+    },
+    {
+      "id": "complain",
+      "name": "客訴模式（設定 mode = complain）",
+      "nodes": [
+        {
+          "id": "complain-start",
+          "kind": "start",
+          "name": "開始",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "c-load-config",
+          "kind": "node",
+          "name": "載入設定檔（路徑寫死在程式裡）",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "c-read-current",
+          "kind": "node",
+          "name": "讀取待分析資料",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "c-read-baseline",
+          "kind": "node",
+          "name": "讀取正常基準資料",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "c-clean",
+          "kind": "node",
+          "name": "清理資料（選欄位、去空值）",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "c-align",
+          "kind": "node",
+          "name": "基準資料欄位與待分析資料對齊",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "c-basic",
+          "kind": "node",
+          "name": "基本統計（基準資料）",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "c-categorical",
+          "kind": "node",
+          "name": "類別統計",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "c-outliers",
+          "kind": "node",
+          "name": "基準線異常檢測",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "c-correlation",
+          "kind": "node",
+          "name": "相關係數比對",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "c-contribution",
+          "kind": "node",
+          "name": "PCA 貢獻度（SPE、T2）",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "c-importance",
+          "kind": "node",
+          "name": "特徵重要性萃取",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "c-weighted",
+          "kind": "node",
+          "name": "特徵貢獻加權計算",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "c-serialize",
+          "kind": "node",
+          "name": "診斷結果序列化成事件",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "c-topology",
+          "kind": "node",
+          "name": "製程位置對應（拓樸）",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "c-rag",
+          "kind": "node",
+          "name": "SOP 檢索（RAG）",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "c-ng-code",
+          "kind": "node",
+          "name": "不良類型診斷",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "c-compile",
+          "kind": "node",
+          "name": "彙整事件",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "c-search-key",
+          "kind": "node",
+          "name": "擷取搜尋關鍵",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "c-similarity",
+          "kind": "node",
+          "name": "相似案例搜尋",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "c-llm",
+          "kind": "node",
+          "name": "AI 綜合診斷",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "complain-end",
+          "kind": "end",
+          "name": "結束",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        }
+      ],
+      "edges": [
+        {
+          "id": "complain-edge",
+          "from": "c-load-config",
+          "to": "c-read-current"
+        },
+        {
+          "id": "complain-edge-2",
+          "from": "c-read-current",
+          "to": "c-read-baseline"
+        },
+        {
+          "id": "complain-edge-3",
+          "from": "c-read-baseline",
+          "to": "c-clean"
+        },
+        {
+          "id": "complain-edge-4",
+          "from": "c-clean",
+          "to": "c-align"
+        },
+        {
+          "id": "complain-edge-5",
+          "from": "c-align",
+          "to": "c-basic"
+        },
+        {
+          "id": "complain-edge-6",
+          "from": "c-basic",
+          "to": "c-categorical"
+        },
+        {
+          "id": "complain-edge-7",
+          "from": "c-categorical",
+          "to": "c-outliers"
+        },
+        {
+          "id": "complain-edge-8",
+          "from": "c-outliers",
+          "to": "c-correlation"
+        },
+        {
+          "id": "complain-edge-9",
+          "from": "c-correlation",
+          "to": "c-contribution"
+        },
+        {
+          "id": "complain-edge-10",
+          "from": "c-contribution",
+          "to": "c-importance"
+        },
+        {
+          "id": "complain-edge-11",
+          "from": "c-importance",
+          "to": "c-weighted"
+        },
+        {
+          "id": "complain-edge-12",
+          "from": "c-weighted",
+          "to": "c-serialize"
+        },
+        {
+          "id": "complain-edge-13",
+          "from": "c-serialize",
+          "to": "c-topology"
+        },
+        {
+          "id": "complain-edge-14",
+          "from": "c-topology",
+          "to": "c-rag"
+        },
+        {
+          "id": "complain-edge-15",
+          "from": "c-rag",
+          "to": "c-ng-code"
+        },
+        {
+          "id": "complain-edge-16",
+          "from": "c-ng-code",
+          "to": "c-compile"
+        },
+        {
+          "id": "complain-edge-17",
+          "from": "c-compile",
+          "to": "c-search-key"
+        },
+        {
+          "id": "complain-edge-18",
+          "from": "c-search-key",
+          "to": "c-similarity"
+        },
+        {
+          "id": "complain-edge-19",
+          "from": "c-similarity",
+          "to": "c-llm"
+        },
+        {
+          "id": "complain-edge-start",
+          "from": "complain-start",
+          "to": "c-load-config"
+        },
+        {
+          "id": "complain-edge-end",
+          "from": "c-llm",
+          "to": "complain-end"
+        }
+      ]
+    },
+    {
+      "id": "feedback",
+      "name": "事後回饋（event_feedback_record，main() 不會呼叫它）",
+      "nodes": [
+        {
+          "id": "feedback-start",
+          "kind": "start",
+          "name": "開始",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "f-sort",
+          "kind": "node",
+          "name": "依回饋把診斷結果分類",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "f-stats",
+          "kind": "node",
+          "name": "統計各不良類型的特徵",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "f-compute",
+          "kind": "node",
+          "name": "計算每筆案例的錯誤分析",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "f-index",
+          "kind": "node",
+          "name": "把結果寫入案例索引",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        },
+        {
+          "id": "feedback-end",
+          "kind": "end",
+          "name": "結束",
+          "when": "",
+          "owner": "",
+          "actionId": null,
+          "params": {},
+          "formId": null,
+          "childGraphId": null
+        }
+      ],
+      "edges": [
+        {
+          "id": "feedback-edge",
+          "from": "f-sort",
+          "to": "f-stats"
+        },
+        {
+          "id": "feedback-edge-2",
+          "from": "f-stats",
+          "to": "f-compute"
+        },
+        {
+          "id": "feedback-edge-3",
+          "from": "f-compute",
+          "to": "f-index"
+        },
+        {
+          "id": "feedback-edge-start",
+          "from": "feedback-start",
+          "to": "f-sort"
+        },
+        {
+          "id": "feedback-edge-end",
+          "from": "f-index",
+          "to": "feedback-end"
+        }
+      ]
+    }
+  ],
+  "layout": {
+    "daily": {
+      "daily-start": {
+        "x": 0,
+        "y": 0
+      },
+      "d-load-config": {
+        "x": 100,
+        "y": 0
+      },
+      "d-read-current": {
+        "x": 200,
+        "y": 0
+      },
+      "d-clean": {
+        "x": 300,
+        "y": 0
+      },
+      "d-split": {
+        "x": 400,
+        "y": 0
+      },
+      "d-basic": {
+        "x": 500,
+        "y": 0
+      },
+      "d-categorical": {
+        "x": 600,
+        "y": 0
+      },
+      "d-outliers": {
+        "x": 700,
+        "y": 0
+      },
+      "d-correlation": {
+        "x": 800,
+        "y": 0
+      },
+      "d-contribution": {
+        "x": 900,
+        "y": 0
+      },
+      "d-importance": {
+        "x": 1000,
+        "y": 0
+      },
+      "d-weighted": {
+        "x": 1100,
+        "y": 0
+      },
+      "d-serialize": {
+        "x": 1200,
+        "y": 0
+      },
+      "d-topology": {
+        "x": 1300,
+        "y": 0
+      },
+      "d-rag": {
+        "x": 1400,
+        "y": 0
+      },
+      "d-ng-code": {
+        "x": 1500,
+        "y": 0
+      },
+      "daily-end": {
+        "x": 1600,
+        "y": 0
+      }
+    },
+    "complain": {
+      "complain-start": {
+        "x": 0,
+        "y": 0
+      },
+      "c-load-config": {
+        "x": 100,
+        "y": 0
+      },
+      "c-read-current": {
+        "x": 200,
+        "y": 0
+      },
+      "c-read-baseline": {
+        "x": 300,
+        "y": 0
+      },
+      "c-clean": {
+        "x": 400,
+        "y": 0
+      },
+      "c-align": {
+        "x": 500,
+        "y": 0
+      },
+      "c-basic": {
+        "x": 600,
+        "y": 0
+      },
+      "c-categorical": {
+        "x": 700,
+        "y": 0
+      },
+      "c-outliers": {
+        "x": 800,
+        "y": 0
+      },
+      "c-correlation": {
+        "x": 900,
+        "y": 0
+      },
+      "c-contribution": {
+        "x": 1000,
+        "y": 0
+      },
+      "c-importance": {
+        "x": 1100,
+        "y": 0
+      },
+      "c-weighted": {
+        "x": 1200,
+        "y": 0
+      },
+      "c-serialize": {
+        "x": 1300,
+        "y": 0
+      },
+      "c-topology": {
+        "x": 1400,
+        "y": 0
+      },
+      "c-rag": {
+        "x": 1500,
+        "y": 0
+      },
+      "c-ng-code": {
+        "x": 1600,
+        "y": 0
+      },
+      "c-compile": {
+        "x": 1700,
+        "y": 0
+      },
+      "c-search-key": {
+        "x": 1800,
+        "y": 0
+      },
+      "c-similarity": {
+        "x": 1900,
+        "y": 0
+      },
+      "c-llm": {
+        "x": 2000,
+        "y": 0
+      },
+      "complain-end": {
+        "x": 2100,
+        "y": 0
+      }
+    },
+    "feedback": {
+      "feedback-start": {
+        "x": 0,
+        "y": 0
+      },
+      "f-sort": {
+        "x": 100,
+        "y": 0
+      },
+      "f-stats": {
+        "x": 200,
+        "y": 0
+      },
+      "f-compute": {
+        "x": 300,
+        "y": 0
+      },
+      "f-index": {
+        "x": 400,
+        "y": 0
+      },
+      "feedback-end": {
+        "x": 500,
+        "y": 0
+      }
+    }
+  },
+  "forms": [],
+  "relations": []
+}
