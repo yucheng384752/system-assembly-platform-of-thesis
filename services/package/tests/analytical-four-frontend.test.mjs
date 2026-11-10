@@ -90,3 +90,57 @@ test('language-dependent details come from the labels, so the English page does 
     }
   }
 });
+
+/** The names inside `params={...}` of each `key='...'`, found by walking the Python source and skipping quoted text. */
+function findingKeys(source) {
+  const found = new Map();
+  for (const match of source.matchAll(/key='([^']+)'/g)) {
+    const names = [];
+    const after = source.slice(match.index + match[0].length);
+    if (/^,\s*params=/.test(after)) {
+      const body = after.slice(after.indexOf('{'));
+      let depth = 0;
+      for (let i = 0; i < body.length; i++) {
+        const c = body[i];
+        if (c === "'" || c === '"') {
+          let j = i + 1;
+          while (j < body.length && body[j] !== c) j++;
+          const word = body.slice(i + 1, j);
+          if (depth === 1 && /^[A-Za-z_]\w*$/.test(word) && /^\s*:/.test(body.slice(j + 1))) names.push(word);
+          i = j;
+          continue;
+        }
+        if ('{[('.includes(c)) depth++;
+        if ('}])'.includes(c)) {
+          depth--;
+          if (depth === 0) break;
+        }
+      }
+    }
+    found.set(match[1], names);
+  }
+  return found;
+}
+
+test('every report sentence the server keys has an English sentence with the same blanks, and none is left over', async () => {
+  const app = path.join(kit, 'src/backend/app/analytical_four');
+  const keys = new Map();
+  for (const name of ['data_checks.py', 'format_checks.py']) for (const [key, names] of findingKeys(await readFile(path.join(app, name), 'utf8'))) keys.set(key, names);
+  const labels = await readFile(path.join(kit, 'src/frontend/src/components/analyticalFour/labels.ts'), 'utf8');
+  const english = labels.slice(labels.indexOf('const en: Labels'));
+  const table = (name) => { const block = english.slice(english.indexOf(`${name}: {`)); return new Map([...block.slice(0, block.indexOf('} as Record')).matchAll(/^\s+"([^"]+)": "((?:[^"\\]|\\.)*)",$/gm)].map(m => [m[1], m[2]])); };
+  const findings = table('findings');
+  assert.ok(keys.size > 50, `found only ${keys.size} keys in the server code`);
+  for (const [key, names] of keys) {
+    const sentence = findings.get(key);
+    assert.ok(sentence, `no English sentence for ${key}`);
+    const blanks = [...sentence.matchAll(/\{(\w+)\}/g)].map(m => m[1]);
+    assert.deepEqual([...new Set(blanks)].sort(), [...names].sort(), `${key}: the sentence's blanks and the server's params differ`);
+  }
+  for (const key of findings.keys()) assert.ok(keys.has(key), `${key} has an English sentence but the server never sends it`);
+  const checks = await readFile(path.join(app, 'format_checks.py'), 'utf8');
+  const terms = table('terms'); const problems = table('problems');
+  for (const m of checks.matchAll(/Term\('([^']+)'/g)) assert.ok(terms.has(m[1]), `no English term for ${m[1]}`);
+  for (const m of (await readFile(path.join(app, 'data_checks.py'), 'utf8')).matchAll(/Term\('([^']+)'/g)) assert.ok(terms.has(m[1]), `no English term for ${m[1]}`);
+  for (const m of checks.matchAll(/(?:Problem\(f'[^']*', |need\([^\n]*, )'([a-z-]+)'/g)) assert.ok(problems.has(m[1]), `no English problem text for ${m[1]}`);
+});

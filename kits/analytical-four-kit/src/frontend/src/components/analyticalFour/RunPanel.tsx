@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type Run } from "../../services/analyticalFour";
-import { Notice, Section, errorText, formatTime, stateLabel } from "./Common";
+import { Notice, Section, errorText, findingText, formatTime, stateLabel } from "./Common";
 import { useLabels } from "./labels";
 
 const MAX_SHOWN = 20000;
@@ -147,7 +147,7 @@ export function RunPanel() {
               <ul>
                 {selected.warnings.map((item, index) => (
                   <li key={index}>
-                    <span className="a4-code">{item.code}</span> {item.message}
+                    <span className="a4-code">{item.code}</span> {findingText(item, L)}
                   </li>
                 ))}
               </ul>

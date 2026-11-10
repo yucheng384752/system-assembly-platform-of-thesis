@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ApiError, type Finding, type Report } from "../../services/analyticalFour";
+import { ApiError, type Finding, type Param, type Report } from "../../services/analyticalFour";
 import type { Labels } from "./labels";
 
 /** The words a person should see for a failed call: the server's own explanation when it gave one. */
@@ -11,6 +11,30 @@ export function errorText(error: unknown, L: Labels): string {
     return error.message ? `${error.message}` : `${L.common.error} (${error.status})`;
   }
   return L.common.error;
+}
+
+function paramText(value: Param | undefined, L: Labels): string {
+  if (Array.isArray(value)) return value.map((item) => paramText(item, L)).join(L.list);
+  if (value && typeof value === "object") {
+    if ("term" in value) return L.terms[String(value.term)] ?? String(value.term);
+    if ("items" in value && Array.isArray(value.items)) {
+      const shown = paramText(value.items, L);
+      const total = Number(value.total ?? value.items.length);
+      return total > value.items.length ? shown + L.more.replace("{total}", String(total)) : shown;
+    }
+    if ("key" in value) return fill(L.problems[String(value.key)] ?? String(value.key), (value.params ?? {}) as Record<string, Param>, L);
+  }
+  return value === null || value === undefined ? "" : String(value);
+}
+
+function fill(template: string, params: Record<string, Param>, L: Labels): string {
+  return template.replace(/\{(\w+)\}/g, (whole, name: string) => (name in params ? paramText(params[name], L) : whole));
+}
+
+/** A report sentence in the page's language; without a table entry for its key it is the server's own (Chinese) sentence. */
+export function findingText(item: Finding, L: Labels): string {
+  const template = item.key ? L.findings[item.key] : undefined;
+  return template && item.params ? fill(template, item.params, L) : item.message;
 }
 
 export function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
@@ -42,7 +66,7 @@ function FindingList({ title, items, kind, L }: { title: string; items: Finding[
       <ul>
         {items.map((item, index) => (
           <li key={`${item.code}-${index}`}>
-            <span className="a4-code">{item.code}</span> {item.message}
+            <span className="a4-code">{item.code}</span> {findingText(item, L)}
           </li>
         ))}
       </ul>
