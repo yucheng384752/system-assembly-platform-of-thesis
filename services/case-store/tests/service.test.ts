@@ -163,4 +163,15 @@ describe('批二服務', () => {
     expect(hostile).toBe(403);
     expect((await call('GET', '/nope')).status).toBe(404);
   });
+
+  // Any page the user opens can send a GET to the loopback port; one malformed path must not end the process for everyone.
+  it('畸形路徑回 400，服務繼續回應', async () => {
+    const { call } = await start();
+    for (const path of ['//', '/cases/%zz/versions']) {
+      const res = await call('GET', path);
+      expect(res.status).toBe(400);
+      expect(as<Failure>(res).errors[0].code).toBe('E-INVALID-INPUT');
+    }
+    expect((await call('GET', '/cases')).status).toBe(200);
+  });
 });

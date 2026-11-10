@@ -20,7 +20,8 @@ const str = (value: unknown): string => (typeof value === 'string' ? value : '')
 const combo = (value: unknown): string[] => (Array.isArray(value) ? value.map(str) : []);
 
 export async function handle(store: CaseStore, { method, path, body }: ApiRequest): Promise<ApiResponse> {
-  const parts = path.split('/').filter(Boolean).map(decodeURIComponent);
+  let parts: string[];
+  try { parts = path.split('/').filter(Boolean).map(decodeURIComponent); } catch { return bad('請求路徑不合法。'); }
   const b = fields(body);
   const [head, a, tail, c] = parts;
 
