@@ -407,6 +407,6 @@ discardedAt, discardedBy
 
 - **參數的形狀：** 一般值是字串或數字；固定的名詞用 `{"term": "baseline-data"}`；例子清單用 `{"items": [...], "total": N}`（頁面顯示前幾個並接「（共 N 個）」）；案例紀錄的問題用 `{"key": "event-id", "params": {...}}`。
 - **頁面怎麼用：** 英文介面用 `key` 在 `labels.ts` 的 `findings` 表找英文句子，把 `{名稱}` 換成 `params` 的值；找不到 `key`（或沒有 `key`）就顯示 `message`，所以中文介面不變，也不會因為少一句翻譯而空白。翻譯放在 Kit 自己的 `labels.ts`，不放進共用的 locale 檔，Kit 才能獨立拿掉。
-- **範圍：** 只做驗證報告（資料檢查 `data_checks.py` 與格式檢查 `format_checks.py`，共 63 句，每句一個 `key`）。沒有做：HTTP 錯誤訊息（`detail`）、分析階段與就緒說明、範本說明；這些在英文介面仍是中文。`config` 這一句的文字來自 `settings.py` 的錯誤，也沒有 `key`。
+- **範圍：** 只做驗證報告（資料檢查 `data_checks.py` 與格式檢查 `format_checks.py`，共 65 句，每句一個 `key`）。沒有做：HTTP 錯誤訊息（`detail`）、分析階段與就緒說明、範本說明；這些在英文介面仍是中文。`config` 這一句的文字來自 `settings.py` 的錯誤，也沒有 `key`。
 - **防止漂移：** pytest 用 AST 檢查每個 `Finding(...)` 都有 `key`（例外只有上述 `config`）、`key` 不重複，並檢查資料檢查路由實際送出的 `key` 與 `params`；套件測試檢查每個 `key` 都有英文句子、句子裡的 `{名稱}` 與伺服器送的 `params` 名稱完全相同、沒有多餘的英文句子，並檢查名詞與案例問題的翻譯齊全。刻意改壞一個名稱時測試會失敗。
 - **驗證：** Kit pytest 143、套件測試 74、嚴格型別檢查與建置通過；在本機測試殼層用瀏覽器看到同一筆錯誤在中文是原句、英文是 "In the normal baseline data, the numeric column ..."，案例檔問題（名詞加問題的巢狀）也正確。沒有在虛擬機重跑，因為只多了回應欄位；下次裝到虛擬機時順便確認。
