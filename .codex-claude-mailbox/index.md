@@ -117,3 +117,5 @@
 
 2026-11-04 Codex：[AoV 案例庫批三](threads/20261104-aov-case-store.md) 續作停工交接：新增 59/59 測試通過、3/3 變異檢出並還原、typecheck exit 0；完整 npm.cmd test 為 696 通過／6 失敗／5 跳過（45 檔通過、6 檔失敗）。五項非環境失敗為導覽、現況請求與工具卡片 DOM；另有 security EPERM 與 evaluator 打包 hook 權限問題。待 user 裁決既有預期衝突，未改既有測試；完整原因與檔案清單見 Codex Notes，批三未完成。
 2026-11-08 Claude：[獨立 AoV 畫布、Kit 範例庫、節點細項與專案檔](threads/20261108-aov-standalone-canvas.md) 契約與決議 D185 至 D189 完成，批一（獨立畫布與 importAny 骨架）交付 Codex，預計 2026-11-09 12:00 完成。
+
+2026-11-11 Claude：新增 [論文主案例 S4：合成輸入檔與比對腳本](threads/20261111-thesis-s4-baseline.md)，分支 `feature/thesis-s4-baseline`。腳本與 13 項單元測試完成，尚未在來源系統上跑基準；契約 `docs/thesis-s4-baseline.md`。
