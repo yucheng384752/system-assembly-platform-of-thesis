@@ -7,7 +7,7 @@
 
 ## 0. 凍結聲明
 
-- 本文件第 2 節（來源步驟清單）與第 3 節（權限表）在 user 確認第 5 節的待決事項後凍結。凍結後不得為了讓 S1、S4、S5 通過而修改；若發現讀錯來源，只能在第 6 節「修訂紀錄」追加更正，寫明原因與發現日期，原內容保留。
+- **已凍結（2026-11-11）。** 第 5 節的待決事項 user 已全部回答，第 2 節（來源步驟清單）與第 3 節（權限表、連續失敗的阻擋）自本提交起凍結。凍結範圍：S1 比對 52 個步驟（P0、L1 至 L7、U1 至 U18、Q1 至 Q8、A1 至 A6、M1 至 M9、X1 至 X3）；權限表 21 列 × 5 種身分；連續失敗情境 T1 至 T10。凍結後不得為了讓 S1、S4、S5 通過而修改；若發現讀錯來源，只能在第 6 節「修訂紀錄」追加更正，寫明原因與發現日期，原內容保留。
 - 來源：`C:\Users\gslab\Desktop\Form-analysis-server-specify-kit`，commit `362cc7cdd6253b01886e75f9ad3ab273950ad7a7`（2026-06-07）。工作樹另有一處未提交修改（`backend/app/services/validation.py`，把共用的驗證服務實例改成每次呼叫新建，並搬動一行 import），本文件沒有讀它，列出的步驟都不經過它的差異。
 - 讀取範圍：只讀流程文件與程式碼。沒有讀 `.env`、`.env.*`、`uploads/`、`test-data/`、任何 CSV 或資料檔，也沒有執行來源系統。下文所有「行為」都是讀程式碼得到的推論，第 4.5 節第 3 步在來源系統上實跑時要逐項確認。
 - 判讀原則：流程文件與程式碼不一致時，以程式碼為準（handoff 第 4.3 節）。不一致處列在第 4 節。
@@ -24,7 +24,8 @@
 | `ADMIN_API_KEYS` | 空 | 管理者金鑰；空時所有「需要管理者金鑰」的操作都拒絕 | `be/core/config.py` 第 152 行 |
 | `MULTI_TENANT_ENABLED` | `false` | 開啟時舊版匯入端點回 410 | `be/core/config.py` 第 105 行 |
 | `PDF_SERVER_URL` | 空 | 空時觸發轉檔回 503 | `be/core/config.py` 第 53 行、`be/api/routes_upload.py` 第 1186 行 |
-| `USE_GENERIC_SCHEMA` | `false` | 關閉時不掛載站點管理路由 | `be/main.py` 第 645 行 |
+| `USE_GENERIC_SCHEMA` | `false`；**基準執行設為 `true`**（user 2026-11-11：來源實際部署時開啟） | 開啟時掛載站點設定路由（M7、M8），啟動時寫入預設站點定義。讀程式碼所見，這個開關不影響上傳、查詢、分析的行為（`GenericValidator`、`SchemaService` 只被站點路由使用） | `be/main.py` 第 166 至 174、645 行 |
+| `AUDIT_EVENTS_ENABLED` | `false`；**基準執行設為 `true`**（M9 要比，關閉時查到的是空清單） | 開啟時寫入稽核事件 | `be/core/config.py` 第 227 行、`be/services/audit_events.py` 第 11 行 |
 | `VITE_ENABLE_CSV_EDIT` | `true` | 關閉時上傳頁的表格唯讀 | `fe/pages/UploadPage.tsx` 第 10 行 |
 
 ## 2. 來源步驟清單（S1 的依據）
@@ -89,6 +90,17 @@ U13 至 U15 的背景處理另有兩個會影響 S4 的行為（`be/services/pdf
 | Q5 | 從 P2 紀錄依收卷機編號追溯 | 查詢結果 | `GET /api/traceability/winder/{lot_no}/{winder}` | `fe/pages/QueryPage.tsx` 第 758 行 |
 | Q6 | 修改已匯入的紀錄：可附修改原因（選填）；不得改識別碼、場域、建立與更新時間、操作者欄位（400）；修改前後內容寫入修改紀錄 | 後端有；查詢頁載入了編輯視窗但沒有地方打開它 | `GET /api/edit/reasons`、`PATCH /api/edit/records/{table_code}/{record_id}` | `be/api/routes_edit.py` 第 35、225 至 400 行；`be/schemas/audit.py` 第 38 至 55 行；`fe/pages/QueryPage.tsx` 第 158、2284 至 2289 行 |
 | Q7 | 查看某筆紀錄的修改歷史 | 後端有，畫面沒有入口 | `GET /api/edit/records/{table_code}/{record_id}/edits` | `be/api/routes_edit.py` 第 171 至 222 行 |
+| Q8 | 管理修改原因代碼：新增（代碼重複回 409）、修改、一次建立預設的原因清單 | 後端有，畫面沒有入口 | `POST /api/edit/reasons`、`PATCH /api/edit/reasons/{reason_id}`、`POST /api/edit/reasons/init` | `be/api/routes_edit.py` 第 67 至 168、406 至 470 行 |
+
+### 2.5a 供外部程式讀取的端點（X，只比權限）
+
+依 user 2026-11-11 決定，這些端點只比「未登入拒絕、登入後允許」，不比回傳內容。
+
+| 編號 | 端點 | 出處 |
+|---|---|---|
+| X1 | `GET /api/v2/analytics/flatten`、`/api/v2/analytics/flatten/monthly`、`/api/v2/analytics/health` | `be/api/routes_analytics.py` 第 95、193、269 行 |
+| X2 | `GET /api/v2/ut/flatten`、`/api/v2/ut/health` | `be/api/routes_ut.py` 第 46、122 行 |
+| X3 | `GET /api/constants/materials`、`/slitting-machines`、`/slitting-machines/{machine_number}`、`/all` | `be/api/constants.py` 第 21 至 103 行 |
 
 ### 2.5 分析（A）
 
@@ -111,6 +123,9 @@ U13 至 U15 的背景處理另有兩個會影響 S4 的行為（`be/services/pdf
 | M4 | 刪除使用者（實為停用）；同樣不得移除最後一位Manager | 同上 | `DELETE /api/auth/users/{user_id}` | `fe/pages/ManagerPage.tsx` 第 204 行；`be/api/routes_auth.py` 第 795 行 |
 | M5 | 重設他人密碼：產生或指定暫時密碼，對方權杖全部失效；不能用來重設自己的密碼（400）。重設後對方被標記為須改密碼，這部分不比（第 5 節 Q2） | 後端有，「場域管理」頁籤沒有按鈕 | `POST /api/auth/users/{user_id}/password-reset` | `be/api/routes_auth.py` 第 1393 至 1479 行 |
 | M6 | 檢視、搜尋、下載系統日誌，清理舊日誌 | 「Developer Logs」頁籤 | `GET /api/logs/{files,view,stats,search,download}`、`DELETE /api/logs/cleanup` | `fe/App.tsx` 第 40、154 行；`be/api/routes_logs.py` 第 25 至 375 行 |
+| M7 | 讀取站點設定：站點清單、站點的欄位定義、驗證規則、分析對應、站點關聯、依批號的站點追溯鏈 | 「管理者」頁籤的站點、驗證規則、分析對應、站點關聯四個子頁籤 | `GET /api/stations`、`/api/stations/{code}/schema`、`/schema/fields`、`/validation-rules`、`/analytics-mapping`、`/api/stations/links`、`/api/stations/traceability/{lot_no_norm}` | `be/api/routes_stations.py` 第 105 至 315 行；`fe/pages/AdminPage.tsx` 第 559 至 584 行；`fe/services/stationApi.ts` |
+| M8 | 修改站點設定：站點的新增、修改、刪除；欄位定義的更新；驗證規則、分析對應、站點關聯的新增、修改、刪除 | 同 M7 | `POST/PUT/DELETE /api/stations*`（共 13 個寫入端點） | `be/api/routes_stations.py` 第 24 至 33、316 至 660 行 |
+| M9 | 查詢本場域的稽核事件，可依動作篩選、分頁（最多 500 筆） | 後端有，畫面沒有入口 | `GET /api/audit-events` | `be/api/routes_audit_events.py` 第 19 至 36 行 |
 
 ### 2.7 刻意不納入的步驟
 
@@ -120,6 +135,12 @@ U13 至 U15 的背景處理另有兩個會影響 S4 的行為（`be/services/pdf
 | 跨租戶彙總（`dev-guides/GM_CROSS_TENANT_SUMMARY_MVP.md`）、`GET /api/admin/audit-events` 跨場域查詢 | U7 排除 | 同左 |
 | PDF 轉檔品質與真實轉檔服務 | handoff 第 4.3 節：兩邊接同一個假服務，S4 不比轉檔品質 | `dev-guides/PDF_TO_V2_IMPORT_SPEC.md` |
 | P1「須改密碼的帳號只能做三件事」 | user 2026-11-11 決定「須改密碼」不比；步驟與權限表的該欄一併不納入 | `be/main.py` 第 419 至 439 行 |
+| 場域的建立、列表、修改、停用（`/api/tenants*`） | user 2026-11-11 決定不比：產出系統依 D03 只有一個場域 | `be/api/routes_tenants.py` |
+| 把使用者移到別的場域（`PATCH /api/auth/users/{id}/tenant`） | user 2026-11-11 依建議不比：需要兩個以上場域，屬 U7 排除的跨場域範圍 | `be/api/routes_auth.py` 第 904 行 |
+| 代場域發整合用金鑰（`POST /api/auth/admin/tenant-api-keys`） | user 2026-11-11 依建議不比：屬 U10 刻意差異的權杖形式 | `be/api/routes_auth.py` 第 1051 行 |
+| 預設 Manager 帳號檢查（`GET /api/auth/bootstrap/manager-status`） | user 2026-11-11 依建議不比：安裝與初始化屬產品線 | `be/api/routes_auth.py` 第 323 行 |
+| 健康檢查（`/healthz*`） | user 2026-11-11 決定不比：維運用途 | `be/api/routes_health.py` |
+| X1 至 X3 的回傳內容 | user 2026-11-11 依建議只比權限 | 見 2.5a |
 | 轉檔完成後背景自動建立的上傳工作（狀態 PENDING，不驗證） | 寫入舊版的上傳工作表，畫面不讀取，使用者觀察不到 | `be/services/pdf_conversion.py` 第 301 至 375、528 至 543 行 |
 
 其餘待 user 決定是否納入的項目，見第 5 節。
@@ -149,8 +170,6 @@ U13 至 U15 的背景處理另有兩個會影響 S4 的行為（`be/services/pdf
 
 格子內容是後端的結果：「允許」或「拒絕（狀態碼）」。後端的判斷才是 S4、S5 比對的對象；畫面是否顯示該頁籤列在 3.3。依 user 2026-11-11 的決定，比對五種身分：未登入、User、Manager、金鑰+帳號、只有金鑰。「須改密碼」不比，來源行為記在表後。
 
-標「建議」的列是第 5 節 Q5 的建議納入項，user 確認前不算凍結內容。
-
 | 操作 | 對應步驟 | 未登入 | User | Manager | 金鑰+帳號 | 只有金鑰 |
 |---|---|---|---|---|---|---|
 | 登入 | L1 | 允許 | 允許 | 允許 | 允許 | 允許 |
@@ -169,9 +188,11 @@ U13 至 U15 的背景處理另有兩個會影響 S4 的行為（`be/services/pdf
 | 刪除（停用）使用者 | M4 | 拒絕（401） | 拒絕（403） | 允許；同 M3 限制 | 同 M3 | 同 M3 |
 | 重設他人密碼 | M5 | 拒絕（401） | 拒絕（403） | 允許；不能重設自己（400） | 允許 | 允許 |
 | 系統日誌 | M6 | 拒絕（401） | 拒絕（403） | 允許 | 允許 | 拒絕（401） |
-| 建議：場域內稽核事件查詢 | R5 | 拒絕（401） | 允許 | 允許 | 允許 | 拒絕（401） |
-| 建議：修改原因代碼的新增、修改、初始化 | R6 | 拒絕（401） | 允許 | 允許 | 允許 | 拒絕（401） |
-| 建議：外部讀取端點（攤平資料、UT、系統常數） | R8 | 拒絕（401） | 允許 | 允許 | 允許 | 拒絕（401） |
+| 讀取站點設定 | M7 | 拒絕（401） | 允許 | 允許 | 允許 | 拒絕（401） |
+| 修改站點設定 | M8 | 拒絕（401） | 拒絕（403） | 拒絕（403） | 允許 | 拒絕（401） |
+| 場域內稽核事件查詢 | M9 | 拒絕（401） | 允許 | 允許 | 允許 | 拒絕（401） |
+| 修改原因代碼的新增、修改、初始化 | Q8 | 拒絕（401） | 允許 | 允許 | 允許 | 拒絕（401） |
+| 外部讀取端點（只比權限） | X1 至 X3 | 拒絕（401） | 允許 | 允許 | 允許 | 拒絕（401） |
 
 不比、只留作紀錄的「須改密碼」行為：登入、查看目前身分、自己改密碼、解鎖管理者頁籤照常允許；其餘上表各列一律拒絕（403 `Password change required`）。
 
@@ -181,6 +202,8 @@ U13 至 U15 的背景處理另有兩個會影響 S4 的行為（`be/services/pdf
 - 上傳、查詢、分析：路由只掛場域依賴（`be/main.py` 第 540 至 642 行，`be/api/deps.py`），沒有角色檢查，User 與 Manager 相同。
 - 管理：`be/api/routes_auth.py` 第 149 至 152 行（只有 manager 算場域內特權）、第 727 至 742、846 至 859 行（最後一位Manager）、第 1448 至 1454 行（不能重設自己）。
 - 日誌：`be/api/routes_logs.py` 第 25 至 34 行。
+- 站點設定：讀取路由只掛場域依賴；寫入另呼叫 `_require_admin`，只認管理者金鑰（`be/api/routes_stations.py` 第 24 至 33 行），而 `/api/stations` 不在只有金鑰的放行清單內，所以寫入必須「金鑰+帳號」。
+- 稽核事件、修改原因代碼、外部讀取端點：只掛場域依賴，沒有角色檢查。
 - 須改密碼：`be/main.py` 第 419 至 439 行；解鎖頁籤用的 `bootstrap-status` 在允許清單內。
 
 ### 3.3 畫面上的頁籤（不是權限，記錄供 S2 參考）
@@ -237,7 +260,7 @@ U13 至 U15 的背景處理另有兩個會影響 S4 的行為（`be/services/pdf
 
 `handoff-product-and-thesis.md` 第 4.3 節寫「去重以 PDF 的 sha256 判斷」，引用的是上表第二列的規格文件；依程式碼應更正為 CSV 內容。本分支不改 handoff 文件，由 user 決定是否更正。
 
-## 5. 凍結前待 user 決定的事項
+## 5. 凍結前的決定紀錄
 
 以下每一項都會影響 S1 的分母或權限表的欄數。
 
@@ -256,9 +279,7 @@ U13 至 U15 的背景處理另有兩個會影響 S4 的行為（`be/services/pdf
   | 依來源位址的請求頻率限制 | 沒有 | 沒有（`services/` 下的 nginx 樣板沒有 `limit_req`） |
 
   出處：來源 `be/api/routes_auth.py` 第 219 至 278 行；本專案 `kits/entry-permission-kit/src/backend/app/entry_permission/lockout.py`、`src/backend/app/api/routes_ep_auth.py` 第 25 至 73 行（自 75b349c，D127 起就有）。基線版的組裝產出（`dist/` 與 `generated/` 下的 `routes_auth.py`）搜得到相同的限流程式片段，沒有逐行比對。`handoff-product-and-thesis.md` 第 5.2 節 L2 寫「登入沒有鎖定」，與 main 現況不符，帳號鎖定已存在；缺的是依來源位址的限流與密碼政策。
-尚未決定：
-
-- Q5 下列後端功能還沒列入來源步驟清單。Q3 的決定（後端有的都要比）字面上也涵蓋它們，但其中幾項與 U7、D03 衝突，所以逐項列出。user 已表示 R1、R9 可以不比；R2 至 R8 的建議見表後：
+- Q5 user 決定 R1、R9 不比，R2 至 R8 依下方建議，R7 的站點設定開啟（來源實際部署時開啟）。結果：R5 列為 M9、R6 列為 Q8、R7 列為 M7 與 M8、R8 列為 X1 至 X3（只比權限）；R1 至 R4、R9 列入 2.7。以下保留當時的說明與建議：
 
   | 項目 | 做什麼 | 端點 | 誰能用（後端） | 畫面入口 | 與既有決定的關係 |
   |---|---|---|---|---|---|
@@ -274,7 +295,7 @@ U13 至 U15 的背景處理另有兩個會影響 S4 的行為（`be/services/pdf
 
   出處：`be/api/routes_tenants.py`、`be/api/routes_auth.py` 第 323、904、1051 行、`be/api/routes_audit_events.py` 第 19 行、`be/services/audit_events.py` 第 11 行、`be/api/routes_edit.py` 第 67、119、406 行、`be/api/routes_stations.py`、`be/api/routes_analytics.py` 第 95、193、269 行、`be/api/routes_ut.py`、`be/api/constants.py`、`be/api/routes_health.py`；畫面入口依 `fe/pages/AdminPage.tsx` 第 226 至 533、559 至 584 行。
 
-  R2 至 R8 的建議（Claude 的建議，user 尚未確認）：
+  R2 至 R8 的建議（Claude 提出，user 2026-11-11 採用；R7 依 user 的回答改為「比，設定開啟」）：
 
   | 項目 | 建議 | 理由 |
   |---|---|---|
