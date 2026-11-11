@@ -27,12 +27,12 @@ it('matches every independent expected value from Claude batch 2', () => {
   expect(result.before.map(row => [row.nodes, row.edges])).toEqual([[15, 14], [20, 19], [4, 3]]);
   expect(result.totalNodes).toBe(39);
   expect(result.uniqueFunctions).toBe(24);
-  expect(result.after).toEqual({ nodes: 23, edges: 22 });
+  expect(result.after).toEqual({ nodes: 22, edges: 23 });
   const counts = { configure: 2, 'read-data': 7, descriptive: 6, diagnostic: 10, topology: 2, rag: 2, 'ng-code': 2, compile: 1, 'search-key': 1, similarity: 1, llm: 1, 'submit-feedback': 3, 'publish-library': 1 };
   expect(Object.fromEntries(result.granularity.filter(node => node.nodeCount).map(node => [node.id, node.nodeCount]))).toEqual(counts);
   expect(Object.fromEntries(result.granularity.filter(node => node.nodeCount).map(node => [node.id, node.functionCount])))
     .toEqual({ ...Object.fromEntries(Object.keys(counts).map(id => [id, 1])), 'read-data': 4, descriptive: 3, diagnostic: 5, 'submit-feedback': 3 });
-  expect(result.unmappedKit.sort()).toEqual(['accept-upload', 'approve-feedback', 'check-data', 'check-ready', 'get-templates', 'load-demo', 'start-run', 'upload-files', 'view-results', 'view-run']);
+  expect(result.unmappedKit.sort()).toEqual(['accept-upload', 'approve-feedback', 'check-data', 'check-ready', 'get-templates', 'start-run', 'upload-files', 'view-results', 'view-run']);
   expect(result.unmappedOriginal).toEqual([]);
   expect(result.orderDifferences).toEqual([
     { logicId: 'daily', from: 'd-rag', to: 'd-ng-code', kitFrom: 'rag', kitTo: 'ng-code' },

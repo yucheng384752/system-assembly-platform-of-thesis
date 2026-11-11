@@ -16,7 +16,7 @@
 
 | 使用後 | 節點數 | 連線數 |
 | --- | --- | --- |
-| Kit | 23 | 22 |
+| Kit | 22 | 23 |
 
 ## 節點對應
 
@@ -66,7 +66,6 @@
 
 | Kit 節點 | 名稱 | 對應的使用前節點數 | 不重複函式數 |
 | --- | --- | --- | --- |
-| load-demo | 載入示範資料 | 0 | 0 |
 | get-templates | 下載範本與需求表 | 0 | 0 |
 | upload-files | 上傳資料與設定檔並看驗證報告 | 0 | 0 |
 | accept-upload | 接受或丟棄上傳的檔案 | 0 | 0 |
@@ -94,7 +93,7 @@
 
 | 分類 | 節點 |
 | --- | --- |
-| Kit 新增的環節 | load-demo、get-templates、upload-files、accept-upload、check-ready、check-data、start-run、view-run、view-results、approve-feedback |
+| Kit 新增的環節 | get-templates、upload-files、accept-upload、check-ready、check-data、start-run、view-run、view-results、approve-feedback |
 | 使用前沒有對應 | 無 |
 
 ## 順序差異

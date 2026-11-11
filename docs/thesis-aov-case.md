@@ -15,12 +15,12 @@
 ## 2. 名詞
 
 - 使用前：獨立專案 Analytical-Four（作者 ZHAO-XIAN，`C:\Users\gslab\Desktop\Analytical-Four`，commit f49cfd3），唯讀。流程依其 `README.md` 第 4 節與 `main.py`。
-- 使用後：`kits/analytical-four-kit/workflow.aov.json`（23 個節點、22 條連線）與 Kit 的 API。
+- 使用後：`kits/analytical-four-kit/workflow.aov.json`（22 個節點、23 條連線；2026-11-12 併入 D199 的流程修改後更新，D205）與 Kit 的 API。
 - 系統回應時間：從送出請求到系統回應或工作結束的牆鐘時間，不含任何人的操作與思考時間。
 
 ## 3. 已量得的事實（2026-11-10，作為設計依據）
 
-- Kit 的 AoV：23 節點，其中 10 個是分析階段，13 個是操作步驟。
+- Kit 的 AoV：22 節點，其中 10 個是分析階段，12 個是操作步驟（D199 移除「載入示範資料」並補「檢查資料」到「啟動分析」的連線，D205）。
 - 示範資料（合成）：`baseline.csv` 80 列 25 欄、`current_daily.csv` 60 列 25 欄、`complaint.csv` 6 列 25 欄、`knowledge.csv` 12 列 7 欄，另有 `analysis_config.json`、`analysis_config_complaint.json`、`ng_code.json`、`topology.json`、`known_base.json`。
 - 執行紀錄（`runs.py` 的 `status.json`）：只有 `createdAt`、`startedAt`、`finishedAt`，精度到秒，各階段只有狀態、沒有時間。所以階段耗時必須由外部輪詢狀態量得。
 - Kit 的路由在 `src/backend/app/api/routes_analytical_four.py`：`GET/PUT settings`、`GET status`、`GET data-check`、`POST/GET runs`、`POST/GET uploads`、`POST uploads/{id}/accept` 等。
@@ -111,7 +111,7 @@ Codex 不得修改這個 JSON 的內容（它是依據）；發現與 `kits/anal
 ### 5.3 測試
 
 1. 轉換結果通過 `exportAovGraphDraft` 且經 `importAny` 往返內容相同；三個邏輯各自的節點數與邊數符合 JSON（15、20、4 個節點，各自節點數減一條邊）。
-2. 參照完整性：所有 `kitNodes` 的 id 都存在於真實的 `workflow.aov.json`；Kit 的 23 個節點數由檔案讀得。
+2. 參照完整性：所有 `kitNodes` 的 id 都存在於真實的 `workflow.aov.json`；Kit 的 22 個節點數由檔案讀得。
 3. 比較函式用一份小型手算輸入驗證每一項（含順序差異的反向判斷、沒有對應的節點）；這些測試要在判斷條件改動時失敗。
 4. 實際資料的預期值先由 Claude 手算，寫在 mailbox 的 Claude Handoff，Codex 的測試必須以這些值檢查實際輸出（見該 thread）。
 5. 產生檔過期檢查（5.2 第 4 點）。

@@ -6,6 +6,7 @@
 
 | ID | Title | Status | Owner | Reviewer | Updated |
 | --- | --- | --- | --- | --- | --- |
+| [20261109-aov-small-model](threads/20261109-aov-small-model.md) | AoV 小模型：節點動作與型別建議、合理性提示；先補 Kit 認證資料（D194 至 D198） | in_progress | claude | user | 2026-11-09 |
 | [20261108-kit-changelog](threads/20261108-kit-changelog.md) | Kit 變更紀錄：每個 Kit 的 CHANGELOG.md 記錄流程節點修改、原因與前後畫布，供學習隱性知識（D190） | ready_for_user_review | claude | user | 2026-11-08 |
 | [20261104-kit-standalone-verification](threads/20261104-kit-standalone-verification.md) | Kit 獨立執行性驗證：必要 Kit 加任一選配 Kit，組出系統包並在 VM 安裝與操作 | done | claude | user | 2026-11-04 |
 | [20261106-package-selfcheck](threads/20261106-package-selfcheck.md) | 安裝包自檢：發布前測試閘門與現場環境與一致性自檢，補齊 Kit 測試與新增 Kit 規範 | done | claude | user | 2026-11-06 |

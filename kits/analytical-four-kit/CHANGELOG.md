@@ -15,6 +15,601 @@
 | verification-finding | 實測發現：在測試機實際操作後發現需要修改 |
 | other | 其他：須在修改原因寫清楚 |
 
+## #10　2026-11-10　granularity
+
+- 修改原因分類：粒度調整：節點拆分、合併或移除重複
+- 修改原因：移除「載入示範資料」節點：它是獨立的試用功能，不在分析的任何前置或後續路徑上（建立執行只檢查就緒與資料，不看示範資料），且畫布上沒有連線；經 user 於 2026-11-10 確認不是系統啟動的必要步驟後移除。功能本身仍在 Kit 內（D199 認證）
+- Kit 版本：0.1.0　作者：yucheng384752　來源：manual
+
+### 被修改的節點
+
+| 節點名稱（node_name） | node_id | 動作 | 變化 |
+| --- | --- | --- | --- |
+| 載入示範資料 | load-demo | 移除 | 原能力：analytical-four.demo.load |
+
+### 畫布：修改前
+
+```mermaid
+flowchart LR
+  n_accept_upload["接受或丟棄上傳的檔案"]
+  n_approve_feedback["核可回饋"]
+  n_check_data["檢查資料檔與欄位對照"]
+  n_check_ready["確認資料與設定就緒"]
+  n_compile["彙整事件"]
+  n_configure["調整分析設定"]
+  n_descriptive["描述性分析"]
+  n_diagnostic["診斷性分析"]
+  n_get_templates["下載範本與需求表"]
+  n_llm["AI 綜合診斷"]
+  n_load_demo["載入示範資料"]:::remove
+  n_ng_code["不良類型診斷"]
+  n_publish_library["發布案例庫新版本，必要時回復舊版本"]
+  n_rag["SOP 檢索"]
+  n_read_data["讀取並整理資料"]
+  n_search_key["擷取搜尋關鍵"]
+  n_similarity["相似案例搜尋"]
+  n_start_run["啟動分析"]
+  n_submit_feedback["提交確認結果"]
+  n_topology["製程位置對應"]
+  n_upload_files["上傳資料與設定檔並看驗證報告"]
+  n_view_results["取得分析結果"]
+  n_view_run["查看執行狀態"]
+  n_accept_upload --> n_check_data
+  n_approve_feedback --> n_publish_library
+  n_check_data --> n_start_run
+  n_check_ready --> n_start_run
+  n_compile --> n_search_key
+  n_configure --> n_check_data
+  n_configure --> n_check_ready
+  n_descriptive --> n_diagnostic
+  n_diagnostic --> n_ng_code
+  n_get_templates --> n_configure
+  n_get_templates --> n_upload_files
+  n_ng_code --> n_topology
+  n_rag --> n_compile
+  n_read_data --> n_descriptive
+  n_search_key --> n_similarity
+  n_similarity --> n_llm
+  n_start_run --> n_read_data
+  n_start_run --> n_view_run
+  n_submit_feedback --> n_approve_feedback
+  n_topology --> n_rag
+  n_upload_files --> n_accept_upload
+  n_view_results --> n_submit_feedback
+  n_view_run --> n_view_results
+  classDef add fill:#d6f5dc,stroke:#2e7d32
+  classDef remove fill:#fbd9d9,stroke:#c62828
+  classDef edit fill:#fff3c4,stroke:#b58900
+  classDef link fill:#dbe9ff,stroke:#1f5fbf
+```
+
+### 畫布：修改後
+
+```mermaid
+flowchart LR
+  n_accept_upload["接受或丟棄上傳的檔案"]
+  n_approve_feedback["核可回饋"]
+  n_check_data["檢查資料檔與欄位對照"]
+  n_check_ready["確認資料與設定就緒"]
+  n_compile["彙整事件"]
+  n_configure["調整分析設定"]
+  n_descriptive["描述性分析"]
+  n_diagnostic["診斷性分析"]
+  n_get_templates["下載範本與需求表"]
+  n_llm["AI 綜合診斷"]
+  n_ng_code["不良類型診斷"]
+  n_publish_library["發布案例庫新版本，必要時回復舊版本"]
+  n_rag["SOP 檢索"]
+  n_read_data["讀取並整理資料"]
+  n_search_key["擷取搜尋關鍵"]
+  n_similarity["相似案例搜尋"]
+  n_start_run["啟動分析"]
+  n_submit_feedback["提交確認結果"]
+  n_topology["製程位置對應"]
+  n_upload_files["上傳資料與設定檔並看驗證報告"]
+  n_view_results["取得分析結果"]
+  n_view_run["查看執行狀態"]
+  n_accept_upload --> n_check_data
+  n_approve_feedback --> n_publish_library
+  n_check_data --> n_start_run
+  n_check_ready --> n_start_run
+  n_compile --> n_search_key
+  n_configure --> n_check_data
+  n_configure --> n_check_ready
+  n_descriptive --> n_diagnostic
+  n_diagnostic --> n_ng_code
+  n_get_templates --> n_configure
+  n_get_templates --> n_upload_files
+  n_ng_code --> n_topology
+  n_rag --> n_compile
+  n_read_data --> n_descriptive
+  n_search_key --> n_similarity
+  n_similarity --> n_llm
+  n_start_run --> n_read_data
+  n_start_run --> n_view_run
+  n_submit_feedback --> n_approve_feedback
+  n_topology --> n_rag
+  n_upload_files --> n_accept_upload
+  n_view_results --> n_submit_feedback
+  n_view_run --> n_view_results
+  classDef add fill:#d6f5dc,stroke:#2e7d32
+  classDef remove fill:#fbd9d9,stroke:#c62828
+  classDef edit fill:#fff3c4,stroke:#b58900
+  classDef link fill:#dbe9ff,stroke:#1f5fbf
+```
+
+<details><summary>機器可讀資料</summary>
+
+<!-- kit-changelog-entry -->
+```json
+{
+  "seq": 10,
+  "kitVersion": "0.1.0",
+  "date": "2026-11-10",
+  "author": "yucheng384752",
+  "source": "manual",
+  "cause": "granularity",
+  "reason": "移除「載入示範資料」節點：它是獨立的試用功能，不在分析的任何前置或後續路徑上（建立執行只檢查就緒與資料，不看示範資料），且畫布上沒有連線；經 user 於 2026-11-10 確認不是系統啟動的必要步驟後移除。功能本身仍在 Kit 內（D199 認證）",
+  "nodes": [
+    {
+      "op": "remove",
+      "nodeId": "load-demo",
+      "nodeName": "載入示範資料",
+      "before": {
+        "id": "load-demo",
+        "name": "載入示範資料",
+        "capabilityIds": [
+          "analytical-four.demo.load"
+        ]
+      }
+    }
+  ],
+  "edges": [],
+  "beforeSha": "d631abe2f632ce91cd78ad347fed3acb8d72225f02721035974964f32be07792",
+  "afterSha": "2949523b3b4c30d08f83bcc6c06d4d2244f2f2d8d5fbf1fcfa0e0043454608ff"
+}
+```
+
+</details>
+
+## #9　2026-11-10　dependency
+
+- 修改原因分類：前置關係：調整哪一步必須先完成哪一步
+- 修改原因：啟動分析時除了檢查就緒，也會檢查資料檔與欄位對照，未通過回 409（runs.py 的 create），所以啟動分析的前置是兩者都完成；補上資料檢查到啟動分析的連線（D199 認證發現）
+- Kit 版本：0.1.0　作者：yucheng384752　來源：manual
+
+### 被修改的節點
+
+| 節點名稱（node_name） | node_id | 動作 | 變化 |
+| --- | --- | --- | --- |
+| 檢查資料檔與欄位對照 | check-data | 連線變更 | 新增連線「檢查資料檔與欄位對照」→「啟動分析」 |
+| 啟動分析 | start-run | 連線變更 | 新增連線「檢查資料檔與欄位對照」→「啟動分析」 |
+
+### 連線變更
+
+- 新增連線：「檢查資料檔與欄位對照」→「啟動分析」
+
+### 畫布：修改前
+
+```mermaid
+flowchart LR
+  n_accept_upload["接受或丟棄上傳的檔案"]
+  n_approve_feedback["核可回饋"]
+  n_check_data["檢查資料檔與欄位對照"]:::link
+  n_check_ready["確認資料與設定就緒"]
+  n_compile["彙整事件"]
+  n_configure["調整分析設定"]
+  n_descriptive["描述性分析"]
+  n_diagnostic["診斷性分析"]
+  n_get_templates["下載範本與需求表"]
+  n_llm["AI 綜合診斷"]
+  n_load_demo["載入示範資料"]
+  n_ng_code["不良類型診斷"]
+  n_publish_library["發布案例庫新版本，必要時回復舊版本"]
+  n_rag["SOP 檢索"]
+  n_read_data["讀取並整理資料"]
+  n_search_key["擷取搜尋關鍵"]
+  n_similarity["相似案例搜尋"]
+  n_start_run["啟動分析"]:::link
+  n_submit_feedback["提交確認結果"]
+  n_topology["製程位置對應"]
+  n_upload_files["上傳資料與設定檔並看驗證報告"]
+  n_view_results["取得分析結果"]
+  n_view_run["查看執行狀態"]
+  n_accept_upload --> n_check_data
+  n_approve_feedback --> n_publish_library
+  n_check_ready --> n_start_run
+  n_compile --> n_search_key
+  n_configure --> n_check_data
+  n_configure --> n_check_ready
+  n_descriptive --> n_diagnostic
+  n_diagnostic --> n_ng_code
+  n_get_templates --> n_configure
+  n_get_templates --> n_upload_files
+  n_ng_code --> n_topology
+  n_rag --> n_compile
+  n_read_data --> n_descriptive
+  n_search_key --> n_similarity
+  n_similarity --> n_llm
+  n_start_run --> n_read_data
+  n_start_run --> n_view_run
+  n_submit_feedback --> n_approve_feedback
+  n_topology --> n_rag
+  n_upload_files --> n_accept_upload
+  n_view_results --> n_submit_feedback
+  n_view_run --> n_view_results
+  classDef add fill:#d6f5dc,stroke:#2e7d32
+  classDef remove fill:#fbd9d9,stroke:#c62828
+  classDef edit fill:#fff3c4,stroke:#b58900
+  classDef link fill:#dbe9ff,stroke:#1f5fbf
+```
+
+### 畫布：修改後
+
+```mermaid
+flowchart LR
+  n_accept_upload["接受或丟棄上傳的檔案"]
+  n_approve_feedback["核可回饋"]
+  n_check_data["檢查資料檔與欄位對照"]:::link
+  n_check_ready["確認資料與設定就緒"]
+  n_compile["彙整事件"]
+  n_configure["調整分析設定"]
+  n_descriptive["描述性分析"]
+  n_diagnostic["診斷性分析"]
+  n_get_templates["下載範本與需求表"]
+  n_llm["AI 綜合診斷"]
+  n_load_demo["載入示範資料"]
+  n_ng_code["不良類型診斷"]
+  n_publish_library["發布案例庫新版本，必要時回復舊版本"]
+  n_rag["SOP 檢索"]
+  n_read_data["讀取並整理資料"]
+  n_search_key["擷取搜尋關鍵"]
+  n_similarity["相似案例搜尋"]
+  n_start_run["啟動分析"]:::link
+  n_submit_feedback["提交確認結果"]
+  n_topology["製程位置對應"]
+  n_upload_files["上傳資料與設定檔並看驗證報告"]
+  n_view_results["取得分析結果"]
+  n_view_run["查看執行狀態"]
+  n_accept_upload --> n_check_data
+  n_approve_feedback --> n_publish_library
+  n_check_data --> n_start_run
+  n_check_ready --> n_start_run
+  n_compile --> n_search_key
+  n_configure --> n_check_data
+  n_configure --> n_check_ready
+  n_descriptive --> n_diagnostic
+  n_diagnostic --> n_ng_code
+  n_get_templates --> n_configure
+  n_get_templates --> n_upload_files
+  n_ng_code --> n_topology
+  n_rag --> n_compile
+  n_read_data --> n_descriptive
+  n_search_key --> n_similarity
+  n_similarity --> n_llm
+  n_start_run --> n_read_data
+  n_start_run --> n_view_run
+  n_submit_feedback --> n_approve_feedback
+  n_topology --> n_rag
+  n_upload_files --> n_accept_upload
+  n_view_results --> n_submit_feedback
+  n_view_run --> n_view_results
+  classDef add fill:#d6f5dc,stroke:#2e7d32
+  classDef remove fill:#fbd9d9,stroke:#c62828
+  classDef edit fill:#fff3c4,stroke:#b58900
+  classDef link fill:#dbe9ff,stroke:#1f5fbf
+```
+
+<details><summary>機器可讀資料</summary>
+
+<!-- kit-changelog-entry -->
+```json
+{
+  "seq": 9,
+  "kitVersion": "0.1.0",
+  "date": "2026-11-10",
+  "author": "yucheng384752",
+  "source": "manual",
+  "cause": "dependency",
+  "reason": "啟動分析時除了檢查就緒，也會檢查資料檔與欄位對照，未通過回 409（runs.py 的 create），所以啟動分析的前置是兩者都完成；補上資料檢查到啟動分析的連線（D199 認證發現）",
+  "nodes": [],
+  "edges": [
+    {
+      "op": "add",
+      "from": "check-data",
+      "to": "start-run"
+    }
+  ],
+  "beforeSha": "65b33d362a4f630e66fd42f420c58451d4067068c470b882dbd4cb7ff599b62b",
+  "afterSha": "d631abe2f632ce91cd78ad347fed3acb8d72225f02721035974964f32be07792"
+}
+```
+
+</details>
+
+## #8　2026-11-09　align-runtime
+
+- 修改原因分類：對齊實際行為：流程描述與實際程式行為不符，已修正
+- 修改原因：分析階段是同一次背景執行內依序進行的步驟，不是各自獨立的操作，因此不再掛 runs.create 能力，避免被誤對應成「啟動分析」動作；啟動分析與各階段的先後關係不變（D199）
+- Kit 版本：0.1.0　作者：yucheng384752　來源：manual
+
+### 被修改的節點
+
+| 節點名稱（node_name） | node_id | 動作 | 變化 |
+| --- | --- | --- | --- |
+| 彙整事件 | compile | 修改 | 移除能力：analytical-four.runs.create |
+| 描述性分析 | descriptive | 修改 | 移除能力：analytical-four.runs.create |
+| 診斷性分析 | diagnostic | 修改 | 移除能力：analytical-four.runs.create |
+| AI 綜合診斷 | llm | 修改 | 移除能力：analytical-four.runs.create |
+| 不良類型診斷 | ng-code | 修改 | 移除能力：analytical-four.runs.create |
+| SOP 檢索 | rag | 修改 | 移除能力：analytical-four.runs.create |
+| 讀取並整理資料 | read-data | 修改 | 移除能力：analytical-four.runs.create |
+| 擷取搜尋關鍵 | search-key | 修改 | 移除能力：analytical-four.runs.create |
+| 相似案例搜尋 | similarity | 修改 | 移除能力：analytical-four.runs.create |
+| 製程位置對應 | topology | 修改 | 移除能力：analytical-four.runs.create |
+
+### 畫布：修改前
+
+```mermaid
+flowchart LR
+  n_accept_upload["接受或丟棄上傳的檔案"]
+  n_approve_feedback["核可回饋"]
+  n_check_data["檢查資料檔與欄位對照"]
+  n_check_ready["確認資料與設定就緒"]
+  n_compile["彙整事件"]:::edit
+  n_configure["調整分析設定"]
+  n_descriptive["描述性分析"]:::edit
+  n_diagnostic["診斷性分析"]:::edit
+  n_get_templates["下載範本與需求表"]
+  n_llm["AI 綜合診斷"]:::edit
+  n_load_demo["載入示範資料"]
+  n_ng_code["不良類型診斷"]:::edit
+  n_publish_library["發布案例庫新版本，必要時回復舊版本"]
+  n_rag["SOP 檢索"]:::edit
+  n_read_data["讀取並整理資料"]:::edit
+  n_search_key["擷取搜尋關鍵"]:::edit
+  n_similarity["相似案例搜尋"]:::edit
+  n_start_run["啟動分析"]
+  n_submit_feedback["提交確認結果"]
+  n_topology["製程位置對應"]:::edit
+  n_upload_files["上傳資料與設定檔並看驗證報告"]
+  n_view_results["取得分析結果"]
+  n_view_run["查看執行狀態"]
+  n_accept_upload --> n_check_data
+  n_approve_feedback --> n_publish_library
+  n_check_ready --> n_start_run
+  n_compile --> n_search_key
+  n_configure --> n_check_data
+  n_configure --> n_check_ready
+  n_descriptive --> n_diagnostic
+  n_diagnostic --> n_ng_code
+  n_get_templates --> n_configure
+  n_get_templates --> n_upload_files
+  n_ng_code --> n_topology
+  n_rag --> n_compile
+  n_read_data --> n_descriptive
+  n_search_key --> n_similarity
+  n_similarity --> n_llm
+  n_start_run --> n_read_data
+  n_start_run --> n_view_run
+  n_submit_feedback --> n_approve_feedback
+  n_topology --> n_rag
+  n_upload_files --> n_accept_upload
+  n_view_results --> n_submit_feedback
+  n_view_run --> n_view_results
+  classDef add fill:#d6f5dc,stroke:#2e7d32
+  classDef remove fill:#fbd9d9,stroke:#c62828
+  classDef edit fill:#fff3c4,stroke:#b58900
+  classDef link fill:#dbe9ff,stroke:#1f5fbf
+```
+
+### 畫布：修改後
+
+```mermaid
+flowchart LR
+  n_accept_upload["接受或丟棄上傳的檔案"]
+  n_approve_feedback["核可回饋"]
+  n_check_data["檢查資料檔與欄位對照"]
+  n_check_ready["確認資料與設定就緒"]
+  n_compile["彙整事件"]:::edit
+  n_configure["調整分析設定"]
+  n_descriptive["描述性分析"]:::edit
+  n_diagnostic["診斷性分析"]:::edit
+  n_get_templates["下載範本與需求表"]
+  n_llm["AI 綜合診斷"]:::edit
+  n_load_demo["載入示範資料"]
+  n_ng_code["不良類型診斷"]:::edit
+  n_publish_library["發布案例庫新版本，必要時回復舊版本"]
+  n_rag["SOP 檢索"]:::edit
+  n_read_data["讀取並整理資料"]:::edit
+  n_search_key["擷取搜尋關鍵"]:::edit
+  n_similarity["相似案例搜尋"]:::edit
+  n_start_run["啟動分析"]
+  n_submit_feedback["提交確認結果"]
+  n_topology["製程位置對應"]:::edit
+  n_upload_files["上傳資料與設定檔並看驗證報告"]
+  n_view_results["取得分析結果"]
+  n_view_run["查看執行狀態"]
+  n_accept_upload --> n_check_data
+  n_approve_feedback --> n_publish_library
+  n_check_ready --> n_start_run
+  n_compile --> n_search_key
+  n_configure --> n_check_data
+  n_configure --> n_check_ready
+  n_descriptive --> n_diagnostic
+  n_diagnostic --> n_ng_code
+  n_get_templates --> n_configure
+  n_get_templates --> n_upload_files
+  n_ng_code --> n_topology
+  n_rag --> n_compile
+  n_read_data --> n_descriptive
+  n_search_key --> n_similarity
+  n_similarity --> n_llm
+  n_start_run --> n_read_data
+  n_start_run --> n_view_run
+  n_submit_feedback --> n_approve_feedback
+  n_topology --> n_rag
+  n_upload_files --> n_accept_upload
+  n_view_results --> n_submit_feedback
+  n_view_run --> n_view_results
+  classDef add fill:#d6f5dc,stroke:#2e7d32
+  classDef remove fill:#fbd9d9,stroke:#c62828
+  classDef edit fill:#fff3c4,stroke:#b58900
+  classDef link fill:#dbe9ff,stroke:#1f5fbf
+```
+
+<details><summary>機器可讀資料</summary>
+
+<!-- kit-changelog-entry -->
+```json
+{
+  "seq": 8,
+  "kitVersion": "0.1.0",
+  "date": "2026-11-09",
+  "author": "yucheng384752",
+  "source": "manual",
+  "cause": "align-runtime",
+  "reason": "分析階段是同一次背景執行內依序進行的步驟，不是各自獨立的操作，因此不再掛 runs.create 能力，避免被誤對應成「啟動分析」動作；啟動分析與各階段的先後關係不變（D199）",
+  "nodes": [
+    {
+      "op": "edit",
+      "nodeId": "compile",
+      "nodeName": "彙整事件",
+      "fields": {
+        "capabilityIds": {
+          "before": [
+            "analytical-four.runs.create"
+          ],
+          "after": []
+        }
+      }
+    },
+    {
+      "op": "edit",
+      "nodeId": "descriptive",
+      "nodeName": "描述性分析",
+      "fields": {
+        "capabilityIds": {
+          "before": [
+            "analytical-four.runs.create"
+          ],
+          "after": []
+        }
+      }
+    },
+    {
+      "op": "edit",
+      "nodeId": "diagnostic",
+      "nodeName": "診斷性分析",
+      "fields": {
+        "capabilityIds": {
+          "before": [
+            "analytical-four.runs.create"
+          ],
+          "after": []
+        }
+      }
+    },
+    {
+      "op": "edit",
+      "nodeId": "llm",
+      "nodeName": "AI 綜合診斷",
+      "fields": {
+        "capabilityIds": {
+          "before": [
+            "analytical-four.runs.create"
+          ],
+          "after": []
+        }
+      }
+    },
+    {
+      "op": "edit",
+      "nodeId": "ng-code",
+      "nodeName": "不良類型診斷",
+      "fields": {
+        "capabilityIds": {
+          "before": [
+            "analytical-four.runs.create"
+          ],
+          "after": []
+        }
+      }
+    },
+    {
+      "op": "edit",
+      "nodeId": "rag",
+      "nodeName": "SOP 檢索",
+      "fields": {
+        "capabilityIds": {
+          "before": [
+            "analytical-four.runs.create"
+          ],
+          "after": []
+        }
+      }
+    },
+    {
+      "op": "edit",
+      "nodeId": "read-data",
+      "nodeName": "讀取並整理資料",
+      "fields": {
+        "capabilityIds": {
+          "before": [
+            "analytical-four.runs.create"
+          ],
+          "after": []
+        }
+      }
+    },
+    {
+      "op": "edit",
+      "nodeId": "search-key",
+      "nodeName": "擷取搜尋關鍵",
+      "fields": {
+        "capabilityIds": {
+          "before": [
+            "analytical-four.runs.create"
+          ],
+          "after": []
+        }
+      }
+    },
+    {
+      "op": "edit",
+      "nodeId": "similarity",
+      "nodeName": "相似案例搜尋",
+      "fields": {
+        "capabilityIds": {
+          "before": [
+            "analytical-four.runs.create"
+          ],
+          "after": []
+        }
+      }
+    },
+    {
+      "op": "edit",
+      "nodeId": "topology",
+      "nodeName": "製程位置對應",
+      "fields": {
+        "capabilityIds": {
+          "before": [
+            "analytical-four.runs.create"
+          ],
+          "after": []
+        }
+      }
+    }
+  ],
+  "edges": [],
+  "beforeSha": "728004a7da44c859f97705189482eb100ea9a63d8ab4b69599e9410f45241066",
+  "afterSha": "65b33d362a4f630e66fd42f420c58451d4067068c470b882dbd4cb7ff599b62b"
+}
+```
+
+</details>
+
 ## #7　2026-11-06　new-feature
 
 - 修改原因分類：新增功能：Kit 多了能力，流程跟著補節點

@@ -24,7 +24,9 @@ const wp2KitIds = [
 test.each(['factory-core-kit', 'entry-permission-kit', 'analytical-four-kit'])('%s 的流程涵蓋登錄的全部能力', kitId => {
   const parsed = parseKitWorkflow(workflowFiles[`kits/${kitId}/workflow.aov.json`], catalog.kits.find(item => item.id === kitId)!);
   const used = new Set(parsed.nodes.flatMap(node => node.capabilityIds));
-  expect(registry.find(entry => entry.kitId === kitId)!.capabilities.map(c => c.id).filter(id => !used.has(id))).toEqual([]);
+  // D199: the demo loader is a standalone trial function, deliberately outside the analysis flow.
+  const outsideFlow = kitId === 'analytical-four-kit' ? ['analytical-four.demo.load'] : [];
+  expect(registry.find(entry => entry.kitId === kitId)!.capabilities.map(c => c.id).filter(id => !used.has(id) && !outsideFlow.includes(id))).toEqual([]);
 });
 
 test.each(wp2KitIds)('%s template parses and only references verified capabilities', kitId => {
@@ -33,7 +35,8 @@ test.each(wp2KitIds)('%s template parses and only references verified capabiliti
   expect(parsed.status).toBe('draft');
   const capabilities = registry.find(entry => entry.kitId === kitId)!.capabilities;
   for (const node of parsed.nodes) {
-    expect(node.capabilityIds.length).toBeGreaterThan(0);
+    // D199: a step without its own capability is a stage inside another step's run, so it must hang off the flow.
+    if (!node.capabilityIds.length) expect(parsed.edges.some(edge => edge.to === node.id), node.id).toBe(true);
     for (const id of node.capabilityIds) {
       expect(capabilities.find(capability => capability.id === id)?.verified).toBe(true);
     }
