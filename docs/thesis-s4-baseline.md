@@ -3,7 +3,7 @@
 日期：2026-11-11
 分支：`feature/thesis-s4-baseline`（自 `main` 的 4102550 開出）
 依據：`docs/thesis-source-inventory.md`（已凍結）；`docs/handoff-product-and-thesis.md` 第 4.2 節 S4、第 4.4 節、第 4.5 節第 3 步
-狀態：腳本與單元測試完成；已在本機對來源系統試跑三次並修正轉接層（見第 6 節）；**正式基準尚未執行**（要在 VM 上、掛上外部分析套件後執行）。決議編號：本文件沒有取號。
+狀態：腳本、單元測試與來源系統的正式基準都已完成（第 9 節）。產出系統的轉接層與比對要等第 4.5 節第 4 步。決議編號：本文件沒有取號。
 
 ## 1. 這一步做什麼
 
@@ -118,3 +118,45 @@ node tools/thesis-s4/compare.mjs --baseline baseline.json --candidate generated.
 ## 8. 測試
 
 `node --test tools/thesis-s4/tests/thesis-s4.test.mjs`：13 項。守住的前提：凍結清單每一項都有情境或明列為畫面步驟；權限表每列對五種身分各做一次；情境用到的操作轉接層都有；T4、T6 條件不足時記為未執行；合成資料可重現且批號樣式正確；假轉檔服務三種情況；比對不把執行錯誤、缺少的情境或沒有理由的排除算成通過。
+
+## 9. 正式基準（2026-11-12）
+
+結果檔：`docs/thesis-case/s4-baseline-source.json`（只含狀態碼與合成資料，不含金鑰、密碼、權杖）。部署配方：`tools/thesis-s4/source-baseline/`（`Dockerfile`、`compose.yml`、`constraints.txt`、`schema-adjust.sql`；金鑰與密碼只以環境變數名稱引用，實際值在執行當下產生，不進 repo）。
+
+結果：57 個情境全部執行完成，沒有執行錯誤。同一環境上先做一次排練、再重建全新資料庫做正式基準，兩次比對 57 個情境全部相同。
+
+環境（user 的決定經另一個 session 轉述，2026-11-12）：
+
+| 項目 | 內容 |
+|---|---|
+| 位置 | 測試 VM（Ubuntu 22.04、Docker），`postgres:16`，全新空資料庫 |
+| 來源程式碼 | commit 362cc7c 的 `backend/app`、`alembic`、`requirements.txt`；不含 `.env`、`uploads/`、`test-data/` 與任何資料檔。`app/api/sample_analysis_p2.json` 沒有被程式引用，也沒有放上 VM |
+| 設定 | 第 7 節的建議值：`USE_GENERIC_SCHEMA=true`、`AUDIT_EVENTS_ENABLED=true`、`PDF_SERVER_TIMEOUT_SECONDS=5`、`AUTH_MODE=api_key`、`ENVIRONMENT=production`，轉檔服務指向假服務 |
+| 工作行程 | 單一（來源的正式指令是 4 個；登入失敗計數每個行程各自獨立，會使 T 類結果不固定） |
+| 依賴版本 | 依來源 `uv.lock`：FastAPI 0.121.0、Starlette 0.49.3、SQLAlchemy 2.0.44、Pydantic 2.12.4、pandas 2.3.3、NumPy 2.3.4；鎖定檔沒有列、由安裝工具決定的：asyncpg 0.32.0、scikit-learn 1.9.1、greenlet 3.2.4 |
+| 資料庫結構 | 程式啟動時自動建表，之後執行 `schema-adjust.sql` 把 `p1_records`、`p2_records`、`p3_records` 的 `extras` 由 `json` 改為 `jsonb`（user 選定的做法） |
+| 外部分析套件 | Analytical-Four commit f49cfd3（獨立專案，作者 ZHAO-XIAN，無 LICENSE；只掛載執行，沒有複製進本 repo；論文須標示來源） |
+| 分析設定檔 | `september_v2/config/ut_config_v3.json`。檢查後只含參數（方法名稱與欄位名稱清單），沒有批號、量測值或人員名稱 |
+| T4 的第二個來源位址 | 同一個服務，一次從開發機直接連線，一次經 SSH 通道從 VM 本機連線 |
+| T6 | 主階段結束後以 SSH 重啟後端容器，55 秒內補跑 |
+
+`september_v2` 資料夾的處理（user 決定：資料檔不讀、不上 VM）：
+
+| 檔案 | 判斷依據 | 處理 |
+|---|---|---|
+| `config/ut_config_v3.json` | 設定檔；檢查鍵與值的型別後確認只有參數 | 原樣使用 |
+| `merged_p1_p2_p3.csv` | 依檔名與大小判斷為資料檔，沒有打開 | 不使用。來源的分析端點從資料庫取資料，不讀這個檔 |
+| `ut_*.json`、`topology_summary_output.json`（14 個） | 依檔名判斷為分析產出，沒有打開 | 不使用。基準中分析產出清單五項皆為不存在，檢視端點回 404 |
+| `config/ut_topology.json`、`config/complect.txt` | 沒有打開 | 不使用 |
+
+論文要揭露的限制（基準不等於正式環境的地方）：
+
+1. 資料庫結構經過手動調整：來源的遷移在空資料庫上失敗，三個欄位的型別是手動改的；另有 10 個 `json` 欄位沒有核對是否與正式環境一致。
+2. 依賴版本來自鎖定檔而非正式環境的實際安裝；鎖定檔沒有涵蓋的套件由安裝工具決定。
+3. 單一工作行程，不是正式的 4 個。
+4. 萃取分數（A4）沒有掛診斷基準檔（設定檔指向的檔案屬於分析產出，沒有使用）；合成資料列數少，各項分數為空。這一項的基準只能比「有回應、用到的特徵與樣本數」，比不到分數本身。
+5. 分析產出（A5）的檢視端點因沒有產出檔而回 404，比不到內容。
+6. PDF 轉檔品質不在比對範圍（假服務），轉檔服務未設定時的 503 沒有涵蓋。
+7. 五個只在瀏覽器內發生的步驟與「改密碼後其他權杖失效」沒有涵蓋（第 5 節）。
+
+與凍結清單的核對：權限表 21 列 × 5 種身分逐格相符；T1 至 T10 全部相符（T4：同位址第 6 次 429、換位址後 200；T6：重啟後由 429 變回 401）。清單不需要修訂。

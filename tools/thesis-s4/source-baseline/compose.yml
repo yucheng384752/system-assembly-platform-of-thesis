@@ -1,0 +1,46 @@
+name: s4-baseline
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: s4
+      POSTGRES_PASSWORD: ${S4_DB_PASSWORD}
+      POSTGRES_DB: s4
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U s4 -d s4"]
+      interval: 3s
+      retries: 20
+  fakepdf:
+    image: node:22-slim
+    working_dir: /tool
+    environment:
+      FAKE_PDF_HOST: 0.0.0.0
+      FAKE_PDF_PORT: "18090"
+    volumes:
+      - ./tool:/tool:ro
+    command: ["node", "fake-pdf-server.mjs"]
+  backend:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://s4:${S4_DB_PASSWORD}@db:5432/s4
+      SECRET_KEY: ${S4_SECRET_KEY}
+      ADMIN_API_KEYS: ${S4_ADMIN_KEY}
+      ENVIRONMENT: production
+      AUTH_MODE: api_key
+      USE_GENERIC_SCHEMA: "true"
+      AUDIT_EVENTS_ENABLED: "true"
+      PDF_SERVER_URL: http://fakepdf:18090
+      PDF_SERVER_TIMEOUT_SECONDS: "5"
+      UPLOAD_TEMP_DIR: /app/uploads
+      MONITOR_SERVER_URL: ""
+      ANALYTICAL_FOUR_PATH: /external/Analytical-Four
+      SEPTEMBER_V2_PATH: /external/september_v2
+      ANALYTICS_CONFIG_PATH: /external/september_v2/config/ut_config_v3.json
+    volumes:
+      - ./external:/external:ro
+    ports:
+      - "18200:8000"

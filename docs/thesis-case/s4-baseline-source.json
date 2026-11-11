@@ -1,0 +1,3048 @@
+{
+  "meta": {
+    "system": "source",
+    "label": "來源系統 http://192.168.200.63:18200",
+    "phase": "after-restart",
+    "startedAt": "2026-11-11T16:27:50.021Z",
+    "finishedAt": "2026-11-11T16:27:50.052Z",
+    "partial": false,
+    "altAddress": false,
+    "notes": [
+      "source commit 362cc7c (backend/app only), Analytical-Four f49cfd3, config ut_config_v3.json",
+      "VM Ubuntu 22.04, Docker, postgres:16, single uvicorn worker",
+      "USE_GENERIC_SCHEMA=true AUDIT_EVENTS_ENABLED=true PDF_SERVER_TIMEOUT_SECONDS=5 AUTH_MODE=api_key ENVIRONMENT=production",
+      "schema: tables created by app startup (create_all); extras of p1/p2/p3_records converted json->jsonb by hand because alembic fails on an empty database",
+      "deps from source uv.lock: fastapi 0.121.0 starlette 0.49.3 sqlalchemy 2.0.44 pydantic 2.12.4 pandas 2.3.3 numpy 2.3.4; unpinned: asyncpg 0.32.0 scikit-learn 1.9.1 greenlet 3.2.4",
+      "no september_v2 data files mounted: no diagnostic baseline file, no artifacts"
+    ],
+    "inputs": {
+      "files": [
+        {
+          "key": "p1A",
+          "name": "P1_9901011_01.csv",
+          "table": "P1",
+          "purpose": "合法的 P1，一個批號；中間夾一列空白列（應略過）",
+          "bytes": 196,
+          "sha256": "baae8c904e4d4097a4f490d57be9f9c06d3e25495c3d53961dd6b6f227053c0b"
+        },
+        {
+          "key": "p1B",
+          "name": "P1_9902022_02.csv",
+          "table": "P1",
+          "purpose": "合法的 P1，第二個批號，材料不同",
+          "bytes": 187,
+          "sha256": "d69ce729a4bc1bfb7b442ec81068690a48c280118786f8296a533422c59e0fe4"
+        },
+        {
+          "key": "p1Mixed",
+          "name": "P1_9903033_03.csv",
+          "table": "P1",
+          "purpose": "三列：合法、批號格式錯、批號空白；驗證應回報第 2、3 列有錯",
+          "bytes": 281,
+          "sha256": "77b751756cfe9f8bbccfaab3f7bdcf1892061cba8dc7b14c2d7997634a0ab8b0"
+        },
+        {
+          "key": "p1MixedFixed",
+          "name": "P1_9903033_03.csv",
+          "table": "P1",
+          "purpose": "p1Mixed 修正後的內容（重新驗證用）",
+          "bytes": 187,
+          "sha256": "2da70a4632ac82815f75b6bac40b6f4a253a8bf22ebafcb6c097e039f735ec89"
+        },
+        {
+          "key": "p1TwoLots",
+          "name": "P1_9906066_06.csv",
+          "table": "P1",
+          "purpose": "同一檔兩個合法批號；驗證通過但匯入應失敗",
+          "bytes": 241,
+          "sha256": "4e734a531d640ed56f3b8d7ab72f24521b75dca82f461de0f3b651b0e6ccc75c"
+        },
+        {
+          "key": "p2A",
+          "name": "P2_9901011_01.csv",
+          "table": "P2",
+          "purpose": "合法的 P2，四個收卷機，第 3 個分條結果為 0（NG）",
+          "bytes": 414,
+          "sha256": "cc580ebf576f7330b18874ba653832a8c4393f5d8e46d9fb7867e58f091b240e"
+        },
+        {
+          "key": "p2B",
+          "name": "P2_9902022_02.csv",
+          "table": "P2",
+          "purpose": "合法的 P2，第二個批號，兩個收卷機，規格不同",
+          "bytes": 294,
+          "sha256": "eee60505e9e17b96267717518d8b5ad782204ff31cc262af0f2063f1b6e8ee54"
+        },
+        {
+          "key": "p2FilenameWinder",
+          "name": "P2_9904044_04_07.csv",
+          "table": "P2",
+          "purpose": "內容沒有收卷機欄，收卷機編號 7 來自檔名",
+          "bytes": 218,
+          "sha256": "616cf747868acf58a4d75a75625c7e85626b61c6f052b21a3b469914c38ce2f0"
+        },
+        {
+          "key": "p3AB",
+          "name": "P3_0103_P91.csv",
+          "table": "P3",
+          "purpose": "合法的 P3，兩個批號共四列；含 Finish 為 0（NG）與來源收卷機",
+          "bytes": 440,
+          "sha256": "6dfffbbd5760ea46d8f21d2628712219b1ca5a551b959a5014b26be652c5ac8b"
+        },
+        {
+          "key": "p3NoDate",
+          "name": "P3_0105_P92.csv",
+          "table": "P3",
+          "purpose": "沒有日期欄；驗證通過但匯入應失敗（無法得知生產日期）",
+          "bytes": 171,
+          "sha256": "77ad7c7e8b5aaa16a81059218c9bf8aaf4fe30298abcc0fb96f8e41d632969c4"
+        },
+        {
+          "key": "p3MissingLot",
+          "name": "P3_0106_P93.csv",
+          "table": "P3",
+          "purpose": "兩列，其中一列沒有批號；驗證應回報該列",
+          "bytes": 272,
+          "sha256": "776d82904d69ca361120cbeb3a5eefbe8e30b2a23812dc388de69b36352abc1d"
+        },
+        {
+          "key": "notCsv",
+          "name": "notes.txt",
+          "table": null,
+          "purpose": "不支援的副檔名；建立匯入工作時應被拒絕",
+          "bytes": 20,
+          "sha256": "1c68b27e387a31deb6afa32c660765c92885409e7f64cf90ecba5ec427149bc7"
+        },
+        {
+          "key": "pdfOk",
+          "name": "P2_9905055_05.pdf",
+          "table": null,
+          "purpose": "合成 PDF；假轉檔服務回固定內容",
+          "bytes": 63,
+          "sha256": "e566a49f98ca66b1ac865f0d14d93a9ac701873ce815ce23654788b9e675c200"
+        },
+        {
+          "key": "pdfFail",
+          "name": "P2_fail_sample.pdf",
+          "table": null,
+          "purpose": "合成 PDF；假轉檔服務回錯誤",
+          "bytes": 63,
+          "sha256": "e566a49f98ca66b1ac865f0d14d93a9ac701873ce815ce23654788b9e675c200"
+        },
+        {
+          "key": "pdfHang",
+          "name": "P2_hang_sample.pdf",
+          "table": null,
+          "purpose": "合成 PDF；假轉檔服務不回應（逾時）",
+          "bytes": 63,
+          "sha256": "e566a49f98ca66b1ac865f0d14d93a9ac701873ce815ce23654788b9e675c200"
+        },
+        {
+          "key": "pdfNotPdf",
+          "name": "P2_not_really.pdf",
+          "table": null,
+          "purpose": "副檔名是 pdf 但內容不是 PDF；上傳應被拒絕",
+          "bytes": 18,
+          "sha256": "827199af6231e3b14fa27b925ab0e4b7d724bb4bdf2367fa73a0e9c4f607b977"
+        },
+        {
+          "key": "pdfEmpty",
+          "name": "P2_empty.pdf",
+          "table": null,
+          "purpose": "空的 PDF；上傳應被拒絕",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "pdfConversionZip": {
+        "bytes": 867,
+        "sha256": "f66d97fcdf7fbde86898af97543a7274ff97803f2cc09d3761b962e2a6232357"
+      }
+    },
+    "uiOnlySteps": {
+      "U1": "選擇檔案、副檔名與大小檢查、同名檔案詢問都在瀏覽器內完成",
+      "U2": "依檔名判定表單種類在瀏覽器內完成（腳本直接指定種類）",
+      "U7": "在表格中修正內容是瀏覽器內的編輯；腳本以「修正後的檔案」代表其結果（見 U8）",
+      "U11": "從清單移除檔案只改瀏覽器內的狀態",
+      "A1": "選擇日期與站別、未選站別時擋下，都在瀏覽器內完成"
+    },
+    "notCovered": [
+      "U13「轉檔服務未設定時回 503」：需要把 PDF_SERVER_URL 留空另跑一次",
+      "L5「改密碼成功後其他權杖失效」：同一帳號再次登入本來就會使舊權杖失效，無法另外取得第二個權杖來觀察",
+      "L1「場域代碼」相關分支：列為刻意差異（清單第 3.4 節）"
+    ],
+    "t6LockedAt": 1794414455900
+  },
+  "scenarios": [
+    {
+      "id": "P0-未登入被拒",
+      "steps": [
+        "P0"
+      ],
+      "observed": {
+        "query": 401,
+        "import": 401,
+        "analyze": 401,
+        "users": 401
+      }
+    },
+    {
+      "id": "L-登入與權杖",
+      "steps": [
+        "L1",
+        "L3",
+        "L4",
+        "L6"
+      ],
+      "observed": {
+        "whoami": {
+          "status": 200,
+          "role": "user",
+          "isAdmin": false
+        },
+        "secondLogin": 200,
+        "oldTokenAfterRelogin": 401,
+        "tokenAfterLogout": 200,
+        "wrongPassword": 401,
+        "unknownAccount": 401
+      }
+    },
+    {
+      "id": "L5-自己改密碼",
+      "steps": [
+        "L5",
+        "M9"
+      ],
+      "observed": {
+        "change": 204,
+        "loginWithNewPassword": 200,
+        "auditRecorded": {
+          "status": 200,
+          "recorded": true
+        }
+      }
+    },
+    {
+      "id": "L7-管理者解鎖",
+      "steps": [
+        "L7"
+      ],
+      "observed": {
+        "validKey": 200,
+        "invalidKey": 401
+      }
+    },
+    {
+      "id": "U-合法檔案的驗證與匯入",
+      "steps": [
+        "U3",
+        "U5",
+        "U9",
+        "U10"
+      ],
+      "observed": {
+        "p1A": {
+          "create": {
+            "status": 201,
+            "errorCode": null
+          },
+          "validated": {
+            "status": 200,
+            "state": "READY",
+            "totalRows": 1,
+            "errorCount": 0
+          },
+          "errors": [],
+          "commit": {
+            "requested": 200,
+            "state": "COMPLETED"
+          }
+        },
+        "p1B": {
+          "create": {
+            "status": 201,
+            "errorCode": null
+          },
+          "validated": {
+            "status": 200,
+            "state": "READY",
+            "totalRows": 1,
+            "errorCount": 0
+          },
+          "errors": [],
+          "commit": {
+            "requested": 200,
+            "state": "COMPLETED"
+          }
+        },
+        "p2A": {
+          "create": {
+            "status": 201,
+            "errorCode": null
+          },
+          "validated": {
+            "status": 200,
+            "state": "READY",
+            "totalRows": 4,
+            "errorCount": 0
+          },
+          "errors": [],
+          "commit": {
+            "requested": 200,
+            "state": "COMPLETED"
+          }
+        },
+        "p2B": {
+          "create": {
+            "status": 201,
+            "errorCode": null
+          },
+          "validated": {
+            "status": 200,
+            "state": "READY",
+            "totalRows": 2,
+            "errorCount": 0
+          },
+          "errors": [],
+          "commit": {
+            "requested": 200,
+            "state": "COMPLETED"
+          }
+        },
+        "p2FilenameWinder": {
+          "create": {
+            "status": 201,
+            "errorCode": null
+          },
+          "validated": {
+            "status": 200,
+            "state": "READY",
+            "totalRows": 1,
+            "errorCount": 0
+          },
+          "errors": [],
+          "commit": {
+            "requested": 200,
+            "state": "COMPLETED"
+          }
+        },
+        "p3AB": {
+          "create": {
+            "status": 201,
+            "errorCode": null
+          },
+          "validated": {
+            "status": 200,
+            "state": "READY",
+            "totalRows": 4,
+            "errorCount": 0
+          },
+          "errors": [],
+          "commit": {
+            "requested": 200,
+            "state": "COMPLETED"
+          }
+        }
+      }
+    },
+    {
+      "id": "U4-U17-內容重複與取消",
+      "steps": [
+        "U4",
+        "U17"
+      ],
+      "observed": {
+        "duplicate": {
+          "status": 400,
+          "errorCode": "DUPLICATE_FILE_CONTENT"
+        },
+        "allowed": {
+          "create": {
+            "status": 201,
+            "errorCode": null
+          },
+          "validated": {
+            "status": 200,
+            "state": "READY",
+            "totalRows": 1,
+            "errorCount": 0
+          },
+          "errors": []
+        },
+        "cancel": {
+          "status": 200,
+          "state": "CANCELLED"
+        },
+        "cancelAgain": {
+          "status": 200,
+          "state": "CANCELLED"
+        },
+        "commitCancelled": 400
+      }
+    },
+    {
+      "id": "U6-U8-錯誤列與重新驗證",
+      "steps": [
+        "U6",
+        "U8"
+      ],
+      "observed": {
+        "withErrors": {
+          "create": {
+            "status": 201,
+            "errorCode": null
+          },
+          "validated": {
+            "status": 200,
+            "state": "READY",
+            "totalRows": 3,
+            "errorCount": 2
+          },
+          "errors": [
+            {
+              "rowIndex": 2,
+              "errors": [
+                {
+                  "field": "lot_no",
+                  "category": "invalid-format"
+                }
+              ]
+            },
+            {
+              "rowIndex": 3,
+              "errors": [
+                {
+                  "field": "lot_no",
+                  "category": "missing"
+                }
+              ]
+            }
+          ]
+        },
+        "afterFix": {
+          "create": {
+            "status": 201,
+            "errorCode": null
+          },
+          "validated": {
+            "status": 200,
+            "state": "READY",
+            "totalRows": 1,
+            "errorCount": 0
+          },
+          "errors": []
+        },
+        "commit": {
+          "requested": 200,
+          "state": "COMPLETED"
+        },
+        "imported": {
+          "status": 200,
+          "records": [
+            {
+              "type": "P1",
+              "lot": "9903033_03",
+              "productionDate": "2099-01-01",
+              "winders": null,
+              "productId": null,
+              "machine": null,
+              "mold": null,
+              "rows": [
+                {
+                  "LOT NO.": "9903033_03",
+                  "Production Date": "2099-01-01",
+                  "Material": "H2",
+                  "Specification": "SYN-A 10",
+                  "Machine NO": "E91",
+                  "Line Speed(M/min)": "12.5",
+                  "Extruder Speed(rpm)": "45",
+                  "Actual Temp_C1(℃)": "201",
+                  "Set Temp_C1(℃)": "200"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "U9-匯入失敗與被拒",
+      "steps": [
+        "U9",
+        "U10"
+      ],
+      "observed": {
+        "twoLots": {
+          "create": {
+            "status": 201,
+            "errorCode": null
+          },
+          "validated": {
+            "status": 200,
+            "state": "READY",
+            "totalRows": 2,
+            "errorCount": 0
+          },
+          "errors": [],
+          "commit": {
+            "requested": 200,
+            "state": "FAILED"
+          }
+        },
+        "noDate": {
+          "create": {
+            "status": 201,
+            "errorCode": null
+          },
+          "validated": {
+            "status": 200,
+            "state": "READY",
+            "totalRows": 1,
+            "errorCount": 0
+          },
+          "errors": [],
+          "commit": {
+            "requested": 200,
+            "state": "FAILED"
+          }
+        },
+        "missingLot": {
+          "create": {
+            "status": 201,
+            "errorCode": null
+          },
+          "validated": {
+            "status": 200,
+            "state": "READY",
+            "totalRows": 2,
+            "errorCount": 1
+          },
+          "errors": [
+            {
+              "rowIndex": 2,
+              "errors": [
+                {
+                  "field": "lot_no",
+                  "category": "missing"
+                }
+              ]
+            }
+          ],
+          "commit": {
+            "requested": 200,
+            "state": "COMPLETED"
+          }
+        },
+        "missingLotImported": {
+          "status": 200,
+          "records": [
+            {
+              "type": "P3",
+              "lot": "9904044_04",
+              "productionDate": "2099-01-03",
+              "winders": null,
+              "productId": "20990103_P91_M-701_11",
+              "machine": "P91",
+              "mold": "M-701",
+              "rows": [
+                {
+                  "LOT NO": "9904044_04",
+                  "year-month-day": "2099-01-03",
+                  "Machine NO": "P91",
+                  "Mold NO": "M-701",
+                  "lot": "11",
+                  "Source Winder": "7",
+                  "Specification": "SYN-P 20",
+                  "Bottom Tape": "BT-901",
+                  "Product ID": "20990103_P91_M-701_11",
+                  "E Value": "0.5",
+                  "Burr": "0",
+                  "Finish": "1"
+                }
+              ]
+            }
+          ]
+        },
+        "unsupportedExtension": 400,
+        "unknownTable": 400,
+        "unknownJob": 404,
+        "commitCompleted": {
+          "first": {
+            "requested": 200,
+            "state": "COMPLETED"
+          },
+          "again": 400
+        }
+      }
+    },
+    {
+      "id": "U12-PDF上傳檢查",
+      "steps": [
+        "U12"
+      ],
+      "observed": {
+        "notPdf": 422,
+        "empty": 422,
+        "wrongExtension": 422
+      }
+    },
+    {
+      "id": "U13-U18-PDF轉檔成功",
+      "steps": [
+        "U12",
+        "U13",
+        "U14",
+        "U15",
+        "U16",
+        "U18"
+      ],
+      "observed": {
+        "upload": {
+          "status": 200
+        },
+        "convert": 200,
+        "convertAgain": 200,
+        "converted": {
+          "status": 200,
+          "state": "COMPLETED",
+          "errorStage": null
+        },
+        "outputs": {
+          "status": 200,
+          "files": [
+            {
+              "name": "P1_9905055_05.csv",
+              "csv": "LOT NO.,Production Date,Material,Specification,Machine NO,Line Speed(M/min),Extruder Speed(rpm),Actual Temp_C1(℃),Set Temp_C1(℃)\n9905055_05,2099-01-01,H8,SYN-A 10,E91,12.5,45,201,200\n"
+            },
+            {
+              "name": "P2_9905055_05.csv",
+              "csv": "Semi-finished productsLOT NO,Slitting date,Striped Results,Winder number,format,Material,Slitting machine,Sheet Width(mm),Thicknessss1(μm),Appearance,sheet_width,thickness1\n9905055_05,20990102,1,1,SYN-A 10,H2,3,120.5,31,1,120.5,0.31\n9905055_05,20990102,0,2,SYN-A 10,H2,3,120.5,31,1,120.5,0.31\n9905055_05,20990102,1,3,SYN-A 10,H2,3,120.5,31,1,120.5,0.31\n"
+            }
+          ]
+        },
+        "imports": {
+          "P1_9905055_05.csv": {
+            "create": {
+              "status": 201
+            },
+            "validated": {
+              "status": 200,
+              "state": "READY",
+              "totalRows": 1,
+              "errorCount": 0
+            },
+            "commit": {
+              "requested": 200,
+              "state": "COMPLETED"
+            }
+          },
+          "P2_9905055_05.csv": {
+            "create": {
+              "status": 201
+            },
+            "validated": {
+              "status": 200,
+              "state": "READY",
+              "totalRows": 3,
+              "errorCount": 0
+            },
+            "commit": {
+              "requested": 200,
+              "state": "COMPLETED"
+            }
+          }
+        },
+        "importedP1": {
+          "status": 200,
+          "records": [
+            {
+              "type": "P1",
+              "lot": "9905055_05",
+              "productionDate": "2099-01-01",
+              "winders": null,
+              "productId": null,
+              "machine": null,
+              "mold": null,
+              "rows": [
+                {
+                  "LOT NO.": "9905055_05",
+                  "Production Date": "2099-01-01",
+                  "Material": "H8",
+                  "Specification": "SYN-A 10",
+                  "Machine NO": "E91",
+                  "Line Speed(M/min)": "12.5",
+                  "Extruder Speed(rpm)": "45",
+                  "Actual Temp_C1(℃)": "201",
+                  "Set Temp_C1(℃)": "200"
+                }
+              ]
+            }
+          ]
+        },
+        "importedP2": {
+          "status": 200,
+          "records": [
+            {
+              "type": "P2",
+              "lot": "9905055_05",
+              "productionDate": "2099-01-02",
+              "winders": [
+                1,
+                2,
+                3
+              ],
+              "productId": null,
+              "machine": null,
+              "mold": null,
+              "rows": [
+                {
+                  "Semi-finished productsLOT NO": "9905055_05",
+                  "Winder number": "1",
+                  "Slitting date": "20990102",
+                  "Striped Results": "1",
+                  "format": "SYN-A 10",
+                  "Material": "H2",
+                  "Slitting machine": "3",
+                  "Sheet Width(mm)": "120.5",
+                  "Thicknessss1(μm)": "31",
+                  "Appearance": "1",
+                  "sheet_width": 120.5,
+                  "thickness1": 0.31
+                },
+                {
+                  "Semi-finished productsLOT NO": "9905055_05",
+                  "Winder number": "2",
+                  "Slitting date": "20990102",
+                  "Striped Results": "0",
+                  "format": "SYN-A 10",
+                  "Material": "H2",
+                  "Slitting machine": "3",
+                  "Sheet Width(mm)": "120.5",
+                  "Thicknessss1(μm)": "31",
+                  "Appearance": "1",
+                  "sheet_width": 120.5,
+                  "thickness1": 0.31
+                },
+                {
+                  "Semi-finished productsLOT NO": "9905055_05",
+                  "Winder number": "3",
+                  "Slitting date": "20990102",
+                  "Striped Results": "1",
+                  "format": "SYN-A 10",
+                  "Material": "H2",
+                  "Slitting machine": "3",
+                  "Sheet Width(mm)": "120.5",
+                  "Thicknessss1(μm)": "31",
+                  "Appearance": "1",
+                  "sheet_width": 120.5,
+                  "thickness1": 0.31
+                }
+              ]
+            }
+          ]
+        },
+        "ingest": {
+          "status": 200,
+          "uploads": [
+            {
+              "name": "P1_9905055_05.csv",
+              "totalRows": 0,
+              "validRows": 0,
+              "invalidRows": 0,
+              "hasImportJob": false
+            },
+            {
+              "name": "P2_9905055_05.csv",
+              "totalRows": 0,
+              "validRows": 0,
+              "invalidRows": 0,
+              "hasImportJob": false
+            }
+          ]
+        },
+        "ingestAgain": {
+          "status": 200,
+          "uploads": [
+            {
+              "name": "P1_9905055_05.csv",
+              "totalRows": 0,
+              "validRows": 0,
+              "invalidRows": 0,
+              "hasImportJob": false
+            },
+            {
+              "name": "P2_9905055_05.csv",
+              "totalRows": 0,
+              "validRows": 0,
+              "invalidRows": 0,
+              "hasImportJob": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "U13-PDF轉檔服務回錯誤",
+      "steps": [
+        "U13",
+        "U14",
+        "U18"
+      ],
+      "observed": {
+        "convert": 200,
+        "result": {
+          "status": 200,
+          "state": "FAILED",
+          "errorStage": "convert"
+        },
+        "outputs": 409,
+        "ingest": 409,
+        "convertAgainAfterFailure": 200
+      }
+    },
+    {
+      "id": "U13-PDF轉檔服務逾時",
+      "steps": [
+        "U13",
+        "U14"
+      ],
+      "observed": {
+        "convert": 200,
+        "ingestWhileRunning": 409,
+        "result": {
+          "status": 200,
+          "state": "FAILED",
+          "errorStage": "convert"
+        }
+      }
+    },
+    {
+      "id": "Q1-批號建議",
+      "steps": [
+        "Q1"
+      ],
+      "observed": {
+        "match": {
+          "status": 200,
+          "lots": [
+            "9901011_01"
+          ]
+        },
+        "none": {
+          "status": 200,
+          "lots": []
+        }
+      }
+    },
+    {
+      "id": "Q2-A6-產品追溯",
+      "steps": [
+        "Q2",
+        "A6"
+      ],
+      "observed": {
+        "lotA": {
+          "status": 200,
+          "complete": true,
+          "missing": [],
+          "p3": {
+            "lot": "9901011_01",
+            "productId": "20990103_P91_M-701_2",
+            "sourceWinder": 3
+          },
+          "p2": {
+            "lot": "9901011_01",
+            "winder": 3
+          },
+          "p1": {
+            "lot": "9901011_01"
+          }
+        },
+        "lotB": {
+          "status": 200,
+          "complete": true,
+          "missing": [],
+          "p3": {
+            "lot": "9902022_02",
+            "productId": "20990103_P91_M-701_4",
+            "sourceWinder": 2
+          },
+          "p2": {
+            "lot": "9902022_02",
+            "winder": 2
+          },
+          "p1": {
+            "lot": "9902022_02"
+          }
+        },
+        "unknown": {
+          "status": 404
+        }
+      }
+    },
+    {
+      "id": "Q3-批號查詢",
+      "steps": [
+        "Q3"
+      ],
+      "observed": {
+        "P1": {
+          "status": 200,
+          "records": [
+            {
+              "type": "P1",
+              "lot": "9901011_01",
+              "productionDate": "2099-01-01",
+              "winders": null,
+              "productId": null,
+              "machine": null,
+              "mold": null,
+              "rows": [
+                {
+                  "LOT NO.": "9901011_01",
+                  "Production Date": "2099-01-01",
+                  "Material": "H2",
+                  "Specification": "SYN-A 10",
+                  "Machine NO": "E91",
+                  "Line Speed(M/min)": "12.5",
+                  "Extruder Speed(rpm)": "45",
+                  "Actual Temp_C1(℃)": "201",
+                  "Set Temp_C1(℃)": "200"
+                }
+              ]
+            }
+          ]
+        },
+        "P2": {
+          "status": 200,
+          "records": [
+            {
+              "type": "P2",
+              "lot": "9901011_01",
+              "productionDate": "2099-01-02",
+              "winders": [
+                1,
+                2,
+                3,
+                4
+              ],
+              "productId": null,
+              "machine": null,
+              "mold": null,
+              "rows": [
+                {
+                  "Semi-finished productsLOT NO": "9901011_01",
+                  "Winder number": "1",
+                  "Slitting date": "20990102",
+                  "Striped Results": "1",
+                  "format": "SYN-A 10",
+                  "Material": "H2",
+                  "Slitting machine": "3",
+                  "Sheet Width(mm)": "120.5",
+                  "Thicknessss1(μm)": "31",
+                  "Appearance": "1",
+                  "sheet_width": 120.5,
+                  "thickness1": 0.31
+                },
+                {
+                  "Semi-finished productsLOT NO": "9901011_01",
+                  "Winder number": "2",
+                  "Slitting date": "20990102",
+                  "Striped Results": "1",
+                  "format": "SYN-A 10",
+                  "Material": "H2",
+                  "Slitting machine": "3",
+                  "Sheet Width(mm)": "120.5",
+                  "Thicknessss1(μm)": "31",
+                  "Appearance": "1",
+                  "sheet_width": 120.5,
+                  "thickness1": 0.31
+                },
+                {
+                  "Semi-finished productsLOT NO": "9901011_01",
+                  "Winder number": "3",
+                  "Slitting date": "20990102",
+                  "Striped Results": "0",
+                  "format": "SYN-A 10",
+                  "Material": "H2",
+                  "Slitting machine": "3",
+                  "Sheet Width(mm)": "120.5",
+                  "Thicknessss1(μm)": "31",
+                  "Appearance": "1",
+                  "sheet_width": 120.5,
+                  "thickness1": 0.31
+                },
+                {
+                  "Semi-finished productsLOT NO": "9901011_01",
+                  "Winder number": "4",
+                  "Slitting date": "20990102",
+                  "Striped Results": "1",
+                  "format": "SYN-A 10",
+                  "Material": "H2",
+                  "Slitting machine": "3",
+                  "Sheet Width(mm)": "120.5",
+                  "Thicknessss1(μm)": "31",
+                  "Appearance": "1",
+                  "sheet_width": 120.5,
+                  "thickness1": 0.31
+                }
+              ]
+            }
+          ]
+        },
+        "P3": {
+          "status": 200,
+          "records": [
+            {
+              "type": "P3",
+              "lot": "9901011_01",
+              "productionDate": "2099-01-03",
+              "winders": null,
+              "productId": "20990103_P91_M-701_1",
+              "machine": "P91",
+              "mold": "M-701",
+              "rows": [
+                {
+                  "LOT NO": "9901011_01",
+                  "year-month-day": "2099-01-03",
+                  "Machine NO": "P91",
+                  "Mold NO": "M-701",
+                  "lot": "1",
+                  "Source Winder": "1",
+                  "Specification": "SYN-P 20",
+                  "Bottom Tape": "BT-901",
+                  "Product ID": "20990103_P91_M-701_1",
+                  "E Value": "0.5",
+                  "Burr": "0",
+                  "Finish": "1"
+                },
+                {
+                  "LOT NO": "9901011_01",
+                  "year-month-day": "2099-01-03",
+                  "Machine NO": "P91",
+                  "Mold NO": "M-701",
+                  "lot": "2",
+                  "Source Winder": "3",
+                  "Specification": "SYN-P 20",
+                  "Bottom Tape": "BT-901",
+                  "Product ID": "20990103_P91_M-701_2",
+                  "E Value": "0.5",
+                  "Burr": "0",
+                  "Finish": "0"
+                },
+                {
+                  "LOT NO": "9901011_01",
+                  "year-month-day": "2099-01-03",
+                  "Machine NO": "P91",
+                  "Mold NO": "M-701",
+                  "lot": "3",
+                  "Source Winder": "3",
+                  "Specification": "SYN-P 20",
+                  "Bottom Tape": "BT-901",
+                  "Product ID": "20990103_P91_M-701_3",
+                  "E Value": "0.5",
+                  "Burr": "0",
+                  "Finish": "1"
+                }
+              ]
+            }
+          ]
+        },
+        "p2FilenameWinder": {
+          "status": 200,
+          "records": [
+            {
+              "type": "P2",
+              "lot": "9904044_04",
+              "productionDate": "2099-01-02",
+              "winders": [
+                7
+              ],
+              "productId": null,
+              "machine": null,
+              "mold": null,
+              "rows": [
+                {
+                  "Semi-finished productsLOT NO": "9904044_04",
+                  "Slitting date": "20990102",
+                  "Striped Results": "1",
+                  "format": "SYN-A 10",
+                  "Material": "H2",
+                  "Slitting machine": "3",
+                  "Sheet Width(mm)": "120.5",
+                  "Thicknessss1(μm)": "31",
+                  "Appearance": "1",
+                  "sheet_width": 120.5,
+                  "thickness1": 0.31
+                }
+              ]
+            }
+          ]
+        },
+        "empty": {
+          "status": 200,
+          "records": []
+        }
+      }
+    },
+    {
+      "id": "Q4-進階查詢",
+      "steps": [
+        "Q4"
+      ],
+      "observed": {
+        "options": {
+          "machine_no": {
+            "status": 200,
+            "values": [
+              "P91"
+            ]
+          },
+          "mold_no": {
+            "status": 200,
+            "values": [
+              "M-701"
+            ]
+          },
+          "specification": {
+            "status": 200,
+            "values": [
+              "SYN-A 10",
+              "SYN-B 12",
+              "SYN-P 20",
+              "SYN-Q 30"
+            ]
+          },
+          "material": {
+            "status": 200,
+            "values": [
+              "H2",
+              "H5",
+              "H8"
+            ]
+          }
+        },
+        "byMachine": {
+          "status": 200,
+          "records": [
+            {
+              "type": "P3",
+              "lot": "9901011_01",
+              "productionDate": "2099-01-03",
+              "winders": null,
+              "productId": "20990103_P91_M-701_1",
+              "machine": "P91",
+              "mold": "M-701",
+              "rows": [
+                {
+                  "LOT NO": "9901011_01",
+                  "year-month-day": "2099-01-03",
+                  "Machine NO": "P91",
+                  "Mold NO": "M-701",
+                  "lot": "1",
+                  "Source Winder": "1",
+                  "Specification": "SYN-P 20",
+                  "Bottom Tape": "BT-901",
+                  "Product ID": "20990103_P91_M-701_1",
+                  "E Value": "0.5",
+                  "Burr": "0",
+                  "Finish": "1"
+                },
+                {
+                  "LOT NO": "9901011_01",
+                  "year-month-day": "2099-01-03",
+                  "Machine NO": "P91",
+                  "Mold NO": "M-701",
+                  "lot": "2",
+                  "Source Winder": "3",
+                  "Specification": "SYN-P 20",
+                  "Bottom Tape": "BT-901",
+                  "Product ID": "20990103_P91_M-701_2",
+                  "E Value": "0.5",
+                  "Burr": "0",
+                  "Finish": "0"
+                },
+                {
+                  "LOT NO": "9901011_01",
+                  "year-month-day": "2099-01-03",
+                  "Machine NO": "P91",
+                  "Mold NO": "M-701",
+                  "lot": "3",
+                  "Source Winder": "3",
+                  "Specification": "SYN-P 20",
+                  "Bottom Tape": "BT-901",
+                  "Product ID": "20990103_P91_M-701_3",
+                  "E Value": "0.5",
+                  "Burr": "0",
+                  "Finish": "1"
+                }
+              ]
+            },
+            {
+              "type": "P3",
+              "lot": "9902022_02",
+              "productionDate": "2099-01-03",
+              "winders": null,
+              "productId": "20990103_P91_M-701_4",
+              "machine": "P91",
+              "mold": "M-701",
+              "rows": [
+                {
+                  "LOT NO": "9902022_02",
+                  "year-month-day": "2099-01-03",
+                  "Machine NO": "P91",
+                  "Mold NO": "M-701",
+                  "lot": "4",
+                  "Source Winder": "2",
+                  "Specification": "SYN-Q 30",
+                  "Bottom Tape": "BT-901",
+                  "Product ID": "20990103_P91_M-701_4",
+                  "E Value": "0.5",
+                  "Burr": "0",
+                  "Finish": "1"
+                }
+              ]
+            },
+            {
+              "type": "P3",
+              "lot": "9904044_04",
+              "productionDate": "2099-01-03",
+              "winders": null,
+              "productId": "20990103_P91_M-701_11",
+              "machine": "P91",
+              "mold": "M-701",
+              "rows": [
+                {
+                  "LOT NO": "9904044_04",
+                  "year-month-day": "2099-01-03",
+                  "Machine NO": "P91",
+                  "Mold NO": "M-701",
+                  "lot": "11",
+                  "Source Winder": "7",
+                  "Specification": "SYN-P 20",
+                  "Bottom Tape": "BT-901",
+                  "Product ID": "20990103_P91_M-701_11",
+                  "E Value": "0.5",
+                  "Burr": "0",
+                  "Finish": "1"
+                }
+              ]
+            }
+          ]
+        },
+        "byMold": {
+          "status": 200,
+          "records": [
+            {
+              "type": "P3",
+              "lot": "9901011_01",
+              "productionDate": "2099-01-03",
+              "winders": null,
+              "productId": "20990103_P91_M-701_1",
+              "machine": "P91",
+              "mold": "M-701",
+              "rows": [
+                {
+                  "LOT NO": "9901011_01",
+                  "year-month-day": "2099-01-03",
+                  "Machine NO": "P91",
+                  "Mold NO": "M-701",
+                  "lot": "1",
+                  "Source Winder": "1",
+                  "Specification": "SYN-P 20",
+                  "Bottom Tape": "BT-901",
+                  "Product ID": "20990103_P91_M-701_1",
+                  "E Value": "0.5",
+                  "Burr": "0",
+                  "Finish": "1"
+                },
+                {
+                  "LOT NO": "9901011_01",
+                  "year-month-day": "2099-01-03",
+                  "Machine NO": "P91",
+                  "Mold NO": "M-701",
+                  "lot": "2",
+                  "Source Winder": "3",
+                  "Specification": "SYN-P 20",
+                  "Bottom Tape": "BT-901",
+                  "Product ID": "20990103_P91_M-701_2",
+                  "E Value": "0.5",
+                  "Burr": "0",
+                  "Finish": "0"
+                },
+                {
+                  "LOT NO": "9901011_01",
+                  "year-month-day": "2099-01-03",
+                  "Machine NO": "P91",
+                  "Mold NO": "M-701",
+                  "lot": "3",
+                  "Source Winder": "3",
+                  "Specification": "SYN-P 20",
+                  "Bottom Tape": "BT-901",
+                  "Product ID": "20990103_P91_M-701_3",
+                  "E Value": "0.5",
+                  "Burr": "0",
+                  "Finish": "1"
+                }
+              ]
+            },
+            {
+              "type": "P3",
+              "lot": "9902022_02",
+              "productionDate": "2099-01-03",
+              "winders": null,
+              "productId": "20990103_P91_M-701_4",
+              "machine": "P91",
+              "mold": "M-701",
+              "rows": [
+                {
+                  "LOT NO": "9902022_02",
+                  "year-month-day": "2099-01-03",
+                  "Machine NO": "P91",
+                  "Mold NO": "M-701",
+                  "lot": "4",
+                  "Source Winder": "2",
+                  "Specification": "SYN-Q 30",
+                  "Bottom Tape": "BT-901",
+                  "Product ID": "20990103_P91_M-701_4",
+                  "E Value": "0.5",
+                  "Burr": "0",
+                  "Finish": "1"
+                }
+              ]
+            },
+            {
+              "type": "P3",
+              "lot": "9904044_04",
+              "productionDate": "2099-01-03",
+              "winders": null,
+              "productId": "20990103_P91_M-701_11",
+              "machine": "P91",
+              "mold": "M-701",
+              "rows": [
+                {
+                  "LOT NO": "9904044_04",
+                  "year-month-day": "2099-01-03",
+                  "Machine NO": "P91",
+                  "Mold NO": "M-701",
+                  "lot": "11",
+                  "Source Winder": "7",
+                  "Specification": "SYN-P 20",
+                  "Bottom Tape": "BT-901",
+                  "Product ID": "20990103_P91_M-701_11",
+                  "E Value": "0.5",
+                  "Burr": "0",
+                  "Finish": "1"
+                }
+              ]
+            }
+          ]
+        },
+        "bySpecification": {
+          "status": 200,
+          "records": [
+            {
+              "type": "P2",
+              "lot": "9902022_02",
+              "productionDate": "2099-01-02",
+              "winders": [
+                1,
+                2
+              ],
+              "productId": null,
+              "machine": null,
+              "mold": null,
+              "rows": [
+                {
+                  "Semi-finished productsLOT NO": "9902022_02",
+                  "Winder number": "1",
+                  "Slitting date": "20990102",
+                  "Striped Results": "1",
+                  "format": "SYN-B 12",
+                  "Material": "H2",
+                  "Slitting machine": "3",
+                  "Sheet Width(mm)": "120.5",
+                  "Thicknessss1(μm)": "31",
+                  "Appearance": "1",
+                  "sheet_width": 120.5,
+                  "thickness1": 0.31
+                },
+                {
+                  "Semi-finished productsLOT NO": "9902022_02",
+                  "Winder number": "2",
+                  "Slitting date": "20990102",
+                  "Striped Results": "0",
+                  "format": "SYN-B 12",
+                  "Material": "H2",
+                  "Slitting machine": "3",
+                  "Sheet Width(mm)": "120.5",
+                  "Thicknessss1(μm)": "31",
+                  "Appearance": "1",
+                  "sheet_width": 120.5,
+                  "thickness1": 0.31
+                }
+              ]
+            }
+          ]
+        },
+        "byMaterial": {
+          "status": 200,
+          "records": [
+            {
+              "type": "P2",
+              "lot": "9902022_02",
+              "productionDate": "2099-01-02",
+              "winders": [
+                1,
+                2
+              ],
+              "productId": null,
+              "machine": null,
+              "mold": null,
+              "rows": [
+                {
+                  "Semi-finished productsLOT NO": "9902022_02",
+                  "Winder number": "1",
+                  "Slitting date": "20990102",
+                  "Striped Results": "1",
+                  "format": "SYN-B 12",
+                  "Material": "H2",
+                  "Slitting machine": "3",
+                  "Sheet Width(mm)": "120.5",
+                  "Thicknessss1(μm)": "31",
+                  "Appearance": "1",
+                  "sheet_width": 120.5,
+                  "thickness1": 0.31
+                },
+                {
+                  "Semi-finished productsLOT NO": "9902022_02",
+                  "Winder number": "2",
+                  "Slitting date": "20990102",
+                  "Striped Results": "0",
+                  "format": "SYN-B 12",
+                  "Material": "H2",
+                  "Slitting machine": "3",
+                  "Sheet Width(mm)": "120.5",
+                  "Thicknessss1(μm)": "31",
+                  "Appearance": "1",
+                  "sheet_width": 120.5,
+                  "thickness1": 0.31
+                }
+              ]
+            }
+          ]
+        },
+        "noMatch": {
+          "status": 200,
+          "records": []
+        }
+      }
+    },
+    {
+      "id": "Q5-收卷機追溯",
+      "steps": [
+        "Q5"
+      ],
+      "observed": {
+        "winder3": {
+          "status": 200,
+          "p2": {
+            "lot": "9901011_01",
+            "winder": 3
+          },
+          "p1": {
+            "lot": "9901011_01"
+          },
+          "p3ProductIds": [
+            "20990103_P91_M-701_2",
+            "20990103_P91_M-701_3"
+          ]
+        },
+        "noSuchWinder": {
+          "status": 404
+        }
+      }
+    },
+    {
+      "id": "Q6-Q8-修改紀錄與原因代碼",
+      "steps": [
+        "Q6",
+        "Q7",
+        "Q8",
+        "M9"
+      ],
+      "observed": {
+        "initReasons": {
+          "status": 200,
+          "codes": [
+            "MISSING_INFO",
+            "OTHER",
+            "SYSTEM_ERROR",
+            "TYPO",
+            "WRONG_DATA"
+          ]
+        },
+        "createReason": {
+          "status": 200
+        },
+        "createDuplicate": 409,
+        "updateReason": {
+          "status": 200,
+          "description": "S4 合成原因（已修改）"
+        },
+        "listReasons": {
+          "status": 200,
+          "codes": [
+            "MISSING_INFO",
+            "OTHER",
+            "S4_REASON",
+            "SYSTEM_ERROR",
+            "TYPO",
+            "WRONG_DATA"
+          ]
+        },
+        "edit": {
+          "status": 200,
+          "lot": "9902022_02",
+          "extras": {
+            "s4_note": "checked"
+          }
+        },
+        "editForbiddenField": 400,
+        "history": {
+          "status": 200,
+          "count": 1,
+          "latest": {
+            "reasonText": "S4_REASON",
+            "before": {},
+            "after": {
+              "s4_note": "checked"
+            }
+          }
+        },
+        "auditRecorded": {
+          "status": 200,
+          "recorded": true
+        }
+      }
+    },
+    {
+      "id": "A2-執行分析",
+      "steps": [
+        "A2"
+      ],
+      "observed": {
+        "p2": {
+          "status": 200,
+          "result": {
+            "Qaulity inspecrion": {
+              "__MISSING__": {
+                "0": 0.3,
+                "1": 0.7,
+                "total_count": 10,
+                "count_0": 3
+              }
+            },
+            "Qaulity control": {
+              "__MISSING__": {
+                "0": 0.3,
+                "1": 0.7,
+                "total_count": 10,
+                "count_0": 3
+              }
+            },
+            "Slitting machine": {
+              "3": {
+                "0": 0.3,
+                "1": 0.7,
+                "total_count": 10,
+                "count_0": 3
+              }
+            },
+            "Winder number": {
+              "1": {
+                "0": 0,
+                "1": 1,
+                "total_count": 3,
+                "count_0": 0
+              },
+              "2": {
+                "0": 0.6666666666666666,
+                "1": 0.3333333333333333,
+                "total_count": 3,
+                "count_0": 2
+              },
+              "3": {
+                "0": 0.5,
+                "1": 0.5,
+                "total_count": 2,
+                "count_0": 1
+              },
+              "4": {
+                "0": 0,
+                "1": 1,
+                "total_count": 1,
+                "count_0": 0
+              },
+              "7": {
+                "0": 0,
+                "1": 1,
+                "total_count": 1,
+                "count_0": 0
+              }
+            },
+            "P2.Material": {
+              "H2": {
+                "0": 0.3,
+                "1": 0.7,
+                "total_count": 10,
+                "count_0": 3
+              }
+            },
+            "format": {
+              "__MISSING__": {
+                "0": 0.3,
+                "1": 0.7,
+                "total_count": 10,
+                "count_0": 3
+              }
+            }
+          }
+        },
+        "all": {
+          "status": 200,
+          "result": {
+            "P2.Qaulity inspecrion": {
+              "__MISSING__": {
+                "0": 0.3,
+                "1": 0.7,
+                "total_count": 10,
+                "count_0": 3
+              }
+            },
+            "P2.Qaulity control": {
+              "__MISSING__": {
+                "0": 0.3,
+                "1": 0.7,
+                "total_count": 10,
+                "count_0": 3
+              }
+            },
+            "P2.Slitting machine": {
+              "3": {
+                "0": 0.3,
+                "1": 0.7,
+                "total_count": 10,
+                "count_0": 3
+              }
+            },
+            "P2.Winder number": {
+              "1": {
+                "0": 0,
+                "1": 1,
+                "total_count": 3,
+                "count_0": 0
+              },
+              "2": {
+                "0": 0.6666666666666666,
+                "1": 0.3333333333333333,
+                "total_count": 3,
+                "count_0": 2
+              },
+              "3": {
+                "0": 0.5,
+                "1": 0.5,
+                "total_count": 2,
+                "count_0": 1
+              },
+              "4": {
+                "0": 0,
+                "1": 1,
+                "total_count": 1,
+                "count_0": 0
+              },
+              "7": {
+                "0": 0,
+                "1": 1,
+                "total_count": 1,
+                "count_0": 0
+              }
+            },
+            "P2.P2.Material": {
+              "H2": {
+                "0": 0.3,
+                "1": 0.7,
+                "total_count": 10,
+                "count_0": 3
+              }
+            },
+            "P2.format": {
+              "__MISSING__": {
+                "0": 0.3,
+                "1": 0.7,
+                "total_count": 10,
+                "count_0": 3
+              }
+            },
+            "P3.operator": {
+              "__MISSING__": {
+                "0": 0.2,
+                "1": 0.8,
+                "total_count": 5,
+                "count_0": 1
+              }
+            },
+            "P3.P3.Machine_No.": {
+              "P91": {
+                "0": 0.2,
+                "1": 0.8,
+                "total_count": 5,
+                "count_0": 1
+              }
+            },
+            "P3.BottomTape": {
+              "BT-901": {
+                "0": 0.2,
+                "1": 0.8,
+                "total_count": 5,
+                "count_0": 1
+              }
+            },
+            "P3.P3.Specification": {
+              "SYN-P20": {
+                "0": 0.25,
+                "1": 0.75,
+                "total_count": 4,
+                "count_0": 1
+              },
+              "SYN-Q30": {
+                "0": 0,
+                "1": 1,
+                "total_count": 1,
+                "count_0": 0
+              }
+            },
+            "P3.Mold No.": {
+              "M-701": {
+                "0": 0.2,
+                "1": 0.8,
+                "total_count": 5,
+                "count_0": 1
+              }
+            }
+          }
+        },
+        "byProduct": {
+          "status": 200,
+          "result": {
+            "operator": {
+              "__MISSING__": {
+                "1": 1,
+                "total_count": 1,
+                "count_0": 0
+              }
+            },
+            "P3.Machine_No.": {
+              "P91": {
+                "1": 1,
+                "total_count": 1,
+                "count_0": 0
+              }
+            },
+            "BottomTape": {
+              "BT-901": {
+                "1": 1,
+                "total_count": 1,
+                "count_0": 0
+              }
+            },
+            "P3.Specification": {
+              "SYN-P20": {
+                "1": 1,
+                "total_count": 1,
+                "count_0": 0
+              }
+            },
+            "Mold No.": {
+              "M-701": {
+                "1": 1,
+                "total_count": 1,
+                "count_0": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "A3-NG明細",
+      "steps": [
+        "A3"
+      ],
+      "observed": {
+        "p2": {
+          "status": 200,
+          "records": [
+            {
+              "type": "P2",
+              "lot": "9901011_01",
+              "productionDate": "2099-01-02",
+              "winders": [
+                3
+              ],
+              "productId": null,
+              "machine": null,
+              "mold": null,
+              "rows": [
+                {
+                  "Semi-finished productsLOT NO": "9901011_01",
+                  "Winder number": "3",
+                  "Slitting date": "20990102",
+                  "Striped Results": "0",
+                  "format": "SYN-A 10",
+                  "Material": "H2",
+                  "Slitting machine": "3",
+                  "Sheet Width(mm)": "120.5",
+                  "Thicknessss1(μm)": "31",
+                  "Appearance": "1",
+                  "sheet_width": 120.5,
+                  "thickness1": 0.31
+                }
+              ]
+            },
+            {
+              "type": "P2",
+              "lot": "9902022_02",
+              "productionDate": "2099-01-02",
+              "winders": [
+                2
+              ],
+              "productId": null,
+              "machine": null,
+              "mold": null,
+              "rows": [
+                {
+                  "Semi-finished productsLOT NO": "9902022_02",
+                  "Winder number": "2",
+                  "Slitting date": "20990102",
+                  "Striped Results": "0",
+                  "format": "SYN-B 12",
+                  "Material": "H2",
+                  "Slitting machine": "3",
+                  "Sheet Width(mm)": "120.5",
+                  "Thicknessss1(μm)": "31",
+                  "Appearance": "1",
+                  "sheet_width": 120.5,
+                  "thickness1": 0.31
+                }
+              ]
+            },
+            {
+              "type": "P2",
+              "lot": "9905055_05",
+              "productionDate": "2099-01-02",
+              "winders": [
+                2
+              ],
+              "productId": null,
+              "machine": null,
+              "mold": null,
+              "rows": [
+                {
+                  "Semi-finished productsLOT NO": "9905055_05",
+                  "Winder number": "2",
+                  "Slitting date": "20990102",
+                  "Striped Results": "0",
+                  "format": "SYN-A 10",
+                  "Material": "H2",
+                  "Slitting machine": "3",
+                  "Sheet Width(mm)": "120.5",
+                  "Thicknessss1(μm)": "31",
+                  "Appearance": "1",
+                  "sheet_width": 120.5,
+                  "thickness1": 0.31
+                }
+              ]
+            }
+          ]
+        },
+        "p2Winder3": {
+          "status": 200,
+          "records": [
+            {
+              "type": "P2",
+              "lot": "9901011_01",
+              "productionDate": "2099-01-02",
+              "winders": [
+                3
+              ],
+              "productId": null,
+              "machine": null,
+              "mold": null,
+              "rows": [
+                {
+                  "Semi-finished productsLOT NO": "9901011_01",
+                  "Winder number": "3",
+                  "Slitting date": "20990102",
+                  "Striped Results": "0",
+                  "format": "SYN-A 10",
+                  "Material": "H2",
+                  "Slitting machine": "3",
+                  "Sheet Width(mm)": "120.5",
+                  "Thicknessss1(μm)": "31",
+                  "Appearance": "1",
+                  "sheet_width": 120.5,
+                  "thickness1": 0.31
+                }
+              ]
+            }
+          ]
+        },
+        "p3": {
+          "status": 200,
+          "records": [
+            {
+              "type": "P3",
+              "lot": "9901011_01",
+              "productionDate": "2099-01-03",
+              "winders": null,
+              "productId": "20990103_P91_M-701_1",
+              "machine": "P91",
+              "mold": "M-701",
+              "rows": [
+                {
+                  "LOT NO": "9901011_01",
+                  "year-month-day": "2099-01-03",
+                  "Machine NO": "P91",
+                  "Mold NO": "M-701",
+                  "lot": "2",
+                  "Source Winder": "3",
+                  "Specification": "SYN-P 20",
+                  "Bottom Tape": "BT-901",
+                  "Product ID": "20990103_P91_M-701_2",
+                  "E Value": "0.5",
+                  "Burr": "0",
+                  "Finish": "0"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "A4-萃取分析分數",
+      "steps": [
+        "A4"
+      ],
+      "observed": {
+        "p2": {
+          "status": 200,
+          "station": "P2",
+          "boundary_count": {},
+          "spe_score": {},
+          "t2_score": {},
+          "final_raw_score": {},
+          "features_used": [
+            "Board Width(mm)",
+            "Appearance"
+          ],
+          "sample_counts": {
+            "total": 10,
+            "baseline": 8,
+            "analysis": 2
+          }
+        }
+      }
+    },
+    {
+      "id": "A5-分析產出",
+      "steps": [
+        "A5"
+      ],
+      "observed": {
+        "artifacts": {
+          "status": 200,
+          "artifacts": [
+            {
+              "key": "aggregated_diagnostics",
+              "exists": false
+            },
+            {
+              "key": "llm_reports",
+              "exists": false
+            },
+            {
+              "key": "rag_results",
+              "exists": false
+            },
+            {
+              "key": "serialized_events",
+              "exists": false
+            },
+            {
+              "key": "weighted_contributions",
+              "exists": false
+            }
+          ],
+          "views": {
+            "/": 404,
+            "/list": 404,
+            "/snapshot": 404
+          },
+          "resolveInput": 200
+        },
+        "complaint": {
+          "status": 200,
+          "requested": [
+            "20990103_P91_M-701_2",
+            "S4_UNKNOWN_ID"
+          ],
+          "mapping": {
+            "20990103_P91_M-701_2": {
+              "matched_stage": "trace_ok",
+              "missing_stages": [],
+              "trace_status": {
+                "p1": true,
+                "p2": true,
+                "p3": true
+              }
+            },
+            "S4_UNKNOWN_ID": {
+              "matched_stage": "trace_error",
+              "missing_stages": [
+                "P3",
+                "P2",
+                "P1"
+              ],
+              "trace_status": {
+                "p3": false,
+                "p2": false,
+                "p1": false
+              }
+            }
+          },
+          "sourceScope": {
+            "requested_count": 2,
+            "resolved_count": 1,
+            "merged_rows": 1
+          },
+          "winderDistribution": [
+            {
+              "name": "3",
+              "count": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "M1-M5-使用者管理",
+      "steps": [
+        "M1",
+        "M2",
+        "M3",
+        "M4",
+        "M5"
+      ],
+      "observed": {
+        "create": 201,
+        "createDuplicate": 409,
+        "reset": 200,
+        "loginAfterReset": 200,
+        "resetSelf": 400,
+        "promote": 200,
+        "demote": 200,
+        "demoteLastManager": 409,
+        "deleteLastManager": 409,
+        "delete": 200,
+        "list": {
+          "status": 200,
+          "users": [
+            {
+              "username": "s4_login",
+              "role": "user",
+              "active": true
+            },
+            {
+              "username": "s4_manager",
+              "role": "manager",
+              "active": true
+            },
+            {
+              "username": "s4_new",
+              "role": "user",
+              "active": false
+            },
+            {
+              "username": "s4_pw",
+              "role": "user",
+              "active": true
+            },
+            {
+              "username": "s4_user",
+              "role": "user",
+              "active": true
+            }
+          ]
+        },
+        "keyDemotesLastManager": 200,
+        "keyRestoresManager": 200
+      }
+    },
+    {
+      "id": "M6-系統日誌",
+      "steps": [
+        "M6"
+      ],
+      "observed": {
+        "files": 200,
+        "view": 200,
+        "stats": 200,
+        "search": 200,
+        "download": 200,
+        "cleanup": 200
+      }
+    },
+    {
+      "id": "M7-M8-站點設定",
+      "steps": [
+        "M7",
+        "M8"
+      ],
+      "observed": {
+        "read": {
+          "list": 200,
+          "codes": [
+            "P1",
+            "P2",
+            "P3"
+          ],
+          "schema": 200,
+          "fields": 200,
+          "rules": 200,
+          "mapping": 200,
+          "links": 200,
+          "trace": 200
+        },
+        "write": {
+          "steps": {
+            "createStation": 201,
+            "createSecondStation": 201,
+            "updateStation": 200,
+            "upsertSchema": 200,
+            "createRule": 201,
+            "updateRule": 200,
+            "deleteRule": 204,
+            "createMapping": 201,
+            "updateMapping": 200,
+            "deleteMapping": 204,
+            "createLink": 201,
+            "updateLink": 200,
+            "deleteLink": 204,
+            "deleteStation": 204,
+            "deleteSecondStation": 204
+          }
+        }
+      }
+    },
+    {
+      "id": "M9-稽核事件",
+      "steps": [
+        "M9"
+      ],
+      "observed": {
+        "importCommit": {
+          "status": 200,
+          "recorded": true
+        }
+      }
+    },
+    {
+      "id": "X-外部讀取端點",
+      "steps": [
+        "X1",
+        "X2",
+        "X3"
+      ],
+      "observed": {
+        "X1": {
+          "statuses": [
+            200,
+            200,
+            200
+          ]
+        },
+        "X2": {
+          "statuses": [
+            200,
+            200
+          ]
+        },
+        "X3": {
+          "statuses": [
+            200,
+            200,
+            200,
+            200
+          ]
+        }
+      }
+    },
+    {
+      "id": "PERM-00-準備帳號",
+      "steps": [],
+      "observed": {
+        "prepared": true
+      }
+    },
+    {
+      "id": "PERM-01-登入",
+      "steps": [
+        "L1"
+      ],
+      "observed": {
+        "anonymous": 200,
+        "user": 200,
+        "manager": 200,
+        "keyAndAccount": 200,
+        "keyOnly": 200
+      }
+    },
+    {
+      "id": "PERM-02-查看目前身分",
+      "steps": [
+        "L4"
+      ],
+      "observed": {
+        "anonymous": 401,
+        "user": 200,
+        "manager": 200,
+        "keyAndAccount": 200,
+        "keyOnly": 200
+      }
+    },
+    {
+      "id": "PERM-03-自己改密碼",
+      "steps": [
+        "L5"
+      ],
+      "observed": {
+        "anonymous": 401,
+        "user": 204,
+        "manager": 204,
+        "keyAndAccount": 204,
+        "keyOnly": 401
+      }
+    },
+    {
+      "id": "PERM-04-解鎖管理者頁籤",
+      "steps": [
+        "L7"
+      ],
+      "observed": {
+        "anonymous": {
+          "validKey": 200,
+          "invalidKey": 401
+        },
+        "user": {
+          "validKey": 200,
+          "invalidKey": 401
+        },
+        "manager": {
+          "validKey": 200,
+          "invalidKey": 401
+        },
+        "keyAndAccount": {
+          "validKey": 200,
+          "invalidKey": 401
+        },
+        "keyOnly": {
+          "validKey": 200,
+          "invalidKey": 401
+        }
+      }
+    },
+    {
+      "id": "PERM-05-CSV建立匯入工作與查狀態",
+      "steps": [
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U8"
+      ],
+      "observed": {
+        "anonymous": {
+          "create": 401,
+          "state": 401,
+          "errors": 401
+        },
+        "user": {
+          "create": 201,
+          "state": 200,
+          "errors": 200
+        },
+        "manager": {
+          "create": 201,
+          "state": 200,
+          "errors": 200
+        },
+        "keyAndAccount": {
+          "create": 201,
+          "state": 200,
+          "errors": 200
+        },
+        "keyOnly": {
+          "create": 401,
+          "state": 401,
+          "errors": 401
+        }
+      }
+    },
+    {
+      "id": "PERM-06-匯入與取消",
+      "steps": [
+        "U9",
+        "U17"
+      ],
+      "observed": {
+        "anonymous": {
+          "commit": 401,
+          "cancel": 401
+        },
+        "user": {
+          "commit": 200,
+          "cancel": 200
+        },
+        "manager": {
+          "commit": 200,
+          "cancel": 200
+        },
+        "keyAndAccount": {
+          "commit": 200,
+          "cancel": 200
+        },
+        "keyOnly": {
+          "commit": 401,
+          "cancel": 401
+        }
+      }
+    },
+    {
+      "id": "PERM-07-PDF上傳轉檔與後續",
+      "steps": [
+        "U12",
+        "U13",
+        "U14",
+        "U15",
+        "U18"
+      ],
+      "observed": {
+        "anonymous": {
+          "upload": 401,
+          "convert": 401,
+          "status": 401,
+          "outputs": 401,
+          "ingest": 401
+        },
+        "user": {
+          "upload": 200,
+          "convert": 200,
+          "status": 200,
+          "outputs": 200,
+          "ingest": 200
+        },
+        "manager": {
+          "upload": 200,
+          "convert": 200,
+          "status": 200,
+          "outputs": 200,
+          "ingest": 200
+        },
+        "keyAndAccount": {
+          "upload": 200,
+          "convert": 200,
+          "status": 200,
+          "outputs": 200,
+          "ingest": 200
+        },
+        "keyOnly": {
+          "upload": 401,
+          "convert": 401,
+          "status": 401,
+          "outputs": 401,
+          "ingest": 401
+        }
+      }
+    },
+    {
+      "id": "PERM-08-查詢與追溯",
+      "steps": [
+        "Q1",
+        "Q2",
+        "Q3",
+        "Q4",
+        "Q5"
+      ],
+      "observed": {
+        "anonymous": {
+          "suggest": 401,
+          "records": 401,
+          "advanced": 401,
+          "options": 401,
+          "traceProduct": 401,
+          "traceWinder": 401
+        },
+        "user": {
+          "suggest": 200,
+          "records": 200,
+          "advanced": 200,
+          "options": 200,
+          "traceProduct": 200,
+          "traceWinder": 200
+        },
+        "manager": {
+          "suggest": 200,
+          "records": 200,
+          "advanced": 200,
+          "options": 200,
+          "traceProduct": 200,
+          "traceWinder": 200
+        },
+        "keyAndAccount": {
+          "suggest": 200,
+          "records": 200,
+          "advanced": 200,
+          "options": 200,
+          "traceProduct": 200,
+          "traceWinder": 200
+        },
+        "keyOnly": {
+          "suggest": 401,
+          "records": 401,
+          "advanced": 401,
+          "options": 401,
+          "traceProduct": 401,
+          "traceWinder": 401
+        }
+      }
+    },
+    {
+      "id": "PERM-09-修改紀錄與修改歷史",
+      "steps": [
+        "Q6",
+        "Q7"
+      ],
+      "observed": {
+        "anonymous": {
+          "edit": 401,
+          "history": 401
+        },
+        "user": {
+          "edit": 200,
+          "history": 200
+        },
+        "manager": {
+          "edit": 200,
+          "history": 200
+        },
+        "keyAndAccount": {
+          "edit": 200,
+          "history": 200
+        },
+        "keyOnly": {
+          "edit": 401,
+          "history": 401
+        }
+      }
+    },
+    {
+      "id": "PERM-10-分析",
+      "steps": [
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6"
+      ],
+      "observed": {
+        "anonymous": {
+          "analyze": 401,
+          "ngDetail": 401,
+          "extraction": 401,
+          "artifacts": 401,
+          "complaint": 401
+        },
+        "user": {
+          "analyze": 200,
+          "ngDetail": 200,
+          "extraction": 200,
+          "artifacts": 200,
+          "complaint": 200
+        },
+        "manager": {
+          "analyze": 200,
+          "ngDetail": 200,
+          "extraction": 200,
+          "artifacts": 200,
+          "complaint": 200
+        },
+        "keyAndAccount": {
+          "analyze": 200,
+          "ngDetail": 200,
+          "extraction": 200,
+          "artifacts": 200,
+          "complaint": 200
+        },
+        "keyOnly": {
+          "analyze": 401,
+          "ngDetail": 401,
+          "extraction": 401,
+          "artifacts": 401,
+          "complaint": 401
+        }
+      }
+    },
+    {
+      "id": "PERM-11-列出使用者",
+      "steps": [
+        "M1"
+      ],
+      "observed": {
+        "anonymous": 401,
+        "user": 403,
+        "manager": 200,
+        "keyAndAccount": 200,
+        "keyOnly": 200
+      }
+    },
+    {
+      "id": "PERM-12-新增使用者",
+      "steps": [
+        "M2"
+      ],
+      "observed": {
+        "anonymous": 401,
+        "user": 403,
+        "manager": 201,
+        "keyAndAccount": 201,
+        "keyOnly": 201
+      }
+    },
+    {
+      "id": "PERM-13-修改使用者",
+      "steps": [
+        "M3"
+      ],
+      "observed": {
+        "anonymous": 401,
+        "user": 403,
+        "manager": 200,
+        "keyAndAccount": 200,
+        "keyOnly": 200
+      }
+    },
+    {
+      "id": "PERM-14-刪除使用者",
+      "steps": [
+        "M4"
+      ],
+      "observed": {
+        "anonymous": 401,
+        "user": 403,
+        "manager": 200,
+        "keyAndAccount": 200,
+        "keyOnly": 200
+      }
+    },
+    {
+      "id": "PERM-15-重設他人密碼",
+      "steps": [
+        "M5"
+      ],
+      "observed": {
+        "anonymous": 401,
+        "user": 403,
+        "manager": 200,
+        "keyAndAccount": 200,
+        "keyOnly": 200
+      }
+    },
+    {
+      "id": "PERM-16-系統日誌",
+      "steps": [
+        "M6"
+      ],
+      "observed": {
+        "anonymous": {
+          "files": 401,
+          "view": 401,
+          "stats": 401,
+          "search": 401,
+          "download": 401,
+          "cleanup": 401
+        },
+        "user": {
+          "files": 403,
+          "view": 403,
+          "stats": 403,
+          "search": 403,
+          "download": 403,
+          "cleanup": 403
+        },
+        "manager": {
+          "files": 200,
+          "view": 200,
+          "stats": 200,
+          "search": 200,
+          "download": 200,
+          "cleanup": 200
+        },
+        "keyAndAccount": {
+          "files": 200,
+          "view": 200,
+          "stats": 200,
+          "search": 200,
+          "download": 200,
+          "cleanup": 200
+        },
+        "keyOnly": {
+          "files": 401,
+          "view": 401,
+          "stats": 401,
+          "search": 401,
+          "download": 401,
+          "cleanup": 401
+        }
+      }
+    },
+    {
+      "id": "PERM-17-讀取站點設定",
+      "steps": [
+        "M7"
+      ],
+      "observed": {
+        "anonymous": {
+          "list": 401,
+          "schema": 401,
+          "fields": 401,
+          "rules": 401,
+          "mapping": 401,
+          "links": 401,
+          "trace": 401
+        },
+        "user": {
+          "list": 200,
+          "schema": 200,
+          "fields": 200,
+          "rules": 200,
+          "mapping": 200,
+          "links": 200,
+          "trace": 200
+        },
+        "manager": {
+          "list": 200,
+          "schema": 200,
+          "fields": 200,
+          "rules": 200,
+          "mapping": 200,
+          "links": 200,
+          "trace": 200
+        },
+        "keyAndAccount": {
+          "list": 200,
+          "schema": 200,
+          "fields": 200,
+          "rules": 200,
+          "mapping": 200,
+          "links": 200,
+          "trace": 200
+        },
+        "keyOnly": {
+          "list": 401,
+          "schema": 401,
+          "fields": 401,
+          "rules": 401,
+          "mapping": 401,
+          "links": 401,
+          "trace": 401
+        }
+      }
+    },
+    {
+      "id": "PERM-18-修改站點設定",
+      "steps": [
+        "M8"
+      ],
+      "observed": {
+        "anonymous": {
+          "createStation": 401,
+          "createSecondStation": 401,
+          "updateStation": 401,
+          "upsertSchema": 401,
+          "createRule": 401,
+          "updateRule": 401,
+          "deleteRule": 401,
+          "createMapping": 401,
+          "updateMapping": 401,
+          "deleteMapping": 401,
+          "createLink": 401,
+          "updateLink": 401,
+          "deleteLink": 401,
+          "deleteStation": 401,
+          "deleteSecondStation": 401
+        },
+        "user": {
+          "createStation": 403,
+          "createSecondStation": 403,
+          "updateStation": 403,
+          "upsertSchema": 403,
+          "createRule": 403,
+          "updateRule": 403,
+          "deleteRule": 403,
+          "createMapping": 403,
+          "updateMapping": 403,
+          "deleteMapping": 403,
+          "createLink": 403,
+          "updateLink": 403,
+          "deleteLink": 403,
+          "deleteStation": 403,
+          "deleteSecondStation": 403
+        },
+        "manager": {
+          "createStation": 403,
+          "createSecondStation": 403,
+          "updateStation": 403,
+          "upsertSchema": 403,
+          "createRule": 403,
+          "updateRule": 403,
+          "deleteRule": 403,
+          "createMapping": 403,
+          "updateMapping": 403,
+          "deleteMapping": 403,
+          "createLink": 403,
+          "updateLink": 403,
+          "deleteLink": 403,
+          "deleteStation": 403,
+          "deleteSecondStation": 403
+        },
+        "keyAndAccount": {
+          "createStation": 201,
+          "createSecondStation": 201,
+          "updateStation": 200,
+          "upsertSchema": 200,
+          "createRule": 201,
+          "updateRule": 200,
+          "deleteRule": 204,
+          "createMapping": 201,
+          "updateMapping": 200,
+          "deleteMapping": 204,
+          "createLink": 201,
+          "updateLink": 200,
+          "deleteLink": 204,
+          "deleteStation": 204,
+          "deleteSecondStation": 204
+        },
+        "keyOnly": {
+          "createStation": 401,
+          "createSecondStation": 401,
+          "updateStation": 401,
+          "upsertSchema": 401,
+          "createRule": 401,
+          "updateRule": 401,
+          "deleteRule": 401,
+          "createMapping": 401,
+          "updateMapping": 401,
+          "deleteMapping": 401,
+          "createLink": 401,
+          "updateLink": 401,
+          "deleteLink": 401,
+          "deleteStation": 401,
+          "deleteSecondStation": 401
+        }
+      }
+    },
+    {
+      "id": "PERM-19-稽核事件查詢",
+      "steps": [
+        "M9"
+      ],
+      "observed": {
+        "anonymous": 401,
+        "user": 200,
+        "manager": 200,
+        "keyAndAccount": 200,
+        "keyOnly": 401
+      }
+    },
+    {
+      "id": "PERM-20-修改原因代碼",
+      "steps": [
+        "Q8"
+      ],
+      "observed": {
+        "anonymous": {
+          "create": 401,
+          "update": 401,
+          "init": 401
+        },
+        "user": {
+          "create": 200,
+          "update": 200,
+          "init": 200
+        },
+        "manager": {
+          "create": 200,
+          "update": 200,
+          "init": 200
+        },
+        "keyAndAccount": {
+          "create": 200,
+          "update": 200,
+          "init": 200
+        },
+        "keyOnly": {
+          "create": 401,
+          "update": 401,
+          "init": 401
+        }
+      }
+    },
+    {
+      "id": "PERM-21-外部讀取端點",
+      "steps": [
+        "X1",
+        "X2",
+        "X3"
+      ],
+      "observed": {
+        "anonymous": {
+          "X1": [
+            401,
+            401,
+            401
+          ],
+          "X2": [
+            401,
+            401
+          ],
+          "X3": [
+            401,
+            401,
+            401,
+            401
+          ]
+        },
+        "user": {
+          "X1": [
+            200,
+            200,
+            200
+          ],
+          "X2": [
+            200,
+            200
+          ],
+          "X3": [
+            200,
+            200,
+            200,
+            200
+          ]
+        },
+        "manager": {
+          "X1": [
+            200,
+            200,
+            200
+          ],
+          "X2": [
+            200,
+            200
+          ],
+          "X3": [
+            200,
+            200,
+            200,
+            200
+          ]
+        },
+        "keyAndAccount": {
+          "X1": [
+            200,
+            200,
+            200
+          ],
+          "X2": [
+            200,
+            200
+          ],
+          "X3": [
+            200,
+            200,
+            200,
+            200
+          ]
+        },
+        "keyOnly": {
+          "X1": [
+            401,
+            401,
+            401
+          ],
+          "X2": [
+            401,
+            401
+          ],
+          "X3": [
+            401,
+            401,
+            401,
+            401
+          ]
+        }
+      }
+    },
+    {
+      "id": "T1-T2-登入連續失敗與過期",
+      "steps": [
+        "L2",
+        "T1",
+        "T2"
+      ],
+      "observed": {
+        "failures": [
+          401,
+          401,
+          401,
+          401,
+          401
+        ],
+        "sixthWithCorrectPassword": 429,
+        "after61Seconds": 200
+      }
+    },
+    {
+      "id": "T3-不存在的帳號也計數",
+      "steps": [
+        "L2",
+        "T3"
+      ],
+      "observed": {
+        "failures": [
+          401,
+          401,
+          401,
+          401,
+          401
+        ],
+        "sixth": 429
+      }
+    },
+    {
+      "id": "T4-換來源位址另起計數",
+      "steps": [
+        "L2",
+        "T4"
+      ],
+      "observed": {
+        "failures": [
+          401,
+          401,
+          401,
+          401,
+          401
+        ],
+        "sixthFromSameAddress": 429,
+        "fromOtherAddress": 200
+      }
+    },
+    {
+      "id": "T5-登入成功後計數清空",
+      "steps": [
+        "L2",
+        "T5"
+      ],
+      "observed": {
+        "firstFailures": [
+          401,
+          401,
+          401,
+          401
+        ],
+        "success": 200,
+        "secondFailures": [
+          401,
+          401,
+          401,
+          401
+        ],
+        "successAgain": 200
+      }
+    },
+    {
+      "id": "T7-T8-改密碼連續失敗",
+      "steps": [
+        "L5",
+        "T7",
+        "T8"
+      ],
+      "observed": {
+        "failures": [
+          401,
+          401,
+          401,
+          401,
+          401,
+          401,
+          401,
+          401,
+          401,
+          401
+        ],
+        "eleventhWithCorrectOldPassword": 429
+      }
+    },
+    {
+      "id": "T9-T10-改密碼的其他拒絕",
+      "steps": [
+        "L5",
+        "T9",
+        "T10"
+      ],
+      "observed": {
+        "sameAsOld": 400,
+        "tooShort": 422,
+        "stillAllowed": 204
+      }
+    },
+    {
+      "id": "T6-重啟前-鎖住計數",
+      "steps": [
+        "L2",
+        "T6"
+      ],
+      "observed": {
+        "failures": [
+          401,
+          401,
+          401,
+          401,
+          401
+        ],
+        "sixth": 429
+      }
+    },
+    {
+      "id": "T6-重啟後-計數是否清空",
+      "steps": [
+        "L2",
+        "T6"
+      ],
+      "observed": {
+        "afterRestart": 401
+      }
+    }
+  ]
+}

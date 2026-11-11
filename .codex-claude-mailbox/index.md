@@ -119,3 +119,5 @@
 2026-11-08 Claude：[獨立 AoV 畫布、Kit 範例庫、節點細項與專案檔](threads/20261108-aov-standalone-canvas.md) 契約與決議 D185 至 D189 完成，批一（獨立畫布與 importAny 骨架）交付 Codex，預計 2026-11-09 12:00 完成。
 
 2026-11-11 Claude：新增 [論文主案例 S4：合成輸入檔與比對腳本](threads/20261111-thesis-s4-baseline.md)，分支 `feature/thesis-s4-baseline`。腳本與 13 項單元測試完成，尚未在來源系統上跑基準；契約 `docs/thesis-s4-baseline.md`。
+
+2026-11-12 Claude：[論文主案例 S4](threads/20261111-thesis-s4-baseline.md) 來源系統正式基準完成（57 個情境，重跑相同），結果在 `docs/thesis-case/s4-baseline-source.json`；待 user 審閱，下一步是第 4.5 節第 4 步。

@@ -1,6 +1,6 @@
 # 論文主案例 S4：合成輸入檔與比對腳本
 
-狀態：in_progress（腳本完成，基準尚未執行）
+狀態：ready_for_user（腳本與來源基準完成；產出系統的比對待第 4 步）
 owner：claude
 分支：`feature/thesis-s4-baseline`
 契約與用法：`docs/thesis-s4-baseline.md`
@@ -46,3 +46,12 @@ user 的決定（2026-11-11）：「金鑰+帳號」用 User 帳號的權杖加�
 - 發現：來源依賴沒有固定版本，須用 `uv.lock` 的版本才能啟動。
 - user 經 a5 轉述的決定：基準部署在 VM、設定值照建議、分析掛上 Analytical-Four。VM（192.168.200.63）已確認可用 ssh 金鑰登入，有 Docker 與 Compose。
 - 細節見 `docs/thesis-s4-baseline.md` 第 6 節。試跑的結果檔與暫存環境都在 repo 之外，容器與資料卷已移除。
+
+2026-11-12 Claude：來源系統的正式基準完成。
+
+- user 的決定（經 a5 轉述）：部署在 VM；設定值照建議；掛 Analytical-Four；資料庫結構用「自動建表後把三個 extras 欄位改 jsonb」；september_v2 的資料檔不讀、不上 VM，設定檔只含參數時直接用。
+- 結果：57 個情境全部執行完成、沒有執行錯誤；排練與正式基準（各用全新資料庫）比對 57 個全部相同。權限表與 T1 至 T10 全部與凍結清單相符，清單不需要修訂。
+- 產物：`docs/thesis-case/s4-baseline-source.json`、`tools/thesis-s4/source-baseline/`（配方，不含秘密值）、`docs/thesis-s4-baseline.md` 第 9 節（環境、資料檔處理、論文要揭露的 7 項限制）。
+- 沒有讀取或上傳任何未去識別化的資料檔。
+- VM 上的 `~/s4-baseline`（容器、資料卷、映像）還留著，是否清除待 user 決定。
+- 下一步是 handoff 第 4.5 節第 4 步（在畫布上畫出流程、用 Composer 產出系統），之後要為產出系統寫轉接層再比對。
