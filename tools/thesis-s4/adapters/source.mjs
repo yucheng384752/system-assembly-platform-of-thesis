@@ -190,7 +190,6 @@ export function createSourceDriver({ baseUrl, altBaseUrl, adminKey, log = () => 
           state: String(res.body.status),
           totalRows: res.body.total_rows ?? null,
           errorCount: res.body.error_count ?? null,
-          failed: res.body.error_summary ? true : false,
         },
       };
     },
@@ -457,8 +456,8 @@ export function createSourceDriver({ baseUrl, altBaseUrl, adminKey, log = () => 
     },
     async externalEndpoints(role, { group }) {
       const paths = {
-        X1: ['/api/v2/analytics/flatten?product_ids=none', '/api/v2/analytics/flatten/monthly?year=2099&month=1', '/api/v2/analytics/health'],
-        X2: ['/api/v2/ut/flatten?year=2099&month=1&location=P1', '/api/v2/ut/health'],
+        X1: ['/api/v2/analytics/flatten?product_ids=none', '/api/v2/analytics/flatten/monthly?year=2050&month=1', '/api/v2/analytics/health'],
+        X2: ['/api/v2/ut/flatten?year=2050&month=1&location=P1', '/api/v2/ut/health'],
         X3: ['/api/constants/materials', '/api/constants/slitting-machines', '/api/constants/slitting-machines/1', '/api/constants/all'],
       }[group];
       const statuses = [];
