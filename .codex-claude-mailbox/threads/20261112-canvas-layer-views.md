@@ -106,3 +106,36 @@ artifacts:
 - 未執行 git、未連網、未安裝依賴、未啟動伺服器或瀏覽器；未做瀏覽器實際版面、縮放與操作驗證。
 - 未手動寫入主資料夾 `C:\Users\gslab\Desktop\composer-refactor`；既有依賴由 junction 讀取。未變更 workflowGraph、canvasEditing、設定、schema、Kit 或其他文件。
 - 最終風險：本批案例通過，但完整驗證仍受以上既有權限／打包失敗阻擋，且實際瀏覽器驗證與 Claude 審閱尚未完成。
+
+## 2026-11-12 Claude：批一審閱
+
+- 讀過 `canvasView.ts` 與畫布的差異；在沙箱外重跑：typecheck 通過；`npm.cmd test` 根目錄 76 檔 1000 通過、1 略過（既有），其餘各段通過。Codex 回報的 1 項失敗是沙箱 EPERM，沙箱外不存在。
+- 未驗證：瀏覽器實際操作（批二完成後一起做）。批一已提交。
+
+# 批二 Handoff（Codex）
+
+**預計完成時間：派工後 90 分鐘。** cwd、禁止事項與批一相同。契約是 `docs/canvas-layer-views.md` 第 3 節全部（3.1 已完成）；第 4、5 節不做。
+
+可動的檔案：`apps/composer-gui/src/WorkflowCanvas.tsx`、`WorkflowCanvas.test.tsx`、`canvasView.ts`、`canvasView.test.ts`、`style.css`、`DESIGN.md`（只在檔尾新增一節「2026-11-12 補充：畫布檢視（D208）」）；可新增 `apps/composer-gui/src/CanvasViewSwitch.tsx` 之類的小元件與其測試。`canvasEditing.ts` 只可新增函式，不改既有函式的行為。不得動 `workflowGraph.ts` 的型別、`libs/`、`schemas/`、`config/`、`kits/`、`services/`、`package.json`、`docs/`。
+
+工作：
+1. 檢視切換：`canvas-toolbar` 內新增 `role="radiogroup"`（`aria-label="檢視"`）三個選項「單層」「展開」「疊層」，預設「單層」。狀態放在 `Canvas` 元件內（`useState`），`resetKey` 改變或切換到另一張圖（`graph.id` 改變）時回到「單層」。不寫入文件與瀏覽器儲存。
+2. 「展開」用 `expandedView`、「疊層」用 `layeredView` 產生 React Flow 的節點與連線：
+   - 外框是一種新的節點型別（不可連線、不可選取成流程節點），顯示標題；樣式沿用既有變數，邊框 1px、`--card-border`，不用陰影與漸層。疊層另畫列帶背景與上層節點到外框的對應線（細實線、無箭頭、不可選取）。
+   - 連線仍是單段直線加箭頭，樣式與單層相同。
+   - `issues` 不為空時以既有的訊息區樣式用 `role="status"` 逐項列出。
+3. 編輯（契約 3.4）：每個畫出的節點帶所屬 `graphId`。
+   - 選取：`selected` 之外要知道所屬圖；節點細項、前置核取清單、建立或進入子流程、刪除，全部以該節點所屬的圖為準（目前程式碼用 `graph` 的地方要改成「選取節點所屬的圖」，沒有選取時是目前這張圖）。
+   - 拖曳：用 `toLayoutPosition` 換回並寫入該節點所屬圖的 `layout`。外框本身不可拖曳。
+   - 連線與重新連線：兩端屬於同一張圖才提交到該圖；否則不提交並把錯誤訊息設為「連線只能在同一個流程內。」。
+   - 工具箱加入：加入到選取節點所屬的圖，沒有選取時加入到目前這張圖；拖放到外框範圍內時加入到該外框的圖，位置用 `toLayoutPosition` 的同一套換算（為此可在 `canvasView.ts` 新增「由顯示座標找出所在外框與其原點」的純函式並加測試）。
+   - 節點上限檢查用所屬圖的節點數。
+   - 「選取節點」清單在展開與疊層時依圖分組（每組標題是圖的名稱）。
+4. 疊層檢視開啟時在檢視切換旁顯示 `role="status"` 的固定文字：「系統邏輯疊層：公司需要，待開發。僅供檢視與編輯流程，不影響計畫與工單。」
+5. 單層檢視的行為與既有測試完全不變；既有測試不得修改預期，只能新增案例。
+6. 測試（`WorkflowCanvas.test.tsx`，沿用 `src/testCanvas.ts`）：切到展開後子流程的節點出現在畫布且外框標題正確；在展開中選取子流程節點改名後，改到的是子圖的節點（檢查 `onChange` 收到的文件）；跨圖連線被拒絕且出現 `role="alert"` 訊息、文件不變；在展開中刪除子圖節點只影響子圖；切到疊層出現「待開發」文字；換圖後回到單層；單層既有案例全數通過。
+7. `DESIGN.md` 新增一節，描述檢視切換、外框、列帶、對應線、「待開發」文字與鍵盤替代，寫法比照既有補充章節。
+
+停止條件：同批一；另外，若 React Flow 12.12.0 在不新增依賴的情況下做不到某項行為，停止並寫明做不到的是哪一項、試過什麼。
+
+驗收：同批一。
