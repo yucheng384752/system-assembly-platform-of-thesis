@@ -1,7 +1,7 @@
 // 用法（npm 腳本見 package.json）：
 //   node tools/dual-account/cli.mjs sync [--apply]      互相鏡像還活著的 session 登記檔，預設只列計畫
 //   node tools/dual-account/cli.mjs status              列出本分支的鎖與兩帳號的鏡像狀態
-//   node tools/dual-account/cli.mjs run --thread <mailbox thread> --task <文字|@檔案> [--start A|B] [--max-switches 4] [-- claude 額外參數]
+//   node tools/dual-account/cli.mjs run --thread <mailbox thread> --task <文字|@檔案> [--start A|B] [--max-switches 4] [--no-sync] [-- claude 額外參數]
 // 環境變數：CLAUDE_ACCOUNT_B_DIR（必填）、CLAUDE_ACCOUNT_A_DIR（預設 ~/.claude）、CLAUDE_LIMIT_PATTERN、CLAUDE_BIN
 import { execFileSync, spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -86,6 +86,8 @@ async function main() {
     if (!opts.thread || !opts.task) throw new Error('run 需要 --thread 與 --task');
     const task = String(opts.task).startsWith('@') ? readFileSync(String(opts.task).slice(1), 'utf8') : String(opts.task);
     const pattern = process.env.CLAUDE_LIMIT_PATTERN ? new RegExp(process.env.CLAUDE_LIMIT_PATTERN, 'i') : DEFAULT_LIMIT_PATTERN;
+    // 啟動前先鏡像一次，讓兩邊目前的互動 session 彼此看得到；失敗就中止（--no-sync 可略過）
+    if (!opts['no-sync']) sync(accounts, true);
     const result = await runLoop({
       ...ctx,
       thread: resolve(String(opts.thread)),

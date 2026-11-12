@@ -19,7 +19,7 @@
 | `node tools/dual-account/cli.mjs sync --apply` | 實際寫入對方的 `sessions/` |
 | `node tools/dual-account/cli.mjs status` | 看本分支目前由哪個帳號持有 |
 | `node tools/dual-account/cli.mjs unlock` | 出錯後鎖會保留，人確認過後清除本分支的鎖 |
-| `node tools/dual-account/cli.mjs run --thread <thread 檔> --task <文字或 @檔案> [--start A\|B] [--max-switches 4] [-- claude 額外參數]` | 用 `claude -p` 跑任務，到上限自動交棒 |
+| `node tools/dual-account/cli.mjs run --thread <thread 檔> --task <文字或 @檔案> [--start A\|B] [--max-switches 4] [--no-sync] [-- claude 額外參數]` | 用 `claude -p` 跑任務，到上限自動交棒；啟動前先自動 `sync --apply` 一次，`--no-sync` 可略過 |
 
 ## 規則
 
