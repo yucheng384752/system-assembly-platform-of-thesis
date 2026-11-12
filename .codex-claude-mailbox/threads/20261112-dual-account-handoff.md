@@ -22,7 +22,7 @@ user 的決定：A token 用完自動換 B；做 session 互相發現；交接�
 未完成與未驗證：
 
 - user 同意後已執行 `sync --apply`：A 的 12 個登記檔鏡像到 B。實跑發現回音問題（B 到 A 會把鏡像來的檔案當 B 自己的），已修正並加測試（11 項通過）。
-- `run --start B` 試跑失敗：account2 登入已過期（`OAuth session expired`），任務沒跑到；程式判為一般錯誤、不換人、保留鎖。已補 `unlock` 指令清鎖。待 user 重新登入 account2 後再試。
+- `run --start B`：第一次因 account2 登入過期失敗（判為一般錯誤、不換人、保留鎖；已補 `unlock`）；user 重新登入後第二次成功，唯讀任務完成、鎖已釋放。交棒流程與用量上限訊息仍未實測。
 - 用量上限的訊息文字沒實測，預設樣式是推測，可用 `CLAUDE_LIMIT_PATTERN` 修正；判斷不出時當一般錯誤停止。
 - 互動中的 session 不會自動交棒，仍靠 SendMessage。
 

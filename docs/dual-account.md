@@ -31,6 +31,6 @@
 ## 尚未驗證
 
 - 用量上限的實際訊息文字沒有在本機觸發過，預設樣式是推測；第一次真的碰到上限時要確認，必要時用 `CLAUDE_LIMIT_PATTERN` 修正。判斷不出時會當成一般錯誤停止，不會誤換人。
-- 2026-11-12 已實跑 `sync --apply`（A 的 12 個登記檔鏡像到 B，且修正回音問題）。`run --start B` 試跑失敗：account2 登入已過期（`OAuth session expired`），程式判為一般錯誤、未換人、保留鎖，符合設計；任務本身沒跑到。account2 重新登入後要再試一次，用量上限的實際訊息也仍未驗證。
+- 2026-11-12 已實跑 `sync --apply`（A 的 12 個登記檔鏡像到 B，並修正回音問題）。`run --start B` 第一次因 account2 登入過期失敗（判為一般錯誤、未換人、保留鎖，符合設計），重新登入後第二次成功完成唯讀任務並釋放鎖。尚未驗證：用量上限的實際訊息文字、交棒（A 到 B）的真實流程、從 account2 側用 ListAgents 與 SendMessage 呼叫 A 的 session。
 - `claude -p` 的 stream-json 事件格式（`result`、`assistant`）依 CLI 說明與既有慣例撰寫，單元測試用假事件。
 - 互動中的 session 不會自動交棒；互動模式仍靠 `SendMessage` 手動派工（記憶 feedback-handoff-to-account2-agent）。
