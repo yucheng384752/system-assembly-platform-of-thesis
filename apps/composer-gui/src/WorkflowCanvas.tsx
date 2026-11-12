@@ -5,6 +5,7 @@ import '@xyflow/react/dist/style.css';
 import { actionCatalog, describeEndpoint } from './workflow';
 import { graphDepths, graphPlaces, integrityErrors, MAX_DEPTH, MAX_GRAPHS, MAX_NODES, suggestActions, type AovGraphDocument, type GraphNode, type NodeKind } from './workflowGraph';
 import { addCanvasNode, addChildGraph, connectCanvasNodes, reconnectCanvasEdge, deleteCanvasNode } from './canvasEditing';
+import { parentContext } from './canvasView';
 import { Column } from './Column';
 import { FactoryPage } from './FactoryPage';
 import { Icon } from './Icons';
@@ -89,6 +90,7 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
   }
   if (!graph) return <div className="workflow-page"><div className="canvas-toolbar">{null}<div><ExampleHintSwitch />{toolbarExtra}</div>{null}</div><FactoryPage value={value} commit={commit} onOpen={id => { setPath([id]); setSelected(''); setDeleting(false); }} /></div>;
   const place = graphPlaces(value).get(graph.id);
+  const parent = parentContext(value, graph.id);
   const depth = place?.depth ?? 1;
   const add = (actionId: string | null, position?: { x: number; y: number }) => {
     if (unavailable(actionId)) { setError(unavailable(actionId)); return; }
@@ -111,6 +113,12 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
       <div><ExampleHintSwitch />{toolbarExtra}<button onClick={() => setGanttOpen(true)}>甘特圖</button></div>
       {ganttOpen && <GanttPanel graph={graph} onLocate={nodeId => { centerRequest.current = true; setSelected(nodeId); setDeleting(false); }} onClose={() => setGanttOpen(false)} />}
       <div className="actions canvas-zoom"><button onClick={() => void flow.zoomIn({ duration: 0 })}>放大</button><button onClick={() => void flow.zoomOut({ duration: 0 })}>縮小</button><button onClick={() => void flow.fitView({ duration: 0 })}>適合畫面</button></div></div>
+    {parent && <nav aria-label="上一層的前後節點" className="canvas-parent-context">
+      <strong>上一層</strong>
+      <span>前置</span>{parent.before.length ? parent.before.map(n => <button key={n.id} onClick={() => { setPath(path.slice(0, -1)); setSelected(n.id); setDeleting(false); focus.current = true; }}>{n.name || '（未命名節點）'}</button>) : <span>（無）</span>}
+      <span aria-current="true">目前所在：{parent.node.name || '（未命名節點）'}</span>
+      <span>後續</span>{parent.after.length ? parent.after.map(n => <button key={n.id} onClick={() => { setPath(path.slice(0, -1)); setSelected(n.id); setDeleting(false); focus.current = true; }}>{n.name || '（未命名節點）'}</button>) : <span>（無）</span>}
+    </nav>}
     <div className={node ? 'columns workflow-columns has-details' : 'columns workflow-columns'}>
     <Column id="canvas-tools" title="工具箱" lead="選擇動作加入畫布，也可拖放至所需位置。" className="workflow-tools" scroll>
       <details><summary>產業紀錄範本（{industryTemplates.length}）</summary>

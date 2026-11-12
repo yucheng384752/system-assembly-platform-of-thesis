@@ -21,6 +21,8 @@
 .business-node { width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(--border); background: var(--surface); color: var(--ink); display: grid; place-items: center; padding: 4px; font-size: .75rem; line-height: 1.2; text-align: center; }
 .business-node-start, .business-node-end { border-width: 3px; font-weight: 600; }
 .workflow-page > .canvas-toolbar { margin-block: var(--space-sm) var(--space); }
+.canvas-parent-context { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); padding: var(--space); background: var(--surface); border: 1px solid var(--card-border); border-radius: var(--radius); overflow-wrap: anywhere; }
+.canvas-parent-context [aria-current=true] { padding: var(--space-sm); background: var(--selected); border: 1px solid var(--primary); border-radius: var(--radius); }
 .crumb { align-self: center; padding-inline: var(--space-sm); font-weight: 600; }
 .business-node span { max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: anywhere; }
 .react-flow__node.selected .business-node { background: var(--selected); border-color: var(--primary); }

@@ -60,4 +60,49 @@ artifacts:
 
 # Codex Notes
 
-（待 Codex 填寫）
+## 批一實作與驗證（2026-11-12）
+
+批一程式與測試已實作，待 Claude 審閱；整套驗證尚未全數通過。未觸發 Handoff 停止條件：無新增依賴、無需修改範圍外的程式，未發現契約與 DESIGN.md 或既有測試的行為衝突。下列既有驗證失敗是權限／打包存取錯誤，不修改其測試或設定以繞過。
+
+### 變更檔案
+
+- 新增 `apps/composer-gui/src/canvasView.ts`：`parentContext`、`expandedView`、`layeredView`、`toLayoutPosition` 與檢視型別；保留節點所屬圖、原節點與反向座標偏移；純型別引用既有資料模型，沒有 React 或畫布套件依賴，也不寫回文件。
+- 新增 `apps/composer-gui/src/canvasView.test.ts`：12 個案例，涵蓋三層版面、外框包含與非父子矩形不相交、往返及拖曳換算、圖歸屬、前後節點順序與去重、無子流程時保留位置、缺位置預設、空子流程、錯誤／循環引用、外框尺寸不受座標原點距離影響。
+- 修改 `apps/composer-gui/src/WorkflowCanvas.tsx`：僅加入上一層列及所需引用／衍生值；前後名稱按鈕返回上一層並選取節點，目前所在用非按鈕文字與 `aria-current="true"` 標示。
+- 修改 `apps/composer-gui/src/WorkflowCanvas.test.tsx`：只新增 2 個案例；驗證列的位置、名稱、前後按鈕返回與選取、不改文件、根圖不顯示、空前後節點與未命名文字。此檔共 16 個案例。
+- 修改 `apps/composer-gui/src/style.css`：只新增上一層列的 2 條規則，使用既有色彩、間距、圓角變數與全域按鈕／焦點樣式。
+- 依 user 明確要求更新本節；thread 的其他內容與 frontmatter、mailbox index 均未修改。
+
+### 版面與後續串接說明
+
+- 節點尺寸沿用 64px；外框左右／底部保留 32px，上方保留 64px 供標題。外框依內容實際範圍計算，包含負座標；空子圖仍保留外框。
+- 展開時，以外框取代擁有子流程的節點；其前後連線仍保留原始端點識別，後續渲染可用 `ViewFrame.ownerNodeId` 對應外框。節點與框座標都是絕對顯示座標。
+- 疊層的 depth 從目前圖的 1 起算；最上列保留橫向位置，橫向相交的節點在同列帶內分行。子流程框先對齊上層節點，遇同列框碰撞時向右讓開，並保留 links 對應。
+- 重疊測試把「框完整包含其子節點／子框」視為必要包含關係；其他矩形必須不相交。展開的巢狀框與疊層的分帶框分別檢查。
+- 不存在、循環或重複子圖引用會略過該次子流程、留下業務文字 issues；展開時該擁有節點仍可見。
+
+### 實際驗證結果
+
+所有指令 cwd 均為 `C:\Users\gslab\Desktop\composer-refactor-layers-wt`。
+
+- `npm.cmd run typecheck`：共執行 3 輪，均完成兩個 TypeScript 設定的檢查，0 個診斷錯誤；最後一輪在下述最終測試前完成。
+- `npm.cmd test`：共執行 3 輪，均因 Vitest 階段失敗而回傳 exit code 1。
+  - 第 1 輪：76 檔中 73 通過、3 失敗；999 案例中 992 通過、2 失敗、5 跳過。新增 parentContext 案例先加了前置連線卻仍預期空陣列，已將空陣列檢查移至加線之前；沒有修改既有案例。
+  - 第 2 輪：76 檔中 74 通過、2 失敗；999 案例中 993 通過、1 失敗、5 跳過。
+  - 最終第 3 輪（17:19:46 開始，15.31 秒）：76 檔中 74 通過、2 失敗；1001 案例中 **995 通過、1 失敗、5 跳過**。此輪包含修正外框範圍後新增的 2 個案例。
+- 批一相關的 `canvasView.test.ts` 12 案例與 `WorkflowCanvas.test.tsx` 16 案例均通過，共 28；其中本批新增 14 案例。
+
+失敗及跳過原因：
+
+1. `security.test.mjs` 的 CLI 簽章案例失敗：讀取暫存目錄中的 `keys/signing-private-key.pem` 回報 `EPERM: operation not permitted, open`；afterAll 清理該暫存目錄也回報 `EPERM, Permission denied`。未讀取或輸出私鑰內容，未嘗試繞過沙箱或另行清理。暫存清理未成功，不能宣稱已移除測試產物。
+2. `evaluator.test.ts` 的「打包後的程序」suite 在準備階段失敗：esbuild 回報 `Cannot read directory "../..": Access is denied.` 及 `Could not resolve "./services/evaluator/src/main.ts"`，因此其 4 個案例未執行（兩次打包一致性、標準輸入輸出、過大請求、輸入關閉）。未修改範圍外的建置或測試檔。
+3. 另 1 個跳過案例是既有 `App.test.tsx` 的身分授權檢查，原本以 `test.skip` 標示尚無身分機制；本批未改動。
+4. 因 npm test 以 `&&` 串接，Vitest 非零退出後，`services/preview/tests/preview.test.mjs`、`libs/case-store`、`services/case-store`、`tools/thesis-s4/tests/thesis-s4.test.mjs` 四段均未執行；未把它們列為通過，也未另行啟動服務補跑。
+
+### 未做與限制
+
+- 未做批二的展開／疊層切換、畫布渲染與編輯串接、「公司需要，待開發」狀態文字；本批僅提供它們的純函式模型。
+- 未做契約第 4、5 節資料流連線與缺口標示。
+- 未執行 git、未連網、未安裝依賴、未啟動伺服器或瀏覽器；未做瀏覽器實際版面、縮放與操作驗證。
+- 未手動寫入主資料夾 `C:\Users\gslab\Desktop\composer-refactor`；既有依賴由 junction 讀取。未變更 workflowGraph、canvasEditing、設定、schema、Kit 或其他文件。
+- 最終風險：本批案例通過，但完整驗證仍受以上既有權限／打包失敗阻擋，且實際瀏覽器驗證與 Claude 審閱尚未完成。

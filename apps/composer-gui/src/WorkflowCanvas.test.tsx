@@ -20,6 +20,47 @@ function fresh() { const view = render(<Editor />); startLogic(); return view; }
 const work = () => current.graphs[0].nodes.filter(n => n.kind === 'node');
 const edges = () => current.graphs[0].edges.map(e => `${e.from}>${e.to}`);
 
+test('parent context appears only inside a child and its predecessor and successor buttons return and select without changing the document', () => {
+  let doc = addLogic(addFactory(emptyGraph, 'A 廠')!.value, 'factory-1', '')!.value;
+  for (const name of ['收料', '檢驗', '出貨']) {
+    doc = addCanvasNode(doc, 'graph-1', null);
+    doc = patchCanvasNode(doc, doc.graphs[0].nodes.at(-1)!.id, { name });
+  }
+  doc = connectCanvasNodes(doc, 'graph-1', 'node-1', 'node-2', true);
+  doc = connectCanvasNodes(doc, 'graph-1', 'node-2', 'node-3', true);
+  doc = addChildGraph(doc, 'node-2');
+  const original = structuredClone(doc);
+  const { container } = render(<Editor initial={doc} />);
+  click(/^開啟：生產邏輯 1/);
+  expect(screen.queryByRole('navigation', { name: '上一層的前後節點' })).toBeNull();
+  for (const neighbour of ['收料', '出貨']) {
+    click('檢驗'); click('進入子流程');
+    const nav = screen.getByRole('navigation', { name: '上一層的前後節點' });
+    expect(nav.previousElementSibling?.classList.contains('canvas-toolbar')).toBe(true);
+    expect(nav.nextElementSibling?.classList.contains('columns')).toBe(true);
+    expect(within(nav).getAllByRole('button').map(b => b.textContent)).toEqual(['收料', '出貨']);
+    expect(within(nav).getByText('前置')).toBeTruthy();
+    expect(within(nav).getByText('後續')).toBeTruthy();
+    expect(nav.querySelector('[aria-current=true]')?.textContent).toBe('目前所在：檢驗');
+    expect(within(nav).queryByRole('button', { name: /檢驗/ })).toBeNull();
+    fireEvent.click(within(nav).getByRole('button', { name: neighbour }));
+    expect(screen.queryByRole('navigation', { name: '上一層的前後節點' })).toBeNull();
+    expect((screen.getByLabelText('名稱') as HTMLInputElement).value).toBe(neighbour);
+    expect(container.querySelector('.step-list [aria-current=true]')?.textContent).toBe(neighbour);
+  }
+  expect(current).toEqual(original);
+});
+
+test('parent context uses empty-neighbour and unnamed-node labels', () => {
+  fresh(); addTool('業務節點');
+  fireEvent.change(screen.getByLabelText('名稱'), { target: { value: '' } });
+  click('建立子流程');
+  const nav = screen.getByRole('navigation', { name: '上一層的前後節點' });
+  expect(within(nav).getAllByText('（無）')).toHaveLength(2);
+  expect(nav.querySelector('[aria-current=true]')?.textContent).toBe('目前所在：（未命名節點）');
+  expect(within(nav).queryAllByRole('button')).toHaveLength(0);
+});
+
 test('A-C10: confirming a relation in one node updates both endpoints', () => {
   const doc = listToGraph({ format: 'composer-aov-list', version: 3, steps: ['收料', '檢驗'].map((name, i) => ({ id: `step-${i}`, name, when: '', owner: '作業員', actions: [], formIds: [`form-${i}`] })),
     forms: ['收料單', '檢驗單'].map((name, i) => ({ id: `form-${i}`, name, fields: [{ id: 'lot', name: '批號', type: 'text', required: true, isKey: true }] })), relations: [] }).value;
