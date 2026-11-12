@@ -1,5 +1,9 @@
 // @vitest-environment jsdom
 import { useState } from 'react';
+import { useStoreApi, useReactFlow } from '@xyflow/react';
+import { act } from '@testing-library/react';
+import type { ViewFlowNode } from './CanvasViewElements';
+import { expandedView, layeredView, toLayoutPosition } from './canvasView';
 import { afterEach, expect, test } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { actionCatalog } from './workflow';
@@ -19,6 +23,171 @@ const click = (name: string | RegExp) => fireEvent.click(screen.getByRole('butto
 function fresh() { const view = render(<Editor />); startLogic(); return view; }
 const work = () => current.graphs[0].nodes.filter(n => n.kind === 'node');
 const edges = () => current.graphs[0].edges.map(e => `${e.from}>${e.to}`);
+
+let canvasStore: ReturnType<typeof useStoreApi<ViewFlowNode>>;
+let canvasFlow: ReturnType<typeof useReactFlow<ViewFlowNode>>;
+function CanvasProbe() { canvasStore = useStoreApi<ViewFlowNode>(); canvasFlow = useReactFlow<ViewFlowNode>(); return null; }
+function LayerEditor({ initial, resetKey = 0 }: { initial: AovGraphDocument; resetKey?: number }) {
+  const [doc, setDoc] = useState(initial); current = doc;
+  const [path, setPath] = useState(['graph-1']);
+  return <WorkflowCanvas value={doc} onChange={setDoc} path={path} onPathChange={setPath} resetKey={resetKey} toolbarExtra={<CanvasProbe />} />;
+}
+function layerDocument() {
+  let doc = addLogic(addFactory(emptyGraph, '測試工廠')!.value, 'factory-1', '')!.value;
+  doc = patchCanvasNode(addCanvasNode(doc, 'graph-1', null), 'node-1', { name: '組裝' });
+  doc = patchCanvasNode(addCanvasNode(doc, 'graph-1', null), 'node-2', { name: '出貨' });
+  doc = addChildGraph(doc, 'node-1');
+  doc = patchCanvasNode(addCanvasNode(doc, 'graph-2', null), 'node-3', { name: '鎖附' });
+  return connectCanvasNodes(doc, 'graph-1', 'node-1', 'node-2', true);
+}
+const switchView = (name: string) => fireEvent.click(screen.getByRole('radio', { name }));
+
+test('expanded view renders frame titles and child nodes; renaming and predecessors belong to the child graph', () => {
+  const doc = layerDocument();
+  const { container } = render(<LayerEditor initial={doc} />);
+  expect((screen.getByRole('radio', { name: '單層' }) as HTMLInputElement).checked).toBe(true);
+  switchView('展開');
+  expect(container.querySelector('.canvas-view-frame strong')?.textContent).toBe('組裝');
+  expect([...container.querySelectorAll('.business-node')].map(n => n.textContent)).toContain('鎖附');
+  expect(screen.getByRole('region', { name: '組裝的子流程' })).toBeTruthy();
+  expect(current).toEqual(doc);
+  click('鎖附');
+  fireEvent.change(screen.getByLabelText('名稱'), { target: { value: '鎖附確認' } });
+  expect(current.graphs[0]).toEqual(doc.graphs[0]);
+  expect(current.graphs[1].nodes.find(n => n.id === 'node-3')?.name).toBe('鎖附確認');
+  expect(screen.queryByRole('checkbox', { name: '出貨' })).toBeNull();
+  fireEvent.click(screen.getByRole('checkbox', { name: '開始' }));
+  expect(current.graphs[1].edges).toEqual([{ id: 'edge-2', from: 'graph-2-start', to: 'node-3' }]);
+  switchView('單層');
+  expect(container.querySelector('.canvas-view-frame')).toBeNull();
+  expect(current.layout).toEqual(doc.layout);
+});
+
+test('expanded cross-graph connection is rejected without changing the document; same-graph connection succeeds', () => {
+  const doc = layerDocument(); render(<LayerEditor initial={doc} />); switchView('展開');
+  act(() => canvasStore.getState().onConnect?.({ source: 'node-2', target: 'node-3', sourceHandle: null, targetHandle: null }));
+  expect(screen.getByRole('alert').textContent).toBe('連線只能在同一個流程內。');
+  expect(current).toEqual(doc);
+  act(() => canvasStore.getState().onConnect?.({ source: 'graph-2-start', target: 'node-3', sourceHandle: null, targetHandle: null }));
+  expect(current.graphs[0]).toEqual(doc.graphs[0]);
+  expect(current.graphs[1].edges).toHaveLength(1);
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+
+test('expanded deletion only removes the selected child node and its own layout', () => {
+  const doc = layerDocument(); render(<LayerEditor initial={doc} />); switchView('展開');
+  click('鎖附'); click('刪除節點'); click('確認刪除');
+  expect(current.graphs[0]).toEqual(doc.graphs[0]);
+  expect(current.layout['graph-1']).toEqual(doc.layout['graph-1']);
+  expect(current.graphs[1].nodes.map(n => n.id)).toEqual(['graph-2-start', 'graph-2-end']);
+  expect(current.layout['graph-2']['node-3']).toBeUndefined();
+});
+
+test('layered notice, bands and non-editable correspondence lines reset on graph change and import', () => {
+  const doc = layerDocument(); const view = render(<LayerEditor initial={doc} />); switchView('疊層');
+  expect(screen.getByText('系統邏輯疊層：公司需要，待開發。僅供檢視與編輯流程，不影響計畫與工單。').getAttribute('role')).toBe('status');
+  expect(view.container.querySelectorAll('.canvas-view-band')).toHaveLength(2);
+  const link = canvasStore.getState().edges.find(e => e.id.startsWith('view-link:'))!;
+  expect(link).toMatchObject({ selectable: false, reconnectable: false, type: 'straight' });
+  expect(link.markerEnd).toBeUndefined();
+  click('組裝'); click('進入子流程');
+  expect((screen.getByRole('radio', { name: '單層' }) as HTMLInputElement).checked).toBe(true);
+  expect(screen.queryByText(/系統邏輯疊層：/)).toBeNull();
+  switchView('展開'); view.rerender(<LayerEditor initial={doc} resetKey={1} />);
+  expect((screen.getByRole('radio', { name: '單層' }) as HTMLInputElement).checked).toBe(true);
+  expect(current).toEqual(doc);
+});
+
+test.each(['展開', '疊層'])('%s moves child positions back into child layout and ignores decoration changes', mode => {
+  const doc = layerDocument(); render(<LayerEditor initial={doc} />); switchView(mode);
+  const projected = (mode === '展開' ? expandedView : layeredView)(doc, 'graph-1').nodes.find(n => n.id === 'node-3')!;
+  const position = { x: projected.position.x + 45, y: projected.position.y + 20 };
+  act(() => canvasStore.getState().onNodesChange?.([{ type: 'position', id: 'node-3', position }]));
+  expect(current.layout['graph-2']['node-3']).toEqual(toLayoutPosition(projected, position));
+  expect(current.layout['graph-1']).toEqual(doc.layout['graph-1']);
+  const before = current;
+  act(() => canvasStore.getState().onNodesChange?.([{ type: 'position', id: 'view-frame:graph-2', position }, { type: 'select', id: 'view-frame:graph-2', selected: true }]));
+  expect(current).toBe(before);
+  expect(screen.queryByRole('region', { name: '節點細項' })).toBeNull();
+});
+
+test('toolbox adds to selected child; frame drop overrides selection and converts display coordinates', () => {
+  const doc = layerDocument(); const { container } = render(<LayerEditor initial={doc} />); switchView('展開');
+  click('鎖附'); addTool('業務節點');
+  expect(current.graphs[1].nodes).toHaveLength(4);
+  expect(current.graphs[0]).toEqual(doc.graphs[0]);
+  click('出貨');
+  const frame = expandedView(current, 'graph-1').frames[0];
+  const position = { x: frame.position.x + 20, y: frame.position.y + 20 };
+  const point = canvasFlow.flowToScreenPosition(position);
+  const drop = new MouseEvent('drop', { bubbles: true, clientX: point.x, clientY: point.y });
+  Object.defineProperty(drop, 'dataTransfer', { value: { getData: () => 'business' } });
+  fireEvent(container.querySelector('.workflow-canvas')!, drop);
+  const added = current.graphs[1].nodes.at(-1)!;
+  expect(current.graphs[1].nodes).toHaveLength(5);
+  expect(current.layout['graph-2'][added.id]).toEqual(toLayoutPosition(frame, position));
+  expect(current.graphs[0]).toEqual(doc.graphs[0]);
+});
+
+test('continuous expanded dragging holds the starting offset and frame until release', async () => {
+  const doc = layerDocument(); render(<LayerEditor initial={doc} />); switchView('展開');
+  const original = expandedView(doc, 'graph-1').nodes.find(n => n.id === 'graph-2-start')!;
+  const item = canvasStore.getState().nodes.find(n => n.id === original.id)!;
+  const frame = canvasStore.getState().nodes.find(n => n.type === 'frame')!;
+  act(() => canvasStore.getState().onNodeDragStart?.(new MouseEvent('mousedown'), item, [item]));
+  for (const delta of [-50, -100]) {
+    const position = { x: original.position.x + delta, y: original.position.y - 20 };
+    act(() => canvasStore.getState().onNodesChange?.([{ type: 'position', id: item.id, position, dragging: true }]));
+    expect(current.layout['graph-2'][item.id]).toEqual(toLayoutPosition(original, position));
+    expect(canvasStore.getState().nodes.find(n => n.id === item.id)?.position).toEqual(position);
+    expect(canvasStore.getState().nodes.find(n => n.type === 'frame')?.position).toEqual(frame.position);
+  }
+  act(() => canvasStore.getState().onNodeDragStop?.(new MouseEvent('mouseup'), item, [item]));
+  await waitFor(() => expect(canvasStore.getState().nodes.find(n => n.id === item.id)?.position).toEqual(expandedView(current, 'graph-1').nodes.find(n => n.id === item.id)?.position));
+  expect(current.layout['graph-1']).toEqual(doc.layout['graph-1']);
+});
+
+test('creating a grandchild from expanded child selection uses its owner path and depth', () => {
+  render(<LayerEditor initial={layerDocument()} />); switchView('展開'); click('鎖附'); click('建立子流程');
+  expect(current.graphs[1].nodes.find(n => n.id === 'node-3')?.childGraphId).toBe('graph-3');
+  expect(within(screen.getByRole('navigation', { name: '流程層級' })).getAllByRole('button').map(b => b.textContent)).toEqual(['工廠', '生產邏輯 1', '組裝的子流程', '鎖附的子流程']);
+  expect((screen.getByRole('radio', { name: '單層' }) as HTMLInputElement).checked).toBe(true);
+  addTool('業務節點');
+  expect((screen.getByRole('button', { name: '建立子流程' }) as HTMLButtonElement).disabled).toBe(true);
+});
+
+test('broken child references are reported as status in expanded view without modifying the document', () => {
+  const doc = layerDocument(); doc.graphs[0].nodes.find(n => n.id === 'node-1')!.childGraphId = 'missing';
+  render(<LayerEditor initial={doc} />); switchView('展開');
+  expect(screen.getByText('「組裝」的子流程不存在，已略過。').closest('[role=status]')).toBeTruthy();
+  expect(current).toEqual(doc);
+});
+
+test('expanded toolbox uses the selected graph node limit and falls back to the current graph without selection', () => {
+  let doc = layerDocument();
+  while (doc.graphs[0].nodes.length < 100) doc = addCanvasNode(doc, 'graph-1', null);
+  const { container } = render(<LayerEditor initial={doc} />); switchView('展開'); openToolGroups();
+  const add = screen.getByRole('button', { name: '加入到畫布：業務節點' }) as HTMLButtonElement;
+  expect(add.disabled).toBe(true);
+  click('鎖附'); expect(add.disabled).toBe(false); fireEvent.click(add);
+  expect(current.graphs[0].nodes).toHaveLength(100);
+  expect(current.graphs[1].nodes).toHaveLength(4);
+  fireEvent.click(container.querySelector('.react-flow__pane')!);
+  expect(add.disabled).toBe(true);
+});
+
+test('dropping inside a full child refuses the add even when the selected root has room', () => {
+  let doc = layerDocument();
+  while (doc.graphs[1].nodes.length < 100) doc = addCanvasNode(doc, 'graph-2', null);
+  const { container } = render(<LayerEditor initial={doc} />); switchView('展開'); click('出貨');
+  const frame = expandedView(doc, 'graph-1').frames[0];
+  const point = canvasFlow.flowToScreenPosition({ x: frame.position.x + 20, y: frame.position.y + 20 });
+  const drop = new MouseEvent('drop', { bubbles: true, clientX: point.x, clientY: point.y });
+  Object.defineProperty(drop, 'dataTransfer', { value: { getData: () => 'business' } });
+  fireEvent(container.querySelector('.workflow-canvas')!, drop);
+  expect(screen.getByRole('alert').textContent).toBe('每個流程最多 100 個節點。');
+  expect(current).toEqual(doc);
+});
 
 test('parent context appears only inside a child and its predecessor and successor buttons return and select without changing the document', () => {
   let doc = addLogic(addFactory(emptyGraph, 'A 廠')!.value, 'factory-1', '')!.value;

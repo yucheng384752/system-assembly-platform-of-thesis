@@ -1,10 +1,31 @@
 import { expect, test } from 'vitest';
-import { expandedView, layeredView, parentContext, toLayoutPosition, type CanvasView } from './canvasView';
+import { expandedView, layeredView, parentContext, toLayoutPosition, frameAt, type CanvasView } from './canvasView';
 import { emptyGraph, type AovGraphDocument, type Graph, type GraphNode, type Position } from './workflowGraph';
 
 const node = (id: string, childGraphId: string | null = null): GraphNode =>
   ({ id, name: id, kind: 'node', childGraphId, when: '', owner: '', actionId: null, params: {}, formId: null });
 const graph = (id: string, nodes: GraphNode[]): Graph => ({ id, name: id, nodes, edges: [] });
+
+test.each([expandedView, layeredView])('%s: frame hit testing finds the deepest graph and retains its layout origin', build => {
+  const doc = threeLayers(), view = build(doc, 'root');
+  for (const id of ['deep-one', 'sibling-one']) {
+    const item = view.nodes.find(n => n.id === id)!;
+    const frame = frameAt(view, item.position)!;
+    expect(frame.graphId).toBe(item.graphId);
+    expect(toLayoutPosition(frame, item.position)).toEqual(doc.layout[item.graphId][id]);
+    const delta = { x: item.position.x + 10, y: item.position.y + 15 };
+    expect(toLayoutPosition(frame, delta)).toEqual({ x: doc.layout[item.graphId][id].x + 10, y: doc.layout[item.graphId][id].y + 15 });
+  }
+  expect(frameAt(view, { x: -100000, y: -100000 })).toBeUndefined();
+});
+
+test('empty child frames retain an origin for toolbox drops', () => {
+  const doc = threeLayers(); doc.graphs.find(g => g.id === 'grandchild')!.nodes = [];
+  const view = expandedView(doc, 'root'), frame = view.frames.find(f => f.graphId === 'grandchild')!;
+  const position = { x: frame.position.x + 32, y: frame.position.y + 64 };
+  expect(frameAt(view, position)?.graphId).toBe('grandchild');
+  expect(toLayoutPosition(frame, position)).toEqual({ x: 0, y: 0 });
+});
 function threeLayers(): AovGraphDocument {
   const graphs = [graph('root', [node('before'), node('owner', 'child'), node('right'), node('below'), node('other', 'sibling')]),
     graph('child', [node('child-before'), node('nested', 'grandchild'), node('child-after')]),

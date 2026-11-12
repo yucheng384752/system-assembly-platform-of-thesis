@@ -1,7 +1,7 @@
 import type { AovGraphDocument, Graph, GraphNode, Position } from './workflowGraph';
 
 export interface ViewNode { id: string; graphId: string; node: GraphNode; position: Position; offset: Position }
-export interface ViewFrame { graphId: string; ownerNodeId: string; title: string; position: Position; width: number; height: number; depth: number }
+export interface ViewFrame { graphId: string; ownerNodeId: string; title: string; position: Position; offset: Position; width: number; height: number; depth: number }
 export interface ViewEdge { id: string; graphId: string; from: string; to: string }
 export interface CanvasView { nodes: ViewNode[]; frames: ViewFrame[]; edges: ViewEdge[]; issues: string[] }
 export interface LayeredView extends CanvasView {
@@ -38,8 +38,14 @@ export function parentContext(doc: AovGraphDocument, graphId: string) {
   return undefined;
 }
 
-export function toLayoutPosition(node: ViewNode, displayPosition: Position): Position {
+export function toLayoutPosition(node: Pick<ViewNode, 'offset'>, displayPosition: Position): Position {
   return { x: displayPosition.x - node.offset.x, y: displayPosition.y - node.offset.y };
+}
+
+export function frameAt(view: CanvasView, position: Position): ViewFrame | undefined {
+  return view.frames.filter(f => position.x >= f.position.x && position.x <= f.position.x + f.width
+    && position.y >= f.position.y && position.y <= f.position.y + f.height)
+    .sort((a, b) => b.depth - a.depth)[0];
 }
 
 // A graph may only be owned once. This also stops cycles before entering them.
@@ -92,10 +98,10 @@ export function expandedView(doc: AovGraphDocument, graphId: string): CanvasView
     for (const block of blocks) {
       const { node, original, position, child, content, extent } = block;
       if (!child || !content || !extent) { result.nodes.push(viewNode(graph, node, original, position)); continue; }
-      result.frames.push({ graphId: child.id, ownerNodeId: node.id, title: name(node), position, width: block.width, height: block.height, depth: depth + 1 });
       const dx = position.x + PADDING - extent.x, dy = position.y + TITLE - extent.y;
+      result.frames.push({ graphId: child.id, ownerNodeId: node.id, title: name(node), position, offset: { x: dx, y: dy }, width: block.width, height: block.height, depth: depth + 1 });
       result.nodes.push(...content.nodes.map(n => ({ ...n, position: { x: n.position.x + dx, y: n.position.y + dy }, offset: { x: n.offset.x + dx, y: n.offset.y + dy } })));
-      result.frames.push(...content.frames.map(f => ({ ...f, position: { x: f.position.x + dx, y: f.position.y + dy } })));
+      result.frames.push(...content.frames.map(f => ({ ...f, position: { x: f.position.x + dx, y: f.position.y + dy }, offset: { x: f.offset.x + dx, y: f.offset.y + dy } })));
       result.edges.push(...content.edges);
     }
     return result;
@@ -132,7 +138,7 @@ export function layeredView(doc: AovGraphDocument, graphId: string): LayeredView
       let dx = 0, dy = y;
       if (owner) {
         const x = Math.max(owner.position.x, right), width = extent.width + 2 * PADDING, frameHeight = extent.height + TITLE + PADDING;
-        result.frames.push({ graphId: graph.id, ownerNodeId: owner.id, title: name(owner.node), position: { x, y }, width, height: frameHeight, depth });
+        result.frames.push({ graphId: graph.id, ownerNodeId: owner.id, title: name(owner.node), position: { x, y }, offset: { x: x + PADDING - extent.x, y: y + TITLE - extent.y }, width, height: frameHeight, depth });
         result.links.push({ fromNodeId: owner.id, toGraphId: graph.id });
         dx = x + PADDING - extent.x; dy = y + TITLE - extent.y;
         right = x + width + GAP; height = Math.max(height, frameHeight);

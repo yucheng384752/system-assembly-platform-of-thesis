@@ -1,11 +1,12 @@
 import { addIndustryTemplate, industryTemplates } from './industryTemplates';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { ReactFlow, ReactFlowProvider, Handle, MarkerType, Position, ConnectionLineType, useReactFlow, type Node, type NodeProps } from '@xyflow/react';
+import { ReactFlow, ReactFlowProvider, Handle, Position, ConnectionLineType, useReactFlow, type NodeProps } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { actionCatalog, describeEndpoint } from './workflow';
-import { graphDepths, graphPlaces, integrityErrors, MAX_DEPTH, MAX_GRAPHS, MAX_NODES, suggestActions, type AovGraphDocument, type GraphNode, type NodeKind } from './workflowGraph';
+import { graphDepths, graphPlaces, integrityErrors, MAX_DEPTH, MAX_GRAPHS, MAX_NODES, suggestActions, type AovGraphDocument, type GraphNode } from './workflowGraph';
 import { addCanvasNode, addChildGraph, connectCanvasNodes, reconnectCanvasEdge, deleteCanvasNode } from './canvasEditing';
-import { parentContext } from './canvasView';
+import { parentContext, expandedView, layeredView, toLayoutPosition, frameAt, type CanvasView } from './canvasView';
+import { CanvasViewSwitch, FrameNode, BandNode, flowElements, viewConnection, type BusinessNode, type ViewFlowNode, type ViewMode } from './CanvasViewElements';
 import { Column } from './Column';
 import { FactoryPage } from './FactoryPage';
 import { Icon } from './Icons';
@@ -16,7 +17,6 @@ import type { Lifecycle } from './caseStoreClient';
 
 // Press and release within this many pixels is a click (selects, opens the details); moving further is a drag (moves the node and nothing else).
 const DRAG_PX = 4;
-type BusinessNode = Node<{ label: string; kind: NodeKind }, 'business'>;
 function CircleNode({ data }: NodeProps<BusinessNode>) {
   return <div className={`business-node business-node-${data.kind}`} title={data.label}>
     {data.kind !== 'start' && <Handle type="target" position={Position.Left} aria-label="前置連線" />}
@@ -24,7 +24,7 @@ function CircleNode({ data }: NodeProps<BusinessNode>) {
     {data.kind !== 'end' && <Handle type="source" position={Position.Right} aria-label="後續連線" />}
   </div>;
 }
-const nodeTypes = { business: CircleNode };
+const nodeTypes = { business: CircleNode, frame: FrameNode, band: BandNode };
 
 // path: the opened graphs, kept by the caller so leaving the step and coming back returns to the same flow; empty means the factory list (D79).
 interface CanvasProps { value: AovGraphDocument; onChange: (value: AovGraphDocument) => void; path: string[]; onPathChange: (path: string[]) => void; toolbarExtra?: ReactNode; resetKey?: number; locate?: { nodeId: string; fieldId?: string; request: number }; lifecycle?: Lifecycle }
@@ -47,6 +47,8 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
   const [industry, setIndustry] = useState('');
   const [toolSearch, setToolSearch] = useState('');
   const [selected, setSelected] = useState('');
+  const [mode, setMode] = useState<ViewMode>('single');
+  const [dragView, setDragView] = useState<CanvasView | null>(null);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [ganttOpen, setGanttOpen] = useState(false);
@@ -56,15 +58,23 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
   // True from the moment a drag really starts until just after it ends: the click the browser sends when the button is released over
   // the dragged node must not select it or open its details (D87).
   const dragged = useRef(false);
+  const dragNodes = useRef<CanvasView['nodes'] | null>(null);
   const selectName = useRef(false);
   useLayoutEffect(() => {
     if (focus.current) { const input = document.getElementById('node-name'); input?.focus(); if (selectName.current && input instanceof HTMLInputElement) input.select(); focus.current = false; selectName.current = false; }
   }, [selected, value]);
-  const flow = useReactFlow<BusinessNode>();
+  const flow = useReactFlow<ViewFlowNode>();
   // A new import replaces the document: clear the selection (the caller resets the path; the toolbar, with its import notices, stays mounted).
   useEffect(() => { setSelected(''); setDeleting(false); setError(''); }, [resetKey]);
   const graph = value.graphs.find(g => g.id === path.at(-1));
-  const node = graph?.nodes.find(n => n.id === selected);
+  useEffect(() => { setMode('single'); setDragView(null); dragNodes.current = null; }, [resetKey, graph?.id]);
+  const view = dragView ?? (graph ? mode === 'expanded' ? expandedView(value, graph.id) : mode === 'layered' ? layeredView(value, graph.id) : {
+    nodes: graph.nodes.map((node, i) => ({ id: node.id, graphId: graph.id, node, position: value.layout[graph.id]?.[node.id] ?? { x: i * 180, y: 0 }, offset: { x: 0, y: 0 } })),
+    frames: [], edges: graph.edges.map(e => ({ ...e, graphId: graph.id })), issues: [],
+  } satisfies CanvasView : undefined);
+  const selectedView = view?.nodes.find(n => n.id === selected);
+  const editGraph = value.graphs.find(g => g.id === selectedView?.graphId) ?? graph;
+  const node = selectedView?.node;
   const centerRequest = useRef(false);
   useEffect(() => { if (locate && graph?.nodes.some(n => n.id === locate.nodeId)) { setSelected(locate.nodeId); setDeleting(false); centerRequest.current = true; } }, [locate, graph?.id]);
   useEffect(() => {
@@ -88,16 +98,21 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
     if (problems.length) { setError(problems.join(' ')); return false; }
     onChange(next); setError(''); return true;
   }
-  if (!graph) return <div className="workflow-page"><div className="canvas-toolbar">{null}<div><ExampleHintSwitch />{toolbarExtra}</div>{null}</div><FactoryPage value={value} commit={commit} onOpen={id => { setPath([id]); setSelected(''); setDeleting(false); }} /></div>;
+  if (!graph || !editGraph || !view) return <div className="workflow-page"><div className="canvas-toolbar">{null}<div><ExampleHintSwitch />{toolbarExtra}</div>{null}</div><FactoryPage value={value} commit={commit} onOpen={id => { setPath([id]); setSelected(''); setDeleting(false); }} /></div>;
   const place = graphPlaces(value).get(graph.id);
   const parent = parentContext(value, graph.id);
-  const depth = place?.depth ?? 1;
+  const depth = graphDepths(value).get(editGraph.id) ?? 1;
+  const elements = flowElements(view, selected);
   const add = (actionId: string | null, position?: { x: number; y: number }) => {
+    const frame = position && mode !== 'single' ? frameAt(view, position) : undefined;
+    const target = frame ? value.graphs.find(g => g.id === frame.graphId)! : editGraph;
+    const origin = frame ?? (target.id === graph.id ? undefined : view.frames.find(f => f.graphId === target.id));
+    const layoutPosition = position && origin ? toLayoutPosition(origin, position) : position;
     if (unavailable(actionId)) { setError(unavailable(actionId)); return; }
-    if (graph.nodes.length >= MAX_NODES) { setError('每個流程最多 100 個節點。'); return; }
+    if (target.nodes.length >= MAX_NODES) { setError('每個流程最多 100 個節點。'); return; }
     if (actionId !== null && !actionCatalog.actions.some(a => a.id === actionId)) return;
-    const next = addCanvasNode(value, graph.id, actionId, position);
-    if (commit(next)) { focus.current = true; selectName.current = true; setSelected(next.graphs.find(g => g.id === graph.id)!.nodes.at(-1)!.id); setDeleting(false); }
+    const next = addCanvasNode(value, target.id, actionId, layoutPosition);
+    if (commit(next)) { focus.current = true; selectName.current = true; setSelected(next.graphs.find(g => g.id === target.id)!.nodes.at(-1)!.id); setDeleting(false); }
   };
   const removal = node && deleting ? deleteCanvasNode(value, node.id) : undefined;
   // Details exist only while a node is selected, so the canvas keeps the whole width otherwise.
@@ -106,13 +121,35 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
     const heading = document.getElementById('canvas-title'); heading?.setAttribute('tabindex', '-1'); heading?.focus();
   };
   // Lines are edited on the node they lead to; the end cannot be a predecessor and the start has none (D80).
-  const predecessors = (target: GraphNode) => <fieldset><legend>接續在哪些節點之後</legend>{graph.nodes.filter(n => n.id !== target.id && n.kind !== 'end').map(n => <label key={n.id}><input type="checkbox" checked={graph.edges.some(e => e.from === n.id && e.to === target.id)} onChange={e => commit(connectCanvasNodes(value, graph.id, n.id, target.id, e.target.checked))} />{n.name || '（未命名節點）'}</label>)}</fieldset>;
+  const predecessors = (target: GraphNode) => <fieldset><legend>接續在哪些節點之後</legend>{editGraph.nodes.filter(n => n.id !== target.id && n.kind !== 'end').map(n => <label key={n.id}><input type="checkbox" checked={editGraph.edges.some(e => e.from === n.id && e.to === target.id)} onChange={e => commit(connectCanvasNodes(value, editGraph.id, n.id, target.id, e.target.checked))} />{n.name || '（未命名節點）'}</label>)}</fieldset>;
+  const selectNode = (id: string) => {
+    if (!view.nodes.some(n => n.id === id)) return;
+    setSelected(id); setDeleting(false);
+  };
+  const connect = (from: string, to: string, edgeId?: string) => {
+    const connection = viewConnection(view, from, to, edgeId);
+    if (!connection) { setError('連線只能在同一個流程內。'); return; }
+    commit(edgeId ? reconnectCanvasEdge(value, connection.graphId, edgeId, connection.from, connection.to)
+      : connectCanvasNodes(value, connection.graphId, connection.from, connection.to, true));
+  };
+  const childPath = (child: string) => {
+    const ancestors = [editGraph.id];
+    let context = parentContext(value, editGraph.id);
+    while (context && !ancestors.includes(context.parentGraphId)) {
+      ancestors.unshift(context.parentGraphId); context = parentContext(value, context.parentGraphId);
+    }
+    return [...ancestors, child];
+  };
+  const selectionList = (graphId: string) => <ul className="step-list">{view.nodes.filter(n => n.graphId === graphId).map(n => <li key={n.id}><button aria-current={n.id === selected ? true : undefined} onClick={() => { centerRequest.current = true; focus.current = true; selectNode(n.id); }}>{n.node.name || '（未命名節點）'}</button></li>)}</ul>;
   // The toolbar sits in the same slot for the factory list and the canvas, so the import button keeps its panel and notices when the view changes.
   return <div className="workflow-page">
     <div className="canvas-toolbar"><nav aria-label="流程層級" className="actions"><button onClick={() => { setPath([]); setSelected(''); setDeleting(false); }}>工廠</button><span className="crumb">{place?.factory.name || '（未命名工廠）'}</span>{path.filter(id => value.graphs.some(g => g.id === id)).map((id, index) => <button key={id} aria-current={id === graph.id ? 'location' : undefined} onClick={() => { setPath(path.slice(0, index + 1)); setSelected(''); setDeleting(false); }}>{value.graphs.find(g => g.id === id)!.name}</button>)}</nav>
       <div><ExampleHintSwitch />{toolbarExtra}<button onClick={() => setGanttOpen(true)}>甘特圖</button></div>
       {ganttOpen && <GanttPanel graph={graph} onLocate={nodeId => { centerRequest.current = true; setSelected(nodeId); setDeleting(false); }} onClose={() => setGanttOpen(false)} />}
-      <div className="actions canvas-zoom"><button onClick={() => void flow.zoomIn({ duration: 0 })}>放大</button><button onClick={() => void flow.zoomOut({ duration: 0 })}>縮小</button><button onClick={() => void flow.fitView({ duration: 0 })}>適合畫面</button></div></div>
+      <div className="actions canvas-zoom"><button onClick={() => void flow.zoomIn({ duration: 0 })}>放大</button><button onClick={() => void flow.zoomOut({ duration: 0 })}>縮小</button><button onClick={() => void flow.fitView({ duration: 0 })}>適合畫面</button></div>
+      <CanvasViewSwitch value={mode} onChange={next => { setMode(next); setDragView(null); dragNodes.current = null; setSelected(''); setDeleting(false); setError(''); }} />
+      {mode === 'layered' && <p role="status">系統邏輯疊層：公司需要，待開發。僅供檢視與編輯流程，不影響計畫與工單。</p>}
+    </div>
     {parent && <nav aria-label="上一層的前後節點" className="canvas-parent-context">
       <strong>上一層</strong>
       <span>前置</span>{parent.before.length ? parent.before.map(n => <button key={n.id} onClick={() => { setPath(path.slice(0, -1)); setSelected(n.id); setDeleting(false); focus.current = true; }}>{n.name || '（未命名節點）'}</button>) : <span>（無）</span>}
@@ -126,7 +163,7 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
         <label>搜尋產業節點<input type="search" value={toolSearch} onChange={e => setToolSearch(e.target.value)} /></label>
         <label>產業分類<select value={industry} onChange={e => setIndustry(e.target.value)}><option value="">全部</option>{[...new Set(industryTemplates.map(t => t.industry))].map(i => <option key={i}>{i}</option>)}</select></label>
         {unavailable('define-form') && <p role="status">{unavailable('define-form')}</p>}
-        {industryTemplates.filter(t => (!industry || t.industry === industry) && t.name.includes(toolSearch)).map(t => <div className="tool-card" key={t.id}><span>{t.name}</span><button disabled={Boolean(unavailable('define-form'))} aria-label={`加入產業節點：${t.name}`} onClick={() => { if (unavailable('define-form')) return; try { const next = addIndustryTemplate(value, graph.id, t.id); if (commit(next)) { setSelected(next.graphs.find(g => g.id === graph.id)!.nodes.at(-1)!.id); centerRequest.current = true; } } catch (error) { setError(error instanceof Error ? error.message : '無法新增範本'); } }}>＋</button></div>)}
+        {industryTemplates.filter(t => (!industry || t.industry === industry) && t.name.includes(toolSearch)).map(t => <div className="tool-card" key={t.id}><span>{t.name}</span><button disabled={Boolean(unavailable('define-form'))} aria-label={`加入產業節點：${t.name}`} onClick={() => { if (unavailable('define-form')) return; try { const next = addIndustryTemplate(value, editGraph.id, t.id); if (commit(next)) { setSelected(next.graphs.find(g => g.id === editGraph.id)!.nodes.at(-1)!.id); centerRequest.current = true; } } catch (error) { setError(error instanceof Error ? error.message : '無法新增範本'); } }}>＋</button></div>)}
       </details>
       {toolGroups.map(([group, tools], index) => {
         const open = openGroups.includes(group);
@@ -136,48 +173,58 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
             {tools.map(action => <section className="flow-card tool-card" key={action.id}
               draggable={!unavailable(action.id)} onDragStart={e => { if (unavailable(action.id)) { e.preventDefault(); return; } e.dataTransfer.setData('application/x-workflow-action', action.id || 'business'); e.dataTransfer.effectAllowed = 'copy'; }}>
               {unavailable(action.id) ? <div><h4>{action.name}</h4><p role="status" id={`case-tool-${action.id}`}>{unavailable(action.id)}</p></div> : <h4>{action.name}</h4>}
-              <button className="icon-button" title={`加入到畫布：${action.name}`} aria-describedby={unavailable(action.id) ? `case-tool-${action.id}` : undefined} disabled={graph.nodes.length >= MAX_NODES || Boolean(unavailable(action.id))} onClick={() => add(action.id || null)}><Icon name="plus" /><span className="visually-hidden">加入到畫布：{action.name}</span></button>
+              <button className="icon-button" title={`加入到畫布：${action.name}`} aria-describedby={unavailable(action.id) ? `case-tool-${action.id}` : undefined} disabled={editGraph.nodes.length >= MAX_NODES || Boolean(unavailable(action.id))} onClick={() => add(action.id || null)}><Icon name="plus" /><span className="visually-hidden">加入到畫布：{action.name}</span></button>
             </section>)}
           </div>
         </section>;
       })}
-      <h3>選取節點</h3><ul className="step-list">{graph.nodes.map(n => <li key={n.id}><button aria-current={n.id === selected ? true : undefined} onClick={() => { centerRequest.current = true; focus.current = true; setSelected(n.id); setDeleting(false); }}>{n.name || '（未命名節點）'}</button></li>)}</ul>
+      <h3>選取節點</h3>{mode === 'single' ? selectionList(graph.id) : [...new Set(view.nodes.map(n => n.graphId))].map(id => <section key={id} aria-label={value.graphs.find(g => g.id === id)!.name}><h4>{value.graphs.find(g => g.id === id)!.name}</h4>{selectionList(id)}</section>)}
     </Column>
     <Column id="canvas" title="流程畫布" lead="連線表示先後順序，多條出線表示平行作業。" className="workflow-canvas-column">
       <div className="workflow-canvas" onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }} onDrop={e => {
         e.preventDefault(); const action = e.dataTransfer.getData('application/x-workflow-action');
         if (action) add(action === 'business' ? null : action, flow.screenToFlowPosition({ x: e.clientX, y: e.clientY }));
       }}>
-        <ReactFlow<BusinessNode> key={`${resetKey}:${graph.id}`} nodes={graph.nodes.map((n, i) => ({ id: n.id, type: 'business', data: { label: n.name || '（未命名節點）', kind: n.kind },
-          position: value.layout[graph.id]?.[n.id] ?? { x: i * 180, y: 0 }, selected: n.id === selected, ariaLabel: n.name || '（未命名節點）' }))}
-          edges={graph.edges.map(e => ({ id: e.id, source: e.from, target: e.to, type: 'straight', reconnectable: true, animated: false, focusable: false, markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: '#40576a' } }))} nodeTypes={nodeTypes}
+        <ReactFlow<ViewFlowNode> key={`${resetKey}:${graph.id}:${mode}`} nodes={elements.nodes} edges={elements.edges} nodeTypes={nodeTypes}
           deleteKeyCode={null} selectNodesOnDrag={false} nodeDragThreshold={DRAG_PX} nodeClickDistance={DRAG_PX} nodesFocusable edgesFocusable={false} autoPanOnNodeFocus={false}
           ariaLabelConfig={{ 'node.a11yDescription.default': '按 Enter 或空白鍵選取節點，方向鍵移動；先後順序與刪除請使用節點細項。', 'node.a11yDescription.keyboardDisabled': '請使用工具箱選取節點。', 'node.a11yDescription.ariaLiveMessage': ({ x, y }) => `節點已移至橫向 ${x}、縱向 ${y}。`, 'edge.a11yDescription.default': '請在節點細項調整先後順序。', 'handle.ariaLabel': '連線接點' }}
-          onNodeDragStart={() => { dragged.current = true; }}
-          onNodeDragStop={() => { window.setTimeout(() => { dragged.current = false; }, 0); }}
-          onNodeClick={(_, n) => { if (dragged.current) return; setSelected(n.id); setDeleting(false); }}
+          onNodeDragStart={() => { dragged.current = true; dragNodes.current = view.nodes; if (mode !== 'single') setDragView(view); }}
+          onNodeDragStop={() => { window.setTimeout(() => { dragged.current = false; dragNodes.current = null; setDragView(null); }, 0); }}
+          onNodeClick={(_, n) => { if (dragged.current) return; selectNode(n.id); }}
           onNodesChange={changes => {
             const positions = changes.filter(c => c.type === 'position').filter(c => c.position);
-            if (positions.length) commit({ ...value, layout: { ...value.layout, [graph.id]: { ...value.layout[graph.id], ...Object.fromEntries(positions.map(c => [c.id, c.position!])) } } });
+            if (positions.length) {
+              const layout = { ...value.layout };
+              let changed = false;
+              for (const change of positions) {
+                const item = (dragNodes.current ?? view.nodes).find(n => n.id === change.id);
+                if (!item) continue;
+                layout[item.graphId] = { ...layout[item.graphId], [item.id]: toLayoutPosition(item, change.position!) }; changed = true;
+              }
+              if (changed && commit({ ...value, layout }) && dragView) {
+                setDragView({ ...dragView, nodes: dragView.nodes.map(n => ({ ...n, position: positions.find(c => c.id === n.id)?.position ?? n.position })) });
+              }
+            }
             const picked = changes.find(c => c.type === 'select' && c.selected);
-            if (picked?.type === 'select' && !dragged.current) { setSelected(picked.id); setDeleting(false); }
+            if (picked?.type === 'select' && !dragged.current) { selectNode(picked.id); }
           }}
           edgesReconnectable reconnectRadius={28} connectionLineType={ConnectionLineType.Straight}
-          onReconnect={(edge, connection) => commit(reconnectCanvasEdge(value, graph.id, edge.id, connection.source, connection.target))}
-          onConnect={c => commit(connectCanvasNodes(value, graph.id, c.source, c.target, true))}
+          onReconnect={(edge, connection) => connect(connection.source, connection.target, edge.id)}
+          onConnect={c => connect(c.source, c.target)}
           onPaneClick={() => { setSelected(''); setDeleting(false); }}
           fitView fitViewOptions={{ duration: 0 }} />
       </div>
+      {view.issues.length > 0 && <div className="note" role="status"><ul>{view.issues.map((issue, i) => <li key={i}>{issue}</li>)}</ul></div>}
       <p role={error ? 'alert' : undefined}>{error}</p>
-      {suggestActions(value).map(s => <div key={s.actionId} className="canvas-suggestion note" role="status"><div><p>{s.reason}</p>{unavailable(s.actionId) && <p>{unavailable(s.actionId)}</p>}<button disabled={graph.nodes.length >= MAX_NODES || Boolean(unavailable(s.actionId))} onClick={() => add(s.actionId)}>加入「{actionCatalog.actions.find(a => a.id === s.actionId)!.name}」節點</button></div></div>)}
+      {suggestActions(value).map(s => <div key={s.actionId} className="canvas-suggestion note" role="status"><div><p>{s.reason}</p>{unavailable(s.actionId) && <p>{unavailable(s.actionId)}</p>}<button disabled={editGraph.nodes.length >= MAX_NODES || Boolean(unavailable(s.actionId))} onClick={() => add(s.actionId)}>加入「{actionCatalog.actions.find(a => a.id === s.actionId)!.name}」節點</button></div></div>)}
     </Column>
     {node && <Column id="node-details" title="節點細項" lead="設定內容、先後順序與子流程。" className="workflow-details" scroll aside={<button onClick={closeDetails}>關閉細項</button>}>
       <>
         {node.kind !== 'node' ? <><p>「{node.name}」由系統建立，每個流程各有一個，不能修改或刪除。</p>{node.kind === 'end' && predecessors(node)}</> : <>
         <NodeDetails key={node.id} value={value} node={node} onChange={commit} />
         {predecessors(node)}
-        {node.childGraphId ? <button onClick={() => { setPath([...path, node.childGraphId!]); setSelected(''); setDeleting(false); }}>進入子流程</button>
-          : <><button disabled={depth >= MAX_DEPTH || value.graphs.length >= MAX_GRAPHS} aria-describedby="depth-note" onClick={() => { const next = addChildGraph(value, node.id); if (commit(next)) { const child = next.graphs.find(g => g.id === graph.id)!.nodes.find(n => n.id === node.id)!.childGraphId; if (child) { setPath([...path, child]); setSelected(''); setDeleting(false); } } }}>建立子流程</button><p id="depth-note">{depth >= MAX_DEPTH ? '已達第 3 層，不可再建立子流程。' : value.graphs.length >= MAX_GRAPHS ? `整份流程最多 ${MAX_GRAPHS} 張圖。` : '流程最多 3 層。'}</p></>}
+        {node.childGraphId ? <button onClick={() => { setPath(childPath(node.childGraphId!)); setSelected(''); setDeleting(false); }}>進入子流程</button>
+          : <><button disabled={depth >= MAX_DEPTH || value.graphs.length >= MAX_GRAPHS} aria-describedby="depth-note" onClick={() => { const next = addChildGraph(value, node.id); if (commit(next)) { const child = next.graphs.find(g => g.id === editGraph.id)!.nodes.find(n => n.id === node.id)!.childGraphId; if (child) { setPath(childPath(child)); setSelected(''); setDeleting(false); } } }}>建立子流程</button><p id="depth-note">{depth >= MAX_DEPTH ? '已達第 3 層，不可再建立子流程。' : value.graphs.length >= MAX_GRAPHS ? `整份流程最多 ${MAX_GRAPHS} 張圖。` : '流程最多 3 層。'}</p></>}
         <button className="danger" onClick={() => setDeleting(true)}>刪除節點</button>
         {removal && <section role="region" aria-label="確認刪除節點"><h3>確認刪除以下內容</h3><ul>
           {removal.nodes.map(n => <li key={n.id}>節點：{n.name}</li>)}{removal.graphs.map(g => <li key={g.id}>子流程：{g.name}</li>)}{removal.forms.map(f => <li key={f.id}>表單：{f.name}</li>)}
