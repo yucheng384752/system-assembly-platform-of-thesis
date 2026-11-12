@@ -52,11 +52,14 @@ function sync(accounts, apply) {
 function runClaudeFactory(accounts, worktree, extra, pattern) {
   const bin = process.env.CLAUDE_BIN || 'claude';
   return (account, prompt) => new Promise((done, fail) => {
-    const child = spawn(bin, ['-p', '--output-format', 'stream-json', '--verbose', ...extra], {
+    // CLAUDE_BIN 指向 .mjs 時用 node 執行（測試用包裝程式）
+    const args = ['-p', '--output-format', 'stream-json', '--verbose', ...extra];
+    const spawnOpts = {
       cwd: worktree,
       env: { ...process.env, CLAUDE_CONFIG_DIR: accounts[account] },
       stdio: ['pipe', 'pipe', 'inherit'],
-    });
+    };
+    const child = bin.endsWith('.mjs') ? spawn(process.execPath, [bin, ...args], spawnOpts) : spawn(bin, args, spawnOpts);
     let out = '';
     child.stdout.on('data', (d) => { out += d; });
     child.on('error', fail);
@@ -99,6 +102,7 @@ async function main() {
       log: (m) => console.log(m),
     });
     console.log(`結束：${result.status}（最後帳號 ${result.account}，交棒 ${result.switches} 次）`);
+    if (result.text) console.log(`最後回覆：${result.text}`);
     if (result.detail) console.error(`詳情：${result.detail}`);
     process.exitCode = result.status === 'done' ? 0 : 2;
     return;

@@ -25,6 +25,7 @@ user 的決定：A token 用完自動換 B；做 session 互相發現；交接�
 - `run --start B`：第一次因 account2 登入過期失敗（判為一般錯誤、不換人、保留鎖；已補 `unlock`）；user 重新登入後第二次成功，唯讀任務完成、鎖已釋放。交棒流程與用量上限訊息仍未實測。
 - 用量上限的訊息文字沒實測，預設樣式是推測，可用 `CLAUDE_LIMIT_PATTERN` 修正；判斷不出時當一般錯誤停止。
 - 跨帳號 SendMessage 已驗證（A 側呼叫 account2 的互動 session 並收到回覆）；反方向未測。
+- 交棒實測（模擬 A 的上限訊息、B 為真實 claude）通過：Handoff 寫入、鎖轉移、B 讀取並正確接手、鎖釋放。上限訊息文字仍為模擬。
 - 互動中的 session 不會自動交棒，仍靠 SendMessage。
 
 ## Codex Notes

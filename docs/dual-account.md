@@ -35,3 +35,5 @@
 - 2026-11-12 已驗證跨帳號 SendMessage：account2 開互動 session 後執行 `sync --apply`，A 側 `ListAgents` 看得到它，送訊息後收到回覆。反方向（account2 側呼叫 A）未測，但 A 的登記檔已鏡像到 E 槽，預期可通。
 - `claude -p` 的 stream-json 事件格式（`result`、`assistant`）依 CLI 說明與既有慣例撰寫，單元測試用假事件。
 - 互動中的 session 不會自動交棒；互動模式仍靠 `SendMessage` 手動派工（記憶 feedback-handoff-to-account2-agent）。
+
+- 2026-11-12 交棒實測：A 用包裝程式（`CLAUDE_BIN` 指向 `.mjs`）模擬上限訊息，B 用真的 `claude`。結果：Handoff 寫進 thread、鎖由 A 轉 B、B 讀了 Handoff 並正確回報誰交給誰、原因與 A 的進度、鎖釋放。這證明流程可行，但上限訊息文字仍是模擬的，不能代表真實上限。
