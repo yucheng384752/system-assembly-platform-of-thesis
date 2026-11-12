@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { resolveAccounts, otherAccount } from './lib/accounts.mjs';
 import { DEFAULT_LIMIT_PATTERN, classify, parseStream } from './lib/limit.mjs';
-import { readLock } from './lib/lock.mjs';
+import { readLock, release } from './lib/lock.mjs';
 import { runLoop } from './lib/runner.mjs';
 import { applyMirror, planMirror } from './lib/sessions.mjs';
 
@@ -74,6 +74,13 @@ async function main() {
   if (cmd === 'status') {
     console.log(`分支 ${ctx.branch}：`, readLock(ctx.lockDir, ctx.branch) ?? '無鎖（沒有任何帳號持有）');
     return;
+  }
+  if (cmd === 'unlock') {
+    // 出錯後鎖會保留；人確認過後用這個清掉（只清本分支的鎖）
+    const cur = readLock(ctx.lockDir, ctx.branch);
+    if (!cur) return console.log('本分支沒有鎖');
+    release(ctx.lockDir, ctx.branch, cur.holder);
+    return console.log(`已清除帳號 ${cur.holder} 持有的鎖`);
   }
   if (cmd === 'run') {
     if (!opts.thread || !opts.task) throw new Error('run 需要 --thread 與 --task');

@@ -70,6 +70,15 @@ test('鏡像：只複製活著的 session；已結束的鏡像會被清掉；對
   assert.ok(existsSync(join(B, 'sessions', '999.json')));
 });
 
+test('鏡像：A 鏡像到 B 的檔案不會被 B 往回鏡像給 A（回音）', () => {
+  const A = makeConfig({ '100.json': '{"pid":100}' });
+  const B = makeConfig({});
+  applyMirror(planMirror(A, B, 'A', () => true));
+  const back = planMirror(B, A, 'B', () => true);
+  assert.deepEqual(back.copy, []);
+  assert.deepEqual(back.skippedConflict, []);
+});
+
 const ev = (result, isError) => JSON.stringify({ type: 'result', is_error: isError, result });
 const asst = (text) => JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text }] } });
 

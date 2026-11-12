@@ -18,6 +18,7 @@
 | `node tools/dual-account/cli.mjs sync` | 只列計畫：把還活著的 session 登記檔鏡像到對方資料夾 |
 | `node tools/dual-account/cli.mjs sync --apply` | 實際寫入對方的 `sessions/` |
 | `node tools/dual-account/cli.mjs status` | 看本分支目前由哪個帳號持有 |
+| `node tools/dual-account/cli.mjs unlock` | 出錯後鎖會保留，人確認過後清除本分支的鎖 |
 | `node tools/dual-account/cli.mjs run --thread <thread 檔> --task <文字或 @檔案> [--start A\|B] [--max-switches 4] [-- claude 額外參數]` | 用 `claude -p` 跑任務，到上限自動交棒 |
 
 ## 規則
@@ -30,6 +31,6 @@
 ## 尚未驗證
 
 - 用量上限的實際訊息文字沒有在本機觸發過，預設樣式是推測；第一次真的碰到上限時要確認，必要時用 `CLAUDE_LIMIT_PATTERN` 修正。判斷不出時會當成一般錯誤停止，不會誤換人。
-- `sync --apply` 與 `run` 都沒有對真實的兩個帳號實跑（前者寫入對方設定資料夾、後者消耗兩邊用量，需 user 同意）。只實跑了不寫入的 `sync` 與 `status`。
+- 2026-11-12 已實跑 `sync --apply`（A 的 12 個登記檔鏡像到 B，且修正回音問題）。`run --start B` 試跑失敗：account2 登入已過期（`OAuth session expired`），程式判為一般錯誤、未換人、保留鎖，符合設計；任務本身沒跑到。account2 重新登入後要再試一次，用量上限的實際訊息也仍未驗證。
 - `claude -p` 的 stream-json 事件格式（`result`、`assistant`）依 CLI 說明與既有慣例撰寫，單元測試用假事件。
 - 互動中的 session 不會自動交棒；互動模式仍靠 `SendMessage` 手動派工（記憶 feedback-handoff-to-account2-agent）。

@@ -33,10 +33,14 @@ function readManifest(dir, label) {
 export function planMirror(srcConfig, dstConfig, srcLabel, isAlive = pidAlive) {
   const src = join(srcConfig, 'sessions');
   const dst = join(dstConfig, 'sessions');
+  // 來源資料夾裡由本工具鏡像進來的檔案不是來源自己的 session，不可往回鏡像（避免回音）
+  const echoes = existsSync(src)
+    ? readdirSync(src).filter((f) => /^\.mirrored-from-.+\.json$/.test(f)).flatMap((f) => JSON.parse(readFileSync(join(src, f), 'utf8')))
+    : [];
   const live = existsSync(src)
     ? readdirSync(src).filter((f) => {
         const pid = pidOf(f);
-        return pid !== null && isAlive(pid);
+        return pid !== null && !echoes.includes(f) && isAlive(pid);
       })
     : [];
   const mirrored = existsSync(dst) ? readManifest(dst, srcLabel) : [];
