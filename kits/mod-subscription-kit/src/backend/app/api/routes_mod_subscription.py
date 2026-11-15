@@ -1,10 +1,11 @@
 """MOD Subscription API — sync, webhook receiver, and entitlement query."""
 from __future__ import annotations
 
+import hmac
 import os
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -17,7 +18,9 @@ router = APIRouter(prefix="/api/mod", tags=["MOD 訂閱權益"])
 
 
 class SyncRequest(BaseModel):
-    external_subscription_id: str
+    # Becomes one path segment of the request to the provider, which carries the provider API key: no slash, query
+    # mark, percent escape or leading dot may reach it.
+    external_subscription_id: str = Field(pattern=r"^[A-Za-z0-9_-][A-Za-z0-9._-]{0,99}$")
 
 
 class WebhookPayload(BaseModel):
@@ -69,8 +72,11 @@ async def receive_mod_webhook(
     x_mod_webhook_secret: str | None = Header(default=None, alias="X-Mod-Webhook-Secret"),
 ):
     """Receive an event webhook from MOD provider."""
-    expected = os.getenv("MOD_WEBHOOK_SECRET", "")
-    if expected and x_mod_webhook_secret != expected:
+    expected = os.getenv("MOD_WEBHOOK_SECRET", "").strip()
+    if not expected:
+        # This route has no user token. With nothing to compare against it must refuse, not accept everyone.
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Webhook secret not configured")
+    if not hmac.compare_digest((x_mod_webhook_secret or "").encode("utf-8"), expected.encode("utf-8")):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook secret")
     try:
         await process_webhook(
