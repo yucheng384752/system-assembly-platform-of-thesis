@@ -28,6 +28,34 @@ async function recipeFile(temp, enabledKits) {
 // No Python or Docker process is launched. Real AST/FK verification is by Claude.
 const stub = () => ({ status: 0, stdout: '' });
 
+test('MOD runtime settings are optional and emitted only for subscription packages', async () => {
+  for (const selected of [minimal, [...minimal, 'mod-subscription-kit']]) {
+    const artifacts = await deploymentArtifacts(path.join(repository, 'kits'), selected, []);
+    const compose = artifacts.get('deployment/docker-compose.yml') ?? '';
+    if (selected.includes('mod-subscription-kit')) {
+      assert.match(compose, /MOD_API_BASE_URL: \$\{MOD_API_BASE_URL:-\}/);
+      assert.doesNotMatch(compose, /MOD_API_KEY|mod_api_key/);
+      assert.match(artifacts.get('backend/app/secret_files.py') ?? '', /"MOD_API_KEY"/);
+      assert.doesNotMatch(artifacts.get('backend/app/main.py') ?? '', /"MOD_API_BASE_URL"|"MOD_API_KEY"/);
+      for (const name of ['deployment/.env.example', 'deployment/README.md']) {
+        assert.match(artifacts.get(name) ?? '', /MOD_API_BASE_URL/);
+        assert.match(artifacts.get(name) ?? '', /MOD_API_KEY/);
+      }
+    } else {
+      for (const [name, text] of artifacts) assert.doesNotMatch(text, /MOD_API_BASE_URL|MOD_API_KEY/, name);
+    }
+  }
+});
+
+test('subscription package wires optional settings through the assembled deployment', async () => fixture(async temp => {
+  const selected = [...minimal, 'mod-subscription-kit'];
+  const recipe = await recipeFile(temp, selected);
+  const out = path.join(temp, 'out');
+  await assembleSystem(out, { recipe, run: stub });
+  await checkDeployment(out, selected);
+  assert.match(await readFile(path.join(out, 'docs/installation-operations-manual.md'), 'utf8'), /MOD_API_KEY/);
+}));
+
 for (const size of [13, 7]) test(`${size} Kits: tree, manifest, T12, exclusions and identical output bytes`, async () => fixture(async temp => {
   const before = await inventory(path.join(repository, 'kits'), null, systemExcluded);
   const selected = size === 13 ? before.included : minimal;
@@ -64,6 +92,7 @@ for (const size of [13, 7]) test(`${size} Kits: tree, manifest, T12, exclusions 
     assert.deepEqual(data, await readFile(path.join(two, name)));
     assert.doesNotMatch(name + '\n' + data.toString(), /COMPOSER_PREVIEW|preview-local-only|preview_seed|preview_gate|preview_registry|preview_support|preview_policy|\/_preview\/|preview_fake/i);
     assert.doesNotMatch(data.toString(), /@@[A-Z_]+@@/);
+    if (!selected.includes('mod-subscription-kit')) assert.doesNotMatch(data.toString(), /MOD_API_BASE_URL|MOD_API_KEY/);
     if (name === 'system-manifest.json') continue;
     const entry = manifest.files.find(f => f.path === name);
     assert.ok(entry);
@@ -164,6 +193,14 @@ async function checkDeployment(out, selected) {
   assert.ok(compose.includes('POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password'));
   assert.ok(!compose.includes('$' + '{POSTGRES_PASSWORD'));
   if (!webhook) { assert.ok(!main.includes('MOD_WEBHOOK_SECRET')); assert.ok(!compose.includes('MOD_WEBHOOK_SECRET')); }
+  if (webhook) {
+    assert.ok(compose.includes('MOD_API_BASE_URL: ${MOD_API_BASE_URL:-}'));
+    assert.doesNotMatch(compose, /MOD_API_KEY|mod_api_key/, 'optional key is mounted only by the installer override');
+    assert.ok((await read('backend/app/secret_files.py')).includes('"MOD_API_KEY"'));
+    assert.ok((await read('deployment/.env.example')).includes('MOD_API_BASE_URL='));
+    assert.doesNotMatch(await read('deployment/.env.example'), /^MOD_API_KEY=/m);
+    assert.doesNotMatch(main, /"MOD_API_BASE_URL"|"MOD_API_KEY"/, 'neither optional setting is required at startup');
+  }
   assert.ok(main.indexOf('load_secret_files()') < main.indexOf('Required environment variable'));
   const gate = main.lastIndexOf('app.middleware("http")(license_gate_middleware)');
   assert.ok(gate > main.lastIndexOf('app.include_router(') && gate > main.indexOf('app.middleware("http")(entry_permission_middleware)'),

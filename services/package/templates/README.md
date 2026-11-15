@@ -25,6 +25,15 @@ and the same credentials/database as POSTGRES_USER/POSTGRES_DB (URL-encode the p
 supplies the initial tenant name/code (maximum 50 characters); DEFAULT_TENANT_ID must be a UUID.
 `.dockerignore` keeps `secrets/`, `license/` and `.env` out of the build context.
 
+<!-- MOD_RUNTIME -->
+For subscription synchronization, `MOD_API_BASE_URL` is an optional public setting: an http(s) URL
+without credentials. Omit it to leave synchronization unavailable. `MOD_API_KEY` is an optional
+secret supplied through protected installer input only. When provided, the installer creates
+`secrets/mod_api_key` and adds its file secret and `MOD_API_KEY_FILE` to the backend and init services
+in `compose.override.yml`. When omitted, neither the file nor the Compose reference is created.
+Never put the key value in an environment file, command line, log or installation record.
+<!-- END_MOD_RUNTIME -->
+
 License gate (D142): the backend verifies the installed license (root key, sub-key certificate,
 manifest hash, expiry) and returns 503 for everything except `/healthz` and the license routes while it
 is invalid. `/license` is a minimal status page, `/api/license/status` reports the state and
