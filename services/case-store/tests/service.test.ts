@@ -145,11 +145,33 @@ describe('批二服務', () => {
     expect(rejected.message).toContain('未知欄位');
     expect((await target.call('GET', '/cases')).body).toEqual([]);
 
-    const hashBroken = structuredClone(backup); hashBroken.tables.flow_version[0].content = '{}';
+    // valid content whose recorded hash is wrong: the per-version hash recheck is what refuses it
+    const hashBroken = structuredClone(backup); hashBroken.tables.flow_version[0].content_hash = '0'.repeat(64);
     hashBroken.sha256 = reseal(hashBroken.tables);
     const other = await start();
     expect(as<Failure>(await other.call('POST', '/backup', hashBroken)).errors[0].code).toBe('E-CORRUPT');
     expect((await other.call('GET', '/cases')).body).toEqual([]);
+  });
+
+  // A version is stored only after the bundle contract accepted it. A backup is the one other way in, and its hashes
+  // are not a signature: a file whose hashes all agree must still not plant content that the store could never have saved.
+  it('雜湊全部相符但內容不是整合包的備份被拒絕，案例庫保持空白', async () => {
+    const source = await start(); const id = await newCase(source.call);
+    await save(source.call, id, await content(), null);
+    const backup = as<Backup>(await source.call('GET', '/backup'));
+    for (const planted of ['{}', 'not json', JSON.stringify({ platform: { graphs: 'x' } })]) {
+      const forged = structuredClone(backup);
+      forged.tables.flow_version[0].content = planted;
+      forged.tables.flow_version[0].content_hash = createHash('sha256').update(planted, 'utf8').digest('hex');
+      forged.sha256 = reseal(forged.tables);
+      const target = await start();
+      const res = await target.call('POST', '/backup', forged);
+      expect(res.status).toBe(400);
+      expect(as<Failure>(res).errors[0].code).toBe('E-BAD-BACKUP');
+      expect((await target.call('GET', '/cases')).body).toEqual([]);
+      // the reason this matters: with such a row stored, every usage scan would fail from then on
+      expect((await target.call('POST', '/usage', { nodeId: 'a' })).status).toBe(200);
+    }
   });
 
   it('只接受本機來源與 JSON 請求', async () => {

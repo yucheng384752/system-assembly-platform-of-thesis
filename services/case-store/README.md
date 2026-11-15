@@ -17,7 +17,7 @@ D176、D180。契約見 `docs/aov-case-store.md`。只綁 127.0.0.1，需 Node 2
 | POST `/nodes/merge` | `{ keep, drop, reason }` |
 | POST `/combos/deprecate`、`/combos/reactivate` | `{ combo, reason }` |
 | POST `/usage` | `{ nodeId }` 或 `{ combo }`，列出仍引用的版本 |
-| GET、POST `/backup` | 匯出、匯入（只能進空庫） |
+| GET、POST `/backup` | 匯出、匯入（只能進空庫；每個版本的內容須通過整合包契約且為正規化形式，驗證報告與作者照檔案原樣寫入，備份檔不是簽章紀錄） |
 
 ## 回應格式
 

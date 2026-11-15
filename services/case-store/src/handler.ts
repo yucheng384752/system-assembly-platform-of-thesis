@@ -54,7 +54,7 @@ export async function handle(store: CaseStore, { method, path, body }: ApiReques
   if (head === 'usage' && method === 'POST' && b) return send(store.scanUsage(typeof b.nodeId === 'string' ? b.nodeId : combo(b.combo)));
   if (head === 'backup' && parts.length === 1) {
     if (method === 'GET') return send(store.exportBackup());
-    if (method === 'POST') return send(store.importBackup(body));
+    if (method === 'POST') return send(await store.importBackup(body));
   }
   return { status: 404, body: { errors: [{ code: 'E-NOT-FOUND', message: '沒有這個路由。' }] } };
 }
