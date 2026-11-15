@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import re
 import time
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 import uuid
 from common import Failure, canonical, check_plan, digest, seal, read_json
 from detect import current_sources
@@ -19,9 +19,10 @@ LIMITATIONS = ['硬體綁定由 guard 容器回報、後端比對（不符時警
 BACKEND_UID = 10001  # the generated backend image runs as this user
 # Secret file name (under <install>/secrets, mounted at /run/secrets) -> input field.
 SECRET_FILES = {'postgres_password': 'POSTGRES_PASSWORD', 'database_url': 'DATABASE_URL', 'secret_key': 'SECRET_KEY',
-                'entry_permission_jwt_secret': 'ENTRY_PERMISSION_JWT_SECRET', 'mod_webhook_secret': 'MOD_WEBHOOK_SECRET'}
+                'entry_permission_jwt_secret': 'ENTRY_PERMISSION_JWT_SECRET', 'mod_webhook_secret': 'MOD_WEBHOOK_SECRET',
+                'mod_api_key': 'MOD_API_KEY'}
 PUBLIC_ENV = ('POSTGRES_USER', 'POSTGRES_DB', 'DEFAULT_TENANT_ID', 'SYSTEM_ID', 'PROXY_BIND', 'HTTP_PORT',
-              'LICENSE_BLOCK_WINDOW', 'LICENSE_TIMEZONE')
+              'LICENSE_BLOCK_WINDOW', 'LICENSE_TIMEZONE', 'MOD_API_BASE_URL')
 WINDOW_PATTERN = r'(daily|[a-z]{3}(?:-[a-z]{3}|(?:,[a-z]{3})*)) ([01][0-9]|2[0-3]):([0-5][0-9])-([01][0-9]|2[0-3]):([0-5][0-9])'
 
 
@@ -83,15 +84,22 @@ def make_plan(verified, root, source, detection, install_dir, trust_dir, license
                  'migration': {'mode': 'first-install-only', 'planSha256': None}, 'notProvided': LIMITATIONS})
 
 
-def override(plan, install_id):
+def override(plan, install_id, env=None):
     project = plan['package']['systemId'] + '-' + install_id
     labels = {LABEL: install_id}
     services = {name: {'labels': labels} for name in plan['names']['services']}
     for image in plan['images']:
         for name in image['services']:
             services[name].update(image=image['id'], pull_policy='never')
+    secrets = {}
+    if env and 'MOD_API_KEY' in env:
+        # Optional secrets belong only in the installation override, never the base Compose file.
+        secrets['mod_api_key'] = {'file': '../secrets/mod_api_key'}
+        for name in ('backend', 'init'):
+            services[name].update(environment={'MOD_API_KEY_FILE': '/run/secrets/mod_api_key'}, secrets=['mod_api_key'])
     # JSON is YAML 1.2 and avoids a new YAML dependency. --no-build disables inherited build entries.
     return { 'services': services,
+             **({'secrets': secrets} if secrets else {}),
              **{kind: {name: {'name': project + '_' + name, 'labels': labels}
                        for name in plan['names'][kind]} for kind in ('networks', 'volumes')} }
 
@@ -104,10 +112,29 @@ def private_input(body, plan):
                 'ENTRY_PERMISSION_JWT_SECRET', 'DEFAULT_TENANT_ID'}
     if 'MOD_WEBHOOK_SECRET' in plan['secretRef']:
         required.add('MOD_WEBHOOK_SECRET')
-    if not required <= env.keys() or set(env) - required - {'PROXY_BIND', 'HTTP_PORT', 'LICENSE_BLOCK_WINDOW', 'LICENSE_TIMEZONE'}:
+    optional = {'PROXY_BIND', 'HTTP_PORT', 'LICENSE_BLOCK_WINDOW', 'LICENSE_TIMEZONE'}
+    if 'MOD_WEBHOOK_SECRET' in required:
+        optional.update(('MOD_API_BASE_URL', 'MOD_API_KEY'))
+    if not required <= env.keys() or set(env) - required - optional:
         raise Failure(10, 'env 欄位缺少或不支援')
+    for name in ('MOD_API_BASE_URL', 'MOD_API_KEY'):
+        if env.get(name) == '':
+            del env[name]
     if any(not isinstance(v, str) or not v or any(c in v for c in "\n\r\x00'") for v in env.values()):
         raise Failure(10, 'env 值必須為非空單行字串，且不可含單引號')
+    if 'MOD_API_KEY' in env and not env['MOD_API_KEY'].strip():
+        raise Failure(10, '訂閱服務金鑰不可只有空白；不使用時請留空')
+    if 'MOD_API_BASE_URL' in env:
+        value = env['MOD_API_BASE_URL']
+        try:
+            url = urlsplit(value)
+            if (not value.startswith(('http://', 'https://')) or not url.hostname
+                    or url.username is not None or url.password is not None
+                    or any(c.isspace() or ord(c) < 32 for c in value) or '\\' in value):
+                raise ValueError()
+            url.port  # Reject malformed ports before installation.
+        except ValueError:
+            raise Failure(10, '訂閱服務網址須為不含帳號密碼的 http:// 或 https:// 網址') from None
     for field in ('POSTGRES_USER', 'POSTGRES_DB'):
         if not re.fullmatch(r'[a-zA-Z_][a-zA-Z0-9_]{0,62}', env[field]):
             raise Failure(10, 'PostgreSQL 識別名稱不合法')
@@ -235,7 +262,7 @@ class Installer:
                 raise Failure(10, '首次安裝目錄已存在')
             self.create_fs(step, 'directory', self.target, 'copy', source=str(root))
             self.create_fs(step, 'file', self.target / 'compose.override.yml', 'write',
-                           text=canonical(override(self.plan, self.install_id)).decode() + '\n')
+                           text=canonical(override(self.plan, self.install_id, env)).decode() + '\n')
         elif step == 'images-load':
             for image in self.plan['images']:
                 existed = self.image_exists(image['id'])
@@ -346,6 +373,8 @@ class Installer:
         self.journal.secrets += [admin['password'], quote(env['POSTGRES_PASSWORD'], safe='')]
         if 'MOD_WEBHOOK_SECRET' in env:
             self.journal.secrets.append(env['MOD_WEBHOOK_SECRET'])
+        if 'MOD_API_KEY' in env:
+            self.journal.secrets.append(env['MOD_API_KEY'])
         self.journal.secrets.sort(key=len, reverse=True)
         self.state['status'] = 'running'
         self.save()

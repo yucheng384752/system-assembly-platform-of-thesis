@@ -107,10 +107,12 @@ export async function deploymentArtifacts(kits, selected, sources, { forms = fal
       .replaceAll('@@EVALUATOR_NODE@@\n', factory ? evaluatorStage : '')
       .replaceAll('@@EVALUATOR_COPY@@\n', factory ? evaluatorCopy : '')
       .replaceAll('@@FORMS_COPY@@\n', forms ? formsCopy : '')
-      .replaceAll('@@WEBHOOK_ENV@@', webhook ? '      MOD_WEBHOOK_SECRET_FILE: /run/secrets/mod_webhook_secret\n' : '')
+      .replaceAll('@@WEBHOOK_ENV@@', webhook ? '      MOD_WEBHOOK_SECRET_FILE: /run/secrets/mod_webhook_secret\n      MOD_API_BASE_URL: ${MOD_API_BASE_URL:-}\n' : '')
       .replaceAll('@@WEBHOOK_SECRET_REF@@', webhook ? '      - mod_webhook_secret\n' : '')
       .replaceAll('@@WEBHOOK_SECRET_DEF@@', webhook ? '  mod_webhook_secret:\n    file: ../secrets/mod_webhook_secret\n' : '')
-      .replaceAll('@@WEBHOOK_EXAMPLE@@', ''));
+      .replaceAll('@@WEBHOOK_EXAMPLE@@', '')
+      .replaceAll(', "MOD_API_KEY"', webhook ? ', "MOD_API_KEY"' : '')
+      .replace(/<!-- MOD_RUNTIME -->\n([\s\S]*?)<!-- END_MOD_RUNTIME -->\n/g, webhook ? '$1' : ''));
   }
   const requirements = [await readFile(path.join(preview, 'requirements.txt'), 'utf8')];
   for (const kit of [...selected].sort()) {

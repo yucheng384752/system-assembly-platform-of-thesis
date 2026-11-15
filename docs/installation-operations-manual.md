@@ -82,6 +82,9 @@ $ENGINE apply --system-id <系統名稱> --plan plan.json --plan-sha256 <planSha
 
 - 預設只監聽 `127.0.0.1:8080`；要讓區網其他電腦連線，需在 `env` 設 `PROXY_BIND`，並自行決定防火牆範圍。系統**沒有提供 TLS**。
 - 含 MOD 訂閱 Kit 時，`env` 另需 `MOD_WEBHOOK_SECRET`。
+<!-- MOD_RUNTIME -->
+- 含訂閱串接時，`env` 可選填 `MOD_API_BASE_URL`（對外服務網址，限不含帳號密碼的 http 或 https 網址）；未填時同步維持不可用。`MOD_API_KEY` 為選填服務金鑰，只經受保護的安裝輸入送入秘密檔案，由 `MOD_API_KEY_FILE` 載入；不得寫入環境檔、指令列、日誌或安裝紀錄。未填時不建立秘密檔，也不加入 Compose 掛載。
+<!-- END_MOD_RUNTIME -->
 - 選填 `LICENSE_BLOCK_WINDOW`（例如 `mon-fri 09:00-15:00`）與 `LICENSE_TIMEZONE`，決定硬體不符且寬限結束後從何時開始停止服務。
 - 安裝共 11 步（Docker、信任庫與安裝目錄、載入映像、網路與卷、秘密檔、啟動資料庫、建表與管理員、安裝授權、啟動 guard、啟動後端與代理、健康檢查）。在 7 Kit 的實機約 52 秒。
 - 進度可用 `$ENGINE status --system-id <系統名稱>` 查看；`cancel` 會在目前步驟完成後停止。

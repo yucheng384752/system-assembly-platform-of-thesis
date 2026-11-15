@@ -7,7 +7,7 @@ that instantiates settings from the environment is imported.
 import os
 from pathlib import Path
 
-NAMES = ("DATABASE_URL", "SECRET_KEY", "ENTRY_PERMISSION_JWT_SECRET", "MOD_WEBHOOK_SECRET")
+NAMES = ("DATABASE_URL", "SECRET_KEY", "ENTRY_PERMISSION_JWT_SECRET", "MOD_WEBHOOK_SECRET", "MOD_API_KEY")
 
 
 def load_secret_files(environ=None):

@@ -122,3 +122,5 @@
 2026-11-11 Claude：新增 [論文主案例 S4：合成輸入檔與比對腳本](threads/20261111-thesis-s4-baseline.md)，分支 `feature/thesis-s4-baseline`。腳本與 13 項單元測試完成，尚未在來源系統上跑基準；契約 `docs/thesis-s4-baseline.md`。
 
 2026-11-12 Claude：[論文主案例 S4](threads/20261111-thesis-s4-baseline.md) 來源系統正式基準完成（57 個情境，重跑相同），結果在 `docs/thesis-case/s4-baseline-source.json`；待 user 審閱，下一步是第 4.5 節第 4 步。
+
+2026-11-15 Codex：[訂閱串接對外連線設定](threads/20261115-mod-subscription-runtime-env.md) 已實作，待 Claude 審閱及 Ubuntu／Docker 驗證；typecheck 通過，新 MOD 測試通過，完整套件的環境限制與實際結果見 Codex Notes；未提交。
