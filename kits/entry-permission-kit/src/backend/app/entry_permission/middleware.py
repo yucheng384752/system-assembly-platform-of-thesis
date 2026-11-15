@@ -19,7 +19,7 @@ from app.models.ep_role_entry_point import EpRoleEntryPoint
 from app.models.ep_user_entry_point_override import EpUserEntryPointOverride
 from .directory import Directory
 from .policy import builtin_admin, tenant_header_allowed
-from .security import load_secret, token_subject
+from .security import binding_matches, load_secret, token_claims
 
 log = logging.getLogger(__name__)
 SELF_ROUTES = {("GET", "/api/auth/me"), ("PATCH", "/api/auth/me"),
@@ -77,13 +77,15 @@ async def entry_permission_middleware(request: Request, call_next):
         return await request.app.state.ep_machine_auth(request, machine_next)
 
     authorization = request.headers.get("Authorization", "").split()
-    subject = token_subject(authorization[1], request.app.state.ep_secret) if (
+    claims = token_claims(authorization[1], request.app.state.ep_secret) if (
         len(authorization) == 2 and authorization[0].lower() == "bearer") else None
-    if subject is None:
+    if claims is None:
         return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+    subject, binding = claims
     async with database.async_session_factory() as db:
         actor = await db.get(EpUser, subject)
-        if actor is None or not actor.is_active:
+        # A token issued under an earlier password is refused: changing or resetting the password ends old sessions.
+        if actor is None or not actor.is_active or not binding_matches(binding, actor.password_hash, request.app.state.ep_secret):
             return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
         if not check_tenant(request):
             return forbidden()
