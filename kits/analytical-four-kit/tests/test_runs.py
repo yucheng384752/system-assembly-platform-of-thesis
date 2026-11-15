@@ -64,9 +64,9 @@ def test_a_layer_alone_stops_after_the_diagnosis(client):
 
 
 def test_complaint_run_names_the_planted_defect_and_sends_each_event_to_the_llm(client, llm, monkeypatch):
-    monkeypatch.setenv('LLM_API_KEY', 'test-token')
+    monkeypatch.setenv('ANALYTICAL_FOUR_LLM_API_KEY', 'test-token')
     put(client, layers={'a': True, 'b': True, 'c': True}, mode='complain', analysisConfig=COMPLAIN_CONFIG,
-        llm={'endpoint': llm.url, 'timeoutSeconds': 30, 'apiKeyEnv': 'LLM_API_KEY'})
+        llm={'endpoint': llm.url, 'timeoutSeconds': 30, 'apiKeyEnv': 'ANALYTICAL_FOUR_LLM_API_KEY'})
     record = run_and_wait(client)
     assert record['state'] == 'succeeded', record['error']
     assert all(state == 'done' for state in stages(record).values())
@@ -77,7 +77,7 @@ def test_complaint_run_names_the_planted_defect_and_sends_each_event_to_the_llm(
     assert [g[1] for g in got] == PLANTED  # the diagnosis names the defect that was planted in the data
     assert len(llm.calls) == 6 and all(c['authorization'] == 'Bearer test-token' for c in llm.calls)
     # the run record says whether an address was set, never what it was
-    assert record['llm'] == {'endpointSet': True, 'apiKeyEnv': 'LLM_API_KEY'}
+    assert record['llm'] == {'endpointSet': True, 'apiKeyEnv': 'ANALYTICAL_FOUR_LLM_API_KEY'}
     assert llm.url not in json.dumps(record) and 'test-token' not in json.dumps(record)
 
 
@@ -198,3 +198,33 @@ def test_settings_put_rejects_an_unusable_combination_and_keeps_the_old_file(cli
     bad = client.put(f'{API}/settings', json=settings(layers={'a': False, 'b': True, 'c': False}))
     assert bad.status_code == 422 and 'A 層' in json.dumps(bad.json(), ensure_ascii=False)
     assert (data / 'settings.json').read_text(encoding='utf-8') == before
+
+
+def test_the_llm_token_is_not_carried_to_another_host_by_a_redirect(llm):
+    # The address is the one the operator trusted. A redirect would hand the bearer token and the event data to a host
+    # nobody chose, so the step fails instead of following it.
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    from types import SimpleNamespace
+
+    from app.analytical_four.pipeline import Analytical_Four_System, PipelineError
+
+    class Redirect(BaseHTTPRequestHandler):
+        def do_POST(self):
+            self.rfile.read(int(self.headers['Content-Length']))
+            self.send_response(307)
+            self.send_header('Location', llm.url)
+            self.send_header('Content-Length', '0')
+            self.end_headers()
+
+        def log_message(self, *args):
+            pass
+
+    server = HTTPServer(('127.0.0.1', 0), Redirect)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        stub = SimpleNamespace(llm_api=f'http://127.0.0.1:{server.server_port}/diagnose', llm_api_key='test-token', llm_timeout=10)
+        with pytest.raises(PipelineError, match='轉址'):
+            Analytical_Four_System._post_llm(stub, {'new_event': {'event_id': 'e-1'}, 'top3_cases': []})
+    finally:
+        server.shutdown()
+    assert llm.calls == []

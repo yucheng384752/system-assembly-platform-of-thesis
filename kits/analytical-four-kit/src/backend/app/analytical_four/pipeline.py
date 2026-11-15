@@ -800,7 +800,10 @@ class Analytical_Four_System:
             raise PipelineError("尚未設定 LLM 服務位址")
         headers = {"Authorization": f"Bearer {self.llm_api_key}"} if self.llm_api_key else {}
         try:
-            response = requests.post(self.llm_api, json=payload, headers=headers, timeout=self.llm_timeout)
+            # Redirects are not followed: the token and the event data go to the configured address or nowhere.
+            response = requests.post(self.llm_api, json=payload, headers=headers, timeout=self.llm_timeout, allow_redirects=False)
+            if response.is_redirect:
+                raise PipelineError(f"LLM 服務回應轉址（HTTP {response.status_code}），未跟隨；請填寫最終位址")
             response.raise_for_status()
             return response.json()
         except requests.HTTPError as error:

@@ -49,7 +49,15 @@ def test_api_key_is_a_variable_name_never_a_value():
     # A mixed-case value with punctuation is how a pasted secret looks; it must not be accepted as a name.
     with pytest.raises(ValidationError):
         make(llm={'apiKeyEnv': 'sk-abc.123'})
-    assert make(llm={'apiKeyEnv': 'LLM_API_KEY'}).llm.apiKeyEnv == 'LLM_API_KEY'
+    assert make(llm={'apiKeyEnv': 'ANALYTICAL_FOUR_LLM_API_KEY'}).llm.apiKeyEnv == 'ANALYTICAL_FOUR_LLM_API_KEY'
+
+
+@pytest.mark.parametrize('name', ['ENTRY_PERMISSION_JWT_SECRET', 'SECRET_KEY', 'DATABASE_URL', 'LLM_API_KEY', 'ANALYTICAL_FOUR_DATA_DIR', 'ANALYTICAL_FOUR_LLM_'])
+def test_api_key_variable_cannot_name_another_secret_of_the_server(name):
+    # The value of this variable is sent as a bearer token to an address the same setting chooses. If any name were
+    # accepted, whoever may edit the settings could have the server post its token-signing key or database URL to them.
+    with pytest.raises(ValidationError, match='ANALYTICAL_FOUR_LLM_'):
+        make(llm={'apiKeyEnv': name})
 
 
 @pytest.mark.parametrize('path', ['../outside.json', '/etc/passwd', 'C:/Windows/win.ini', 'a/../../b.json', '', r'..\outside.json', r'a\..\..\b.json', r'\\server\share\x'])
@@ -83,9 +91,9 @@ def test_demo_data_is_ready_for_every_layer_except_the_unset_llm_address(data):
 
 
 def test_missing_api_key_variable_blocks_the_c_layer(data, monkeypatch):
-    monkeypatch.delenv('LLM_API_KEY', raising=False)
+    monkeypatch.delenv('ANALYTICAL_FOUR_LLM_API_KEY', raising=False)
     s = make(layers={'a': True, 'b': True, 'c': True}, mode='complain', analysisConfig='config/analysis_config_complaint.json',
-             llm={'endpoint': 'http://127.0.0.1:9/x', 'apiKeyEnv': 'LLM_API_KEY'})
+             llm={'endpoint': 'http://127.0.0.1:9/x', 'apiKeyEnv': 'ANALYTICAL_FOUR_LLM_API_KEY'})
     assert [p.code for p in readiness(s)['c']] == ['llm-key']
 
 
