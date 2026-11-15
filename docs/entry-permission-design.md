@@ -83,7 +83,7 @@ status: 設計草稿，依 D127 實作；實作前以本文為資料與介面定
 | `POST /api/auth/login` | 登入，回 JWT；失敗 5 次鎖 15 分鐘（資料庫計數）；回應不區分帳號不存在與密碼錯誤 | 公開 |
 | `GET /api/auth/me`、`PATCH /api/auth/me` | 讀取與修改自己的顯示名稱 | 已登入 |
 | `POST /api/auth/change-password` | 改密碼；成功後清除 `must_change_password` | 已登入 |
-| `GET/POST /api/users`、`PATCH /api/users/{id}`、`POST /api/users/{id}/reset-password` | 使用者管理 | `entry_permission.user_manage`（預設 `admin`、`manager`）；`manager` 只能管理非 `admin`、非 `manager` 的角色 |
+| `GET/POST /api/users`、`PATCH /api/users/{id}`、`POST /api/users/{id}/reset-password` | 使用者管理 | `entry_permission.user_manage`（預設 `admin`、`manager`）；非 `admin` 的管理者不能管理 `admin`、`manager` 角色，不能改自己的帳號，也不能指派或接管「可開啟的入口超出自己」的角色或帳號（依角色授權加個人覆寫計算，不只看角色名稱） |
 | `GET/POST/PATCH/DELETE /api/roles`、`PUT /api/roles/{id}/entry-points` | 角色與角色層授權 | 固定僅 `admin` |
 | `PUT /api/users/{id}/entry-point-overrides` | 個別覆寫 | 固定僅 `admin`（程式寫死，不走入口，避免權限迴圈） |
 | `GET /api/entry-points`、`GET /api/entry-points/me` | 入口目錄與目前使用者可用入口 | 已登入 |
