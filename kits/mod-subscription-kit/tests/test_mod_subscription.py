@@ -154,3 +154,46 @@ def test_sync_refuses_to_run_when_the_provider_address_is_not_configured(monkeyp
     monkeypatch.delenv("MOD_API_BASE_URL", raising=False)
     response = client(FakeSession(None), monkeypatch).post("/api/mod/subscriptions/sync", json={"external_subscription_id": "ext-1"})
     assert response.status_code == 503
+
+
+def test_webhook_is_refused_when_no_secret_is_configured(monkeypatch):
+    # The webhook is public: no user token reaches it. Without a configured secret there is nothing to check a caller
+    # against, so accepting the call would let anyone cancel or upgrade a customer's subscription.
+    row = subscription(plan="standard")
+    session = FakeSession(row)
+    body = {"external_subscription_id": "ext-1", "event": "cancelled", "status": "cancelled"}
+    for headers in ({}, {"X-Mod-Webhook-Secret": ""}, {"X-Mod-Webhook-Secret": "anything"}):
+        response = client(session, monkeypatch, secret=None).post("/api/mod/subscriptions/webhook", json=body, headers=headers)
+        assert response.status_code == 503
+    blank = client(session, monkeypatch, secret="   ").post("/api/mod/subscriptions/webhook", json=body, headers={"X-Mod-Webhook-Secret": "   "})
+    assert blank.status_code == 503
+    assert row.status == "active" and session.added == [] and session.committed == 0
+
+
+@pytest.mark.parametrize("external_id", ["../admin/keys", "ext-1?x=1", "ext-1#frag", "a/b", "ext 1", "", "x" * 101, "%2e%2e"])
+def test_sync_refuses_an_identifier_that_could_change_the_provider_address(monkeypatch, external_id):
+    # The identifier becomes a path segment of a request that carries the provider API key. A slash, a query mark or a
+    # dot segment would send that key to another path of the provider instead of the subscription record.
+    monkeypatch.setenv("MOD_API_BASE_URL", "http://provider.invalid/api")
+    called = []
+
+    async def recorded(*args, **kwargs):
+        called.append(args)
+
+    monkeypatch.setattr(routes, "sync_subscription", recorded)
+    response = client(FakeSession(None), monkeypatch).post("/api/mod/subscriptions/sync", json={"external_subscription_id": external_id})
+    assert response.status_code == 422
+    assert called == []
+
+
+def test_sync_accepts_an_ordinary_identifier(monkeypatch):
+    monkeypatch.setenv("MOD_API_BASE_URL", "http://provider.invalid/api")
+    seen = []
+
+    async def recorded(db, tenant_id, external_id, base_url, api_key):
+        seen.append(external_id)
+        return subscription(external_id=external_id)
+
+    monkeypatch.setattr(routes, "sync_subscription", recorded)
+    response = client(FakeSession(None), monkeypatch).post("/api/mod/subscriptions/sync", json={"external_subscription_id": "sub_2026-A.1"})
+    assert response.status_code == 200 and seen == ["sub_2026-A.1"]

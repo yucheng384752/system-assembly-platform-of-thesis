@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_tenant
 from app.core.database import get_db, get_db_context
-from app.core.db_capabilities import DB_CAPABILITIES
+from app.core.db_capabilities import DB_CAPABILITIES, safe_identifier
 from app.core.monitoring import report_user_action
 from app.models.core.tenant import Tenant
 from app.models.generic_record import GenericRecord
@@ -650,7 +650,7 @@ async def _list_domain_records(
     try:
         total = (
             await db.execute(
-                _text(f'SELECT COUNT(*) FROM "{code}" WHERE "_tenant_id" = :tid'),
+                _text(f'SELECT COUNT(*) FROM "{safe_identifier(code)}" WHERE "_tenant_id" = :tid'),
                 {"tid": tid},
             )
         ).scalar() or 0
@@ -668,7 +668,7 @@ async def _list_domain_records(
             await db.execute(
                 _text(
                     f'SELECT {col_sql}, "_import_job_id", "_row_index", "_imported_at" '
-                    f'FROM "{code}" WHERE "_tenant_id" = :tid '
+                    f'FROM "{safe_identifier(code)}" WHERE "_tenant_id" = :tid '
                     f'ORDER BY "_imported_at" DESC NULLS LAST OFFSET :offset LIMIT :lim'
                 ),
                 {"tid": tid, "offset": offset, "lim": page_size},

@@ -51,7 +51,9 @@ def main():
     check("forced password change still allows /me", c.get("/api/auth/me", headers=auth(t)).status_code == 200)
     r = c.post("/api/auth/change-password", headers=auth(t), json={"current_password": admin_pw, "new_password": new_pw})
     check("change-password succeeds", r.status_code == 200, r.text)
-    check("business endpoint opens after the change (old token reflects current state)",
+    check("token issued under the old password stops working", c.get("/api/auth/me", headers=auth(t)).status_code == 401)
+    t = r.json().get("access_token", "")
+    check("business endpoint opens with the token returned by the change",
           c.get("/api/forms", headers=auth(t)).status_code == 200)
     adm = auth(t)
 

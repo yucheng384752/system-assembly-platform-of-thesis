@@ -12,7 +12,7 @@ section { background: var(--panel); border: 1px solid var(--card); border-radius
 .note { background: var(--warn); border-radius: .5rem; padding: 1rem; margin-bottom: 1rem; }
 label { display: block; margin: 0 0 1rem; color: var(--muted); }
 label.check { display: flex; gap: .5rem; align-items: center; min-height: 44px; color: var(--text); }
-input[type=text], input[type=password], input[type=date] {
+input[type=text], input[type=password], input[type=date], input[type=url] {
   display: block; width: 100%; min-height: 44px; margin-top: .5rem; padding: .5rem; border: 1px solid var(--control);
   border-radius: .5rem; font: inherit; color: var(--text); background: #fff;
 }

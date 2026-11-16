@@ -20,7 +20,8 @@ const str = (value: unknown): string => (typeof value === 'string' ? value : '')
 const combo = (value: unknown): string[] => (Array.isArray(value) ? value.map(str) : []);
 
 export async function handle(store: CaseStore, { method, path, body }: ApiRequest): Promise<ApiResponse> {
-  const parts = path.split('/').filter(Boolean).map(decodeURIComponent);
+  let parts: string[];
+  try { parts = path.split('/').filter(Boolean).map(decodeURIComponent); } catch { return bad('請求路徑不合法。'); }
   const b = fields(body);
   const [head, a, tail, c] = parts;
 
@@ -54,7 +55,7 @@ export async function handle(store: CaseStore, { method, path, body }: ApiReques
   if (head === 'usage' && method === 'POST' && b) return send(store.scanUsage(typeof b.nodeId === 'string' ? b.nodeId : combo(b.combo)));
   if (head === 'backup' && parts.length === 1) {
     if (method === 'GET') return send(store.exportBackup());
-    if (method === 'POST') return send(store.importBackup(body));
+    if (method === 'POST') return send(await store.importBackup(body));
   }
   return { status: 404, body: { errors: [{ code: 'E-NOT-FOUND', message: '沒有這個路由。' }] } };
 }

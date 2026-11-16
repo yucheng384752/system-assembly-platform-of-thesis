@@ -39,7 +39,12 @@ export function createApiServer(store: CaseStore): Server {
           return reply(400, { errors: [{ code: 'E-INVALID-INPUT', message: '請求不是有效的 JSON。' }] });
         }
       }
-      handle(store, { method, path: new URL(req.url ?? '/', `http://${HOST}`).pathname, body })
+      // This callback is outside any promise: a throw here would end the process, so a path that cannot be parsed is answered.
+      let path: string;
+      try { path = new URL(req.url ?? '/', `http://${HOST}`).pathname; } catch {
+        return reply(400, { errors: [{ code: 'E-INVALID-INPUT', message: '請求路徑不合法。' }] });
+      }
+      handle(store, { method, path, body })
         .then(r => reply(r.status, r.body))
         .catch((error: unknown) => {
           console.error(error); // never swallowed: the operator sees the cause, the client sees a generic failure

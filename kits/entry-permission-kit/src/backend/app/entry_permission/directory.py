@@ -107,6 +107,13 @@ class Directory:
                       default_roles=entry["defaultRoles"],
                       override=overrides.get(entry["key"]), role_grant=grants.get(entry["key"]))
 
+    def reach(self, role, grants, overrides=None):
+        """Keys of every entry point an active user of this role may open, given the role grants and user overrides."""
+        overrides = overrides or {}
+        return {key for key, entry in self.entries.items()
+                if allows(active=True, readonly=role.is_readonly, role_name=role.name, access=entry["access"],
+                          default_roles=entry["defaultRoles"], override=overrides.get(key), role_grant=grants.get(key))}
+
     def request_allowed(self, method, path, actor, grants, overrides):
         matches = self.matching(method, path)
         if not matches:

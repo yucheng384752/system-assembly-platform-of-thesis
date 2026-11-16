@@ -91,7 +91,7 @@ async function issueLicense() {
 function installInput() {
   const env = {};
   for (const name of ['POSTGRES_USER', 'POSTGRES_DB', 'POSTGRES_PASSWORD', 'SECRET_KEY', 'ENTRY_PERMISSION_JWT_SECRET',
-    'MOD_WEBHOOK_SECRET', 'DEFAULT_TENANT_ID', 'HTTP_PORT', 'LICENSE_BLOCK_WINDOW', 'LICENSE_TIMEZONE']) {
+    'MOD_WEBHOOK_SECRET', 'MOD_API_BASE_URL', 'MOD_API_KEY', 'DEFAULT_TENANT_ID', 'HTTP_PORT', 'LICENSE_BLOCK_WINDOW', 'LICENSE_TIMEZONE']) {
     const value = $('e-' + name).value.trim();
     if (value) env[name] = value;
   }
@@ -130,8 +130,9 @@ async function plan() {
 
 async function apply() {
   $('b-apply').disabled = true;
-  const result = await call('apply', { planSha256: state.planSha, input: installInput() });
-  for (const id of ['a-password', 'e-POSTGRES_PASSWORD', 'e-SECRET_KEY', 'e-ENTRY_PERMISSION_JWT_SECRET', 'e-MOD_WEBHOOK_SECRET']) $(id).value = '';
+  const pending = call('apply', { planSha256: state.planSha, input: installInput() });
+  for (const id of ['a-password', 'e-POSTGRES_PASSWORD', 'e-SECRET_KEY', 'e-ENTRY_PERMISSION_JWT_SECRET', 'e-MOD_WEBHOOK_SECRET', 'e-MOD_API_KEY']) $(id).value = '';
+  const result = await pending;
   if (result.started) {
     box($('o-apply'), true, '安裝已在背景啟動，關閉瀏覽器不會中斷', []);
     startPolling();
@@ -230,6 +231,7 @@ $('b-status').addEventListener('click', refresh);
 $('b-cancel').addEventListener('click', cancel);
 $('b-rbplan').addEventListener('click', rollbackPlan);
 $('b-rollback').addEventListener('click', rollback);
+window.addEventListener('pagehide', () => { $('e-MOD_API_KEY').value = ''; });
 
 call('config').then(config => {
   $('meta').textContent = '系統：' + config.systemId + '；暫存目錄：' + config.workdir;

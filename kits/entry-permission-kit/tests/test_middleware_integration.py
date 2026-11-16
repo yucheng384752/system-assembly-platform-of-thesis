@@ -40,6 +40,7 @@ class Session:
 class MiddlewareTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.actor = SimpleNamespace(id=uuid4(), role_id=uuid4(), is_active=True, must_change_password=False,
+                                     password_hash="$2b$12$first-hash",
                                      role=SimpleNamespace(name="operator", is_builtin=True, is_readonly=False))
         self.app = FastAPI()
         self.app.state.ep_secret = SECRET
@@ -52,7 +53,7 @@ class MiddlewareTests(unittest.IsolatedAsyncioTestCase):
 
     async def invoke(self, *, tenant_headers=(), role_required=None, path="/api/records/7",
                      method="PATCH", token=None, extra_headers=(), allow_override=True, bearer=True):
-        headers = [(b"authorization", ("Bearer " + (token or issue_token(self.actor.id, SECRET))).encode())] if bearer else []
+        headers = [(b"authorization", ("Bearer " + (token or issue_token(self.actor.id, SECRET, self.actor.password_hash))).encode())] if bearer else []
         headers.extend((b"x-tenant-id", value.encode()) for value in tenant_headers)
         headers.extend(extra_headers)
         request = Request({"type": "http", "app": self.app, "method": method, "path": path,
@@ -131,12 +132,60 @@ class MiddlewareTests(unittest.IsolatedAsyncioTestCase):
         import jwt
         expired = jwt.encode({"sub": str(self.actor.id), "iat": datetime.now(timezone.utc) - timedelta(hours=9),
                               "exp": datetime.now(timezone.utc) - timedelta(seconds=1)}, SECRET, algorithm="HS256")
-        wrong_secret = issue_token(self.actor.id, "another-secret-with-at-least-32-characters")
+        wrong_secret = issue_token(self.actor.id, "another-secret-with-at-least-32-characters", self.actor.password_hash)
         missing = jwt.encode({"exp": datetime.now(timezone.utc) + timedelta(hours=1)}, SECRET, algorithm="HS256")
         for token in (expired, wrong_secret, missing, "not-a-token"):
             response, _ = await self.invoke(token=token)
             self.assertEqual(response.status_code, 401)
         self.assertEqual(self.endpoint_calls, 0)
+
+    async def test_token_issued_before_a_password_change_stops_working(self):
+        # A reset is what an administrator does when an account is taken over; a token the intruder already holds
+        # must die with the old password instead of living out its eight hours.
+        stolen = issue_token(self.actor.id, SECRET, self.actor.password_hash)
+        response, _ = await self.invoke(token=stolen)
+        self.assertEqual(response.status_code, 200)
+        self.actor.password_hash = "$2b$12$second-hash"
+        response, _ = await self.invoke(token=stolen)
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(self.endpoint_calls, 1)
+        response, _ = await self.invoke(token=issue_token(self.actor.id, SECRET, self.actor.password_hash))
+        self.assertEqual(response.status_code, 200)
+
+    async def test_changing_the_password_returns_a_token_that_replaces_the_old_one(self):
+        # The screen that changed the password keeps working with the returned token; the one it logged in with is dead.
+        from unittest.mock import MagicMock
+        from app.api.routes_ep_auth import change_password
+        from app.entry_permission.security import hash_password
+        from app.schemas.ep_auth import ChangePassword
+        self.actor.username, self.actor.display_name, self.actor.employee_no = "mia", "Mia", None
+        self.actor.password_hash = hash_password("first-password-1")
+        before = issue_token(self.actor.id, SECRET, self.actor.password_hash)
+        found = MagicMock()
+        found.scalar_one.return_value = self.actor
+        db = SimpleNamespace(execute=AsyncMock(return_value=found), commit=AsyncMock())
+        request = SimpleNamespace(app=self.app)
+        body = ChangePassword(current_password="first-password-1", new_password="second-password-2")
+        changed = await change_password(body, request, self.actor, db)
+        db.commit.assert_awaited_once()
+        response, _ = await self.invoke(token=before)
+        self.assertEqual(response.status_code, 401)
+        response, _ = await self.invoke(token=changed.access_token)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(changed.id, self.actor.id)
+
+    async def test_token_without_the_password_binding_is_refused(self):
+        import jwt
+        now = datetime.now(timezone.utc)
+        unbound = jwt.encode({"sub": str(self.actor.id), "iat": now, "exp": now + timedelta(hours=1)}, SECRET, algorithm="HS256")
+        response, _ = await self.invoke(token=unbound)
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(self.endpoint_calls, 0)
+
+    async def test_the_token_does_not_carry_the_password_hash(self):
+        import jwt
+        claims = jwt.decode(issue_token(self.actor.id, SECRET, self.actor.password_hash), SECRET, algorithms=["HS256"])
+        self.assertNotIn(self.actor.password_hash, json.dumps(claims))
 
     async def test_admin_only_dependency_does_not_trust_grants(self):
         with self.assertRaises(HTTPException) as error:

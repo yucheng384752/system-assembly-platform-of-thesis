@@ -354,6 +354,71 @@ class EngineTests(unittest.TestCase):
         loaded = self.installer.state['steps']['images-load']['undo']
         self.assertTrue(all(item['loadedId'] == item['id'] and not item['existed'] for item in loaded))
 
+    def mod_input(self):
+        compose = self.root / 'deployment/docker-compose.yml'
+        compose.write_text(compose.read_text() + '\n# MOD_WEBHOOK_SECRET_FILE\n')
+        self.plan = make_plan(self.verified, self.root, self.source, self.detection,
+                              self.base / 'installed', self.base / 'trust', self.license_info)
+        self.installer.plan = self.plan
+        self.body['env']['MOD_WEBHOOK_SECRET'] = 'synthetic-webhook-key'
+
+    def test_mod_settings_rejected_without_kit_and_url_validated_before_writes(self):
+        for name in ('MOD_API_BASE_URL', 'MOD_API_KEY'):
+            body = copy.deepcopy(self.body)
+            body['env'][name] = 'https://example.invalid'
+            self.assert_code(10, lambda: private_input(body, self.plan))
+        self.mod_input()
+        for value in (' ', '\n', None, 123):
+            self.body['env']['MOD_API_KEY'] = value
+            self.assert_code(10, lambda: self.installer.apply(self.root, self.body))
+            self.assertFalse(self.installer.target.exists())
+        del self.body['env']['MOD_API_KEY']
+        for value in ('ftp://example.invalid', 'https://user:pass@example.invalid', 'https://@example.invalid',
+                      'https://', 'https://example.invalid:bad', 'https://example.invalid/\tpath',
+                      'https://example.invalid\\@other.invalid', 'https://[broken'):
+            self.body['env']['MOD_API_BASE_URL'] = value
+            self.assert_code(10, lambda: self.installer.apply(self.root, self.body))
+            self.assertFalse(self.installer.target.exists())
+        for value in ('http://example.invalid', 'https://example.invalid/api'):
+            self.body['env']['MOD_API_BASE_URL'] = value
+            self.assertEqual(private_input(self.body, self.plan)[0]['MOD_API_BASE_URL'], value)
+
+    def test_mod_optional_key_absent_creates_no_file_or_compose_reference(self):
+        self.mod_input()
+        empty = copy.deepcopy(self.body)
+        empty['env'].update(MOD_API_BASE_URL='', MOD_API_KEY='')
+        env, _ = private_input(empty, self.plan)
+        self.assertNotIn('MOD_API_KEY', env)
+        self.assertNotIn('MOD_API_BASE_URL', env)
+        self.assertEqual(self.installer.apply(self.root, self.body), 0)
+        self.assertFalse((self.installer.target / 'secrets/mod_api_key').exists())
+        self.assertNotIn('mod_api_key', (self.installer.target / 'compose.override.yml').read_text())
+
+    def test_mod_key_reaches_backend_only_by_file_and_never_records_or_commands(self):
+        self.mod_input()
+        key = 'synthetic-mod-key-$-123'
+        self.body['env'].update(MOD_API_BASE_URL='https://example.invalid/api', MOD_API_KEY=key)
+        self.assertEqual(self.installer.apply(self.root, self.body), 0)
+        target = self.installer.target
+        secret = target / 'secrets/mod_api_key'
+        self.assertEqual(secret.read_text(), key)
+        self.assertEqual(self.runner.owners[str(secret)], [10001, 10001])
+        if os.name != 'nt':
+            self.assertEqual(secret.stat().st_mode & 0o777, 0o400)
+        config = json.loads((target / 'compose.override.yml').read_text())
+        self.assertEqual(config['secrets']['mod_api_key'], {'file': '../secrets/mod_api_key'})
+        for name in ('backend', 'init'):
+            self.assertEqual(config['services'][name]['environment']['MOD_API_KEY_FILE'], '/run/secrets/mod_api_key')
+            self.assertIn('mod_api_key', config['services'][name]['secrets'])
+        self.assertIn("MOD_API_BASE_URL='https://example.invalid/api'", (target / '.env').read_text())
+        self.assertNotIn('MOD_API_KEY', (target / '.env').read_text())
+        self.journal.event('test', 'failed', key)
+        for path in self.base.rglob('*'):
+            if path.is_file() and path != secret:
+                self.assertNotIn(key.encode(), path.read_bytes(), str(path))
+        self.assertNotIn(key, json.dumps(self.runner.commands))
+        self.assertNotIn(key, json.dumps(self.events))
+
     def test_redaction_at_event_and_state_boundary(self):
         self.journal.secrets = ['known-secret']
         self.journal.event('test', 'failed', 'exception contains known-secret')

@@ -43,6 +43,12 @@ class UserRead(BaseModel):
     is_active: bool
 
 
+class PasswordChanged(UserRead):
+    """The user as before, plus the token that replaces the one the change just ended."""
+    access_token: str
+    token_type: str = "bearer"
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

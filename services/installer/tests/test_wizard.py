@@ -105,6 +105,12 @@ class WizardTests(unittest.TestCase):
         script = (wizard.STATIC / 'app.js').read_text(encoding='utf-8')
         self.assertNotIn('<script>', page)
         self.assertNotIn(' style=', page)
+        self.assertIn('id="e-MOD_API_BASE_URL" type="url"', page)
+        self.assertIn('id="e-MOD_API_KEY" type="password" autocomplete="off"', page)
+        self.assertIn("'MOD_API_BASE_URL', 'MOD_API_KEY'", script)
+        self.assertIn("'e-MOD_API_KEY']) $(id).value = ''", script)
+        self.assertLess(script.index("'e-MOD_API_KEY']) $(id).value = ''"), script.index('const result = await pending'))
+        self.assertIn("window.addEventListener('pagehide'", script)
         for forbidden in ('innerHTML', 'outerHTML', 'document.write', 'insertAdjacentHTML', 'eval('):
             self.assertNotIn(forbidden, script)
 

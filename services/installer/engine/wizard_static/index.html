@@ -53,6 +53,8 @@
       <label>SECRET_KEY（至少 32 字元）<input id="e-SECRET_KEY" type="password" autocomplete="off"></label>
       <label>ENTRY_PERMISSION_JWT_SECRET（至少 32 字元）<input id="e-ENTRY_PERMISSION_JWT_SECRET" type="password" autocomplete="off"></label>
       <label>MOD_WEBHOOK_SECRET（含 MOD 功能時才需要）<input id="e-MOD_WEBHOOK_SECRET" type="password" autocomplete="off"></label>
+      <label>訂閱服務網址（含訂閱串接時選填；限不含帳號密碼的 http 或 https 網址）<input id="e-MOD_API_BASE_URL" type="url" autocomplete="off"></label>
+      <label>訂閱服務金鑰（含訂閱串接時選填；只存入秘密檔案）<input id="e-MOD_API_KEY" type="password" autocomplete="off"></label>
       <label>預設租戶 UUID<input id="e-DEFAULT_TENANT_ID" type="text" autocomplete="off"></label>
       <label>連接埠<input id="e-HTTP_PORT" type="text" value="8080" autocomplete="off"></label>
       <label>封鎖生效時段（硬體不符且寬限期結束後，從此時段開始停止服務；預設 mon-fri 09:00-15:00）<input id="e-LICENSE_BLOCK_WINDOW" type="text" placeholder="mon-fri 09:00-15:00" autocomplete="off"></label>

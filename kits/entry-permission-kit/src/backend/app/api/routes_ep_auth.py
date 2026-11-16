@@ -12,7 +12,7 @@ from app.entry_permission.lockout import failed_attempt, is_locked
 from app.entry_permission.middleware import commit, current_actor
 from app.entry_permission.security import hash_password, issue_token, verify_password
 from app.models.ep_user import EpUser
-from app.schemas.ep_auth import ChangePassword, Login, TokenResponse, UpdateMe, UserRead
+from app.schemas.ep_auth import ChangePassword, Login, PasswordChanged, TokenResponse, UpdateMe, UserRead
 
 router = APIRouter(prefix="/api/auth", tags=["entry-permission-auth"])
 
@@ -42,7 +42,7 @@ async def login(body: Login, request: Request, db: AsyncSession = Depends(get_db
     user.locked_until = None
     user.last_login_at = now
     await commit(db)
-    return TokenResponse(access_token=issue_token(user.id, request.app.state.ep_secret),
+    return TokenResponse(access_token=issue_token(user.id, request.app.state.ep_secret, user.password_hash),
                          must_change_password=user.must_change_password,
                          user=UserRead.model_validate(user))
 
@@ -59,8 +59,8 @@ async def update_me(body: UpdateMe, actor=Depends(current_actor), db: AsyncSessi
     return actor
 
 
-@router.post("/change-password", response_model=UserRead)
-async def change_password(body: ChangePassword, actor=Depends(current_actor), db: AsyncSession = Depends(get_db)):
+@router.post("/change-password", response_model=PasswordChanged)
+async def change_password(body: ChangePassword, request: Request, actor=Depends(current_actor), db: AsyncSession = Depends(get_db)):
     user = (await db.execute(select(EpUser).where(EpUser.id == actor.id)
                              .with_for_update(of=EpUser).execution_options(populate_existing=True))).scalar_one()
     current, new = body.current_password.get_secret_value(), body.new_password.get_secret_value()
@@ -71,4 +71,6 @@ async def change_password(body: ChangePassword, actor=Depends(current_actor), db
     user.failed_login_count = 0
     user.locked_until = None
     await commit(db)
-    return user
+    # Every token issued under the old password has just stopped working, the caller's included; hand back a new one.
+    return PasswordChanged(**UserRead.model_validate(user).model_dump(),
+                           access_token=issue_token(user.id, request.app.state.ep_secret, user.password_hash))

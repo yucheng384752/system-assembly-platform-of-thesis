@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 DEFAULT_DATA_DIR = '/system/data/analytical-four'
 SETTINGS_FILE = 'settings.json'
 LAYERS = ('a', 'b', 'c')
+API_KEY_ENV_PREFIX = 'ANALYTICAL_FOUR_LLM_'
 # data_source keys that hold a path: (section, key). Every one is resolved inside the data directory.
 PATH_FIELDS = (
     ('current_data', 'descriptive'),
@@ -64,7 +65,15 @@ class Llm(BaseModel):
     endpoint: str = Field(default='', max_length=500)
     timeoutSeconds: int = Field(default=120, ge=1, le=900)
     # Name of an environment variable that holds a bearer token. The token itself is never stored (secret_ref).
-    apiKeyEnv: str = Field(default='', max_length=64, pattern=r'^([A-Z][A-Z0-9_]*)?$')
+    # The value is sent to the address above, so the name is confined to this Kit's own prefix: any other variable of
+    # the process (the token-signing key, the database URL) must not be reachable from a setting.
+    apiKeyEnv: str = Field(default='', max_length=64)
+
+    @model_validator(mode='after')
+    def api_key_variable_is_this_kits_own(self):
+        if self.apiKeyEnv and not re.fullmatch(API_KEY_ENV_PREFIX + r'[A-Z0-9_]+', self.apiKeyEnv):
+            raise ValueError(f'apiKeyEnv 必須是 {API_KEY_ENV_PREFIX} 開頭的大寫英數底線環境變數名稱')
+        return self
 
     @model_validator(mode='after')
     def endpoint_is_plain_http(self):
