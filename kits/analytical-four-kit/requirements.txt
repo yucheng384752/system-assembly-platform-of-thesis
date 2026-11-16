@@ -1,10 +1,10 @@
 # Only what the preview requirements do not already pin. pandas and numpy come from there (pandas 2.2.3, numpy 2.1.3).
-chromadb==1.4.1
-requests==2.32.5
+chromadb==1.5.9
+requests==2.34.2
 scikit-learn==1.7.2
 scipy==1.15.3
 # PyTorch from the CPU-only wheel index. The default Linux wheel is the CUDA build and takes several gigabytes of the image;
 # this service runs embeddings on the CPU. Needed only for the e5 RAG model, but the engine imports it at load time.
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.14.1+cpu
-sentence-transformers==5.2.0
+sentence-transformers==5.6.0
