@@ -3,8 +3,8 @@ import type { ActionParameter, ParamValue } from '../../../libs/ui-runtime/regis
 import { formError, type FieldValidation, type FormDraft, type FormField } from './localData';
 import { actionCatalog, importAov, relationErrors, type AovDocument, type FormRelation } from './workflow';
 
-// Graph workflow document, composer-aov-list version 5 (D70-D82): factories hold production-logic graphs, every graph has
-// a start and an end node, nodes own forms and have sub-graphs, fields carry rules.
+// Graph workflow document, composer-aov-list version 6 (D70-D82, D208): factories hold production-logic graphs, every graph has
+// a start and an end node, nodes own forms and have sub-graphs, fields carry rules. Version 6 adds dataflow lines in sub-flows.
 export const MAX_DEPTH = 3;
 export const MAX_NODES = 100;
 export const MAX_FACTORIES = 20;
@@ -14,20 +14,25 @@ export interface Position { x: number; y: number }
 export type NodeKind = 'start' | 'end' | 'node';
 export interface GraphNode { id: string; kind: NodeKind; name: string; when: string; owner: string; actionId: string | null; params: Record<string, ParamValue>; formId: string | null; childGraphId: string | null; durationMin?: number }
 // durationMin and transferMin are optional minutes for the Gantt estimate; absent means not filled in, never 0.
-export interface GraphEdge { id: string; from: string; to: string; transferMin?: number }
+// kind absent is a sequence line (who follows whom). 'dataflow' only says which form's data passes between two nodes of a sub-flow:
+// it never orders, schedules or completes anything. formId belongs to dataflow lines only; null (or absent) means not chosen yet.
+export interface GraphEdge { id: string; from: string; to: string; transferMin?: number; kind?: 'dataflow'; formId?: string | null }
+// The one test for "does this line say who follows whom". Everything that reads order, reachability, time or branches uses it.
+export const isSequence = (edge: Pick<GraphEdge, 'kind'>): boolean => edge.kind !== 'dataflow';
+export const sequenceEdges = (graph: Pick<Graph, 'edges'>): GraphEdge[] => graph.edges.filter(isSequence);
 export interface Graph { id: string; name: string; nodes: GraphNode[]; edges: GraphEdge[] }
 // A factory is only a container: it has no nodes or edges of its own (D78).
 export interface Factory { id: string; name: string; logicGraphIds: string[] }
 type Layout = Record<string, Record<string, Position>>;
 export interface AovGraphDocument {
-  format: 'composer-aov-list'; version: 5; factories: Factory[]; graphs: Graph[]; layout: Layout; forms: FormDraft[]; relations: FormRelation[];
+  format: 'composer-aov-list'; version: 6; factories: Factory[]; graphs: Graph[]; layout: Layout; forms: FormDraft[]; relations: FormRelation[];
 }
 // Version 4 had one main flow and no start or end nodes; it is only read, never written.
 interface AovGraphDocumentV4 {
   format: 'composer-aov-list'; version: 4; rootGraphId: string; layout: Layout; forms: FormDraft[]; relations: FormRelation[];
   graphs: { id: string; name: string; nodes: Omit<GraphNode, 'kind'>[]; edges: GraphEdge[] }[];
 }
-export const emptyGraph: AovGraphDocument = { format: 'composer-aov-list', version: 5, factories: [], graphs: [], layout: {}, forms: [], relations: [] };
+export const emptyGraph: AovGraphDocument = { format: 'composer-aov-list', version: 6, factories: [], graphs: [], layout: {}, forms: [], relations: [] };
 
 const nodeName = (node: GraphNode) => node.name.trim() || '（未命名節點）';
 const graphLabel = (graph: Graph) => graph.name.trim() || '（未命名流程）';
@@ -91,13 +96,15 @@ export function orderedNodes(doc: AovGraphDocument): { graph: Graph; node: Graph
     const graph = doc.graphs.find(g => g.id === graphId);
     if (!graph || seen.has(graphId)) return;
     seen.add(graphId);
-    const waiting = new Map(graph.nodes.map(n => [n.id, graph.edges.filter(e => e.to === n.id).length]));
+    // Only sequence lines order the nodes: a dataflow line may point backwards (data returned) without changing who comes first.
+    const edges = sequenceEdges(graph);
+    const waiting = new Map(graph.nodes.map(n => [n.id, edges.filter(e => e.to === n.id).length]));
     const pending = [...graph.nodes];
     while (pending.length) {
       // A graph with a loop is rejected elsewhere; here the stored order is the fallback so this never stalls.
       const next = pending.find(n => waiting.get(n.id) === 0) ?? pending[0];
       pending.splice(pending.indexOf(next), 1);
-      for (const edge of graph.edges) if (edge.from === next.id) waiting.set(edge.to, (waiting.get(edge.to) ?? 1) - 1);
+      for (const edge of edges) if (edge.from === next.id) waiting.set(edge.to, (waiting.get(edge.to) ?? 1) - 1);
       result.push({ graph, node: next, depth });
       if (next.childGraphId) visit(next.childGraphId, depth + 1);
     }
@@ -126,12 +133,12 @@ function duplicate(ids: string[]): string | undefined { return ids.find((id, i) 
 function paramTypeOk(parameter: ActionParameter, value: ParamValue): boolean {
   return typeof value === (parameter.type === 'text' ? 'string' : parameter.type);
 }
-// Nodes reachable by following the edges (forward) or against them (backward) from one node.
+// Nodes reachable by following the sequence lines (forward) or against them (backward) from one node. A dataflow line connects nothing here.
 function reach(graph: Graph, from: string, forward: boolean): Set<string> {
   const seen = new Set([from]);
   const queue = [from];
   for (let i = 0; i < queue.length; i++) {
-    for (const e of graph.edges) {
+    for (const e of sequenceEdges(graph)) {
       const [a, b] = forward ? [e.from, e.to] : [e.to, e.from];
       if (a === queue[i] && !seen.has(b)) { seen.add(b); queue.push(b); }
     }
@@ -177,13 +184,21 @@ export function integrityErrors(doc: AovGraphDocument): string[] {
   for (const { graph, node } of nodes) {
     if (node.childGraphId && places.get(graph.id)!.depth >= MAX_DEPTH) return [`節點「${nodeName(node)}」不可再有子流程：流程最多 ${MAX_DEPTH} 層。`];
   }
-  // Edges only mean "before", so a loop in one graph has no meaning (D18, D70).
+  // D208: a dataflow line lives in a sub-flow only, may name a form of this document and carries no transfer time; a sequence line names no form.
+  for (const graph of doc.graphs) for (const e of graph.edges) {
+    if (isSequence(e)) { if (e.formId !== undefined) return [`「${graphLabel(graph)}」的先後連線不可指定傳遞的表單。`]; continue; }
+    if (places.get(graph.id)!.depth === 1) return [`「${graphLabel(graph)}」是最上層的流程，資料流連線只能畫在子流程裡。`];
+    if (e.formId && !doc.forms.some(f => f.id === e.formId)) return [`子流程「${graph.name}」的資料流連線引用的表單不存在。`];
+    if (e.transferMin !== undefined) return [`子流程「${graph.name}」的資料流連線不可設定移轉時間。`];
+  }
+  // Sequence lines only mean "before", so a loop of them has no meaning (D18, D70). Data may be passed back, so dataflow lines may
+  // close a loop, and one pair of nodes may have one line of each kind: the duplicate key carries the kind.
   for (const graph of doc.graphs) {
-    const pairs = graph.edges.map(e => `${e.from}>${e.to}`);
+    const pairs = graph.edges.map(e => `${e.kind ?? 'sequence'}:${e.from}>${e.to}`);
     if (graph.edges.some(e => e.from === e.to)) return [`子流程「${graph.name}」有節點連到自己。`];
     if (duplicate(pairs)) return [`子流程「${graph.name}」有重複的連線。`];
     const next = new Map<string, string[]>();
-    for (const e of graph.edges) next.set(e.from, [...(next.get(e.from) ?? []), e.to]);
+    for (const e of sequenceEdges(graph)) next.set(e.from, [...(next.get(e.from) ?? []), e.to]);
     const state = new Map<string, 1 | 2>();
     const loops = (id: string): boolean => {
       if (state.get(id) === 2) return false;
@@ -326,19 +341,21 @@ export function graphPath(doc: AovGraphDocument, graphId: string): string[] {
 // Imports into a detached candidate; callers replace the session only after this returns.
 export function importAovGraph(text: string): { value: AovGraphDocument; notices: string[] } {
   if (text.length > 2 * 1024 * 1024) throw new Error('流程規格不可超過 2 MB。');
-  let input: AovGraphDocument;
+  let input: Omit<AovGraphDocument, 'version'> & { version: number };
   try { input = JSON.parse(text.replace(/^﻿/, '')); validateSchema('aov', input); }
   catch { throw new Error('流程規格格式不正確。請使用本系統下載的流程規格檔。原流程已保留。'); }
-  if (input.version !== 5) throw new Error('這不是畫布版本（version 5）的流程規格。原流程已保留。');
-  const [error] = integrityErrors(input);
+  if (input.version !== 5 && input.version !== 6) throw new Error('這不是畫布版本（version 5 或 6）的流程規格。原流程已保留。');
+  // Version 5 has sequence lines only (its schema allows no other field on a line), so it is a version 6 document as it stands.
+  const value: AovGraphDocument = { ...input, version: 6 };
+  const [error] = integrityErrors(value);
   if (error) throw new Error(`${error}原流程已保留。`);
-  return { value: input, notices: [] };
+  return { value, notices: [] };
 }
 // One entry for every version: older documents are converted and every loss is listed (D75, D82).
 export function importWorkflow(text: string): { value: AovGraphDocument; notices: string[] } {
   let version: unknown;
   try { version = JSON.parse(text.replace(/^﻿/, '')).version; } catch { /* importAov reports the bad format */ }
-  if (version === 5) return importAovGraph(text);
+  if (version === 5 || version === 6) return importAovGraph(text);
   if (version === 4) {
     if (text.length > 2 * 1024 * 1024) throw new Error('流程規格不可超過 2 MB。');
     let input: AovGraphDocumentV4;
@@ -369,12 +386,12 @@ export function exportAovGraphDraft(doc: AovGraphDocument): string {
 
 function projectAovGraph(doc: AovGraphDocument): string {
   const value: AovGraphDocument = {
-    format: 'composer-aov-list', version: 5,
+    format: 'composer-aov-list', version: 6,
     factories: doc.factories.map(({ id, name, logicGraphIds }) => ({ id, name, logicGraphIds: [...logicGraphIds] })),
     graphs: doc.graphs.map(g => ({
       id: g.id, name: g.name,
       nodes: g.nodes.map(({ id, kind, name, when, owner, actionId, params, formId, childGraphId, durationMin }) => ({ id, kind, name, when, owner, actionId, params: { ...params }, formId, childGraphId, ...(durationMin !== undefined ? { durationMin } : {}) })),
-      edges: g.edges.map(({ id, from, to, transferMin }) => ({ id, from, to, ...(transferMin !== undefined ? { transferMin } : {}) })),
+      edges: g.edges.map(({ id, from, to, transferMin, kind, formId }) => ({ id, from, to, ...(transferMin !== undefined ? { transferMin } : {}), ...(kind ? { kind } : {}), ...(formId !== undefined ? { formId } : {}) })),
     })),
     layout: Object.fromEntries(Object.entries(doc.layout).map(([graphId, nodes]) => [graphId, Object.fromEntries(Object.entries(nodes).map(([id, { x, y }]) => [id, { x, y }]))])),
     forms: doc.forms.map(({ id, name, fields }) => ({ id, name, fields: fields.map(({ id, name, type, required, isKey, validation }) => ({ id, name, type, required, isKey, ...(validation ? { validation: { ...validation } } : {}) })) })),
@@ -384,7 +401,7 @@ function projectAovGraph(doc: AovGraphDocument): string {
   return JSON.stringify(value, null, 2);
 }
 
-// Version 4 to 5 (D82): the main flow goes into a default factory, and every graph gets a start and an end. The start is wired
+// Version 4 to the current version (D82): the main flow goes into a default factory, and every graph gets a start and an end. The start is wired
 // to the nodes nothing leads to, and the nodes that lead nowhere are wired to the end, so a flow that worked keeps working.
 export function upgradeV4(old: AovGraphDocumentV4): { value: AovGraphDocument; notices: string[] } {
   const used = new Set(old.graphs.flatMap(g => [...g.nodes.map(n => n.id), ...g.edges.map(e => e.id)]));
@@ -402,13 +419,13 @@ export function upgradeV4(old: AovGraphDocumentV4): { value: AovGraphDocument; n
     return { id: g.id, name: g.name, nodes: [start, ...nodes, end], edges };
   });
   const value: AovGraphDocument = {
-    format: 'composer-aov-list', version: 5, factories: [{ id: 'factory-1', name: '預設工廠', logicGraphIds: [old.rootGraphId] }],
+    format: 'composer-aov-list', version: 6, factories: [{ id: 'factory-1', name: '預設工廠', logicGraphIds: [old.rootGraphId] }],
     graphs, layout, forms: structuredClone(old.forms), relations: structuredClone(old.relations),
   };
   return { value, notices: ['舊版流程已放入「預設工廠」，並為每個流程補上開始與結束節點，請確認連線。'] };
 }
 
-// Versions 1 to 3 to version 5 (D75, D82). A step becomes nodes in order; what a node cannot hold is listed, never dropped silently.
+// Versions 1 to 3 to the current version (D75, D82). A step becomes nodes in order; what a node cannot hold is listed, never dropped silently.
 export function listToGraph(doc: AovDocument): { value: AovGraphDocument; notices: string[] } {
   const notices: string[] = [];
   const working: GraphNode[] = [];
@@ -436,7 +453,7 @@ export function listToGraph(doc: AovDocument): { value: AovGraphDocument; notice
   const [start, end] = parts.graph.nodes;
   const chain = working.length ? [start, ...working, end] : [];
   const value: AovGraphDocument = {
-    format: 'composer-aov-list', version: 5, factories: [{ id: 'factory-1', name: '預設工廠', logicGraphIds: ['graph-root'] }],
+    format: 'composer-aov-list', version: 6, factories: [{ id: 'factory-1', name: '預設工廠', logicGraphIds: ['graph-root'] }],
     graphs: [{ id: 'graph-root', name: '主流程', nodes: [start, ...working, end], edges: chain.slice(1).map((node, i) => ({ id: `edge-${i + 1}`, from: chain[i].id, to: node.id })) }],
     layout: { 'graph-root': Object.fromEntries([start, ...working, end].map((node, i) => [node.id, { x: i * 160, y: 0 }])) },
     forms: structuredClone(doc.forms), relations: structuredClone(doc.relations),

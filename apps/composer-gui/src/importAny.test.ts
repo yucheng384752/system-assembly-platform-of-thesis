@@ -18,7 +18,7 @@ test('legacy list delegates conversion and preserves notices', () => {
   const expected = workflow.importWorkflow(text);
   expect(expected.notices.length).toBeGreaterThan(0);
   expect(importAny(text)).toEqual(expected);
-  expect(importAny(text).value.version).toBe(5);
+  expect(importAny(text).value.version).toBe(6);
 });
 
 test('missing format still delegates to the legacy validator', () => {

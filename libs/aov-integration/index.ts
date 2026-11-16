@@ -93,7 +93,8 @@ export async function validateAovBundle(text: string, _currentDraft?: unknown): 
   if (errors.length) return { ok: false, errors };
   const bundle = input as AovBundle;
   if (bundle.platform.format !== 'composer-aov-list') fail('format', '/platform/format', '未知平台格式。');
-  if (bundle.platform.version !== 5) fail('version', '/platform/version', '平台文件必須是 version 5；本入口不升級舊版。');
+  // The bundle contract still carries a version 5 platform document; version 6 (dataflow lines, D208) is not accepted by this entry yet.
+  if ((bundle.platform.version as number) !== 5) fail('version', '/platform/version', '平台文件必須是 version 5；本入口不升級舊版。');
   checkSchema(schemas.aov, bundle.platform, '/platform');
   if (errors.length) return { ok: false, errors };
 

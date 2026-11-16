@@ -10,6 +10,7 @@ import {
   type AovGraphDocument, type Graph, type GraphNode,
 } from './workflowGraph';
 import { actionCatalog } from './workflow';
+import { inferCandidates } from './relations';
 
 const field = (id: string, name: string, type: FormField['type'] = 'text', isKey = false): FormField => ({ id, name, type, required: true, isKey });
 const node = (id: string, name: string, extra: Partial<GraphNode> = {}): GraphNode =>
@@ -27,7 +28,7 @@ const graphOf = (doc: AovGraphDocument, id: string) => doc.graphs.find(g => g.id
 // One factory with a production logic and two sub-levels, so the depths are 1, 2 and 3. 追溯 needs a confirmed relation.
 function sample(): AovGraphDocument {
   return {
-    format: 'composer-aov-list', version: 5, factories: [{ id: 'factory-1', name: 'A 廠', logicGraphIds: ['graph-root'] }],
+    format: 'composer-aov-list', version: 6, factories: [{ id: 'factory-1', name: 'A 廠', logicGraphIds: ['graph-root'] }],
     graphs: [
       graph('graph-root', '錫膏流程', [
         node('node-1', '收料', { actionId: 'define-form', formId: 'form-1', childGraphId: 'graph-sub' }),
@@ -344,7 +345,7 @@ describe('匯入與匯出', () => {
     doc.forms[0].fields.push({ ...field('field-3', '到貨日', 'date'), validation: { minimumDate: '2026-01-01', maximumDate: '2026-12-31' } });
     const text = exportAovGraph(doc);
     expect(importAovGraph(text).value).toEqual(doc);
-    expect(JSON.parse(text).version).toBe(5);
+    expect(JSON.parse(text).version).toBe(6);
     expect(text).not.toMatch(/Kit|capability|requires/i);
   });
 
@@ -359,7 +360,7 @@ describe('匯入與匯出', () => {
   });
 });
 
-describe('D75/D82: 舊格式轉為 version 5', () => {
+describe('D75/D82: 舊格式轉為目前版本（version 6）', () => {
   const step = (id: string, name: string, formIds: string[], actions: AovDocument['steps'][number]['actions'] = []) => ({ id, name, when: `${name}時`, owner: '品管', formIds, actions });
   const v3 = (steps: AovDocument['steps'], forms: AovDocument['forms'] = []): AovDocument => ({ format: 'composer-aov-list', version: 3, steps, forms, relations: [] });
   const forms = [{ id: 'form-1', name: '收料單', fields: [field('field-1', '批號', 'text', true)] }, { id: 'form-2', name: '檢驗單', fields: [field('field-1', '批號', 'text', true)] }];
@@ -419,7 +420,7 @@ describe('D75/D82: 舊格式轉為 version 5', () => {
       ],
       layout: { 'graph-root': { 'node-1': { x: 0, y: 40 }, 'node-2': { x: 200, y: 40 }, 'node-3': { x: 200, y: 160 } } }, forms: [], relations: [] };
     const { value, notices } = importWorkflow(JSON.stringify(v4));
-    expect(value.version).toBe(5);
+    expect(value.version).toBe(6);
     expect(notices).toEqual(['舊版流程已放入「預設工廠」，並為每個流程補上開始與結束節點，請確認連線。']);
     expect(value.factories).toEqual([{ id: 'factory-1', name: '預設工廠', logicGraphIds: ['graph-root'] }]);
     expect(integrityErrors(value)).toEqual([]);
@@ -432,15 +433,156 @@ describe('D75/D82: 舊格式轉為 version 5', () => {
     expect(value.layout['graph-root']['graph-root-end'].x).toBeGreaterThan(200);
   });
 
-  test('importWorkflow 對 version 1 到 5 都回傳 version 5 並合併提示', () => {
+  test('importWorkflow 對 version 1 到 6 都回傳 version 6 並合併提示', () => {
     const v1 = { format: 'composer-aov-list', version: 1, steps: [{ id: 'a', name: '檢查', when: '', owner: '', formId: 'form-1' }] };
     const fromV1 = importWorkflow(JSON.stringify(v1));
-    expect(fromV1.value.version).toBe(5);
+    expect(fromV1.value.version).toBe(6);
     expect(fromV1.notices).toEqual(['舊版流程規格不含表單定義，已清除以下步驟的表單指派：「檢查」。']);
     const v2 = { format: 'composer-aov-list', version: 2, steps: [{ id: 'a', name: '收料', when: '', owner: '', formIds: ['form-1'] }], forms: [forms[0]], relations: [] };
     expect(nodesOf(importWorkflow(JSON.stringify(v2)).value).map(n => n.formId)).toEqual(['form-1']);
     const text = exportAovGraph(sample());
     expect(importWorkflow(text).value).toEqual(sample());
     expect(() => importWorkflow('not json')).toThrow('原流程已保留');
+  });
+});
+
+// D208, docs/canvas-layer-views.md section 4. A dataflow line says which form's data passes between two nodes of a sub-flow.
+// It is not a statement about order: data can be passed back to an earlier step, so anything that reads "who follows whom"
+// (reading order, reachability, loops) must leave it out, or drawing a data line would silently change the workflow.
+describe('D208: 資料流連線與文件第 6 版', () => {
+  const flow = (id: string, from: string, to: string, formId: string | null = null) => ({ id, from, to, kind: 'dataflow' as const, formId });
+  // graph-sub (第 2 層) gets a second node 複核 beside 點收; both follow the start and lead to the end, with no order between them.
+  function twoInSub(): AovGraphDocument {
+    const doc = sample();
+    const sub = graphOf(doc, 'graph-sub');
+    sub.nodes.splice(-1, 0, node('node-8', '複核'));
+    sub.edges.push({ id: 'edge-s8', from: 'graph-sub-start', to: 'node-8' }, { id: 'edge-8e', from: 'node-8', to: 'graph-sub-end' });
+    return doc;
+  }
+  const subOrder = (doc: AovGraphDocument) => orderedNodes(doc).filter(x => x.graph.id === 'graph-sub' && x.node.kind === 'node').map(x => x.node.id);
+
+  test('閱讀順序不看資料流：資料由後面的節點傳回前面，前面的節點仍排在前面', () => {
+    const doc = twoInSub();
+    expect(subOrder(doc)).toEqual(['node-4', 'node-8']);
+    graphOf(doc, 'graph-sub').edges.push(flow('flow-1', 'node-8', 'node-4'));
+    expect(integrityErrors(doc)).toEqual([]);
+    expect(subOrder(doc)).toEqual(['node-4', 'node-8']);
+  });
+
+  // relations.ts decides which form is upstream from orderedNodes, so a data line must not flip a relation candidate either.
+  test('關聯候選的上下游方向不因資料流改變（relations.ts 依賴閱讀順序）', () => {
+    const doc = twoInSub();
+    at(doc, 'node-4').formId = 'form-5'; at(doc, 'node-8').formId = 'form-6';
+    doc.forms.push({ id: 'form-5', name: '點收單', fields: [field('field-1', '箱號', 'text', true)] }, { id: 'form-6', name: '複核單', fields: [field('field-1', '箱號', 'text', true)] });
+    graphOf(doc, 'graph-sub').edges.push(flow('flow-1', 'node-8', 'node-4', 'form-6'));
+    const pairs = inferCandidates(doc).map(c => `${c.from.formId}>${c.to.formId}`);
+    expect(pairs).toContain('form-5>form-6');
+    expect(pairs).not.toContain('form-6>form-5');
+  });
+
+  test('只接資料流不算接上開始與結束：資料流不是流程會走的路', () => {
+    const doc = sample();
+    const sub = graphOf(doc, 'graph-sub');
+    sub.nodes.splice(-1, 0, node('node-8', '複核'));
+    sub.edges.push(flow('flow-1', 'graph-sub-start', 'node-8'), flow('flow-2', 'node-8', 'graph-sub-end'));
+    expect(integrityErrors(doc)).toEqual([]);
+    expect(graphErrors(doc)).toContain('節點「複核」尚未接到開始與結束。');
+  });
+
+  test('資料流可以成環（資料可回傳），成環檢查只看先後連線', () => {
+    const doc = sample();
+    graphOf(doc, 'graph-detail').edges.push(flow('flow-1', 'node-6', 'node-5'));
+    expect(integrityErrors(doc)).toEqual([]);
+    graphOf(doc, 'graph-detail').edges.push({ id: 'edge-back', from: 'node-6', to: 'node-5' });
+    expect(integrityErrors(doc)[0]).toContain('形成循環');
+  });
+
+  test('同一對節點可各有一條先後與資料流連線；同種類重複才算重複', () => {
+    const doc = sample();
+    graphOf(doc, 'graph-detail').edges.push(flow('flow-1', 'node-5', 'node-6'));
+    expect(integrityErrors(doc)).toEqual([]);
+    graphOf(doc, 'graph-detail').edges.push(flow('flow-2', 'node-5', 'node-6', 'form-1'));
+    expect(integrityErrors(doc)[0]).toContain('重複的連線');
+  });
+
+  test.each([
+    ['最上層的圖不可有資料流連線', (d: AovGraphDocument) => { graphOf(d, 'graph-root').edges.push(flow('flow-1', 'node-1', 'node-2')); }, '資料流連線只能畫在子流程裡'],
+    ['資料流引用不存在的表單', (d: AovGraphDocument) => { graphOf(d, 'graph-detail').edges.push(flow('flow-1', 'node-5', 'node-6', 'form-9')); }, '資料流連線引用的表單不存在'],
+    ['資料流帶移轉時間', (d: AovGraphDocument) => { graphOf(d, 'graph-detail').edges.push({ ...flow('flow-1', 'node-5', 'node-6'), transferMin: 3 }); }, '資料流連線不可設定移轉時間'],
+    ['先後連線帶表單', (d: AovGraphDocument) => { graphOf(d, 'graph-detail').edges[0].formId = 'form-1'; }, '先後連線不可指定傳遞的表單'],
+    ['先後連線帶「尚未指定」的表單欄位', (d: AovGraphDocument) => { graphOf(d, 'graph-detail').edges[0].formId = null; }, '先後連線不可指定傳遞的表單'],
+    ['資料流的端點不在同一張圖', (d: AovGraphDocument) => { graphOf(d, 'graph-detail').edges.push(flow('flow-1', 'node-5', 'node-4')); }, '不在此子流程的節點'],
+    ['資料流與先後連線的識別碼重複', (d: AovGraphDocument) => { graphOf(d, 'graph-detail').edges.push(flow(graphOf(d, 'graph-detail').edges[0].id, 'node-6', 'node-5')); }, '連線的識別碼重複'],
+  ])('資料流的結構規則：%s', (_name, mutate, message) => {
+    const doc = sample(); mutate(doc);
+    expect(integrityErrors(doc)[0]).toContain(message);
+  });
+
+  // 4.3: Kit derivation reads the nodes' actions, never the lines.
+  test('加入資料流連線後，功能推導（graphActionIds）結果不變', () => {
+    const doc = sample();
+    const before = graphActionIds(doc);
+    graphOf(doc, 'graph-detail').edges.push(flow('flow-1', 'node-5', 'node-6', 'form-1'), flow('flow-2', 'node-6', 'node-5'));
+    expect(integrityErrors(doc)).toEqual([]);
+    expect(graphActionIds(doc)).toEqual(before);
+  });
+
+  const withFlows = () => {
+    const doc = sample();
+    graphOf(doc, 'graph-detail').edges.push(flow('flow-1', 'graph-detail-start', 'node-5', 'form-1'), flow('flow-2', 'node-6', 'node-5'));
+    return doc;
+  };
+
+  test('第 6 版往返：匯出再匯入內容相同，資料流的種類與表單（含尚未指定）都保留', () => {
+    const doc = withFlows();
+    const text = exportAovGraph(doc);
+    expect(JSON.parse(text).version).toBe(6);
+    expect(importAovGraph(text).value).toEqual(doc);
+    expect(importWorkflow(text).value).toEqual(doc);
+    const lines = importAovGraph(text).value.graphs.find(g => g.id === 'graph-detail')!.edges;
+    expect(lines.find(e => e.id === 'flow-1')).toEqual({ id: 'flow-1', from: 'graph-detail-start', to: 'node-5', kind: 'dataflow', formId: 'form-1' });
+    expect(lines.find(e => e.id === 'flow-2')).toEqual({ id: 'flow-2', from: 'node-6', to: 'node-5', kind: 'dataflow', formId: null });
+    // A sequence line gains no field on the way out.
+    expect(Object.keys(lines[0]).sort()).toEqual(['from', 'id', 'to']);
+  });
+
+  // Other branches and saved files are version 5; they must open unchanged, with every line a sequence line.
+  test('第 5 版文件無損載入為第 6 版（含移轉時間與標準工時），所有連線都是先後連線', () => {
+    const doc = twoFactories();
+    at(doc, 'node-2').durationMin = 12;
+    graphOf(doc, 'graph-root').edges[1].transferMin = 4;
+    const v5 = JSON.parse(exportAovGraph(doc)); v5.version = 5;
+    expect(schemas.aov(v5)).toBe(true);
+    for (const load of [importAovGraph, importWorkflow]) {
+      const { value, notices } = load(JSON.stringify(v5));
+      expect(value).toEqual(doc);
+      expect(value.version).toBe(6);
+      expect(notices).toEqual([]);
+      expect(value.graphs.flatMap(g => g.edges).every(e => e.kind === undefined && e.formId === undefined)).toBe(true);
+    }
+  });
+
+  test('schema 接受第 6 版的兩種連線，拒絕不合規則的連線；第 5 版不接受資料流欄位', () => {
+    const base = () => JSON.parse(exportAovGraph(withFlows()));
+    const detail = (d: { graphs: Graph[] }) => d.graphs.find(g => g.id === 'graph-detail')!.edges;
+    expect(schemas.aov(base())).toBe(true);
+    const cases: [string, (edges: Record<string, unknown>[]) => void][] = [
+      ['先後連線帶 formId', edges => { edges[0].formId = 'form-1'; }],
+      ['資料流帶 transferMin', edges => { edges.find(e => e.id === 'flow-1')!.transferMin = 1; }],
+      ['未知的連線種類', edges => { edges.find(e => e.id === 'flow-1')!.kind = 'material'; }],
+      ['formId 不是識別碼也不是 null', edges => { edges.find(e => e.id === 'flow-1')!.formId = 7; }],
+      ['多餘欄位', edges => { edges.find(e => e.id === 'flow-1')!.note = 'x'; }],
+    ];
+    for (const [name, mutate] of cases) {
+      const doc = base(); mutate(detail(doc) as unknown as Record<string, unknown>[]);
+      expect(schemas.aov(doc), name).toBe(false);
+      expect(() => importAovGraph(JSON.stringify(doc)), name).toThrow('流程規格格式不正確');
+    }
+    const v5 = base(); v5.version = 5;
+    expect(schemas.aov(v5)).toBe(false);
+    // What the schema cannot express is refused by the integrity check on import.
+    const top = base(); top.graphs.find((g: Graph) => g.id === 'graph-root').edges.push(flow('flow-9', 'node-1', 'node-2'));
+    expect(schemas.aov(top)).toBe(true);
+    expect(() => importAovGraph(JSON.stringify(top))).toThrow('資料流連線只能畫在子流程裡。原流程已保留。');
   });
 });

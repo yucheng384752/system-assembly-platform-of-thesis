@@ -124,7 +124,7 @@ describe('branchPoints', () => {
 
 describe('minutes in the workflow file', () => {
   const doc = (): AovGraphDocument => ({
-    format: 'composer-aov-list', version: 5, factories: [{ id: 'factory-1', name: '工廠', logicGraphIds: ['g'] }],
+    format: 'composer-aov-list', version: 6, factories: [{ id: 'factory-1', name: '工廠', logicGraphIds: ['g'] }],
     graphs: [{ ...branching(), id: 'g', name: '主流程' }], layout: {}, forms: [], relations: [],
   });
 
@@ -144,5 +144,40 @@ describe('minutes in the workflow file', () => {
   it('rejects negative minutes in a file', () => {
     const text = exportAovGraph(doc()).replace('"durationMin": 10', '"durationMin": -1');
     expect(() => importAovGraph(text)).toThrow();
+  });
+});
+
+// D208: a dataflow line says which form's data passes between two nodes, not what happens next. The estimate follows the
+// work, so a dataflow line must add no order, no branch, no reachable node and no waiting time.
+describe('dataflow lines are not part of the estimate', () => {
+  const flow = (id: string, from: string, to: string) => ({ id, from, to, kind: 'dataflow' as const, formId: null });
+  const withFlows = (...flows: ReturnType<typeof flow>[]) => { const g = branching(); g.edges.push(...flows); return g; };
+
+  it('topological order: data passed back to an earlier node is not a loop', () => {
+    const result = estimateGraphGantt(withFlows(flow('d1', 'end', 'a'), flow('d2', 'c', 'a')));
+    expect(result.ok && result.total).toBe(33);
+  });
+
+  it('branches: a dataflow line neither makes a node a branch point nor becomes an option', () => {
+    const g = withFlows(flow('d1', 'b', 'c'), flow('d2', 'a', 'end'));
+    expect(branchPoints(g, {}).map(p => p.nodeId)).toEqual(['a']);
+    expect(branchPoints(g, {})[0].edges.map(e => e.id)).toEqual(['e2', 'e3']);
+    expect(estimateGraphGantt(g, { a: 'd2' })).toMatchObject({ ok: false, errors: [{ code: 'branch-unknown', nodeId: 'a' }] });
+  });
+
+  it('reachability: a node the chosen branch skips stays skipped although data reaches it', () => {
+    const g = withFlows(flow('d1', 'a', 'b'), flow('d2', 'c', 'b'));
+    const result = estimateGraphGantt(g, { a: 'e3' });
+    expect(result.ok && result.rows.map(r => r.nodeId)).toEqual(['start', 'a', 'c', 'end']);
+    const unfilled = branching({ b: undefined }); unfilled.edges.push(flow('d1', 'a', 'b'));
+    expect(estimateGraphGantt(unfilled, { a: 'e3' }).ok).toBe(true);
+  });
+
+  it('time: a node does not wait for the node its data comes from', () => {
+    // c ends at 15; b follows a only (10 + 3 transfer), so it starts at 13 whether or not c sends it data.
+    const result = estimateGraphGantt(withFlows(flow('d1', 'c', 'b')));
+    expect(result.ok && result.rows.find(r => r.nodeId === 'b')).toMatchObject({ start: 13, transferIn: 3 });
+    expect(result.ok && result.rows.find(r => r.nodeId === 'b')!.transferAssumedZero).toBe(false);
+    expect(result.ok && result.total).toBe(33);
   });
 });

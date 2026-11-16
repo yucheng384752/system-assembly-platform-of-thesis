@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import { validateSchema } from '../../../libs/ui-runtime/schema';
 import { loadExample } from './exampleHints';
+import { addChildGraph } from './canvasEditing';
 import { emptyGraph, exportAovGraph, importAovGraph, integrityErrors, MAX_FACTORIES, MAX_GRAPHS, workingNodes, type AovGraphDocument } from './workflowGraph';
 import { MAX_FORMS } from './localData';
 
@@ -62,4 +63,16 @@ test('capacity failures are atomic and explain what reached the limit', () => {
     expect(() => loadExample(doc)).toThrow(reason);
     expect(doc).toEqual(before);
   }
+});
+
+// D208 (design 4.2): the id collector still reads every line, so an example id never collides with a dataflow line's id either.
+test('example ids avoid the ids of existing dataflow lines', () => {
+  const original: AovGraphDocument = JSON.parse(JSON.stringify(loadExample(emptyGraph)).replaceAll('example-', 'user-'));
+  // A dataflow line lives in a sub-flow, so the existing document gets one under its first working node.
+  const withChild = addChildGraph(original, original.graphs[0].nodes[1].id);
+  const child = withChild.graphs.at(-1)!;
+  child.edges.push({ id: 'example-edge', from: child.nodes[0].id, to: child.nodes[1].id, kind: 'dataflow', formId: null });
+  const ids = loadExample(withChild).graphs.flatMap(g => g.edges.map(e => e.id));
+  expect(ids).toContain('example-edge');
+  expect(new Set(ids).size).toBe(ids.length);
 });

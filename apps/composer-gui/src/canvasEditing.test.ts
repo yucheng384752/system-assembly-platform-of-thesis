@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { addCanvasNode, addChildGraph, addFactory, addLogic, connectCanvasNodes, reconnectCanvasEdge, deleteCanvasNode, deleteFactory, deleteLogic, patchCanvasNode, renameFactory, renameGraph } from './canvasEditing';
+import { addCanvasNode, addChildGraph, addFactory, addLogic, clearEdgeForms, connectCanvasNodes, reconnectCanvasEdge, deleteCanvasNode, deleteFactory, deleteLogic, patchCanvasNode, renameFactory, renameGraph, setEdgeForm, setEdgeTransfer } from './canvasEditing';
 import { emptyGraph, integrityErrors, MAX_FACTORIES, MAX_GRAPHS, MAX_LOGICS, type AovGraphDocument } from './workflowGraph';
 
 const withLogic = (name = 'A 廠'): AovGraphDocument => addLogic(addFactory(emptyGraph, name)!.value, 'factory-1', '')!.value;
@@ -168,4 +168,66 @@ test('child creation guards system nodes, duplicate children and the depth limit
   doc = addCanvasNode(doc, 'graph-3', null);
   expect(addChildGraph(doc, 'node-3')).toBe(doc);
   expect(integrityErrors(doc)).toEqual([]);
+});
+
+// D208: a sequence line and a dataflow line are two separate facts about the same two nodes ("B comes after A" and "A's data
+// reaches B"). Editing one must never create, change or remove the other.
+describe('D208: dataflow lines are edited by kind', () => {
+  // graph-1 > node-1 > graph-2 holding node-2 and node-3.
+  const subFlow = (): AovGraphDocument => {
+    let doc = addChildGraph(addCanvasNode(withLogic(), 'graph-1', null), 'node-1');
+    doc = addCanvasNode(addCanvasNode(doc, 'graph-2', null), 'graph-2', null);
+    const field = { id: 'f', name: '批號', type: 'text' as const, required: true, isKey: true };
+    return { ...patchCanvasNode(doc, 'node-2', { formId: 'form-1' }), forms: [{ id: 'form-1', name: '點收單', fields: [field] }, { id: 'form-2', name: '無主表單', fields: [field] }] };
+  };
+  const sub = (doc: AovGraphDocument) => doc.graphs.find(g => g.id === 'graph-2')!.edges;
+
+  test('a new dataflow line has no form yet; a sequence line carries neither kind nor form', () => {
+    let doc = connectCanvasNodes(subFlow(), 'graph-2', 'node-2', 'node-3', true, 'dataflow');
+    doc = connectCanvasNodes(doc, 'graph-2', 'node-2', 'node-3', true);
+    expect(sub(doc)).toEqual([{ id: 'edge-1', from: 'node-2', to: 'node-3', kind: 'dataflow', formId: null }, { id: 'edge-2', from: 'node-2', to: 'node-3' }]);
+    expect(integrityErrors(doc)).toEqual([]);
+  });
+
+  test('removing one kind between two nodes leaves the other kind in place', () => {
+    let doc = connectCanvasNodes(subFlow(), 'graph-2', 'node-2', 'node-3', true, 'dataflow');
+    doc = connectCanvasNodes(doc, 'graph-2', 'node-2', 'node-3', true);
+    expect(sub(connectCanvasNodes(doc, 'graph-2', 'node-2', 'node-3', false)).map(e => e.id)).toEqual(['edge-1']);
+    expect(sub(connectCanvasNodes(doc, 'graph-2', 'node-2', 'node-3', false, 'dataflow')).map(e => e.id)).toEqual(['edge-2']);
+  });
+
+  test('reconnecting a dataflow line keeps its id, kind and form', () => {
+    let doc = connectCanvasNodes(subFlow(), 'graph-2', 'node-2', 'node-3', true, 'dataflow');
+    doc = setEdgeForm(doc, 'edge-1', 'form-1');
+    const moved = reconnectCanvasEdge(doc, 'graph-2', 'edge-1', 'graph-2-start', 'node-3');
+    expect(sub(moved)).toEqual([{ id: 'edge-1', from: 'graph-2-start', to: 'node-3', kind: 'dataflow', formId: 'form-1' }]);
+    expect(integrityErrors(moved)).toEqual([]);
+  });
+
+  // Transfer time is the minutes material needs to move along a sequence line; a dataflow line moves nothing.
+  test('transfer time applies to sequence lines only, and a form to dataflow lines only', () => {
+    let doc = connectCanvasNodes(subFlow(), 'graph-2', 'node-2', 'node-3', true, 'dataflow');
+    doc = connectCanvasNodes(doc, 'graph-2', 'node-2', 'node-3', true);
+    const timed = setEdgeTransfer(setEdgeTransfer(doc, 'edge-1', 5), 'edge-2', 5);
+    expect(sub(timed).map(e => e.transferMin)).toEqual([undefined, 5]);
+    const formed = setEdgeForm(setEdgeForm(doc, 'edge-1', 'form-2'), 'edge-2', 'form-2');
+    expect(sub(formed).map(e => e.formId)).toEqual(['form-2', undefined]);
+    expect(integrityErrors(timed)).toEqual([]);
+    expect(integrityErrors(formed)).toEqual([]);
+  });
+
+  // The form goes with its node; the line is the user's own drawing (D84), so it stays and returns to "not chosen yet".
+  test('deleting a node clears the form of the dataflow lines that passed its form, without removing those lines', () => {
+    let doc = connectCanvasNodes(subFlow(), 'graph-2', 'graph-2-start', 'node-3', true, 'dataflow');
+    doc = connectCanvasNodes(doc, 'graph-2', 'node-3', 'graph-2-end', true, 'dataflow');
+    doc = setEdgeForm(setEdgeForm(doc, 'edge-1', 'form-1'), 'edge-2', 'form-2');
+    const removed = deleteCanvasNode(doc, 'node-2');
+    expect(removed.forms.map(f => f.id)).toEqual(['form-1']);
+    expect(sub(removed.value)).toEqual([
+      { id: 'edge-1', from: 'graph-2-start', to: 'node-3', kind: 'dataflow', formId: null },
+      { id: 'edge-2', from: 'node-3', to: 'graph-2-end', kind: 'dataflow', formId: 'form-2' },
+    ]);
+    expect(integrityErrors(removed.value)).toEqual([]);
+    expect(sub(clearEdgeForms(doc, new Set(['form-2']))).map(e => e.formId)).toEqual(['form-1', null]);
+  });
 });

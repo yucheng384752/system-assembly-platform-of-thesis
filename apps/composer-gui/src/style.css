@@ -23,14 +23,26 @@
 .workflow-page > .canvas-toolbar { margin-block: var(--space-sm) var(--space); }
 .canvas-parent-context { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); padding: var(--space); background: var(--surface); border: 1px solid var(--card-border); border-radius: var(--radius); overflow-wrap: anywhere; }
 .canvas-parent-context [aria-current=true] { padding: var(--space-sm); background: var(--selected); border: 1px solid var(--primary); border-radius: var(--radius); }
-.canvas-view-switch { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin: 0; }
-.canvas-view-switch label { padding-inline: var(--space-sm); border: 1px solid var(--card-border); border-radius: var(--radius); }
+.canvas-view-switch { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin: 0; padding: 0; border: 0; }
+/* A floated legend is laid out as an ordinary flex item, so the group title sits on the same line as its options. */
+.canvas-view-switch legend { float: left; padding: 0; }
+.canvas-view-switch label { flex-wrap: nowrap; padding-inline: var(--space-sm); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); font-weight: 600; }
+/* The general input rule (full width, 44px, boxed) is for text fields; a radio keeps its own small mark inside the 44px label. */
+.canvas-view-switch input[type=radio] { width: 1.25rem; height: 1.25rem; min-height: 0; flex: none; margin: 0; padding: 0; border: 0; accent-color: var(--primary); }
 .canvas-view-switch label:has(:checked) { background: var(--selected); border-color: var(--primary); }
 .canvas-view-frame { width: 100%; height: 100%; border: 1px solid var(--card-border); border-radius: var(--radius); padding: var(--space); background: var(--surface); pointer-events: none; }
 .canvas-view-frame strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.canvas-view-gap { display: flex; align-items: center; gap: .25rem; overflow: hidden; white-space: nowrap; font-size: .75rem; line-height: 1.2; color: var(--pending); }
+.canvas-view-gap .icon, .canvas-gap-icon { flex: none; width: 1rem; height: 1rem; color: var(--warning); }
+.canvas-gaps summary { gap: var(--space-sm); }
+.dataflow-sources > div { margin-top: var(--space-sm); }
 .workflow-canvas .canvas-view-frame .react-flow__handle { opacity: 0; pointer-events: none; }
 .canvas-view-band { width: 100%; height: 100%; background: var(--preview); pointer-events: none; }
 .workflow-canvas .canvas-layer-link .react-flow__edge-path { stroke-width: 1; }
+/* Dataflow line (D208): dashed, same weight and arrow as a sequence line; the 1px solid correspondence line has no arrow. */
+.workflow-canvas .canvas-dataflow-edge .react-flow__edge-path { stroke-dasharray: 8 6; }
+.workflow-canvas .business-node .canvas-layer-handle { opacity: 0; pointer-events: none; }
+.workflow-canvas .business-node .canvas-layer-handle::before { content: none; }
 .crumb { align-self: center; padding-inline: var(--space-sm); font-weight: 600; }
 .business-node span { max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: anywhere; }
 .react-flow__node.selected .business-node { background: var(--selected); border-color: var(--primary); }

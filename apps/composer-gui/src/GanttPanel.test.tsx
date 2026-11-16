@@ -32,3 +32,14 @@ test('choosing a branch lifts the block and shows the picture with a download bu
   expect(screen.getByRole('img', { name: /總時長 15 分鐘/ })).toBeTruthy();
   expect(screen.getByRole('button', { name: '下載 SVG' })).toBeTruthy();
 });
+
+// D208: a dataflow line is not a way the work can go next, so it must never be offered as a branch.
+test('a dataflow line is neither a branch point nor a branch option', () => {
+  const g = graph(20);
+  g.edges.push({ id: 'd1', from: 'b', to: 'c', kind: 'dataflow', formId: null }, { id: 'd2', from: 'a', to: 'end', kind: 'dataflow', formId: null });
+  render(<GanttPanel graph={g} onLocate={() => {}} onClose={() => {}} />);
+  expect(screen.queryByLabelText('「b」之後')).toBeNull();
+  const options = [...(screen.getByLabelText('「a」之後') as HTMLSelectElement).options].map(o => o.value);
+  expect(options).toEqual(['', 'e2', 'e3']);
+  expect(screen.getByRole('img', { name: /總時長 30 分鐘/ })).toBeTruthy();
+});

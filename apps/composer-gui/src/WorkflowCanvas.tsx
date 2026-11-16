@@ -3,10 +3,10 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { ReactFlow, ReactFlowProvider, Handle, Position, ConnectionLineType, useReactFlow, type NodeProps } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { actionCatalog, describeEndpoint } from './workflow';
-import { graphDepths, graphPlaces, integrityErrors, MAX_DEPTH, MAX_GRAPHS, MAX_NODES, suggestActions, type AovGraphDocument, type GraphNode } from './workflowGraph';
-import { addCanvasNode, addChildGraph, connectCanvasNodes, reconnectCanvasEdge, deleteCanvasNode } from './canvasEditing';
+import { graphDepths, graphPlaces, integrityErrors, isSequence, MAX_DEPTH, MAX_GRAPHS, MAX_NODES, suggestActions, type AovGraphDocument, type GraphNode } from './workflowGraph';
+import { addCanvasNode, addChildGraph, connectCanvasNodes, reconnectCanvasEdge, deleteCanvasNode, setEdgeForm } from './canvasEditing';
 import { parentContext, expandedView, layeredView, toLayoutPosition, frameAt, type CanvasView } from './canvasView';
-import { CanvasViewSwitch, FrameNode, BandNode, flowElements, viewConnection, type BusinessNode, type ViewFlowNode, type ViewMode } from './CanvasViewElements';
+import { CanvasViewSwitch, CanvasEdgeKindSwitch, FrameNode, BandNode, FrameGapList, edgeTypes, flowElements, frameGapSummaries, viewConnection, type BusinessNode, type EdgeKindChoice, type ViewFlowNode, type ViewMode } from './CanvasViewElements';
 import { Column } from './Column';
 import { FactoryPage } from './FactoryPage';
 import { Icon } from './Icons';
@@ -22,6 +22,7 @@ function CircleNode({ data }: NodeProps<BusinessNode>) {
     {data.kind !== 'start' && <Handle type="target" position={Position.Left} aria-label="前置連線" />}
     <span>{data.label}</span>
     {data.kind !== 'end' && <Handle type="source" position={Position.Right} aria-label="後續連線" />}
+    {data.layerSource && <Handle id="layer" className="canvas-layer-handle" type="source" position={Position.Bottom} isConnectable={false} />}
   </div>;
 }
 const nodeTypes = { business: CircleNode, frame: FrameNode, band: BandNode };
@@ -48,6 +49,7 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
   const [toolSearch, setToolSearch] = useState('');
   const [selected, setSelected] = useState('');
   const [mode, setMode] = useState<ViewMode>('single');
+  const [edgeKind, setEdgeKind] = useState<EdgeKindChoice>('sequence');
   const [dragView, setDragView] = useState<CanvasView | null>(null);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -67,7 +69,7 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
   // A new import replaces the document: clear the selection (the caller resets the path; the toolbar, with its import notices, stays mounted).
   useEffect(() => { setSelected(''); setDeleting(false); setError(''); }, [resetKey]);
   const graph = value.graphs.find(g => g.id === path.at(-1));
-  useEffect(() => { setMode('single'); setDragView(null); dragNodes.current = null; }, [resetKey, graph?.id]);
+  useEffect(() => { setMode('single'); setEdgeKind('sequence'); setDragView(null); dragNodes.current = null; }, [resetKey, graph?.id]);
   const view = dragView ?? (graph ? mode === 'expanded' ? expandedView(value, graph.id) : mode === 'layered' ? layeredView(value, graph.id) : {
     nodes: graph.nodes.map((node, i) => ({ id: node.id, graphId: graph.id, node, position: value.layout[graph.id]?.[node.id] ?? { x: i * 180, y: 0 }, offset: { x: 0, y: 0 } })),
     frames: [], edges: graph.edges.map(e => ({ ...e, graphId: graph.id })), issues: [],
@@ -102,7 +104,10 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
   const place = graphPlaces(value).get(graph.id);
   const parent = parentContext(value, graph.id);
   const depth = graphDepths(value).get(editGraph.id) ?? 1;
-  const elements = flowElements(view, selected);
+  const elements = flowElements(view, selected, frameGapSummaries(value, view));
+  // Dataflow lines exist in sub-flows only (D208), so their controls appear only where a sub-flow is on the canvas.
+  const subFlowShown = (graphDepths(value).get(graph.id) ?? 1) > 1 || view.frames.length > 0;
+  const drawnKind = subFlowShown && edgeKind === 'dataflow' ? 'dataflow' : undefined;
   const add = (actionId: string | null, position?: { x: number; y: number }) => {
     const frame = position && mode !== 'single' ? frameAt(view, position) : undefined;
     const target = frame ? value.graphs.find(g => g.id === frame.graphId)! : editGraph;
@@ -121,7 +126,17 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
     const heading = document.getElementById('canvas-title'); heading?.setAttribute('tabindex', '-1'); heading?.focus();
   };
   // Lines are edited on the node they lead to; the end cannot be a predecessor and the start has none (D80).
-  const predecessors = (target: GraphNode) => <fieldset><legend>接續在哪些節點之後</legend>{editGraph.nodes.filter(n => n.id !== target.id && n.kind !== 'end').map(n => <label key={n.id}><input type="checkbox" checked={editGraph.edges.some(e => e.from === n.id && e.to === target.id)} onChange={e => commit(connectCanvasNodes(value, editGraph.id, n.id, target.id, e.target.checked))} />{n.name || '（未命名節點）'}</label>)}</fieldset>;
+  // This list manages sequence lines only; the dataflow lines of a sub-flow have their own list below it.
+  const predecessors = (target: GraphNode) => <><fieldset><legend>接續在哪些節點之後</legend>{editGraph.nodes.filter(n => n.id !== target.id && n.kind !== 'end').map(n => <label key={n.id}><input type="checkbox" checked={editGraph.edges.some(e => isSequence(e) && e.from === n.id && e.to === target.id)} onChange={e => commit(connectCanvasNodes(value, editGraph.id, n.id, target.id, e.target.checked))} />{n.name || '（未命名節點）'}</label>)}</fieldset>
+    {depth > 1 && <fieldset className="dataflow-sources"><legend>資料來自哪些節點</legend>{editGraph.nodes.filter(n => n.id !== target.id && n.kind !== 'end').map(n => {
+      const line = editGraph.edges.find(e => !isSequence(e) && e.from === n.id && e.to === target.id);
+      const name = n.name || '（未命名節點）';
+      return <div key={n.id}>
+        <label><input type="checkbox" checked={Boolean(line)} onChange={e => commit(connectCanvasNodes(value, editGraph.id, n.id, target.id, e.target.checked, 'dataflow'))} /><span className="visually-hidden">資料來自：</span>{name}</label>
+        {line && <><label htmlFor={`dataflow-form-${line.id}`}>「{name}」傳遞的表單</label>
+          <select id={`dataflow-form-${line.id}`} value={line.formId ?? ''} onChange={e => commit(setEdgeForm(value, line.id, e.target.value || null))}><option value="">尚未指定</option>{value.forms.map(f => <option key={f.id} value={f.id}>{f.name.trim() || '（未命名表單）'}</option>)}</select></>}
+      </div>;
+    })}</fieldset>}</>;
   const selectNode = (id: string) => {
     if (!view.nodes.some(n => n.id === id)) return;
     setSelected(id); setDeleting(false);
@@ -130,7 +145,7 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
     const connection = viewConnection(view, from, to, edgeId);
     if (!connection) { setError('連線只能在同一個流程內。'); return; }
     commit(edgeId ? reconnectCanvasEdge(value, connection.graphId, edgeId, connection.from, connection.to)
-      : connectCanvasNodes(value, connection.graphId, connection.from, connection.to, true));
+      : connectCanvasNodes(value, connection.graphId, connection.from, connection.to, true, drawnKind));
   };
   const childPath = (child: string) => {
     const ancestors = [editGraph.id];
@@ -148,6 +163,7 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
       {ganttOpen && <GanttPanel graph={graph} onLocate={nodeId => { centerRequest.current = true; setSelected(nodeId); setDeleting(false); }} onClose={() => setGanttOpen(false)} />}
       <div className="actions canvas-zoom"><button onClick={() => void flow.zoomIn({ duration: 0 })}>放大</button><button onClick={() => void flow.zoomOut({ duration: 0 })}>縮小</button><button onClick={() => void flow.fitView({ duration: 0 })}>適合畫面</button></div>
       <CanvasViewSwitch value={mode} onChange={next => { setMode(next); setDragView(null); dragNodes.current = null; setSelected(''); setDeleting(false); setError(''); }} />
+      {subFlowShown && <CanvasEdgeKindSwitch value={edgeKind} onChange={setEdgeKind} />}
       {mode === 'layered' && <p role="status">系統邏輯疊層：公司需要，待開發。僅供檢視與編輯流程，不影響計畫與工單。</p>}
     </div>
     {parent && <nav aria-label="上一層的前後節點" className="canvas-parent-context">
@@ -185,7 +201,7 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
         e.preventDefault(); const action = e.dataTransfer.getData('application/x-workflow-action');
         if (action) add(action === 'business' ? null : action, flow.screenToFlowPosition({ x: e.clientX, y: e.clientY }));
       }}>
-        <ReactFlow<ViewFlowNode> key={`${resetKey}:${graph.id}:${mode}`} nodes={elements.nodes} edges={elements.edges} nodeTypes={nodeTypes}
+        <ReactFlow<ViewFlowNode> key={`${resetKey}:${graph.id}:${mode}`} nodes={elements.nodes} edges={elements.edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes}
           deleteKeyCode={null} selectNodesOnDrag={false} nodeDragThreshold={DRAG_PX} nodeClickDistance={DRAG_PX} nodesFocusable edgesFocusable={false} autoPanOnNodeFocus={false}
           ariaLabelConfig={{ 'node.a11yDescription.default': '按 Enter 或空白鍵選取節點，方向鍵移動；先後順序與刪除請使用節點細項。', 'node.a11yDescription.keyboardDisabled': '請使用工具箱選取節點。', 'node.a11yDescription.ariaLiveMessage': ({ x, y }) => `節點已移至橫向 ${x}、縱向 ${y}。`, 'edge.a11yDescription.default': '請在節點細項調整先後順序。', 'handle.ariaLabel': '連線接點' }}
           onNodeDragStart={() => { dragged.current = true; dragNodes.current = view.nodes; if (mode !== 'single') setDragView(view); }}
@@ -215,6 +231,7 @@ function Canvas({ value, onChange, path, onPathChange: setPath, toolbarExtra, re
           fitView fitViewOptions={{ duration: 0 }} />
       </div>
       {view.issues.length > 0 && <div className="note" role="status"><ul>{view.issues.map((issue, i) => <li key={i}>{issue}</li>)}</ul></div>}
+      <FrameGapList doc={value} view={view} />
       <p role={error ? 'alert' : undefined}>{error}</p>
       {suggestActions(value).map(s => <div key={s.actionId} className="canvas-suggestion note" role="status"><div><p>{s.reason}</p>{unavailable(s.actionId) && <p>{unavailable(s.actionId)}</p>}<button disabled={editGraph.nodes.length >= MAX_NODES || Boolean(unavailable(s.actionId))} onClick={() => add(s.actionId)}>加入「{actionCatalog.actions.find(a => a.id === s.actionId)!.name}」節點</button></div></div>)}
     </Column>

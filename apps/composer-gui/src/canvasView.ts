@@ -1,8 +1,8 @@
-import type { AovGraphDocument, Graph, GraphNode, Position } from './workflowGraph';
+import { sequenceEdges, type AovGraphDocument, type Graph, type GraphEdge, type GraphNode, type Position } from './workflowGraph';
 
 export interface ViewNode { id: string; graphId: string; node: GraphNode; position: Position; offset: Position }
 export interface ViewFrame { graphId: string; ownerNodeId: string; title: string; position: Position; offset: Position; width: number; height: number; depth: number }
-export interface ViewEdge { id: string; graphId: string; from: string; to: string }
+export interface ViewEdge { id: string; graphId: string; from: string; to: string; kind?: GraphEdge['kind']; formId?: string | null }
 export interface CanvasView { nodes: ViewNode[]; frames: ViewFrame[]; edges: ViewEdge[]; issues: string[] }
 export interface LayeredView extends CanvasView {
   bands: { depth: number; y: number; height: number }[];
@@ -31,8 +31,10 @@ export function parentContext(doc: AovGraphDocument, graphId: string) {
   for (const graph of doc.graphs) {
     const node = graph.nodes.find(n => n.childGraphId === graphId);
     if (!node) continue;
-    const before = new Set(graph.edges.filter(e => e.to === node.id).map(e => e.from));
-    const after = new Set(graph.edges.filter(e => e.from === node.id).map(e => e.to));
+    // The neighbours are the steps before and after in sequence; a dataflow line does not make a node a previous or a next step.
+    const edges = sequenceEdges(graph);
+    const before = new Set(edges.filter(e => e.to === node.id).map(e => e.from));
+    const after = new Set(edges.filter(e => e.from === node.id).map(e => e.to));
     return { parentGraphId: graph.id, node, before: graph.nodes.filter(n => before.has(n.id)), after: graph.nodes.filter(n => after.has(n.id)) };
   }
   return undefined;
@@ -159,4 +161,29 @@ export function layeredView(doc: AovGraphDocument, graphId: string): LayeredView
     y += height + GAP; depth++; pending = next;
   }
   return result;
+}
+
+// 表單輸入與輸出缺口 (D208, design section 5): a canvas-level hint for a node that has a sub-flow. It compares form ids only; it is
+// not the port check of the plan contract and blocks nothing.
+export interface FormGap { direction: 'input' | 'output'; kind: 'missing' | 'extra'; formId: string }
+export interface FormGaps { gaps: FormGap[]; unassigned: number }
+export function formGaps(doc: AovGraphDocument, ownerNodeId: string): FormGaps {
+  const parent = doc.graphs.find(g => g.nodes.some(n => n.id === ownerNodeId));
+  const owner = parent?.nodes.find(n => n.id === ownerNodeId);
+  const child = doc.graphs.find(g => g.id === owner?.childGraphId);
+  if (!parent || !owner || !child) return { gaps: [], unassigned: 0 };
+  const start = child.nodes.find(n => n.kind === 'start')?.id, end = child.nodes.find(n => n.kind === 'end')?.id;
+  const dataflow = child.edges.filter(e => e.kind === 'dataflow');
+  const ids = (list: (string | null | undefined)[]) => [...new Set(list.filter((id): id is string => Boolean(id)))];
+  // The upper layer expects: as input the forms of the nodes right before the owner in sequence, as output the owner's own form.
+  const before = new Set(sequenceEdges(parent).filter(e => e.to === owner.id).map(e => e.from));
+  const expected = { input: ids(parent.nodes.filter(n => before.has(n.id)).map(n => n.formId)), output: ids([owner.formId]) };
+  // The sub-flow declares: as input what its start passes on, as output what is passed to its end.
+  const declared = { input: ids(dataflow.filter(e => e.from === start).map(e => e.formId)), output: ids(dataflow.filter(e => e.to === end).map(e => e.formId)) };
+  const gaps: FormGap[] = (['input', 'output'] as const).flatMap(direction => [
+    ...expected[direction].filter(id => !declared[direction].includes(id)).map(formId => ({ direction, kind: 'missing' as const, formId })),
+    ...declared[direction].filter(id => !expected[direction].includes(id)).map(formId => ({ direction, kind: 'extra' as const, formId })),
+  ]);
+  // A line without a chosen form is counted on its own: it is neither a match nor a gap.
+  return { gaps, unassigned: dataflow.filter(e => !e.formId).length };
 }

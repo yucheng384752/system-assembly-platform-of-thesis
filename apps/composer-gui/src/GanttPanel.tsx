@@ -3,14 +3,15 @@ import { Modal } from './Modal';
 import { downloadBlob } from './fileTransfer';
 import { branchPoints, estimateGraphGantt, type BranchChoices } from './graphGantt';
 import { renderGanttSvg } from '../../../libs/planning/ganttSvg';
-import type { Graph } from './workflowGraph';
+import { sequenceEdges, type Graph } from './workflowGraph';
 
 // Gantt estimate of the open graph. The picture is shown as an image from a data URI, never injected as HTML, and is only
 // downloaded: it is not written into the delivery package. 可改善項目見 docs/decision-log.md。
 export function GanttPanel({ graph, onLocate, onClose }: { graph: Graph; onLocate: (nodeId: string) => void; onClose: () => void }) {
   const [choices, setChoices] = useState<BranchChoices>({});
-  // A choice whose line was deleted since is dropped here, so the estimate never fails on a stale choice.
-  const valid = useMemo(() => Object.fromEntries(Object.entries(choices).filter(([nodeId, edgeId]) => graph.edges.some(e => e.id === edgeId && e.from === nodeId))), [choices, graph.edges]);
+  // A choice whose line was deleted since is dropped here, so the estimate never fails on a stale choice. Only a sequence line
+  // can be a branch: a dataflow line is not a way the work can go next.
+  const valid = useMemo(() => Object.fromEntries(Object.entries(choices).filter(([nodeId, edgeId]) => sequenceEdges(graph).some(e => e.id === edgeId && e.from === nodeId))), [choices, graph]);
   const result = useMemo(() => estimateGraphGantt(graph, valid), [graph, valid]);
   const points = useMemo(() => branchPoints(graph, valid), [graph, valid]);
   const svg = result.ok ? renderGanttSvg(result) : '';

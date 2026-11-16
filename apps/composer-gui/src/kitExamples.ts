@@ -33,7 +33,7 @@ export function canvasWithLayout(id: string, name: string, working: GraphNode[],
     return [node.id, { x: depth * 100, y: row * 120 }];
   }));
   const value: AovGraphDocument = {
-    format: 'composer-aov-list', version: 5,
+    format: 'composer-aov-list', version: 6,
     factories: [{ id, name, logicGraphIds: [id] }],
     graphs: [{ id, name, nodes, edges }], layout: { [id]: positions }, forms: [], relations: [],
   };

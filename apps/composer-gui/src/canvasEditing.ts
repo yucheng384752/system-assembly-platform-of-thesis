@@ -1,5 +1,5 @@
 import { actionCatalog, nextId } from './workflow';
-import { graphDepths, MAX_DEPTH, MAX_FACTORIES, MAX_GRAPHS, MAX_LOGICS, newGraphParts, type AovGraphDocument, type GraphNode, type Position } from './workflowGraph';
+import { graphDepths, isSequence, MAX_DEPTH, MAX_FACTORIES, MAX_GRAPHS, MAX_LOGICS, newGraphParts, type AovGraphDocument, type GraphEdge, type GraphNode, type Position } from './workflowGraph';
 
 const allEdges = (doc: AovGraphDocument) => doc.graphs.flatMap(g => g.edges);
 const clip = (name: string) => name.trim().slice(0, 100);
@@ -22,24 +22,38 @@ export function patchCanvasNode(doc: AovGraphDocument, nodeId: string, patch: Pa
   return { ...doc, graphs: doc.graphs.map(g => ({ ...g, nodes: g.nodes.map(n => n.id === nodeId && n.kind === 'node' ? { ...n, ...patch } : n) })) };
 }
 
-export function connectCanvasNodes(doc: AovGraphDocument, graphId: string, from: string, to: string, connected: boolean): AovGraphDocument {
+// One pair of nodes may have a sequence line and a dataflow line (D208): adding or removing one kind never touches the other.
+// A new dataflow line starts without a chosen form.
+export function connectCanvasNodes(doc: AovGraphDocument, graphId: string, from: string, to: string, connected: boolean, kind?: GraphEdge['kind']): AovGraphDocument {
+  const edge: GraphEdge = { id: nextId('edge', allEdges(doc)), from, to, ...(kind ? { kind, formId: null } : {}) };
   return { ...doc, graphs: doc.graphs.map(g => g.id !== graphId ? g : { ...g,
-    edges: connected ? [...g.edges, { id: nextId('edge', allEdges(doc)), from, to }] : g.edges.filter(e => e.from !== from || e.to !== to) }) };
+    edges: connected ? [...g.edges, edge] : g.edges.filter(e => e.from !== from || e.to !== to || e.kind !== kind) }) };
 }
 
-// Replace atomically so the canvas can reject invalid connections without losing the original edge.
+// Replace atomically so the canvas can reject invalid connections without losing the original edge. Only the ends change:
+// the line keeps its id, its kind and, for a dataflow line, its form.
 export function reconnectCanvasEdge(doc: AovGraphDocument, graphId: string, edgeId: string, from: string, to: string): AovGraphDocument {
   return { ...doc, graphs: doc.graphs.map(g => g.id !== graphId ? g : { ...g,
     edges: g.edges.map(e => e.id === edgeId ? { ...e, from, to } : e) }) };
 }
 
-// Transfer time lives on the line; clearing it (undefined) removes the key so an unfilled value is never read as 0.
+// Transfer time lives on a sequence line; clearing it (undefined) removes the key so an unfilled value is never read as 0.
+// A dataflow line moves no material, so it never takes a transfer time.
 export function setEdgeTransfer(doc: AovGraphDocument, edgeId: string, transferMin: number | undefined): AovGraphDocument {
   return { ...doc, graphs: doc.graphs.map(g => ({ ...g, edges: g.edges.map(e => {
-    if (e.id !== edgeId) return e;
+    if (e.id !== edgeId || !isSequence(e)) return e;
     const { transferMin: _old, ...rest } = e;
     return transferMin === undefined ? rest : { ...rest, transferMin };
   }) })) };
+}
+
+// Which form a dataflow line passes; null means not chosen yet. A sequence line passes no form, so it is left alone.
+export function setEdgeForm(doc: AovGraphDocument, edgeId: string, formId: string | null): AovGraphDocument {
+  return { ...doc, graphs: doc.graphs.map(g => ({ ...g, edges: g.edges.map(e => e.id === edgeId && !isSequence(e) ? { ...e, formId } : e) })) };
+}
+// When forms go away, the dataflow lines that passed them stay but go back to "not chosen yet", so no line names a missing form.
+export function clearEdgeForms(doc: AovGraphDocument, formIds: Set<string>): AovGraphDocument {
+  return { ...doc, graphs: doc.graphs.map(g => ({ ...g, edges: g.edges.map(e => e.formId && formIds.has(e.formId) ? { ...e, formId: null } : e) })) };
 }
 
 // A sub-flow of a node: its own start and end are created with it (D80).
@@ -89,12 +103,12 @@ function removal(doc: AovGraphDocument, graphIds: Set<string>, nodeIds: Set<stri
   const gone = new Set(removedNodes.map(n => n.id));
   const formIds = new Set(removedNodes.flatMap(n => n.formId ? [n.formId] : []));
   const relations = doc.relations.filter(r => formIds.has(r.from.formId) || formIds.has(r.to.formId));
-  const value: AovGraphDocument = { ...doc,
+  const value: AovGraphDocument = clearEdgeForms({ ...doc,
     factories: doc.factories.filter(f => !factoryIds.has(f.id)).map(f => ({ ...f, logicGraphIds: f.logicGraphIds.filter(id => !graphIds.has(id)) })),
     graphs: doc.graphs.filter(g => !graphIds.has(g.id)).map(g => ({ ...g, nodes: g.nodes.filter(n => !gone.has(n.id)), edges: g.edges.filter(e => !gone.has(e.from) && !gone.has(e.to)) })),
     layout: Object.fromEntries(Object.entries(doc.layout).filter(([id]) => !graphIds.has(id)).map(([id, positions]) => [id, Object.fromEntries(Object.entries(positions).filter(([n]) => !gone.has(n)))])),
     forms: doc.forms.filter(f => !formIds.has(f.id)), relations: doc.relations.filter(r => !relations.includes(r)),
-  };
+  }, formIds);
   // Start and end nodes are bookkeeping, not something the user made, so the preview lists only real nodes.
   return { value, nodes: removedNodes.filter(n => n.kind === 'node'), graphs: doc.graphs.filter(g => graphIds.has(g.id)), forms: doc.forms.filter(f => formIds.has(f.id)), relations };
 }

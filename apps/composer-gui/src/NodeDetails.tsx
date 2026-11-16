@@ -1,5 +1,5 @@
 import { actionCatalog } from './workflow';
-import { nodeErrors, type AovGraphDocument, type GraphNode } from './workflowGraph';
+import { isSequence, nodeErrors, type AovGraphDocument, type GraphNode } from './workflowGraph';
 import { patchCanvasNode, setEdgeTransfer } from './canvasEditing';
 import { NodeForm } from './NodeForm';
 import { NodeRelations } from './NodeRelations';
@@ -11,7 +11,8 @@ export function NodeDetails({ value, node, onChange }: { value: AovGraphDocument
   const action = actionCatalog.actions.find(a => a.id === node.actionId);
   const patch = (next: Partial<GraphNode>) => onChange(patchCanvasNode(value, node.id, next));
   const problems = nodeErrors(value, node);
-  const incoming = (value.graphs.find(g => g.nodes.some(n => n.id === node.id))?.edges ?? []).filter(e => e.to === node.id);
+  // Transfer time belongs to sequence lines only; a dataflow line moves nothing.
+  const incoming = (value.graphs.find(g => g.nodes.some(n => n.id === node.id))?.edges ?? []).filter(e => e.to === node.id && isSequence(e));
   const nameOf = (id: string) => value.graphs.flatMap(g => g.nodes).find(n => n.id === id)?.name.trim() || '（未命名節點）';
   // Empty means not filled in; the Gantt estimate asks for the minutes only when the node is on the required path.
   const minutes = (text: string, apply: (n: number | undefined) => void) => { if (text === '') apply(undefined); else { const n = Number(text); if (Number.isFinite(n) && n >= 0 && n <= 525600) apply(n); } };

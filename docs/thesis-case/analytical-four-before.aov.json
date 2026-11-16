@@ -1,6 +1,6 @@
 {
   "format": "composer-aov-list",
-  "version": 5,
+  "version": 6,
   "factories": [
     {
       "id": "daily",

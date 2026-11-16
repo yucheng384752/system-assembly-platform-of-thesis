@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { fieldTypes, formError, inferForms, MAX_FORMS, type FieldType, type FieldValidation, type FormDraft, type FormField } from './localData';
 import { describeEndpoint, nextId } from './workflow';
 import { validationError, type AovGraphDocument, type GraphNode } from './workflowGraph';
-import { patchCanvasNode } from './canvasEditing';
+import { clearEdgeForms, patchCanvasNode } from './canvasEditing';
 import { Icon } from './Icons';
 import { Modal } from './Modal';
 import { exampleHints } from './exampleHints';
@@ -58,7 +58,8 @@ export function NodeForm({ value, node, onChange }: { value: AovGraphDocument; n
   const renderConfirm = (form: FormDraft) => <section aria-label="確認刪除表單內容"><h3>確認刪除</h3><p>{deleting === 'form' ? `表單「${form.name}」與全部欄位` : `欄位「${form.fields.find(f => f.id === deleting)?.name}」`}</p>
   <ul>{removedRelations.map(r => <li key={r.id}>關聯：{describeEndpoint(value, r.from)}至{describeEndpoint(value, r.to)}</li>)}</ul>
   <button className="danger" onClick={() => {
-    const next = deleting === 'form' ? { ...patchCanvasNode(value, node.id, { formId: null }), forms: value.forms.filter(f => f.id !== form.id) } : { ...value, forms: value.forms.map(f => f.id === form.id ? { ...f, fields: f.fields.filter(x => x.id !== deleting) } : f) };
+    // A dataflow line that passed the deleted form stays, back at "not chosen yet" (D208).
+    const next = deleting === 'form' ? { ...clearEdgeForms(patchCanvasNode(value, node.id, { formId: null }), new Set([form.id])), forms: value.forms.filter(f => f.id !== form.id) } : { ...value, forms: value.forms.map(f => f.id === form.id ? { ...f, fields: f.fields.filter(x => x.id !== deleting) } : f) };
     if (onChange({ ...next, relations: value.relations.filter(r => !removedRelations.includes(r)) })) { setDeleting(null); focus.current = 'node-add-field'; }
   }}>確認刪除表單內容</button><button onClick={() => setDeleting(null)}>取消刪除表單內容</button>
 </section>;

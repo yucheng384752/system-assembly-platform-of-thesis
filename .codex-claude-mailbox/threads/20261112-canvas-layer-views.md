@@ -170,3 +170,100 @@ user 於 2026-11-16 確認：流程文件升第 6 版、缺口以表單為單位
 - 不改 `kits/`、`services/`、`docs/decision-log.md`；不做 git 寫入；不新增依賴。
 - 第 6 版會影響別的分支（論文復現分支有第 5 版的案例檔），本分支不處理那些檔案，但第 5 版載入必須無損，並有測試。
 - 完成後在本檔新增「Codex Notes（批三）」：改了哪些檔、4.1 每一項對應的測試名稱、`npm.cmd run typecheck` 與 `npm.cmd test` 的實際結果（沙箱 EPERM 失敗照實列）、沒做的事與原因。
+
+## 2026-11-16 subagent：批三實作紀錄
+
+Codex 用量額度用完、沒有寫入任何檔案，由 Claude 的 subagent 接手。沒有做任何 git 寫入；沒有新增依賴；沒有在瀏覽器驗證（見最後一段）。
+
+### 改動與新增的檔案
+
+程式：
+- `apps/composer-gui/src/workflowGraph.ts`：`GraphEdge` 加 `kind?: 'dataflow'`、`formId?: string | null`；新增 `isSequence`、`sequenceEdges`；文件版本 6（型別、`emptyGraph`、匯出投影、`upgradeV4`、`listToGraph`）；`importAovGraph` 接受第 5、6 版，第 5 版只改版號；`orderedNodes`、`reach`（可達性與完成度）、成環檢查只看先後連線，重複鍵含種類；`integrityErrors` 新增資料流規則。
+- `schemas/aov.schema.json`：新增 `sequenceEdge`、`dataflowEdge`、`v6`；`v5` 以下原樣保留。
+- `apps/composer-gui/src/canvasEditing.ts`：`connectCanvasNodes` 多一個選填的 `kind` 參數（依種類建立與移除）；`setEdgeTransfer` 只作用於先後連線；新增 `setEdgeForm`、`clearEdgeForms`；刪節點、刪生產邏輯、刪工廠共用的 `removal` 會把指向被刪表單的 `edge.formId` 設為 `null`。`reconnectCanvasEdge` 本來就保留其他欄位，只補註解。
+- `apps/composer-gui/src/canvasView.ts`：`ViewEdge` 帶 `kind`、`formId`；`parentContext` 只看先後連線；新增純函式 `formGaps`。
+- `apps/composer-gui/src/CanvasViewElements.tsx`：資料流連線加 `canvas-dataflow-edge` 類別；與先後連線同一對節點時改用平移 6px 的自訂直線（`dataflowBeside`）；新增 `CanvasEdgeKindSwitch`、`gapSummary`、`frameGapSummaries`、`FrameGapList`；外框標題下顯示缺口文字；疊層對應線改由上層節點下方的接點（`sourceHandle: 'layer'`）出發。
+- `apps/composer-gui/src/WorkflowCanvas.tsx`：前置核取清單只管先後連線；子流程節點多「資料來自哪些節點」清單與表單下拉；工具列的連線種類切換；拖曳新連線依切換建立種類；畫布下方的缺口清單；節點多一個只在疊層擁有外框時才出現的下方接點。
+- `apps/composer-gui/src/graphGantt.ts`、`GanttPanel.tsx`、`WorkflowSimulation.tsx`、`NodeDetails.tsx`、`NodeForm.tsx`、`libs/aov-integration/canvasToProject.ts`：依 4.1 改為只看先後連線；`NodeForm.tsx` 刪表單時清掉連線上的表單。
+- `apps/composer-gui/src/style.css`：虛線、缺口文字、隱藏的下方接點、兩組切換的樣式（單選圓點 1.25rem、標籤不換行、群組名稱與選項同列）。
+- `apps/composer-gui/src/kitExamples.ts`：版本字面值 5 改 6（型別要求）。
+- `libs/aov-integration/index.ts`：整合包入口仍只接受第 5 版平台文件，行為不變，只為通過型別檢查加上 `as number` 與註解。
+- `DESIGN.md`：新增「2026-11-16 補充：資料流連線、連線種類與表單輸入輸出缺口（D208）」。
+- `docs/thesis-case/analytical-four-before.aov.json`：由程式產生的檔案，`thesisAovCase.test.ts` 要求與程式輸出一致，以 `THESIS_CASE_UPDATE=1` 重新產生，差異只有版號 5 改 6。
+
+測試（只新增案例；既有案例只改了寫死的版號）：`workflowGraph.test.ts`、`canvasEditing.test.ts`、`canvasView.test.ts`、`CanvasViewElements.test.tsx`、`WorkflowCanvas.test.tsx`、`graphGantt.test.ts`、`GanttPanel.test.tsx`、`production.test.tsx`、`exampleHints.test.ts`、`importAny.test.ts`、`libs/aov-integration/canvasToProject.test.ts`。
+
+### 4.1 每一項對應的測試
+
+每一項都做過變異檢查：把該處改回讀全部連線（或拿掉該判斷），確認下列測試會失敗，再復原。18 個變異全部被抓到。
+
+| 4.1 項目 | 測試檔與名稱 |
+|---|---|
+| `orderedNodes` 排序 | `workflowGraph.test.ts`「閱讀順序不看資料流：資料由後面的節點傳回前面，前面的節點仍排在前面」 |
+| `relations.ts` 間接依賴 | `workflowGraph.test.ts`「關聯候選的上下游方向不因資料流改變（relations.ts 依賴閱讀順序）」 |
+| 可達性與完成度 | `workflowGraph.test.ts`「只接資料流不算接上開始與結束：資料流不是流程會走的路」 |
+| 成環與重複 | `workflowGraph.test.ts`「資料流可以成環（資料可回傳），成環檢查只看先後連線」「同一對節點可各有一條先後與資料流連線；同種類重複才算重複」 |
+| `graphGantt.ts` 拓撲、分支、可達、時間、選項 | `graphGantt.test.ts` `dataflow lines are not part of the estimate` 的四個案例（topological order、branches、reachability、time） |
+| `GanttPanel.tsx` 分支選擇 | `GanttPanel.test.tsx`「a dataflow line is neither a branch point nor a branch option」 |
+| `WorkflowSimulation.tsx` 失效傳播與前置完成 | `production.test.tsx`「資料流不是前置作業：只有資料流相連的站可以各自完成，也不因對方改填而失效」 |
+| `canvasView.ts` `parentContext` | `canvasView.test.ts`「parent context lists sequence neighbours only; dataflow lines add none」 |
+| `WorkflowCanvas.tsx` 前置核取清單 | `WorkflowCanvas.test.tsx`「the predecessor list manages sequence lines only: a dataflow line neither ticks it nor is removed by it」 |
+| `NodeDetails.tsx` 移轉時間 | `WorkflowCanvas.test.tsx`「transfer time is offered for incoming sequence lines only」 |
+| `canvasEditing.ts` 移轉時間 | `canvasEditing.test.ts`「transfer time applies to sequence lines only, and a form to dataflow lines only」 |
+| `canvasEditing.ts` 建立與移除、重接 | `canvasEditing.test.ts`「a new dataflow line has no form yet…」「removing one kind between two nodes leaves the other kind in place」「reconnecting a dataflow line keeps its id, kind and form」 |
+| `canvasToProject.ts` | `libs/aov-integration/canvasToProject.test.ts`「資料流連線不產生物料流」兩個案例 |
+| 刪節點清表單 | `canvasEditing.test.ts`「deleting a node clears the form of the dataflow lines that passed its form, without removing those lines」 |
+| `NodeForm.tsx` 刪表單 | `WorkflowCanvas.test.tsx`「deleting a form sets the data lines that passed it back to "not chosen yet" and keeps the lines」 |
+
+其他要求的測試：第 5 版無損載入（`workflowGraph.test.ts`「第 5 版文件無損載入為第 6 版…」）；第 6 版往返（「第 6 版往返：匯出再匯入內容相同…」）；schema（「schema 接受第 6 版的兩種連線，拒絕不合規則的連線；第 5 版不接受資料流欄位」）；`integrityErrors` 各條規則（「資料流的結構規則：%s」七列）；Kit 推導（「加入資料流連線後，功能推導（graphActionIds）結果不變」）；缺口純函式（`canvasView.test.ts` 四個 `form gaps` 案例）；缺口畫面（`WorkflowCanvas.test.tsx`「%s shows the form gap count…」展開與疊層各一）。
+
+清單外的讀取點：`canvasView.ts` 的 `formGaps` 取「直接先後前置節點」也用 `sequenceEdges`（有測試）。`exampleHints.ts` 照舊收全部連線（4.2），加了一個測試。沒有發現其他讀 `GraphEdge` 先後語意的地方。
+
+### 寫死版本 5 的各處
+
+| 位置 | 處理 |
+|---|---|
+| `workflowGraph.ts` 型別、`emptyGraph`、投影、`upgradeV4`、`listToGraph` | 改 6 |
+| `workflowGraph.ts` `importAovGraph`、`importWorkflow` | 接受 5 與 6；錯誤訊息改「version 5 或 6」 |
+| `kitExamples.ts` | 改 6 |
+| `workflowGraph.test.ts`、`graphGantt.test.ts` 的測試文件與「輸出版號」斷言、`importAny.test.ts` 的斷言 | 改 6（代表目前文件或輸出）；另新增第 5 版輸入的測試 |
+| `docs/thesis-case/analytical-four-before.aov.json` | 重新產生為 6 |
+| `libs/aov-integration/index.ts` 整合包入口 `platform.version !== 5` | 保留只收第 5 版，行為不變 |
+| `libs/aov-integration/migrate.ts` 的版本清單 `[1, 2, 3, 4, 5]` | 沒改（4.3 列為不要改），第 6 版文件走 `prepareImport` 會得到「未知平台版本」 |
+| `fixtures/aov-merge/b/v5.valid.json`、`v5.broken-structure.json`、`bundle/v1.valid.json` | 保留，是第 5 版輸入的測試資料（整合包含雜湊） |
+| `fixtures/aov-merge/b/v6.unknown-version.json` | 保留，`migrate.test.ts` 仍預期它是未知版本 |
+| `TODO.md` 第 67 行 | 文字敘述，沒改 |
+
+### 驗證結果（2026-11-16，實際執行）
+
+- `npm.cmd run typecheck`：結束碼 0，沒有錯誤。
+- `npm.cmd test`：結束碼 0。根目錄 Vitest 77 檔通過、1069 項通過、1 項略過（批二時為 1019 通過、1 略過，略過的那一項是既有的）；`services/preview` 14 通過、0 失敗；`libs/case-store` 1 檔 38 通過；`services/case-store` 1 檔 8 通過；`tools/thesis-s4` 13 通過、0 失敗。
+- `npm.cmd run build`：結束碼 0，`built in 1.50s`；只有既有的區塊超過 500 kB 警告。
+- 變異檢查：18 個變異（4.1 各處逐一還原）全部使至少一個測試失敗；檢查後檔案已復原，上面的三項驗證是在復原後跑的。
+
+### 偏離設計文件或自行取捨的地方
+
+1. 缺口的「可展開逐項清單」放在畫布下方的區塊（每個外框一個 `details`），不在外框裡。外框是 React Flow 的裝飾節點，設成不可選取、不接收指標事件，放可展開的內容會蓋住框內節點，也無法用鍵盤操作。外框標題下只顯示警示圖示與「缺口 N 項」「尚未指定表單 N 條」。
+2. 連線種類切換的顯示條件是「畫布上有子流程」：進入子流程，或在最上層用展開、疊層而畫面上有外框。設計寫「最上層不顯示」，但展開與疊層時可以直接在外框內拖曳連線，不顯示就無法在那裡畫資料流。此時若在最上層的節點之間畫資料流，會被 `integrityErrors` 拒絕並顯示原因。
+3. 同一對節點同時有先後與資料流連線時，兩條直線會完全重疊，虛線看不到。這種情況的資料流連線改用平移 6px 的自訂直線。設計沒有提到重疊，DESIGN.md 已補上這條。
+4. `formId` 省略與 `null` 都視為「尚未指定」，schema 與 `integrityErrors` 都接受資料流連線不帶 `formId`；程式建立的資料流連線一律寫 `formId: null`。先後連線只要帶 `formId`（含 `null`）就拒絕。
+5. 開始不可有前置連線、結束不可有後續連線（D80）、節點不可連到自己，這三條沿用既有程式，對兩種連線都檢查。設計沒有說資料流是否適用；影響是「資料來自哪些節點」清單與先後清單一樣不列「結束」，「開始」沒有清單。
+6. 「尚未指定表單 N 條」計的是該子流程內所有 `formId` 為空的資料流連線，不限於接在開始或結束的那幾條。
+7. 「傳遞的表單」下拉列出整份文件的全部表單，沒有依工廠篩選（設計沒有規定）。
+8. `libs/aov-integration/migrate.ts` 沒有改（4.3）。後果：第 6 版文件經 `prepareImport` 會被判為未知版本；整合包入口也仍只收第 5 版。畫布的匯入匯出走 `importWorkflow`，不受影響。交辦第 1 點要求逐一判斷寫死的版本，這兩處我選擇保留並在此列出，需要決定是否另開工作。
+
+### 沒做或做不到的事
+
+- 沒有在瀏覽器驗證任何畫面。虛線、平移的資料流線、對應線的出發點、切換的外觀、缺口文字在外框內是否擠壓，都只有 jsdom 的結構測試。
+- 批二外觀問題第 1 項（進出外框的流程連線接到左右邊中點）：沒有改程式。讀過 `FrameNode` 與 React Flow 12.12.0 的樣式與量測程式後，外框的左、右接點本來就宣告在邊的中點（`top: 50%`），找不出會接到角落的原因，沒有瀏覽器無法重現。需要在瀏覽器確認是否仍然發生；若仍發生，請看外框節點外層元素的實際高度與接點的實際位置。
+- 重接資料流連線保留種類與表單，只在純函式層測試（`reconnectCanvasEdge`、`viewConnection`），元件層沒有測（測試用的 store 沒有重接的進入點）。
+- `GanttPanel.tsx` 過濾過期分支選擇的那一行改成只看先後連線，但畫面上選不到資料流連線，這一行單獨還原無法由測試觀察到；分支選項本身有測試。
+- 沒有改 `docs/decision-log.md`、`kits/`、`services/`。
+
+### 注意到但沒處理的問題
+
+- `docs/canvas-layer-views.md` 第 3.1 節與 3.3 節沒有因批三更新，文件狀態列也還寫著批三待做。
+- 缺口提示在單層檢視不顯示（設計只要求展開與疊層），進入子流程單獨編輯時看不到自己的缺口。
+- 外框標題區高 64px，放標題一行加缺口一行（0.75rem）估算剛好放得下；外框很窄時缺口文字會被截短，完整文字在 `title` 與畫布下方清單。
+- `removal` 現在每次都經過 `clearEdgeForms`，會為每張圖建立新的物件（內容不變），對以參考相等判斷的地方理論上有影響；目前沒有這種用法，測試全數通過。
+- `aov.schema.json` 的 `v6` 是複製 `v5` 再換掉連線定義，兩段大部分重複；沿用了檔案既有的寫法（`v4` 與 `v5` 也是如此），沒有抽共用定義。

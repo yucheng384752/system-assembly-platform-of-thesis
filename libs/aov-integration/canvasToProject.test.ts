@@ -226,3 +226,22 @@ describe('填單節點：入庫單是入庫前的獨立步驟', () => {
     expect(await checkFormBundle(makeFormBundle(built.forms))).toEqual([]);
   });
 });
+
+// D208: a dataflow line says which form's data passes between two nodes. It is not material moving from one node to the
+// next, so the project file must get no flow for it (a flow would invent a material route nobody drew).
+describe('資料流連線不產生物料流', () => {
+  it('同一對節點另有資料流連線時，專案檔的連線與沒有資料流時完全相同', () => {
+    const withData = structuredClone(simple);
+    withData.graphs[0].edges.push({ id: 'data-1', from: 'n1', to: 'n2', kind: 'dataflow', formId: null }, { id: 'data-2', from: 'n2', to: 'n1', kind: 'dataflow', formId: null });
+    const plain = run(simple, { n1: pick, n2: stockIn }), result = run(withData, { n1: pick, n2: stockIn });
+    expect(result).toEqual(plain);
+    expect(result.ok && result.project.flows.map(f => f.id)).toEqual(['n1-n2']);
+  });
+
+  it('只有資料流相連的兩個節點之間沒有物料流，也不因此被判為接錯', () => {
+    const doc = canvas([node('n1', '領料'), node('n2', '入庫')], [edge('start', 'n1'), edge('n2', 'end'), { id: 'data-1', from: 'n2', to: 'n1', kind: 'dataflow', formId: null } as ReturnType<typeof edge>]);
+    const result = run(doc, { n1: pick, n2: stockIn });
+    expect(messages(result).filter(m => m.includes('不能接') || m.includes('不能再接'))).toEqual([]);
+    expect(result.ok ? result.project.flows : []).toEqual([]);
+  });
+});

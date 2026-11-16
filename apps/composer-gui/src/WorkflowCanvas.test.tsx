@@ -9,7 +9,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { actionCatalog } from './workflow';
 import { WorkflowCanvas } from './WorkflowCanvas';
 import { emptyGraph, integrityErrors, listToGraph, type AovGraphDocument } from './workflowGraph';
-import { addCanvasNode, addChildGraph, addFactory, addLogic, connectCanvasNodes, deleteCanvasNode, patchCanvasNode } from './canvasEditing';
+import { addCanvasNode, addChildGraph, addFactory, addLogic, connectCanvasNodes, deleteCanvasNode, patchCanvasNode, setEdgeForm } from './canvasEditing';
 import { addTool, openToolGroups, startLogic } from './testNav';
 afterEach(cleanup);
 let current = emptyGraph;
@@ -441,4 +441,136 @@ test('field settings are a table with a column per field and a row per setting, 
   click('確認刪除表單內容');
   expect(current.forms[0].fields).toHaveLength(1);
   expect(within(within(screen.getByRole('table')).getAllByRole('row')[0]).getAllByRole('textbox')).toHaveLength(1);
+});
+
+// D208 (docs/canvas-layer-views.md section 4): a dataflow line says which form's data passes between two nodes of a sub-flow.
+// It is not a statement about order, so the controls for order and the controls for data are kept apart.
+const subLines = () => current.graphs[1].edges;
+function LayerEditorAt({ initial, at }: { initial: AovGraphDocument; at: string[] }) {
+  const [doc, setDoc] = useState(initial); current = doc;
+  const [path, setPath] = useState(at);
+  return <WorkflowCanvas value={doc} onChange={setDoc} path={path} onPathChange={setPath} toolbarExtra={<CanvasProbe />} />;
+}
+// layerDocument plus forms: 組裝 owns 組裝單, 鎖附 (in the sub-flow) owns 鎖附單.
+function formDocument(): AovGraphDocument {
+  const field = { id: 'f', name: '批號', type: 'text' as const, required: true, isKey: true };
+  const doc = patchCanvasNode(patchCanvasNode(layerDocument(), 'node-1', { formId: 'form-1' }), 'node-3', { formId: 'form-2' });
+  return { ...doc, forms: [{ id: 'form-1', name: '組裝單', fields: [field] }, { id: 'form-2', name: '鎖附單', fields: [field] }] };
+}
+
+test('the predecessor list manages sequence lines only: a dataflow line neither ticks it nor is removed by it', () => {
+  const doc = connectCanvasNodes(layerDocument(), 'graph-2', 'graph-2-start', 'node-3', true, 'dataflow');
+  render(<LayerEditorAt initial={doc} at={['graph-1', 'graph-2']} />);
+  click('鎖附');
+  const follows = screen.getByRole('checkbox', { name: '開始' }) as HTMLInputElement;
+  expect(follows.checked).toBe(false);
+  fireEvent.click(follows);
+  expect(subLines()).toEqual([{ id: 'edge-2', from: 'graph-2-start', to: 'node-3', kind: 'dataflow', formId: null }, { id: 'edge-3', from: 'graph-2-start', to: 'node-3' }]);
+  fireEvent.click(screen.getByRole('checkbox', { name: '開始' }));
+  expect(subLines()).toEqual([{ id: 'edge-2', from: 'graph-2-start', to: 'node-3', kind: 'dataflow', formId: null }]);
+});
+
+test('the data-source list exists only in a sub-flow, creates dataflow lines and chooses their form, including "not chosen yet"', () => {
+  render(<LayerEditorAt initial={formDocument()} at={['graph-1']} />);
+  click('組裝');
+  expect(screen.queryByRole('group', { name: '資料來自哪些節點' })).toBeNull();
+  click('進入子流程'); click('鎖附');
+  const group = screen.getByRole('group', { name: '資料來自哪些節點' });
+  expect(within(group).getAllByRole('checkbox').map(c => (c as HTMLInputElement).checked)).toEqual([false]);
+  expect(within(group).queryByRole('combobox')).toBeNull();
+  fireEvent.click(within(group).getByRole('checkbox', { name: '資料來自：開始' }));
+  expect(subLines()).toEqual([{ id: 'edge-2', from: 'graph-2-start', to: 'node-3', kind: 'dataflow', formId: null }]);
+  // The sequence list is untouched by the data line.
+  expect((screen.getByRole('checkbox', { name: '開始' }) as HTMLInputElement).checked).toBe(false);
+  const select = screen.getByLabelText('「開始」傳遞的表單') as HTMLSelectElement;
+  expect([...select.options].map(o => o.textContent)).toEqual(['尚未指定', '組裝單', '鎖附單']);
+  expect(select.value).toBe('');
+  fireEvent.change(select, { target: { value: 'form-1' } });
+  expect(subLines()[0].formId).toBe('form-1');
+  fireEvent.change(screen.getByLabelText('「開始」傳遞的表單'), { target: { value: '' } });
+  expect(subLines()[0].formId).toBeNull();
+  // Unticking removes the data line only.
+  fireEvent.click(screen.getByRole('checkbox', { name: '開始' }));
+  fireEvent.click(screen.getByRole('checkbox', { name: '資料來自：開始' }));
+  expect(subLines()).toEqual([{ id: 'edge-3', from: 'graph-2-start', to: 'node-3' }]);
+  expect(integrityErrors(current)).toEqual([]);
+});
+
+test('the line-kind switch appears only where a sub-flow is on the canvas and decides what a drawn line is', () => {
+  render(<LayerEditorAt initial={layerDocument()} at={['graph-1']} />);
+  expect(screen.queryByRole('radiogroup', { name: '連線種類' })).toBeNull();
+  click('組裝'); click('進入子流程');
+  expect((screen.getByRole('radio', { name: '先後' }) as HTMLInputElement).checked).toBe(true);
+  act(() => canvasStore.getState().onConnect?.({ source: 'graph-2-start', target: 'node-3', sourceHandle: null, targetHandle: null }));
+  expect(subLines()).toEqual([{ id: 'edge-2', from: 'graph-2-start', to: 'node-3' }]);
+  fireEvent.click(screen.getByRole('radio', { name: '資料流' }));
+  act(() => canvasStore.getState().onConnect?.({ source: 'graph-2-start', target: 'node-3', sourceHandle: null, targetHandle: null }));
+  expect(subLines()[1]).toEqual({ id: 'edge-3', from: 'graph-2-start', to: 'node-3', kind: 'dataflow', formId: null });
+  // It lies on the same two nodes as the sequence line, so it is the dashed line drawn beside it.
+  expect(canvasStore.getState().edges.find(e => e.id === 'edge-3')).toMatchObject({ className: 'canvas-dataflow-edge', type: 'dataflowBeside' });
+  expect(canvasStore.getState().edges.find(e => e.id === 'edge-2')?.className).toBeUndefined();
+});
+
+test('in the expanded view a data line drawn in the top layer is refused with the reason and the document is unchanged', () => {
+  const doc = layerDocument(); render(<LayerEditor initial={doc} />);
+  switchView('展開');
+  fireEvent.click(screen.getByRole('radio', { name: '資料流' }));
+  act(() => canvasStore.getState().onConnect?.({ source: 'graph-1-start', target: 'node-2', sourceHandle: null, targetHandle: null }));
+  expect(screen.getByRole('alert').textContent).toContain('資料流連線只能畫在子流程裡');
+  expect(current).toEqual(doc);
+  act(() => canvasStore.getState().onConnect?.({ source: 'graph-2-start', target: 'node-3', sourceHandle: null, targetHandle: null }));
+  expect(subLines()).toEqual([{ id: 'edge-2', from: 'graph-2-start', to: 'node-3', kind: 'dataflow', formId: null }]);
+});
+
+// Transfer time is the minutes material needs along a sequence line; a data line moves nothing, so it gets no minutes field.
+test('transfer time is offered for incoming sequence lines only', () => {
+  let doc = connectCanvasNodes(layerDocument(), 'graph-2', 'graph-2-start', 'node-3', true, 'dataflow');
+  render(<LayerEditorAt initial={doc} at={['graph-1', 'graph-2']} />);
+  click('鎖附');
+  expect(screen.queryByRole('group', { name: /移轉時間/ })).toBeNull();
+  cleanup();
+  doc = connectCanvasNodes(doc, 'graph-2', 'graph-2-start', 'node-3', true);
+  render(<LayerEditorAt initial={doc} at={['graph-1', 'graph-2']} />);
+  click('鎖附');
+  expect(within(screen.getByRole('group', { name: /移轉時間/ })).getAllByRole('spinbutton')).toHaveLength(1);
+});
+
+test('deleting a form sets the data lines that passed it back to "not chosen yet" and keeps the lines', () => {
+  let doc = connectCanvasNodes(formDocument(), 'graph-2', 'graph-2-start', 'node-3', true, 'dataflow');
+  doc = connectCanvasNodes(doc, 'graph-2', 'node-3', 'graph-2-end', true, 'dataflow');
+  doc = setEdgeForm(setEdgeForm(doc, 'edge-2', 'form-2'), 'edge-3', 'form-1');
+  render(<LayerEditorAt initial={doc} at={['graph-1', 'graph-2']} />);
+  click('鎖附'); click('刪除此表單'); click('確認刪除表單內容');
+  expect(current.forms.map(f => f.id)).toEqual(['form-1']);
+  expect(subLines().map(e => [e.id, e.formId])).toEqual([['edge-2', null], ['edge-3', 'form-1']]);
+  expect(integrityErrors(current)).toEqual([]);
+});
+
+test.each(['展開', '疊層'])('%s shows the form gap count beside the frame title and an item-by-item list that opens outside the canvas', mode => {
+  let doc = formDocument();
+  // Upper layer: 組裝 follows nothing with a form and owns 組裝單, so the expected output is 組裝單 and nothing is expected as input.
+  doc = connectCanvasNodes(doc, 'graph-2', 'graph-2-start', 'node-3', true, 'dataflow');
+  doc = connectCanvasNodes(doc, 'graph-2', 'node-3', 'graph-2-end', true, 'dataflow');
+  doc = setEdgeForm(doc, 'edge-2', 'form-2');
+  const { container } = render(<LayerEditor initial={doc} />); switchView(mode);
+  expect(container.querySelector('.canvas-view-gap')?.textContent).toBe('缺口 2 項，尚未指定表單 1 條');
+  const list = screen.getByRole('region', { name: '表單輸入與輸出缺口' });
+  const details = list.querySelector('details')!;
+  expect(details.open).toBe(false);
+  expect(details.querySelector('summary')!.textContent).toBe('「組裝」的表單輸入與輸出缺口：缺口 2 項，尚未指定表單 1 條');
+  expect([...details.querySelectorAll('li')].map(li => li.textContent)).toEqual([
+    '輸入多出「鎖附單」：子流程的「開始」傳出這張表單，上一層的前置節點沒有。',
+    '輸出缺少「組裝單」：上一層節點的這張表單沒有傳到子流程的「結束」。',
+    '尚未指定表單 1 條：這些資料流連線還沒有選擇傳遞的表單。',
+  ]);
+  expect(list.textContent).toContain('不代表已完成計畫的輸入輸出檢查');
+  // A gap is a hint: the document still passes the integrity check and stays editable.
+  expect(integrityErrors(current)).toEqual([]);
+});
+
+test('without sub-flow frames or without gaps no gap list is shown', () => {
+  const doc = layerDocument(); render(<LayerEditor initial={doc} />);
+  expect(screen.queryByRole('region', { name: '表單輸入與輸出缺口' })).toBeNull();
+  switchView('展開');
+  expect(screen.queryByRole('region', { name: '表單輸入與輸出缺口' })).toBeNull();
 });

@@ -1,5 +1,5 @@
 import { compile, type ArtifactType, type Flow, type FormDef, type NodeDef, type ProjectFile, type ProjectMeta } from '../aov-core';
-import type { AovGraphDocument, Graph, GraphNode } from '../../apps/composer-gui/src/workflowGraph';
+import { isSequence, type AovGraphDocument, type Graph, type GraphNode } from '../../apps/composer-gui/src/workflowGraph';
 import { checkFormLibrary, type FormLibrary } from './formLibrary';
 import { satisfies } from './formRequirement';
 import { behaviorLabel, PICK_OUT_PORT, shapeOf, SINK_IN_PORT } from './materialBehaviors';
@@ -57,6 +57,7 @@ export function convertCanvas(input: ConvertInput): ConvertResult {
 
   const flows: Flow[] = [];
   for (const edge of graph.edges) {
+    if (!isSequence(edge)) continue; // a dataflow line says which form's data passes, not that material moves: it never becomes a flow
     const ends = [edge.from, edge.to].map(id => graph.nodes.find(n => n.id === id));
     if (ends.some(n => n?.kind !== 'node')) continue; // a line to the start or end is not material flow
     const from = kept.get(edge.from), to = kept.get(edge.to);

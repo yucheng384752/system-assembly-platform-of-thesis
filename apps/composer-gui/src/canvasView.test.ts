@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { expandedView, layeredView, parentContext, toLayoutPosition, frameAt, type CanvasView } from './canvasView';
+import { expandedView, formGaps, layeredView, parentContext, toLayoutPosition, frameAt, type CanvasView } from './canvasView';
 import { emptyGraph, type AovGraphDocument, type Graph, type GraphNode, type Position } from './workflowGraph';
 
 const node = (id: string, childGraphId: string | null = null): GraphNode =>
@@ -160,4 +160,68 @@ test.each([expandedView, layeredView])('%s: frame bounds depend on content size,
   expect(frame.height).toBe(64 + 64 + 32);
   expect(toLayoutPosition(leaf, leaf.position)).toEqual({ x: 1000, y: 2000 });
   checkRectangles(doc, view, build === expandedView);
+});
+
+// D208: the row above a sub-flow names the steps before and after its owner. A node that only exchanges data with the owner
+// is not a previous or a next step, so it must not be listed (and must not be offered as a way back).
+test('parent context lists sequence neighbours only; dataflow lines add none', () => {
+  const doc = threeLayers();
+  doc.graphs[1].edges.push({ id: 'data-in', from: 'child-after', to: 'nested', kind: 'dataflow', formId: null },
+    { id: 'data-out', from: 'nested', to: 'child-before', kind: 'dataflow', formId: null });
+  const context = parentContext(doc, 'grandchild')!;
+  expect(context.before.map(n => n.id)).toEqual(['child-before']);
+  expect(context.after.map(n => n.id)).toEqual([]);
+});
+
+test.each([expandedView, layeredView])('%s: view edges keep the kind and form of dataflow lines', build => {
+  const doc = threeLayers();
+  doc.graphs[1].edges.push({ id: 'data', from: 'child-before', to: 'child-after', kind: 'dataflow', formId: 'form-a' });
+  const edges = build(doc, 'root').edges;
+  expect(edges.find(e => e.id === 'data')).toEqual({ id: 'data', graphId: 'child', from: 'child-before', to: 'child-after', kind: 'dataflow', formId: 'form-a' });
+  expect(edges.find(e => e.id === 'child-in')).toEqual({ id: 'child-in', graphId: 'child', from: 'child-before', to: 'nested' });
+});
+
+// Design section 5. The upper layer expects the forms of the nodes right before the owner as input and the owner's own form
+// as output; the sub-flow declares its input on the lines leaving its start and its output on the lines reaching its end.
+function gapDocument(): AovGraphDocument {
+  const system = (id: string, kind: 'start' | 'end'): GraphNode => ({ ...node(id), kind });
+  const root = graph('root', [system('root-start', 'start'), { ...node('prev'), formId: 'form-a' }, { ...node('other'), formId: 'form-x' }, { ...node('owner', 'child'), formId: 'form-b' }, system('root-end', 'end')]);
+  root.edges = [{ id: 's1', from: 'root-start', to: 'prev' }, { id: 's2', from: 'prev', to: 'owner' }, { id: 's3', from: 'owner', to: 'root-end' }];
+  const child = graph('child', [system('child-start', 'start'), node('work'), system('child-end', 'end')]);
+  child.edges = [{ id: 'c1', from: 'child-start', to: 'work' }, { id: 'c2', from: 'work', to: 'child-end' }];
+  return { ...emptyGraph, factories: [{ id: 'factory', name: '工廠', logicGraphIds: ['root'] }], graphs: [root, child] };
+}
+const flow = (id: string, from: string, to: string, formId: string | null) => ({ id, from, to, kind: 'dataflow' as const, formId });
+
+test('form gaps: nothing declared means every expected form is missing', () => {
+  expect(formGaps(gapDocument(), 'owner')).toEqual({ unassigned: 0, gaps: [
+    { direction: 'input', kind: 'missing', formId: 'form-a' }, { direction: 'output', kind: 'missing', formId: 'form-b' }] });
+});
+
+test('form gaps: matching declarations leave no gap; sequence lines of the sub-flow declare nothing', () => {
+  const doc = gapDocument();
+  doc.graphs[1].edges.push(flow('d1', 'child-start', 'work', 'form-a'), flow('d2', 'work', 'child-end', 'form-b'));
+  expect(formGaps(doc, 'owner')).toEqual({ gaps: [], unassigned: 0 });
+});
+
+test('form gaps: extra declarations, lines without a form and inner lines are told apart', () => {
+  const doc = gapDocument();
+  doc.graphs[1].edges.push(flow('d1', 'child-start', 'work', 'form-c'), flow('d2', 'work', 'child-end', 'form-b'), flow('d3', 'child-start', 'child-end', 'form-c'),
+    flow('d4', 'work', 'child-end', null), flow('d5', 'child-end', 'work', 'form-z'));
+  // form-c leaves the start (extra input) and reaches the end (extra output); d5 touches neither boundary in the declaring
+  // direction; d4 has no form, so it is counted on its own and does not close the form-a gap.
+  expect(formGaps(doc, 'owner')).toEqual({ unassigned: 1, gaps: [
+    { direction: 'input', kind: 'missing', formId: 'form-a' }, { direction: 'input', kind: 'extra', formId: 'form-c' },
+    { direction: 'output', kind: 'extra', formId: 'form-c' }] });
+});
+
+test('form gaps: only direct sequence predecessors with a form are expected; a data line in the upper graph expects nothing', () => {
+  const doc = gapDocument();
+  // 'other' is not connected to the owner by a sequence line; a dataflow line from it must not make its form an expected input.
+  doc.graphs[0].edges.push(flow('up', 'other', 'owner', 'form-x'));
+  doc.graphs[0].nodes.find(n => n.id === 'prev')!.formId = null;
+  doc.graphs[0].nodes.find(n => n.id === 'owner')!.formId = null;
+  expect(formGaps(doc, 'owner')).toEqual({ gaps: [], unassigned: 0 });
+  expect(formGaps(doc, 'prev')).toEqual({ gaps: [], unassigned: 0 });
+  expect(formGaps(doc, 'missing')).toEqual({ gaps: [], unassigned: 0 });
 });

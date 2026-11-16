@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { emptyProduction, productionErrors, sampleBatch, type ProductionSettings } from '../../../libs/ui-runtime/production';
 import { exportRecipe, importRecipe } from '../../../libs/ui-runtime/recipe';
 import { definitions, kits, sources } from './fixtures';
-import { addCanvasNode, addFactory, addLogic, connectCanvasNodes, patchCanvasNode } from './canvasEditing';
+import { addCanvasNode, addChildGraph, addFactory, addLogic, connectCanvasNodes, patchCanvasNode } from './canvasEditing';
 import { addIndustryTemplate, industryTemplates } from './industryTemplates';
 import { productionBindings } from './ProductionPage';
 import { emptySimulation, simulationFieldError, type SimulationSession } from './simulation';
@@ -146,6 +146,26 @@ describe('逐站模擬：只演練填寫，前置站未完成不能完成後站�
     fireEvent.change(screen.getByLabelText(/量測值/), { target: { value: '3' } });
     fireEvent.click(screen.getByRole('button', { name: '完成此站' }));
     expect(screen.getByRole('status').textContent).toContain('檢驗已完成填寫檢查');
+  });
+
+  // D208: a dataflow line says whose data a station reads, not which station must be finished first. Here 檢驗 follows the start
+  // only; 備料 just sends it data, so 檢驗 can be finished on its own, and editing 備料 must not undo it.
+  test('資料流不是前置作業：只有資料流相連的站可以各自完成，也不因對方改填而失效', () => {
+    let doc = addChildGraph(addCanvasNode(addLogic(addFactory(emptyGraph, '甲廠')!.value, 'factory-1', '')!.value, 'graph-1', null), 'node-1');
+    doc = addCanvasNode(addCanvasNode(doc, 'graph-2', null), 'graph-2', null);
+    doc = patchCanvasNode(patchCanvasNode(doc, 'node-2', { name: '備料', formId: 'form-2' }), 'node-3', { name: '檢驗', formId: 'form-1' });
+    for (const [from, to] of [['graph-2-start', 'node-2'], ['graph-2-start', 'node-3'], ['node-2', 'graph-2-end'], ['node-3', 'graph-2-end']]) doc = connectCanvasNodes(doc, 'graph-2', from, to, true);
+    doc = connectCanvasNodes(doc, 'graph-2', 'node-2', 'node-3', true, 'dataflow');
+    doc = { ...doc, forms: [{ id: 'form-1', name: '檢驗紀錄', fields: [field({ id: 'field-1' })] }, { id: 'form-2', name: '備料紀錄', fields: [field({ id: 'field-2', name: '重量' })] }] };
+    expect(integrityErrors(doc)).toEqual([]);
+    render(<Harness graph={doc} />);
+    fireEvent.click(screen.getByRole('button', { name: /檢驗/ }));
+    fireEvent.change(screen.getByLabelText(/量測值/), { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: '完成此站' }));
+    expect(screen.getByRole('status').textContent).toContain('檢驗已完成填寫檢查');
+    fireEvent.click(screen.getByRole('button', { name: /備料/ }));
+    fireEvent.change(screen.getByLabelText(/重量/), { target: { value: '8' } });
+    expect(screen.getByRole('button', { name: /檢驗/ }).textContent).toContain('已完成');
   });
 
   test('重設模擬後完成狀態與填寫內容都清除', () => {
