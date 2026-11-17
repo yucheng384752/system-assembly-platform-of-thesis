@@ -27,12 +27,17 @@ class MeasureTests(unittest.TestCase):
                    'app.analytical_four.pipeline': app.analytical_four.pipeline}
         directories = []
 
-        def locked_rmtree(path, *, onerror):
+        # tempfile calls shutil.rmtree with onexc (exception instance) from Python 3.12 and with onerror (exc_info)
+        # before that; Python 3.10 binds it at import as tempfile._rmtree, so both names are replaced below.
+        def locked_rmtree(path, *, onerror=None, onexc=None):
             directories.append(path)
             try:
                 raise NotADirectoryError(267, 'vector store still holds the file open', str(Path(path) / 'chroma.sqlite3'))
-            except NotADirectoryError:
-                onerror(shutil.rmtree, path, sys.exc_info())
+            except NotADirectoryError as error:
+                if onexc is not None:
+                    onexc(shutil.rmtree, path, error)
+                else:
+                    onerror(shutil.rmtree, path, sys.exc_info())
 
         def completed():
             with measure.demo_client():
@@ -40,7 +45,8 @@ class MeasureTests(unittest.TestCase):
 
         book = measure.Measurements(1)
         try:
-            with patch.dict(sys.modules, modules), patch.object(shutil, 'rmtree', side_effect=locked_rmtree):
+            with patch.dict(sys.modules, modules), patch.object(shutil, 'rmtree', side_effect=locked_rmtree), \
+                    patch.object(tempfile, '_rmtree', side_effect=locked_rmtree, create=True):
                 book.attempt('G.complain', 1, completed)
             self.assertEqual(len(directories), 1)
             self.assertEqual(book.failures, [])
