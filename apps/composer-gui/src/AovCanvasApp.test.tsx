@@ -78,6 +78,14 @@ test('incomplete flow keeps download enabled but blocks the file with an alert',
   expect(screen.getByRole('alert').textContent).toContain('尚未建立節點');
 });
 
+test.each([5, 6])('importing a canvas file of version %i does not say an old flow was converted', async version => {
+  // Versions 5 and 6 are already canvases (5 loads as 6 unchanged); only versions 1 to 4 are converted and get the notice.
+  render(<App />);
+  await importFile(JSON.stringify({ ...JSON.parse(exportAovGraph(loadExample(emptyGraph))), version }));
+  await waitFor(() => expect(screen.getByText('流程匯入成功，已替換流程、表單與關聯。')).toBeTruthy());
+  expect(screen.queryByText(/舊版流程已轉換為畫布/)).toBeNull();
+});
+
 test('remount clears flow data without writing browser storage', async () => {
   const write = vi.spyOn(Storage.prototype, 'setItem');
   const view = render(<App />);
