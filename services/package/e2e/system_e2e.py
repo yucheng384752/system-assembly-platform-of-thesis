@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 
@@ -35,7 +36,11 @@ c = httpx.Client(base_url=BASE, timeout=30)
 r = c.get("/healthz")
 check("healthz through the proxy", r.status_code == 200, r.text)
 r = c.get("/")
-check("proxy root says the frontend is not included (503)", r.status_code == 503 and "前端" in r.text, (r.status_code, r.text))
+# Run from <package>/deployment: the proxy serves ../frontend/dist, which exists only after bundle-frontend.mjs.
+if os.path.isfile("../frontend/dist/index.html"):
+    check("proxy root serves the bundled frontend (200, html)", r.status_code == 200 and "<script" in r.text.lower(), (r.status_code, r.text))
+else:
+    check("proxy root answers 404 when the package has no frontend bundle", r.status_code == 404, (r.status_code, r.text))
 check("no credentials -> 401", c.get("/api/forms").status_code == 401)
 check("machine API key is not provided -> 401", c.get("/api/forms", headers={"X-Admin-API-Key": "anything"}).status_code == 401)
 
