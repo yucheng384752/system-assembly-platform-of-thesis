@@ -106,4 +106,5 @@ test.each([['standalone', Standalone], ['composer', Composer]] as const)('%s loa
   expect(renders.mock.calls.at(-1)![0].resetKey).toBe(beforeReset + 2);
   click(new RegExp(`^開啟：${example.name}`));
   expect(screen.queryByRole('button', { name: '關閉細項' })).toBeNull();
-});
+// Renders the real canvas for every node of the example: about 1 s alone but 3 to 4.5 s in the full suite, too close to the default 5 s.
+}, 15_000);
