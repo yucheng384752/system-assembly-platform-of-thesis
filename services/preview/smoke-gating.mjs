@@ -77,7 +77,10 @@ const upload = await applyWithDependencies('upload-validation-kit');
 await check('切換為上傳驗證：新選配立即生效', async () => {
   const f = await call('GET', '/api/forms');
   const status = await call('GET', '/api/upload/00000000-0000-4000-8000-000000000009/status');
-  return [upload.response.status === 200 && f.status === 403 && status.status !== 403, `kits ${upload.kits.join(', ')}; forms ${f.status}, upload ${status.status}`];
+  const trend = await call('GET', `/api/analytics/trend?code=${code}`);
+  // Upload validation depends on generic forms (config/kits/overlay.json), so forms stays open exactly when the gate added it.
+  const formsExpected = upload.kits.includes('generic-forms-kit') ? 200 : 403;
+  return [upload.response.status === 200 && f.status === formsExpected && status.status !== 403 && trend.status === 403, `kits ${upload.kits.join(', ')}; forms ${f.status}, upload ${status.status}, analytics ${trend.status}`];
 });
 
 await check('子功能層級：未選取的子功能被拒絕，選取後開放', async () => {

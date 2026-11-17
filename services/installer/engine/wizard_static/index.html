@@ -44,7 +44,7 @@
 
   <section id="s-input" aria-labelledby="h-input">
     <h2 id="h-input">4 安裝設定</h2>
-    <p class="muted">秘密值只在安裝時傳給引擎，寫入權限 0600 的設定檔，不會顯示在計畫或事件中。</p>
+    <p class="muted">秘密值只在安裝時傳給引擎，各自存入秘密檔案（secrets 資料夾權限 0700、檔案權限 0400），不寫入設定檔，也不會顯示在計畫或事件中；管理員密碼只用來建立帳號，不存成檔案。</p>
     <button id="b-generate" type="button">產生隨機值</button>
     <div class="grid">
       <label>資料庫使用者<input id="e-POSTGRES_USER" type="text" value="composer" autocomplete="off"></label>
